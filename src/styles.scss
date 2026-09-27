@@ -86,18 +86,73 @@ body {
 .markdown-body .mermaid-diagram {
   margin: 0 0 16px;
   text-align: center;
-  overflow: auto;
+  overflow-x: auto;
   cursor: zoom-in;
-  transform-origin: center top;
-  transition: transform 0.1s ease-out;
-
-  &.zoomed {
-    cursor: zoom-out;
-  }
 
   svg {
     max-width: 100%;
     height: auto;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mermaid diagram zoom dialog (opened by clicking a diagram)
+// ---------------------------------------------------------------------------
+.diagram-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: rgb(0 0 0 / 0.5);
+  cursor: zoom-out;
+
+  &.open {
+    display: flex;
+  }
+}
+
+.diagram-dialog {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.3);
+  cursor: default;
+}
+
+.diagram-dialog-viewport {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diagram-dialog-content svg {
+  display: block;
+}
+
+.diagram-dialog .close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 16px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover);
   }
 }
 

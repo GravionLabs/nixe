@@ -5,6 +5,7 @@ import {
   inject,
   input,
   output,
+  signal,
   untracked,
   viewChild,
 } from "@angular/core";
@@ -18,19 +19,35 @@ import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath } from "../../core/markdown/paths";
 import { SettingsService } from "../../core/settings/settings.service";
 
-const DIAGRAM_ZOOM_MIN = 0.5;
-const DIAGRAM_ZOOM_MAX = 4;
-const DIAGRAM_ZOOM_STEP = 1.1;
+const DIALOG_ZOOM_MIN = 0.25;
+const DIALOG_ZOOM_MAX = 6;
+const DIALOG_ZOOM_STEP = 1.1;
 
 @Component({
   selector: "app-viewer",
-  template: `<article
-    #content
-    class="markdown-body"
-    [style.zoom.%]="settings.zoom()"
-    (click)="onClick($event)"
-    (wheel)="onWheel($event)"
-  ></article>`,
+  template: `
+    <article
+      #content
+      class="markdown-body"
+      [style.zoom.%]="settings.zoom()"
+      (click)="onClick($event)"
+      (wheel)="onWheel($event)"
+    ></article>
+
+    <div
+      class="diagram-dialog-backdrop"
+      [class.open]="dialogOpen()"
+      (click)="closeDiagram()"
+      (wheel)="onDialogWheel($event)"
+    >
+      <div class="diagram-dialog" (click)="$event.stopPropagation()">
+        <button type="button" class="close" (click)="closeDiagram()" aria-label="Close">✕</button>
+        <div class="diagram-dialog-viewport">
+          <div #dialogContent class="diagram-dialog-content"></div>
+        </div>
+      </div>
+    </div>
+  `,
   styleUrl: "./viewer.component.css",
 })
 export class ViewerComponent {
@@ -43,8 +60,15 @@ export class ViewerComponent {
   protected readonly settings = inject(SettingsService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly content = viewChild.required<ElementRef<HTMLElement>>("content");
+  /** Always mounted (visibility toggled via CSS), so it's available as soon as a diagram is clicked. */
+  private readonly dialogContent = viewChild<ElementRef<HTMLElement>>("dialogContent");
   private readonly mermaid = new MermaidRenderer();
   private renderedPath: string | null = null;
+
+  protected readonly dialogOpen = signal(false);
+  protected readonly dialogZoom = signal(1);
+  /** The dialog's diagram, in its own SVG user units (from its viewBox) at zoom 1. */
+  private dialogNaturalSize: { width: number; height: number } | null = null;
 
   constructor() {
     effect(() => {
@@ -66,45 +90,80 @@ export class ViewerComponent {
     });
   }
 
-  /** Ctrl/Cmd + wheel zooms: the whole document, or just the diagram under the pointer. */
+  /** Ctrl/Cmd + wheel always zooms the whole document. */
   onWheel(event: WheelEvent): void {
     if (!(event.ctrlKey || event.metaKey)) return;
     event.preventDefault();
-    const zoomIn = event.deltaY < 0;
-
-    const diagram = (event.target as Element).closest<HTMLElement>(".mermaid-diagram");
-    if (diagram) {
-      this.zoomDiagram(diagram, zoomIn);
-    } else if (zoomIn) {
-      this.settings.zoomIn();
-    } else {
-      this.settings.zoomOut();
-    }
+    if (event.deltaY < 0) this.settings.zoomIn();
+    else this.settings.zoomOut();
   }
 
-  private zoomDiagram(el: HTMLElement, zoomIn: boolean): void {
-    const current = Number(el.dataset["zoom"] ?? "1");
-    const next = Math.min(
-      DIAGRAM_ZOOM_MAX,
-      Math.max(DIAGRAM_ZOOM_MIN, current * (zoomIn ? DIAGRAM_ZOOM_STEP : 1 / DIAGRAM_ZOOM_STEP)),
-    );
-    el.dataset["zoom"] = String(next);
-    el.style.transform = next === 1 ? "" : `scale(${next})`;
-    el.classList.toggle("zoomed", next !== 1);
+  /** Plain wheel zooms the diagram dialog — it has nothing else to scroll. */
+  onDialogWheel(event: WheelEvent): void {
+    event.preventDefault();
+    const step = event.deltaY < 0 ? DIALOG_ZOOM_STEP : 1 / DIALOG_ZOOM_STEP;
+    this.dialogZoom.update((z) => Math.min(DIALOG_ZOOM_MAX, Math.max(DIALOG_ZOOM_MIN, z * step)));
+    this.applyDialogZoom();
   }
+
+  /**
+   * Resizes the SVG itself (from its intrinsic viewBox size) rather than using a CSS
+   * transform, so the browser re-renders the vector paths at the target size instead
+   * of stretching an already-rasterized bitmap — the latter looks blurry when zoomed in.
+   */
+  private applyDialogZoom(): void {
+    const svg = this.dialogContent()?.nativeElement.querySelector("svg");
+    const size = this.dialogNaturalSize;
+    if (!svg || !size) return;
+    const zoom = this.dialogZoom();
+    svg.style.maxWidth = "none";
+    svg.style.width = `${size.width * zoom}px`;
+    svg.style.height = `${size.height * zoom}px`;
+  }
+
+  closeDiagram(): void {
+    this.dialogOpen.set(false);
+    document.removeEventListener("keydown", this.onDialogKeydown);
+  }
+
+  private readonly onDialogKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") this.closeDiagram();
+  };
 
   async onClick(event: MouseEvent): Promise<void> {
-    const link = (event.target as Element).closest("a");
+    const target = event.target as Element;
+
+    const diagram = target.closest<HTMLElement>(".mermaid-diagram");
+    if (diagram && !target.closest("a")) {
+      const svg = diagram.querySelector("svg");
+      const container = this.dialogContent()?.nativeElement;
+      if (svg && container) {
+        container.innerHTML = svg.outerHTML;
+        const clone = container.querySelector<SVGSVGElement>("svg");
+        const viewBox = clone?.viewBox.baseVal;
+        this.dialogNaturalSize =
+          viewBox && viewBox.width && viewBox.height
+            ? { width: viewBox.width, height: viewBox.height }
+            : { width: clone?.clientWidth || 300, height: clone?.clientHeight || 150 };
+        this.dialogZoom.set(1);
+        this.applyDialogZoom();
+        this.dialogOpen.set(true);
+        document.addEventListener("keydown", this.onDialogKeydown);
+      }
+      return;
+    }
+
+    const link = target.closest("a");
     if (!link) return;
     event.preventDefault();
 
-    const target = classifyHref(link.getAttribute("href"));
-    switch (target.kind) {
+    const href = classifyHref(link.getAttribute("href"));
+    switch (href.kind) {
       case "anchor":
-        this.scrollToAnchor(target.anchor);
+        this.scrollToAnchor(href.anchor);
         break;
       case "external":
-        await openUrl(target.url);
+        await openUrl(href.url);
         break;
       case "local": {
         const currentFile = this.doc.path();
@@ -112,15 +171,15 @@ export class ViewerComponent {
           this.notify.emit("No file is open.");
           return;
         }
-        const resolved = await resolveLocalLink(target.path, {
+        const resolved = await resolveLocalLink(href.path, {
           currentFile,
           wikiRoot: this.doc.wikiRoot() ?? currentFile,
           exists: backend.isFile,
         });
         if (!resolved) {
-          this.notify.emit(`File not found: ${target.path}`);
+          this.notify.emit(`File not found: ${href.path}`);
         } else if (isMarkdownPath(resolved)) {
-          await this.doc.open(resolved, { anchor: target.anchor }).catch((err) => this.notify.emit(String(err)));
+          await this.doc.open(resolved, { anchor: href.anchor }).catch((err) => this.notify.emit(String(err)));
         } else {
           await openPath(resolved);
         }
