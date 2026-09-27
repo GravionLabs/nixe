@@ -1,0 +1,45 @@
+{
+  "name": "nixe",
+  "version": "0.1.0",
+  "packageManager": "pnpm@12.6.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "tauri": "tauri",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/common": "^22.0.1",
+    "@angular/compiler": "^22.0.1",
+    "@angular/core": "^22.0.1",
+    "@angular/forms": "^22.0.1",
+    "@angular/platform-browser": "^22.0.1",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.7.3",
+    "@tauri-apps/plugin-opener": "^2",
+    "@vscode/markdown-it-katex": "^1.1.2",
+    "dompurify": "^3.4.16",
+    "github-markdown-css": "^5.9.0",
+    "highlight.js": "^11.12.0",
+    "katex": "^0.18.9",
+    "markdown-it": "^15.0.2",
+    "markdown-it-anchor": "^10.0.0",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-task-lists": "^2.1.1",
+    "mermaid": "^11.17.2",
+    "rxjs": "~7.8.2",
+    "tslib": "^2.8.1"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.0.1",
+    "@angular/cli": "^22.0.1",
+    "@angular/compiler-cli": "^22.0.1",
+    "@tauri-apps/cli": "^2",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

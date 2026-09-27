@@ -1,0 +1,30 @@
+<app-toolbar />
+
+<main>
+  @if (showSidebar()) {
+    <app-sidebar (error)="showToast($event)" />
+  }
+  @if (doc.path()) {
+    <app-viewer class="pane" [html]="html()" [dark]="settings.dark()" (notify)="showToast($event)" />
+  } @else {
+    <section class="welcome">
+      <h1>Nixe</h1>
+      <p>Markdown viewer with Mermaid, Azure DevOps wiki, and LaTeX</p>
+      <div class="actions">
+        <button type="button" class="primary" (click)="run(doc.openWithDialog.bind(doc))">Open file</button>
+        <button type="button" (click)="run(workspace.openFolderWithDialog.bind(workspace))">Open folder</button>
+      </div>
+      <p class="hint">or drop a file or folder onto the window</p>
+      <dl class="shortcuts">
+        <dt>{{ mod }}O</dt><dd>Open file</dd>
+        <dt>{{ mod }}⇧O</dt><dd>Open folder</dd>
+        <dt>{{ mod }}B</dt><dd>Toggle sidebar</dd>
+        <dt>{{ mod }}[ / ]</dt><dd>Back / forward</dd>
+      </dl>
+    </section>
+  }
+</main>
+
+@if (toast(); as message) {
+  <div class="toast" role="status">{{ message }}</div>
+}

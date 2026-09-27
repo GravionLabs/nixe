@@ -1,0 +1,142 @@
+@use "sass:meta";
+
+// ---------------------------------------------------------------------------
+// Theme tokens. The effective theme ("light"/"dark") is set on <html data-theme>
+// by SettingsService (follows the system unless overridden in the toolbar).
+// ---------------------------------------------------------------------------
+:root {
+  --bg: #ffffff;
+  --chrome: #f6f8fa;
+  --fg: #1f2328;
+  --muted: #656d76;
+  --border: #d0d7de;
+  --hover: rgb(208 215 222 / 0.45);
+  --accent: #0e7c86;
+  --on-accent: #ffffff;
+  --toast-bg: #1f2328;
+  --toast-fg: #ffffff;
+  --error-bg: #fff1f0;
+  --error-border: #ffa39e;
+  --error-fg: #a8071a;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --chrome: #161b22;
+  --fg: #e6edf3;
+  --muted: #8d96a0;
+  --border: #30363d;
+  --hover: rgb(110 118 129 / 0.3);
+  --accent: #3fb8c2;
+  --on-accent: #0d1117;
+  --toast-bg: #e6edf3;
+  --toast-fg: #0d1117;
+  --error-bg: #2d1214;
+  --error-border: #6e2a2e;
+  --error-fg: #ff9492;
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+// ---------------------------------------------------------------------------
+// Markdown + code highlighting, scoped per theme
+// ---------------------------------------------------------------------------
+:root[data-theme="light"] {
+  @include meta.load-css("github-markdown-css/github-markdown-light.css");
+  @include meta.load-css("highlight.js/styles/github.css");
+}
+
+:root[data-theme="dark"] {
+  @include meta.load-css("github-markdown-css/github-markdown-dark.css");
+  @include meta.load-css("highlight.js/styles/github-dark.css");
+}
+
+// highlight.js themes set their own background on .hljs; code blocks keep the
+// GitHub markdown background instead.
+.markdown-body pre code.hljs,
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown-body a {
+  cursor: pointer;
+}
+
+// ---------------------------------------------------------------------------
+// Mermaid
+// ---------------------------------------------------------------------------
+.markdown-body pre.mermaid {
+  // placeholder until the diagram is rendered
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.markdown-body .mermaid-diagram {
+  margin: 0 0 16px;
+  text-align: center;
+  overflow-x: auto;
+
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+.markdown-body .mermaid-error {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--error-border);
+  border-radius: 6px;
+  background: var(--error-bg);
+  color: var(--error-fg);
+
+  pre {
+    margin: 8px 0 0;
+    padding: 8px;
+    background: transparent;
+    color: inherit;
+    white-space: pre-wrap;
+  }
+
+  summary {
+    margin-top: 8px;
+    cursor: pointer;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Azure DevOps [[_TOC_]]
+// ---------------------------------------------------------------------------
+.markdown-body nav.toc {
+  display: inline-block;
+  margin: 0 0 16px;
+  padding: 8px 20px 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--chrome);
+
+  ul {
+    margin: 0;
+    list-style: none;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// KaTeX: long formulas scroll instead of overflowing
+// ---------------------------------------------------------------------------
+.markdown-body .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}

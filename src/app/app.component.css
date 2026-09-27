@@ -1,0 +1,108 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.pane {
+  flex: 1;
+  min-width: 0;
+}
+
+.welcome {
+  margin: auto;
+  padding: 24px;
+  text-align: center;
+}
+
+.welcome h1 {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.welcome p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.actions button {
+  height: 36px;
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--chrome);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.actions button:hover {
+  background: var(--hover);
+}
+
+.actions button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.actions button.primary:hover {
+  filter: brightness(1.08);
+}
+
+.welcome .hint {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.shortcuts {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  gap: 6px 16px;
+  margin: 36px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.shortcuts dt {
+  text-align: right;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.shortcuts dd {
+  margin: 0;
+  text-align: left;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--toast-bg);
+  color: var(--toast-fg);
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+}

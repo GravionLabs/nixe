@@ -1,0 +1,20 @@
+:host {
+  display: block;
+  height: 100%;
+  overflow: auto;
+  background: var(--bg);
+}
+
+.markdown-body {
+  box-sizing: border-box;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 32px 40px 80px;
+  background: transparent;
+}
+
+@media (max-width: 700px) {
+  .markdown-body {
+    padding: 20px 16px 60px;
+  }
+}

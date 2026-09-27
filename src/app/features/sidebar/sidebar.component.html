@@ -1,0 +1,42 @@
+<header>
+  <span class="root" [title]="workspace.root() ?? ''">{{ workspace.rootName() }}</span>
+  <button type="button" class="icon" (click)="workspace.refresh()" title="Refresh tree" aria-label="Refresh tree">
+    <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" /></svg>
+  </button>
+</header>
+
+<nav class="tree" role="tree" aria-label="Files">
+  @for (node of workspace.visible(); track node.dirPath ?? node.filePath) {
+    <div
+      class="row"
+      role="treeitem"
+      tabindex="0"
+      [class.active]="node.filePath !== null && node.filePath === doc.path()"
+      [attr.aria-expanded]="node.dirPath ? node.expanded() : null"
+      [style.padding-left.px]="8 + node.depth * 14"
+      [title]="node.filePath ?? node.dirPath ?? ''"
+      (click)="select(node)"
+      (keydown.enter)="select(node)"
+      (keydown.arrowright)="node.dirPath && workspace.toggle(node, true)"
+      (keydown.arrowleft)="node.dirPath && workspace.toggle(node, false)"
+    >
+      @if (node.dirPath) {
+        <span class="chevron" [class.open]="node.expanded()" (click)="toggle(node, $event)">
+          <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+        </span>
+      } @else {
+        <span class="chevron"></span>
+      }
+      @if (node.filePath) {
+        <svg class="kind" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></svg>
+      } @else {
+        <svg class="kind" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+      }
+      <span class="label">{{ node.name }}</span>
+    </div>
+  } @empty {
+    <p class="empty">No Markdown files found.</p>
+  }
+</nav>
+
+<div class="resizer" (pointerdown)="startResize($event)" title="Resize"></div>
