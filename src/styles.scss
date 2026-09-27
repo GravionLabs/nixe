@@ -86,7 +86,14 @@ body {
 .markdown-body .mermaid-diagram {
   margin: 0 0 16px;
   text-align: center;
-  overflow-x: auto;
+  overflow: auto;
+  cursor: zoom-in;
+  transform-origin: center top;
+  transition: transform 0.1s ease-out;
+
+  &.zoomed {
+    cursor: zoom-out;
+  }
 
   svg {
     max-width: 100%;

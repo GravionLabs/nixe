@@ -13,6 +13,7 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
   :::
   ```
   Invalid diagrams are shown as an error box with the message and the source.
+  Hover a diagram and ⌘/Ctrl + scroll to zoom just that diagram.
 - **LaTeX** via KaTeX: `$…$`, `$$…$$`, ```` ```math ````. Can be turned off in the toolbar.
 - **Links**:
   - external: opens in the system browser
@@ -39,6 +40,7 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
 | ⌘/Ctrl + R | Reload |
 | ⌘/Ctrl + B | Toggle sidebar |
 | ⌘/Ctrl + [ / ] or Alt + ← / → | Back / forward |
+| ⌘/Ctrl + = / - / 0 or ⌘/Ctrl + scroll | Zoom in / out / reset |
 
 ## Development
 

@@ -1,0 +1,39 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3c8"/>
+      <stop offset="1" stop-color="#0c6e9c"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- page (top) + forked mermaid-tail fin (bottom), one silhouette -->
+  <path fill="#ffffff" d="
+    M 176 156
+    Q 176 140 192 140
+    L 300 140
+    L 340 180
+    L 340 258
+    L 366 292
+    Q 372 300 378 318
+    L 404 390
+    L 350 334
+    Q 336 320 320 316
+    L 256 300
+    L 192 316
+    Q 176 320 162 334
+    L 108 390
+    L 134 318
+    Q 140 300 146 292
+    L 172 258
+    L 172 156
+    Z"/>
+
+  <!-- dog-ear fold -->
+  <path fill="#cfeef0" d="M 300 140 L 340 180 L 300 180 Z"/>
+
+  <!-- markdown text lines -->
+  <rect x="196" y="200" width="72" height="16" rx="8" fill="#22d3c8"/>
+  <rect x="196" y="230" width="112" height="12" rx="6" fill="#bfe9ea"/>
+</svg>

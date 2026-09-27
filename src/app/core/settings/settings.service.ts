@@ -10,6 +10,7 @@ interface StoredSettings {
   sidebar: boolean;
   sidebarWidth: number;
   lastFolder: string | null;
+  zoom: number;
 }
 
 const DEFAULTS: StoredSettings = {
@@ -18,7 +19,12 @@ const DEFAULTS: StoredSettings = {
   sidebar: true,
   sidebarWidth: 260,
   lastFolder: null,
+  zoom: 100,
 };
+
+const ZOOM_MIN = 50;
+const ZOOM_MAX = 300;
+const ZOOM_STEP = 10;
 
 function loadSettings(): StoredSettings {
   try {
@@ -39,6 +45,8 @@ export class SettingsService {
   readonly sidebarWidth = signal<number>(this.stored.sidebarWidth);
   /** Folder reopened on the next start. */
   readonly lastFolder = signal<string | null>(this.stored.lastFolder);
+  /** Document zoom, as a percentage (100 = actual size). */
+  readonly zoom = signal<number>(this.stored.zoom);
 
   private readonly systemDark = signal(false);
   readonly dark = computed(
@@ -61,6 +69,7 @@ export class SettingsService {
         sidebar: this.sidebarVisible(),
         sidebarWidth: this.sidebarWidth(),
         lastFolder: this.lastFolder(),
+        zoom: this.zoom(),
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
@@ -73,5 +82,17 @@ export class SettingsService {
   cycleTheme(): void {
     const order: ThemeMode[] = ["system", "light", "dark"];
     this.themeMode.update((m) => order[(order.indexOf(m) + 1) % order.length]);
+  }
+
+  zoomIn(): void {
+    this.zoom.update((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP));
+  }
+
+  zoomOut(): void {
+    this.zoom.update((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP));
+  }
+
+  resetZoom(): void {
+    this.zoom.set(100);
   }
 }

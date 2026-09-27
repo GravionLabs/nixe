@@ -16,10 +16,21 @@ import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolve
 import { slugify } from "../../core/markdown/markdown-renderer";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath } from "../../core/markdown/paths";
+import { SettingsService } from "../../core/settings/settings.service";
+
+const DIAGRAM_ZOOM_MIN = 0.5;
+const DIAGRAM_ZOOM_MAX = 4;
+const DIAGRAM_ZOOM_STEP = 1.1;
 
 @Component({
   selector: "app-viewer",
-  template: `<article #content class="markdown-body" (click)="onClick($event)"></article>`,
+  template: `<article
+    #content
+    class="markdown-body"
+    [style.zoom.%]="settings.zoom()"
+    (click)="onClick($event)"
+    (wheel)="onWheel($event)"
+  ></article>`,
   styleUrl: "./viewer.component.css",
 })
 export class ViewerComponent {
@@ -29,6 +40,7 @@ export class ViewerComponent {
   readonly notify = output<string>();
 
   private readonly doc = inject(DocumentService);
+  protected readonly settings = inject(SettingsService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly content = viewChild.required<ElementRef<HTMLElement>>("content");
   private readonly mermaid = new MermaidRenderer();
@@ -52,6 +64,33 @@ export class ViewerComponent {
         void this.mermaid.render(el, dark).then(() => this.applyPendingAnchor(true));
       });
     });
+  }
+
+  /** Ctrl/Cmd + wheel zooms: the whole document, or just the diagram under the pointer. */
+  onWheel(event: WheelEvent): void {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    const zoomIn = event.deltaY < 0;
+
+    const diagram = (event.target as Element).closest<HTMLElement>(".mermaid-diagram");
+    if (diagram) {
+      this.zoomDiagram(diagram, zoomIn);
+    } else if (zoomIn) {
+      this.settings.zoomIn();
+    } else {
+      this.settings.zoomOut();
+    }
+  }
+
+  private zoomDiagram(el: HTMLElement, zoomIn: boolean): void {
+    const current = Number(el.dataset["zoom"] ?? "1");
+    const next = Math.min(
+      DIAGRAM_ZOOM_MAX,
+      Math.max(DIAGRAM_ZOOM_MIN, current * (zoomIn ? DIAGRAM_ZOOM_STEP : 1 / DIAGRAM_ZOOM_STEP)),
+    );
+    el.dataset["zoom"] = String(next);
+    el.style.transform = next === 1 ? "" : `scale(${next})`;
+    el.classList.toggle("zoomed", next !== 1);
   }
 
   async onClick(event: MouseEvent): Promise<void> {

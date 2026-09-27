@@ -117,6 +117,9 @@ export class AppComponent {
       "toggle-sidebar": () => this.settings.sidebarVisible.update((v) => !v),
       "toggle-math": () => this.settings.math.update((v) => !v),
       "cycle-theme": () => this.settings.cycleTheme(),
+      "zoom-in": () => this.settings.zoomIn(),
+      "zoom-out": () => this.settings.zoomOut(),
+      "zoom-reset": () => this.settings.resetZoom(),
     };
     actions[id]?.();
   }

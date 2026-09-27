@@ -36,6 +36,10 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         .item(&item("toggle-math", "Toggle LaTeX Math", None)?)
         .item(&item("cycle-theme", "Cycle Theme (System/Light/Dark)", None)?)
         .separator()
+        .item(&item("zoom-in", "Zoom In", Some("CmdOrCtrl+="))?)
+        .item(&item("zoom-out", "Zoom Out", Some("CmdOrCtrl+-"))?)
+        .item(&item("zoom-reset", "Actual Size", Some("CmdOrCtrl+0"))?)
+        .separator()
         .fullscreen()
         .build()?;
 
