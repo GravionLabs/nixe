@@ -76,6 +76,13 @@ button.icon {
   justify-content: center;
 }
 
+button.zoom-level {
+  min-width: 44px;
+  padding: 0 4px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
 svg {
   width: 17px;
   height: 17px;

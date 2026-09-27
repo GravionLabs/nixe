@@ -13,7 +13,7 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
   :::
   ```
   Invalid diagrams are shown as an error box with the message and the source.
-  Hover a diagram and ⌘/Ctrl + scroll to zoom just that diagram.
+  Click a diagram to open it in a zoomable dialog, with zoom buttons in the dialog and scroll-to-zoom.
 - **LaTeX** via KaTeX: `$…$`, `$$…$$`, ```` ```math ````. Can be turned off in the toolbar.
 - **Links**:
   - external: opens in the system browser
@@ -25,7 +25,7 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
   - images from `/.attachments/…`
   - `[[_TOC_]]`
   - The wiki root is the topmost folder with a `.order` file, otherwise the Git root.
-- **Open folder**: a file tree of Markdown files on the left. It loads lazily, its width is adjustable, and it expands to the active file as you navigate. In ADO wikis the `.order` sequence is used, `Page.md` and the folder `Page/` appear as a single node, and names are decoded (`Daten-Fluss.md` → "Daten Fluss"). The last opened folder is restored on startup.
+- **Open folder**: a file tree of Markdown files on the left. It loads lazily, its width is adjustable, and it expands to the active file as you navigate. In ADO wikis the `.order` sequence is used, `Page.md` and the folder `Page/` appear as a single node, and names are decoded (`Data-Flow.md` → "Data Flow"). The last opened folder is restored on startup.
 - **Native menu**: File (Open file, Open folder, Reload), Edit, View
 - **Live reload** when the file changes on disk
 - **Light/dark**: follows the system or can be set manually
@@ -40,7 +40,7 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
 | ⌘/Ctrl + R | Reload |
 | ⌘/Ctrl + B | Toggle sidebar |
 | ⌘/Ctrl + [ / ] or Alt + ← / → | Back / forward |
-| ⌘/Ctrl + = / - / 0 or ⌘/Ctrl + scroll | Zoom in / out / reset |
+| ⌘/Ctrl + = / - / 0 or ⌘/Ctrl + scroll or toolbar buttons | Zoom in / out / reset |
 
 ## Development
 

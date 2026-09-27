@@ -1,22 +1,22 @@
-# Mermaid-Beispiele
+# Mermaid Examples
 
-## Standard-Codeblock
+## Standard Code Block
 
 ```mermaid
 flowchart LR
-    A[Markdown öffnen] --> B{Mermaid?}
-    B -- ja --> C[Diagramm rendern]
-    B -- nein --> D[Text anzeigen]
+    A[Open Markdown] --> B{Mermaid?}
+    B -- yes --> C[Render diagram]
+    B -- no --> D[Show text]
 ```
 
-## Azure-DevOps-Format
+## Azure DevOps Format
 
 ::: mermaid
  sequenceDiagram
-     participant U as Nutzer
+     participant U as User
      participant N as Nixe
-     U->>N: Datei öffnen
-     N-->>U: Gerendertes Markdown
+     U->>N: Open file
+     N-->>U: Rendered Markdown
 :::
 
 ## Gantt
@@ -25,14 +25,14 @@ flowchart LR
 gantt
     title Nixe Roadmap
     dateFormat YYYY-MM-DD
-    section Kern
+    section Core
     Viewer        :done,    v1, 2026-09-01, 7d
     Mermaid       :done,    v2, after v1, 5d
     section Editor
-    Split-View    :active,  e1, after v2, 7d
+    Split View    :active,  e1, after v2, 7d
 ```
 
-## Klassendiagramm (ADO, ohne Leerzeichen)
+## Class Diagram (ADO, without spaces)
 
 :::mermaid
 classDiagram
@@ -43,7 +43,7 @@ classDiagram
     DocumentService --> MarkdownService
 :::
 
-## Fehlerhaftes Diagramm
+## Broken Diagram
 
 ```mermaid
 graph TD
@@ -51,4 +51,4 @@ graph TD
     this is not valid
 ```
 
-Zurück zur [Übersicht](README.md).
+Back to the [overview](README.md).

@@ -1,6 +1,6 @@
-# LaTeX-Formeln
+# LaTeX Formulas
 
-Inline: Die Energie ist $E = mc^2$ und $\sqrt{a^2+b^2}$.
+Inline: The energy is $E = mc^2$ and $\sqrt{a^2+b^2}$.
 
 Block:
 
@@ -12,10 +12,10 @@ $$
 \mathbf{A} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}
 $$
 
-Als Code-Fence:
+As a code fence:
 
 ```math
 \sum_{k=1}^{n} k = \frac{n(n+1)}{2}
 ```
 
-Mit dem Button **∑ LaTeX** in der Toolbar lässt sich die Darstellung abschalten.
+Use the **∑ LaTeX** button in the toolbar to turn the rendering off.

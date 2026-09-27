@@ -1,9 +1,9 @@
-# Wiki-Startseite
+# Wiki Home Page
 
-Wiki-absolute Links wie im Azure-DevOps-Wiki:
+Wiki-absolute links like in the Azure DevOps wiki:
 
-- [Datenfluss](/Architektur/Daten-Fluss)
-- [Q-A-Seite mit echtem Bindestrich](/Architektur/Q%2DA)
-- [Übersicht, Abschnitt Komponenten](/Architektur#komponenten)
+- [Data flow](/Architecture/Data-Flow)
+- [Q-A page with a real hyphen](/Architecture/Q%2DA)
+- [Overview, Components section](/Architecture#components)
 
-![Logo über /.attachments](/.attachments/logo.svg)
+![Logo via /.attachments](/.attachments/logo.svg)

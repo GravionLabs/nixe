@@ -22,8 +22,8 @@ const DEFAULTS: StoredSettings = {
   zoom: 100,
 };
 
-const ZOOM_MIN = 50;
-const ZOOM_MAX = 300;
+export const ZOOM_MIN = 50;
+export const ZOOM_MAX = 300;
 const ZOOM_STEP = 10;
 
 function loadSettings(): StoredSettings {

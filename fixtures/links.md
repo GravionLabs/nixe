@@ -1,31 +1,31 @@
-# Linktypen
+# Link Types
 
-## Extern
+## External
 
 - [Tauri](https://tauri.app)
-- Automatisch verlinkt: https://mermaid.js.org
-- [E-Mail](mailto:test@example.com)
+- Auto-linked: https://mermaid.js.org
+- [Email](mailto:test@example.com)
 
-## Anker
+## Anchors
 
-- [Zu „Bilder“](#bilder)
-- [Zum Ende](#ende-des-dokuments)
+- [To "Images"](#images)
+- [To the end](#end-of-document)
 
-## Relative Dateien
+## Relative Files
 
 - [README](./README.md)
-- [Mermaid, Abschnitt Gantt](mermaid.md#gantt)
-- [Datei, die fehlt](gibt-es-nicht.md)
+- [Mermaid, Gantt section](mermaid.md#gantt)
+- [Missing file](does-not-exist.md)
 
-## Azure-DevOps-Wiki-Links
+## Azure DevOps Wiki Links
 
-- [Wiki-Startseite](wiki/Home)
-- [Datenfluss (ADO-Schreibweise, ohne .md)](wiki/Architektur/Daten-Fluss)
+- [Wiki home page](wiki/Home)
+- [Data flow (ADO notation, without .md)](wiki/Architecture/Data-Flow)
 
-## Bilder
+## Images
 
 ![Logo](wiki/.attachments/logo.svg)
 
-## Ende des Dokuments
+## End of Document
 
-Fertig. [Nach oben](#linktypen)
+Done. [Back to top](#link-types)

@@ -1,29 +1,29 @@
-# Nixe Testdokumente
+# Nixe Test Documents
 
 [[_TOC_]]
 
 ## Mermaid
 
-- [Mermaid-Beispiele](mermaid.md)
-- [Mermaid im Abschnitt „Azure DevOps“](mermaid.md#azure-devops-format)
+- [Mermaid examples](mermaid.md)
+- [Mermaid in the "Azure DevOps" section](mermaid.md#azure-devops-format)
 
-## Mathematik
+## Math
 
-- [LaTeX-Formeln](math.md)
+- [LaTeX formulas](math.md)
 
 ## Links
 
-- [Alle Linktypen](links.md)
-- [Azure-DevOps-Wiki](wiki/Home.md)
+- [All link types](links.md)
+- [Azure DevOps wiki](wiki/Home.md)
 
 ## Code
 
 ```ts
 export function greet(name: string): string {
-  return `Hallo ${name}!`;
+  return `Hello ${name}!`;
 }
 ```
 
 - [x] Viewer
 - [x] Mermaid
-- [ ] Weltherrschaft
+- [ ] World domination
