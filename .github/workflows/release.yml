@@ -100,9 +100,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Only builds from main create/update a (draft) GitHub release; PRs and other
-          # branches just build, to validate the matrix without cutting a release.
+          # Only builds from main create/update a GitHub release; PRs and other branches
+          # just build, to validate the matrix without cutting a release. Kept as a draft
+          # here so no platform publishes an incomplete release while the others are
+          # still building — publish-release below publishes it once all four are done.
           tagName: ${{ github.ref == 'refs/heads/main' && format('v{0}', env.VERSION) || '' }}
           releaseName: ${{ github.ref == 'refs/heads/main' && format('Nixe v{0}', env.VERSION) || '' }}
           releaseDraft: true
           args: ${{ matrix.args }}
+
+  publish-release:
+    needs: [determine-version, build]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "v${{ needs.determine-version.outputs.semver }}" \
+            --repo "${{ github.repository }}" \
+            --draft=false
