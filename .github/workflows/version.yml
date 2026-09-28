@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   version:
@@ -22,7 +23,27 @@ jobs:
         with:
           gitversion-config-file: GitVersion.yml
 
+      - name: Check if tag already exists
+        id: check
+        run: |
+          TAG="v${{ steps.version.outputs.semver }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Tag release
         uses: GravionLabs/ci/versioning/create-version-tag@main
         with:
           version: ${{ steps.version.outputs.semver }}
+
+      # A tag pushed with the default GITHUB_TOKEN does not trigger other
+      # workflows (GitHub's loop-prevention rule for the built-in token), so
+      # release.yml's `push: tags: [v*]` trigger would never fire on its own.
+      # Dispatch it explicitly against the new tag instead.
+      - name: Trigger release build
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run release.yml --ref "v${{ steps.version.outputs.semver }}"
