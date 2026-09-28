@@ -1,0 +1,28 @@
+name: Version
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        uses: GravionLabs/ci/versioning/determine-version@main
+        with:
+          gitversion-config-file: GitVersion.yml
+
+      - name: Tag release
+        uses: GravionLabs/ci/versioning/create-version-tag@main
+        with:
+          version: ${{ steps.version.outputs.semver }}

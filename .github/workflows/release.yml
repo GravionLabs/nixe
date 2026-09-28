@@ -52,6 +52,23 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Set release version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node -e "
+            const fs = require('fs');
+            const version = process.argv[1];
+            for (const file of ['package.json', 'src-tauri/tauri.conf.json']) {
+              const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+              json.version = version;
+              fs.writeFileSync(file, JSON.stringify(json, null, 2) + '\n');
+            }
+            const cargoPath = 'src-tauri/Cargo.toml';
+            const cargo = fs.readFileSync(cargoPath, 'utf8');
+            fs.writeFileSync(cargoPath, cargo.replace(/^version = \".*\"/m, \`version = \"\${version}\"\`));
+          " "$VERSION"
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
