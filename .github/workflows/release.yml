@@ -2,11 +2,26 @@ name: Build & Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 jobs:
+  determine-version:
+    runs-on: ubuntu-latest
+    outputs:
+      semver: ${{ steps.version.outputs.semver }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        uses: GravionLabs/ci/versioning/determine-version@main
+        with:
+          gitversion-config-file: GitVersion.yml
+
   test:
     runs-on: ubuntu-24.04
     steps:
@@ -29,7 +44,7 @@ jobs:
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
   build:
-    needs: test
+    needs: [determine-version, test]
     strategy:
       fail-fast: false
       matrix:
@@ -45,6 +60,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     permissions:
       contents: write
+    env:
+      VERSION: ${{ needs.determine-version.outputs.semver }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -53,13 +70,11 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - name: Set release version
-        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           node -e "
             const fs = require('fs');
-            const version = process.argv[1];
+            const version = process.env.VERSION;
             for (const file of ['package.json', 'src-tauri/tauri.conf.json']) {
               const json = JSON.parse(fs.readFileSync(file, 'utf8'));
               json.version = version;
@@ -68,7 +83,7 @@ jobs:
             const cargoPath = 'src-tauri/Cargo.toml';
             const cargo = fs.readFileSync(cargoPath, 'utf8');
             fs.writeFileSync(cargoPath, cargo.replace(/^version = \".*\"/m, \`version = \"\${version}\"\`));
-          " "$VERSION"
+          "
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
@@ -85,8 +100,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Only tagged builds create a (draft) GitHub release; other runs just build.
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          releaseName: Nixe ${{ github.ref_name }}
+          # Only builds from main create/update a (draft) GitHub release; PRs and other
+          # branches just build, to validate the matrix without cutting a release.
+          tagName: ${{ github.ref == 'refs/heads/main' && format('v{0}', env.VERSION) || '' }}
+          releaseName: ${{ github.ref == 'refs/heads/main' && format('Nixe v{0}', env.VERSION) || '' }}
           releaseDraft: true
           args: ${{ matrix.args }}
