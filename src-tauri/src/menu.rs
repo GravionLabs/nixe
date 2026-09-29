@@ -5,6 +5,8 @@ use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Runtime};
 
 pub const MENU_EVENT: &str = "menu";
+/// Handled natively (macOS only), never forwarded to the frontend.
+pub const INSTALL_CLI_ID: &str = "install-cli";
 
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let item = |id: &str, label: &str, accelerator: Option<&str>| {
@@ -47,6 +49,8 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     if cfg!(target_os = "macos") {
         let app_menu = SubmenuBuilder::new(app, "Nixe")
             .about(None)
+            .separator()
+            .item(&item(INSTALL_CLI_ID, "Install Command Line Tool…", None)?)
             .separator()
             .services()
             .separator()

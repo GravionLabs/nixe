@@ -1,3 +1,4 @@
+use std::io::{IsTerminal, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -6,6 +7,8 @@ use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+#[cfg(target_os = "macos")]
+mod cli_install;
 mod menu;
 mod tree;
 
@@ -26,12 +29,39 @@ fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
+/// Where piped content (`nixe -`) is stored. The path is fixed because a second
+/// instance only forwards its arguments, so the running one must be able to
+/// find the file from the bare `-` argument.
+fn stdin_file_path() -> PathBuf {
+    std::env::temp_dir().join("nixe-stdin").join("stdin.md")
+}
+
+/// Reads piped Markdown into `stdin_file_path()`. Does nothing for a terminal stdin.
+fn capture_stdin(args: &[String]) {
+    if !args.iter().skip(1).any(|arg| arg == "-") || std::io::stdin().is_terminal() {
+        return;
+    }
+    let mut content = Vec::new();
+    if std::io::stdin().read_to_end(&mut content).is_err() {
+        return;
+    }
+    let path = stdin_file_path();
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(path, content);
+}
+
 /// First CLI argument (after the binary) that points to an existing file or folder.
+/// `-` stands for the captured stdin content.
 fn path_from_args(args: &[String], cwd: &Path) -> Option<String> {
     args.iter()
         .skip(1)
-        .filter(|arg| !arg.starts_with('-'))
-        .filter_map(|arg| dunce::canonicalize(cwd.join(arg)).ok())
+        .filter_map(|arg| match arg.as_str() {
+            "-" => Some(stdin_file_path()),
+            _ if arg.starts_with('-') => None,
+            _ => dunce::canonicalize(cwd.join(arg)).ok(),
+        })
         .find(|path| path.exists())
         .map(|path| path_to_string(&path))
 }
@@ -120,6 +150,9 @@ fn watch_file(app: AppHandle, state: State<'_, AppState>, path: String) -> Resul
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Must happen before the single-instance plugin hands control to a running instance.
+    capture_stdin(&std::env::args().collect::<Vec<_>>());
+
     let mut builder = tauri::Builder::default();
 
     #[cfg(desktop)]
@@ -141,7 +174,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .menu(menu::build)
-        .on_menu_event(|app, event| menu::forward_event(app, event.id().as_ref()))
+        .on_menu_event(|app, event| {
+            #[cfg(target_os = "macos")]
+            if event.id().as_ref() == menu::INSTALL_CLI_ID {
+                return cli_install::run(app);
+            }
+            menu::forward_event(app, event.id().as_ref())
+        })
         .setup(|app| {
             let cwd = std::env::current_dir().unwrap_or_default();
             let args: Vec<String> = std::env::args().collect();
@@ -214,5 +253,14 @@ mod tests {
         assert_eq!(path_from_args(&args, &root), Some(path_to_string(&root.join("README.md"))));
         let args = vec!["nixe".into(), ".".into()];
         assert_eq!(path_from_args(&args, &root), Some(path_to_string(&root)));
+    }
+
+    #[test]
+    fn dash_argument_resolves_to_captured_stdin() {
+        let args = vec!["nixe".into(), "-".into()];
+        let expected = stdin_file_path();
+        fs::create_dir_all(expected.parent().unwrap()).unwrap();
+        fs::write(&expected, "# piped").unwrap();
+        assert_eq!(path_from_args(&args, Path::new("/")), Some(path_to_string(&expected)));
     }
 }
