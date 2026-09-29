@@ -30,6 +30,7 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
 - **Live reload** when the file changes on disk
 - **Light/dark**: follows the system or can be set manually
 - Open via menu/dialog, drag & drop, command line (`nixe README.md`, `nixe ./docs`), or file association
+- **Command line**: on macOS, *Nixe → Install Command Line Tool…* links `nixe` into `/opt/homebrew/bin`, `/usr/local/bin` or `~/.local/bin` (first writable). Then `nixe README.md`, `nixe ./docs`, or pipe content with `git show HEAD:README.md | nixe -`. Piped content is shown as a temporary file, so relative links inside it don't resolve. Installing into `/usr/local/bin` asks for the administrator password if needed.
 
 ## Keyboard shortcuts
 

@@ -20,5 +20,7 @@ export const backend = {
 };
 
 export const OPEN_FILE_EVENT = "open-file-requested";
+/** Piped content (`nixe -`) lives in this temp file, see `stdin_file_path` in lib.rs. */
+export const STDIN_FILE_SUFFIX = "/nixe-stdin/stdin.md";
 export const FILE_CHANGED_EVENT = "file-changed";
 export const MENU_EVENT = "menu";

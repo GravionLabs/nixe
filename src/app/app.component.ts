@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { FILE_CHANGED_EVENT, MENU_EVENT, OPEN_FILE_EVENT, backend } from "./core/file/backend";
+import { FILE_CHANGED_EVENT, MENU_EVENT, OPEN_FILE_EVENT, STDIN_FILE_SUFFIX, backend } from "./core/file/backend";
 import { DocumentService } from "./core/file/document.service";
 import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
@@ -43,7 +43,7 @@ export class AppComponent {
 
   constructor() {
     effect(() => {
-      const name = this.doc.fileName();
+      const name = this.doc.path()?.endsWith(STDIN_FILE_SUFFIX) ? "stdin" : this.doc.fileName();
       void getCurrentWindow().setTitle(name ? `${name} – Nixe` : "Nixe");
     });
 
