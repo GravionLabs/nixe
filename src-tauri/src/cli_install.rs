@@ -4,19 +4,51 @@
 use std::io;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use tauri::AppHandle;
-use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 const COMMAND_NAME: &str = "nixe";
 
-/// Preferred install locations, first usable one wins.
-fn candidate_dirs() -> Vec<PathBuf> {
-    let mut dirs = vec![PathBuf::from("/opt/homebrew/bin"), PathBuf::from("/usr/local/bin")];
-    if let Some(home) = std::env::var_os("HOME") {
-        dirs.push(PathBuf::from(home).join(".local/bin"));
+const ADMIN_DIR: &str = "/usr/local/bin";
+
+/// System locations tried without elevated rights, first usable one wins.
+fn system_dirs() -> Vec<PathBuf> {
+    vec![PathBuf::from("/opt/homebrew/bin"), PathBuf::from(ADMIN_DIR)]
+}
+
+fn user_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/bin"))
+}
+
+fn shell_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+/// Shell command creating the link like `install_symlink` does (stale symlinks
+/// are replaced, regular files are left alone).
+fn admin_shell_command(exe: &Path, dir: &Path) -> String {
+    let link = shell_quote(&dir.join(COMMAND_NAME).to_string_lossy());
+    format!(
+        "mkdir -p {dir} && {{ [ ! -e {link} ] || [ -L {link} ]; }} && ln -sfn {exe} {link}",
+        dir = shell_quote(&dir.to_string_lossy()),
+        exe = shell_quote(&exe.to_string_lossy()),
+    )
+}
+
+/// Runs `admin_shell_command` through the macOS administrator password prompt.
+fn install_with_admin(exe: &Path, dir: &Path) -> Result<PathBuf, String> {
+    let script = admin_shell_command(exe, dir).replace('\\', "\\\\").replace('"', "\\\"");
+    let output = Command::new("osascript")
+        .args(["-e", &format!("do shell script \"{script}\" with administrator privileges")])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        Ok(dir.join(COMMAND_NAME))
+    } else {
+        Err(format!("{}: {}", dir.display(), String::from_utf8_lossy(&output.stderr).trim()))
     }
-    dirs
 }
 
 /// Creates (or replaces) the `nixe` symlink in `dir`. An existing symlink is
@@ -57,26 +89,48 @@ fn dir_on_path(dir: &Path) -> bool {
         .unwrap_or(false)
 }
 
-pub fn run(app: &AppHandle) {
-    let result = std::env::current_exe()
-        .and_then(std::fs::canonicalize)
-        .map_err(|e| e.to_string())
-        .and_then(|exe| install_first_writable(&exe, &candidate_dirs()));
+fn install(app: &AppHandle) -> Result<PathBuf, String> {
+    let exe = std::env::current_exe().and_then(std::fs::canonicalize).map_err(|e| e.to_string())?;
 
-    let (kind, message) = match result {
-        Ok(link) => {
-            let mut text = format!("Installed {}.\nOpen a terminal and run: nixe README.md", link.display());
-            if !link.parent().is_some_and(dir_on_path) {
-                text.push_str("\n\nNote: that folder is not on your PATH yet. Add it in your shell profile.");
-            }
-            (MessageDialogKind::Info, text)
+    let mut result = install_first_writable(&exe, &system_dirs());
+    if result.is_err() {
+        let elevate = app
+            .dialog()
+            .message(format!("Installing into {ADMIN_DIR} needs administrator permission."))
+            .title("Nixe")
+            .buttons(MessageDialogButtons::OkCancelCustom("Continue".into(), "Use ~/.local/bin".into()))
+            .blocking_show();
+        if elevate {
+            result = install_with_admin(&exe, Path::new(ADMIN_DIR));
         }
-        Err(errors) => (
-            MessageDialogKind::Error,
-            format!("Could not install the command line tool:\n{errors}"),
-        ),
-    };
-    app.dialog().message(message).title("Nixe").kind(kind).show(|_| {});
+    }
+    if result.is_err() {
+        if let Some(dir) = user_dir() {
+            result = install_first_writable(&exe, &[dir]);
+        }
+    }
+    result
+}
+
+pub fn run(app: &AppHandle) {
+    // The dialogs block, so keep the menu event handler (main thread) free.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let (kind, message) = match install(&app) {
+            Ok(link) => {
+                let mut text = format!("Installed {}.\nOpen a terminal and run: nixe README.md", link.display());
+                if !link.parent().is_some_and(dir_on_path) {
+                    text.push_str("\n\nNote: that folder is not on your PATH yet. Add it in your shell profile.");
+                }
+                (MessageDialogKind::Info, text)
+            }
+            Err(errors) => (
+                MessageDialogKind::Error,
+                format!("Could not install the command line tool:\n{errors}"),
+            ),
+        };
+        app.dialog().message(message).title("Nixe").kind(kind).show(|_| {});
+    });
 }
 
 #[cfg(test)]
@@ -124,5 +178,15 @@ mod tests {
         let ok = root.join("ok");
         let link = install_first_writable(&root.join("exe"), &[blocked.join("bin"), ok.clone()]).unwrap();
         assert_eq!(link, ok.join(COMMAND_NAME));
+    }
+
+    #[test]
+    fn admin_command_quotes_paths_and_guards_regular_files() {
+        let cmd = admin_shell_command(Path::new("/Apps/It's Nixe/nixe"), Path::new("/usr/local/bin"));
+        assert_eq!(
+            cmd,
+            "mkdir -p '/usr/local/bin' && { [ ! -e '/usr/local/bin/nixe' ] || [ -L '/usr/local/bin/nixe' ]; } \
+             && ln -sfn '/Apps/It'\\''s Nixe/nixe' '/usr/local/bin/nixe'"
+        );
     }
 }
