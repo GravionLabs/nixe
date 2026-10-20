@@ -16,7 +16,8 @@ diff review. The owner wants to build it (not just use Obsidian), working langua
 |---|---|
 | Spec 0001 | Written, on branch `docs/spec-ai-knowledge-base`, pushed |
 | Pull request | **Not created** (GitHub access in the cloud session was invalid) |
-| Epic issue and Feature issues | **Not created**, text is below |
+| Epic issue and Feature issues | Created 2026-10-20: Epic #9, Features #10–#16, PBIs #17–#32, milestones M0–M6 |
+| Roadmap and plugin spec | `docs/roadmap.md`, `docs/specs/0002-plugin-system.md` (this branch) |
 | Crate / name reservation | **Not done** (needs the owner's crates.io login) |
 | iOS spike | **Not started** |
 | Code changes | None |
@@ -58,7 +59,7 @@ the spec.
 1. **iOS spike:** run Nixe in the iOS simulator and clone a repo with `git2`
    (`vendored-libgit2`, `vendored-openssl`). Fallback: GitHub REST API.
 2. Open the pull request for this branch and merge the spec.
-3. Create the Epic and Feature issues (see below) once GitHub access works.
+3. ~~Create the Epic and Feature issues~~ Done; the text below is kept for reference.
 4. Check `cargo info nixe`; optionally reserve the crate (verified email, token,
    `description` and `license` in `Cargo.toml`, then `cargo publish`; permanent, and crates.io
    discourages squatting).
