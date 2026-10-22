@@ -9,9 +9,9 @@ author: Jérôme Kaufmann
 
 dependencies:
   apm:
-    - GravionLabs/apm-hub/packages/rust#release/next
-    - GravionLabs/apm-hub/packages/ts#release/next
-    - GravionLabs/apm-hub/packages/ng#release/next
+    - GravionLabs/apm-hub/packages/rust
+    - GravionLabs/apm-hub/packages/ts
+    - GravionLabs/apm-hub/packages/ng
   mcp: []
 includes: auto
 scripts: {}
