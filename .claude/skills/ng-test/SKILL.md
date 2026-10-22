@@ -13,6 +13,7 @@ description: 'Angular test rules with Vitest and TestBed (components, signals, m
 - **Framework**: Vitest for Angular v21+ (replaces Karma/Jasmine); Jest for Angular v20 and earlier
 - **Run all**: `<pm> test` (package manager from `detect-techstack`); projects using the CLI builder without a config file run `ng test`
 - **Run single**: `npx vitest run <path>`, or `ng test --include <path>` with the CLI builder
+- **Targeted run** (per commit): `npx vitest run <paths>` for the spec files of the changed paths, or `ng test --include <path>` with the CLI builder; unknown mapping: the project's fast/unit script, never the full suite
 
 ## Component Testing
 
