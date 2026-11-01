@@ -11,9 +11,8 @@ links and Mermaid rendering all at once.
 ## Map
 
 - [architecture.md](architecture.md) — process boundary, IPC, startup sequence
-- [roadmap.md](roadmap.md) — milestones and order toward the AI-first knowledge base
-- [specs/0001-ai-knowledge-base.md](specs/0001-ai-knowledge-base.md) — product spec
-- [specs/0002-plugin-system.md](specs/0002-plugin-system.md) — plugin model, API and distribution
+- [roadmap.md](roadmap.md) — scope and next steps (Obsidian vault rendering)
+- [adr/](adr/) — architecture decisions
 - [backend/README.md](backend/README.md) — the Rust core (`src-tauri/`)
   - [backend/tauri-commands.md](backend/tauri-commands.md) — the command surface
   - [backend/file-watching.md](backend/file-watching.md) — live reload
