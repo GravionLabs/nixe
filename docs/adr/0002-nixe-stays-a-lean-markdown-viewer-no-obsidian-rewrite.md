@@ -1,6 +1,6 @@
 # ADR 0002: Nixe stays a lean Markdown viewer; no Obsidian rewrite
 
-- Status: Proposed
+- Status: Superseded by [ADR 0003](0003-nixe-becomes-a-vault-app-with-editing-and-git-sync.md)
 - Date: 2026-11-01
 - Issues: #9
 
