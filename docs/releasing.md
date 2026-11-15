@@ -1,7 +1,8 @@
 # Releasing
 
-`.github/workflows/release.yml` builds the bundles on every pull request (unsigned, no secrets) and, on a push to
-`main`, signs and notarizes the macOS bundles (aarch64 and x86_64) and publishes the release.
+`.github/workflows/release.yml` builds the bundles on every pull request and manual run (`workflow_dispatch`): unsigned,
+without secrets, and nothing is published. Only a push to `main` signs and notarizes the macOS bundles (aarch64 and
+x86_64) and creates and publishes the release.
 
 ## macOS signing and notarization
 

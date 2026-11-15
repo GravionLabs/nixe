@@ -62,8 +62,9 @@ jobs:
       contents: write
     env:
       VERSION: ${{ needs.determine-version.outputs.semver }}
-      # Only a push to main publishes; only there is the macOS bundle signed and notarized.
-      # PRs, workflow_dispatch and other branches build unsigned and get no Apple secret.
+      # Only a push to main publishes a release and signs/notarizes the macOS bundles.
+      # PRs, workflow_dispatch and other branches build unsigned, publish nothing and get no Apple secret.
+      PUBLISH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       SIGN_MACOS: ${{ startsWith(matrix.platform, 'macos') && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v4
@@ -88,15 +89,6 @@ jobs:
             if [ -z "${!name}" ]; then echo "::error::Secret $name is not set; refusing to publish an unsigned macOS bundle"; missing=1; fi
           done
           exit $missing
-      - name: Write the App Store Connect API key
-        if: env.SIGN_MACOS == 'true'
-        shell: bash
-        env:
-          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
-        run: |
-          umask 077
-          echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
-          printf '%s' "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
       - name: Set release version
         shell: bash
         run: |
@@ -124,6 +116,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: pnpm install --frozen-lockfile
+      - name: Write the App Store Connect API key
+        if: env.SIGN_MACOS == 'true'
+        shell: bash
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          umask 077
+          echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+          printf '%s' "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -139,8 +140,8 @@ jobs:
           # just build, to validate the matrix without cutting a release. Kept as a draft
           # here so no platform publishes an incomplete release while the others are
           # still building — publish-release below publishes it once all four are done.
-          tagName: ${{ github.ref == 'refs/heads/main' && format('v{0}', env.VERSION) || '' }}
-          releaseName: ${{ github.ref == 'refs/heads/main' && format('Nixe v{0}', env.VERSION) || '' }}
+          tagName: ${{ env.PUBLISH == 'true' && format('v{0}', env.VERSION) || '' }}
+          releaseName: ${{ env.PUBLISH == 'true' && format('Nixe v{0}', env.VERSION) || '' }}
           releaseDraft: true
           args: ${{ matrix.args }}
       - name: Verify signature and notarization
@@ -153,7 +154,8 @@ jobs:
           [ "${#apps[@]}" -gt 0 ] || { echo "::error::no .app bundle found"; exit 1; }
           for app in "${apps[@]}"; do
             codesign --verify --deep --strict --verbose=2 "$app"
-            codesign -dv "$app" 2>&1 | grep -q 'flags=.*runtime' || { echo "::error::$app has no hardened runtime"; exit 1; }
+            info=$(codesign -dv "$app" 2>&1)
+            grep -q 'flags=.*runtime' <<<"$info" || { echo "::error::$app has no hardened runtime"; exit 1; }
             xcrun stapler validate "$app"
             spctl -a -vv "$app"
           done
@@ -164,7 +166,7 @@ jobs:
 
   publish-release:
     needs: [determine-version, build]
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
