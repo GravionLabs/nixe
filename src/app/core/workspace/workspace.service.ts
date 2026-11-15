@@ -62,6 +62,9 @@ export class WorkspaceService {
       const page = defaultPage(nodes);
       if (page) await this.doc.open(page);
     }
+    // After the first note is shown, so the scan never delays rendering. A failed index is not
+    // fatal: the viewer works without it.
+    backend.indexStart(vaultRoot).catch(() => undefined);
   }
 
   async openFolderWithDialog(): Promise<void> {

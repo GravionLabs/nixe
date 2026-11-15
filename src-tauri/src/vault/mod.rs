@@ -29,10 +29,20 @@ pub fn find_vault_root(path: &Path) -> PathBuf {
         .to_path_buf()
 }
 
-/// Every file below `root` as a relative path with forward slashes, sorted.
+/// A file found by `walk_vault`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VaultFile {
+    /// Relative to the vault root, forward slashes.
+    pub path: String,
+    pub size: u64,
+    /// Modification time in nanoseconds since the Unix epoch (0 when unknown).
+    pub mtime_ns: i64,
+}
+
+/// Every file below `root`, sorted by path.
 /// `.obsidian/`, `.git/`, `.trash/` and `.gitignore`d paths are skipped.
-pub fn list_vault_files(root: &Path) -> Vec<String> {
-    let mut files: Vec<String> = WalkBuilder::new(root)
+pub fn walk_vault(root: &Path) -> Vec<VaultFile> {
+    let mut files: Vec<VaultFile> = WalkBuilder::new(root)
         .hidden(false)
         // `.gitignore` applies even where there is no `.git` directory.
         .require_git(false)
@@ -52,11 +62,26 @@ pub fn list_vault_files(root: &Path) -> Vec<String> {
         .filter(|entry| entry.file_type().is_some_and(|t| t.is_file()))
         .filter_map(|entry| {
             let rel = entry.path().strip_prefix(root).ok()?;
-            Some(rel.to_string_lossy().replace('\\', "/"))
+            let meta = entry.metadata().ok()?;
+            let mtime_ns = meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map_or(0, |d| d.as_nanos() as i64);
+            Some(VaultFile {
+                path: rel.to_string_lossy().replace('\\', "/"),
+                size: meta.len(),
+                mtime_ns,
+            })
         })
         .collect();
-    files.sort();
+    files.sort_by(|a, b| a.path.cmp(&b.path));
     files
+}
+
+/// Every file below `root` as a relative path with forward slashes, sorted.
+pub fn list_vault_files(root: &Path) -> Vec<String> {
+    walk_vault(root).into_iter().map(|f| f.path).collect()
 }
 
 #[cfg(test)]
