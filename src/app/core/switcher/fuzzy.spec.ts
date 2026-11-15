@@ -13,6 +13,10 @@ describe("fuzzyScore", () => {
     expect(fuzzyScore("abcd", "abc")).toBeNull();
   });
 
+  it("still matches when a word start would leave too little text", () => {
+    expect(fuzzyScore("oct", "Project Overview")).not.toBeNull();
+  });
+
   it("ignores case", () => {
     expect(fuzzyScore("READ", "readme")).toBe(fuzzyScore("read", "README"));
   });

@@ -29,13 +29,14 @@ export function fuzzyScore(query: string, text: string): number | null {
   let score = 0;
   let from = 0;
   let previous = -2;
-  for (const ch of q) {
+  for (const [index, ch] of [...q].entries()) {
     // Prefer a word start over the first occurrence when both are possible.
     let at = t.indexOf(ch, from);
     if (at < 0) return null;
     if (at !== previous + 1 && !isWordStart(t, at)) {
       for (let next = t.indexOf(ch, at + 1); next >= 0; next = t.indexOf(ch, next + 1)) {
-        if (isWordStart(t, next)) {
+        // Only jump when the rest of the query still fits behind the word start.
+        if (isWordStart(t, next) && isSubsequence(q.slice(index + 1), t, next + 1)) {
           at = next;
           break;
         }
@@ -51,6 +52,14 @@ export function fuzzyScore(query: string, text: string): number | null {
   if (t === q) score += 100;
   else if (t.startsWith(q)) score += 20;
   return score - t.length * 0.1;
+}
+
+function isSubsequence(query: string, text: string, from: number): boolean {
+  for (const ch of query) {
+    from = text.indexOf(ch, from) + 1;
+    if (from === 0) return false;
+  }
+  return true;
 }
 
 function isWordStart(text: string, at: number): boolean {
