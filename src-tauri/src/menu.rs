@@ -18,7 +18,12 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     };
 
     let mut file = SubmenuBuilder::new(app, "File")
-        .item(&item("open-file", "Open File…", Some("CmdOrCtrl+O"))?)
+        .item(&item(
+            "quick-switcher",
+            "Quick Switcher…",
+            Some("CmdOrCtrl+O"),
+        )?)
+        .item(&item("open-file", "Open File…", Some("CmdOrCtrl+Shift+P"))?)
         .item(&item(
             "open-folder",
             "Open Folder…",

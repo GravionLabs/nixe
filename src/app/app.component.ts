@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, isDevMode, signal } from "@angular/core";
+import { Component, computed, effect, inject, isDevMode, signal, untracked } from "@angular/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -9,9 +9,11 @@ import { IndexService } from "./core/index/index.service";
 import { SearchService } from "./core/index/search.service";
 import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
+import { SwitcherService } from "./core/switcher/switcher.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { SearchComponent } from "./features/search/search.component";
+import { SwitcherComponent } from "./features/switcher/switcher.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
@@ -20,7 +22,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [BacklinksComponent, SearchComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [BacklinksComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -32,6 +34,7 @@ export class AppComponent {
   private readonly markdown = inject(MarkdownService);
   private readonly index = inject(IndexService);
   protected readonly search = inject(SearchService);
+  protected readonly switcher = inject(SwitcherService);
 
   protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
   protected readonly gitSpike = isDevMode();
@@ -58,7 +61,14 @@ export class AppComponent {
 
   protected readonly showSearch = computed(() => this.workspace.vaultRoot() !== null && this.search.visible());
 
+  protected readonly showSwitcher = computed(() => this.workspace.vaultRoot() !== null && this.switcher.visible());
+
   constructor() {
+    effect(() => {
+      const path = this.doc.path();
+      if (path) untracked(() => this.switcher.noteOpened(path));
+    });
+
     effect(() => {
       const name = this.doc.path()?.endsWith(STDIN_FILE_SUFFIX) ? "stdin" : this.doc.fileName();
       void getCurrentWindow().setTitle(name ? `${name} – Nixe` : "Nixe");
@@ -130,6 +140,7 @@ export class AppComponent {
 
   private onMenu(id: string): void {
     const actions: Record<string, () => unknown> = {
+      "quick-switcher": () => this.openSwitcher(),
       "open-file": () => this.run(() => this.doc.openWithDialog()),
       "open-folder": () => this.run(() => this.workspace.openFolderWithDialog()),
       reload: () => this.run(async () => {
@@ -150,10 +161,20 @@ export class AppComponent {
     actions[id]?.();
   }
 
+  private openSwitcher(): void {
+    if (this.workspace.vaultRoot() !== null) void this.switcher.open();
+  }
+
   /** Alt+←/→ as additional history shortcuts (menu accelerators cover the rest). */
   protected onKeydown(event: KeyboardEvent): void {
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {
       this.search.openWith();
+      event.preventDefault();
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "o") {
+      // The menu accelerator normally handles this; the key handler covers webviews without one.
+      this.openSwitcher();
       event.preventDefault();
       return;
     }

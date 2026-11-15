@@ -8,6 +8,7 @@ use serde_json::Value;
 pub struct NoteSummary {
     pub path: String,
     pub title: String,
+    pub aliases: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -92,11 +93,13 @@ impl IndexStatus {
 }
 
 pub fn notes(conn: &Connection) -> rusqlite::Result<Vec<NoteSummary>> {
-    let mut stmt = conn.prepare("SELECT path, title FROM notes ORDER BY path")?;
+    let mut stmt = conn.prepare("SELECT path, title, aliases FROM notes ORDER BY path")?;
     let rows = stmt.query_map([], |r| {
+        let aliases: String = r.get(2)?;
         Ok(NoteSummary {
             path: r.get(0)?,
             title: r.get(1)?,
+            aliases: serde_json::from_str(&aliases).unwrap_or_default(),
         })
     })?;
     rows.collect()

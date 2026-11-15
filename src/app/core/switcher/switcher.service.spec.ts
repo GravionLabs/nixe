@@ -1,0 +1,64 @@
+// @vitest-environment jsdom
+import "@angular/compiler";
+import { signal } from "@angular/core";
+import { TestBed } from "@angular/core/testing";
+import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+
+import { backend } from "../file/backend";
+import { WorkspaceService } from "../workspace/workspace.service";
+import { SwitcherService } from "./switcher.service";
+
+describe("SwitcherService", () => {
+  const vaultFiles = signal<string[] | null>(["Alpha.md", "Beta.md", "img.png"]);
+  let switcher: SwitcherService;
+
+  beforeAll(() => {
+    TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+  });
+
+  beforeEach(() => {
+    vaultFiles.set(["Alpha.md", "Beta.md", "img.png"]);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [{ provide: WorkspaceService, useValue: { vaultRoot: signal("/v"), vaultFiles } }],
+    });
+    switcher = TestBed.inject(SwitcherService);
+  });
+
+  it("uses the index, including aliases", async () => {
+    vi.spyOn(backend, "notes").mockResolvedValue([{ path: "Home.md", title: "Home", aliases: ["Start"] }]);
+    await switcher.open();
+    switcher.setQuery("start");
+    expect(switcher.current()?.entry.path).toBe("Home.md");
+  });
+
+  it("falls back to the Markdown files when the index is unavailable", async () => {
+    vi.spyOn(backend, "notes").mockRejectedValue("no index");
+    await switcher.open();
+    expect(switcher.matches().map((m) => m.entry.path)).toEqual(["Alpha.md", "Beta.md"]);
+  });
+
+  it("lists recently opened notes first and moves the selection with wrap-around", async () => {
+    vi.spyOn(backend, "notes").mockRejectedValue("no index");
+    switcher.noteOpened("/v/Beta.md");
+    switcher.noteOpened("/elsewhere/Alpha.md");
+    await switcher.open();
+    expect(switcher.matches().map((m) => m.entry.path)).toEqual(["Beta.md", "Alpha.md"]);
+    switcher.move(-1);
+    expect(switcher.current()?.entry.path).toBe("Alpha.md");
+    switcher.move(1);
+    expect(switcher.current()?.entry.path).toBe("Beta.md");
+  });
+
+  it("has no current match when nothing matches, so Enter does nothing", async () => {
+    vi.spyOn(backend, "notes").mockRejectedValue("no index");
+    await switcher.open();
+    switcher.setQuery("zzz");
+    expect(switcher.current()).toBeNull();
+    switcher.move(1);
+    expect(switcher.selected()).toBe(0);
+  });
+});
