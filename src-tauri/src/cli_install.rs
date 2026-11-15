@@ -39,15 +39,24 @@ fn admin_shell_command(exe: &Path, dir: &Path) -> String {
 
 /// Runs `admin_shell_command` through the macOS administrator password prompt.
 fn install_with_admin(exe: &Path, dir: &Path) -> Result<PathBuf, String> {
-    let script = admin_shell_command(exe, dir).replace('\\', "\\\\").replace('"', "\\\"");
+    let script = admin_shell_command(exe, dir)
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"");
     let output = Command::new("osascript")
-        .args(["-e", &format!("do shell script \"{script}\" with administrator privileges")])
+        .args([
+            "-e",
+            &format!("do shell script \"{script}\" with administrator privileges"),
+        ])
         .output()
         .map_err(|e| e.to_string())?;
     if output.status.success() {
         Ok(dir.join(COMMAND_NAME))
     } else {
-        Err(format!("{}: {}", dir.display(), String::from_utf8_lossy(&output.stderr).trim()))
+        Err(format!(
+            "{}: {}",
+            dir.display(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        ))
     }
 }
 
@@ -90,15 +99,22 @@ fn dir_on_path(dir: &Path) -> bool {
 }
 
 fn install(app: &AppHandle) -> Result<PathBuf, String> {
-    let exe = std::env::current_exe().and_then(std::fs::canonicalize).map_err(|e| e.to_string())?;
+    let exe = std::env::current_exe()
+        .and_then(std::fs::canonicalize)
+        .map_err(|e| e.to_string())?;
 
     let mut result = install_first_writable(&exe, &system_dirs());
     if result.is_err() {
         let elevate = app
             .dialog()
-            .message(format!("Installing into {ADMIN_DIR} needs administrator permission."))
+            .message(format!(
+                "Installing into {ADMIN_DIR} needs administrator permission."
+            ))
             .title("Nixe")
-            .buttons(MessageDialogButtons::OkCancelCustom("Continue".into(), "Use ~/.local/bin".into()))
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Continue".into(),
+                "Use ~/.local/bin".into(),
+            ))
             .blocking_show();
         if elevate {
             result = install_with_admin(&exe, Path::new(ADMIN_DIR));
@@ -118,7 +134,10 @@ pub fn run(app: &AppHandle) {
     std::thread::spawn(move || {
         let (kind, message) = match install(&app) {
             Ok(link) => {
-                let mut text = format!("Installed {}.\nOpen a terminal and run: nixe README.md", link.display());
+                let mut text = format!(
+                    "Installed {}.\nOpen a terminal and run: nixe README.md",
+                    link.display()
+                );
                 if !link.parent().is_some_and(dir_on_path) {
                     text.push_str("\n\nNote: that folder is not on your PATH yet. Add it in your shell profile.");
                 }
@@ -129,7 +148,11 @@ pub fn run(app: &AppHandle) {
                 format!("Could not install the command line tool:\n{errors}"),
             ),
         };
-        app.dialog().message(message).title("Nixe").kind(kind).show(|_| {});
+        app.dialog()
+            .message(message)
+            .title("Nixe")
+            .kind(kind)
+            .show(|_| {});
     });
 }
 
@@ -167,7 +190,10 @@ mod tests {
         fs::write(bin.join(COMMAND_NAME), "not ours").unwrap();
         let err = install_symlink(&root.join("exe"), &bin).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
-        assert_eq!(fs::read_to_string(bin.join(COMMAND_NAME)).unwrap(), "not ours");
+        assert_eq!(
+            fs::read_to_string(bin.join(COMMAND_NAME)).unwrap(),
+            "not ours"
+        );
     }
 
     #[test]
@@ -176,13 +202,17 @@ mod tests {
         let blocked = root.join("blocked");
         fs::write(&blocked, "a file, so create_dir_all fails").unwrap();
         let ok = root.join("ok");
-        let link = install_first_writable(&root.join("exe"), &[blocked.join("bin"), ok.clone()]).unwrap();
+        let link =
+            install_first_writable(&root.join("exe"), &[blocked.join("bin"), ok.clone()]).unwrap();
         assert_eq!(link, ok.join(COMMAND_NAME));
     }
 
     #[test]
     fn admin_command_quotes_paths_and_guards_regular_files() {
-        let cmd = admin_shell_command(Path::new("/Apps/It's Nixe/nixe"), Path::new("/usr/local/bin"));
+        let cmd = admin_shell_command(
+            Path::new("/Apps/It's Nixe/nixe"),
+            Path::new("/usr/local/bin"),
+        );
         assert_eq!(
             cmd,
             "mkdir -p '/usr/local/bin' && { [ ! -e '/usr/local/bin/nixe' ] || [ -L '/usr/local/bin/nixe' ]; } \

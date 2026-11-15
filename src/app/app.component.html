@@ -1,8 +1,10 @@
 <app-toolbar />
 
 @if (gitSpike) {
-  <app-git-spike />
-  <app-editor-spike />
+  @defer {
+    <app-git-spike />
+    <app-editor-spike />
+  }
 }
 
 <main>
