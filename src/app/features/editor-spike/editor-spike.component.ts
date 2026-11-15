@@ -11,7 +11,7 @@ import {
   defaultHighlightStyle,
   syntaxHighlighting,
 } from "@codemirror/language";
-import { Compartment, EditorState } from "@codemirror/state";
+import { Compartment, EditorState, Extension } from "@codemirror/state";
 import { EditorView, drawSelection, keymap } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -43,6 +43,23 @@ function themeFor(size: number) {
         background: "rgba(10, 132, 255, 0.35)",
       },
   });
+}
+
+/** The extension list of the spike editor; the compartment lets the font size change live. */
+export function editorExtensions(
+  theme: Compartment,
+  size: number,
+): Extension[] {
+  return [
+    history(),
+    keymap.of([...defaultKeymap, ...historyKeymap]),
+    markdown(),
+    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+    drawSelection(),
+    theme.of(themeFor(size)),
+    EditorView.lineWrapping,
+    livePreviewSpike,
+  ];
 }
 
 /** Temporary prototype for #59 (CodeMirror 6 on iOS). Dev builds only; remove after the spike. */
@@ -167,13 +184,7 @@ export class EditorSpikeComponent implements OnDestroy {
         parent: this.host.nativeElement,
         state: EditorState.create({
           doc: text,
-          extensions: [
-            history(),
-            keymap.of([...defaultKeymap, ...historyKeymap]),
-            markdown(),
-            EditorView.lineWrapping,
-            livePreviewSpike,
-          ],
+          extensions: editorExtensions(this.theme, this.fontSize()),
         }),
       });
       this.current.set(name);
