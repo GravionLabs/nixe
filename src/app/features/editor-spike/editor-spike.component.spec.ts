@@ -38,4 +38,13 @@ describe("EditorSpikeComponent", () => {
     await c.save();
     expect(invoke).not.toHaveBeenCalled();
   });
+
+  it("starts at 14px and resizes within bounds", () => {
+    const c = new EditorSpikeComponent() as any;
+    expect(c.fontSize()).toBe(14);
+    c.resize(1);
+    expect(c.fontSize()).toBe(15);
+    for (let i = 0; i < 50; i++) c.resize(-1);
+    expect(c.fontSize()).toBe(8);
+  });
 });

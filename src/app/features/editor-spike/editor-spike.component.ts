@@ -7,12 +7,43 @@ import {
 } from "@angular/core";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import { EditorState } from "@codemirror/state";
-import { EditorView, keymap } from "@codemirror/view";
+import {
+  defaultHighlightStyle,
+  syntaxHighlighting,
+} from "@codemirror/language";
+import { Compartment, EditorState } from "@codemirror/state";
+import { EditorView, drawSelection, keymap } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 
-import { CHECKLIST_ITEMS, Rating, checklistMarkdown } from "./decoration-logic";
+import {
+  CHECKLIST_ITEMS,
+  Rating,
+  checklistMarkdown,
+  clampFontSize,
+} from "./decoration-logic";
 import { livePreviewSpike } from "./decorations";
+
+const FONT_KEY = "nixe.editorSpike.fontSize";
+
+function readFont(): number {
+  try {
+    return clampFontSize(localStorage.getItem(FONT_KEY));
+  } catch {
+    return clampFontSize(null);
+  }
+}
+
+function themeFor(size: number) {
+  return EditorView.theme({
+    "&": { fontSize: `${size}px` },
+    ".cm-content": { fontSize: `${size}px`, caretColor: "currentColor" },
+    ".cm-cursor, .cm-dropCursor": { borderLeft: "2px solid #ff3b30" },
+    ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground":
+      {
+        background: "rgba(10, 132, 255, 0.35)",
+      },
+  });
+}
 
 /** Temporary prototype for #59 (CodeMirror 6 on iOS). Dev builds only; remove after the spike. */
 @Component({
@@ -28,6 +59,9 @@ import { livePreviewSpike } from "./decorations";
           }
         </select>
         <button type="button" (click)="refresh()">Reload list</button>
+        <button type="button" (click)="resize(-1)">A-</button>
+        <span>{{ fontSize() }}px</span>
+        <button type="button" (click)="resize(1)">A+</button>
         <button type="button" (click)="save()" [disabled]="!current()">
           Save
         </button>
@@ -72,6 +106,11 @@ import { livePreviewSpike } from "./decorations";
     .item span {
       min-width: 12rem;
     }
+    select,
+    input,
+    button {
+      font-size: 16px;
+    }
     .on {
       font-weight: bold;
       text-decoration: underline;
@@ -96,6 +135,8 @@ export class EditorSpikeComponent implements OnDestroy {
   protected readonly current = signal("");
   protected readonly status = signal("");
   protected readonly ratings = signal<Record<string, Rating | undefined>>({});
+  protected readonly fontSize = signal(readFont());
+  private readonly theme = new Compartment();
   private notes: Record<string, string> = {};
   private view: EditorView | undefined;
   @ViewChild("host", { static: true }) private host!: ElementRef<HTMLElement>;
@@ -155,6 +196,17 @@ export class EditorSpikeComponent implements OnDestroy {
     } catch (error) {
       this.status.set(`save FAILED ${String(error)}`);
     }
+  }
+
+  protected resize(delta: number): void {
+    const size = clampFontSize(this.fontSize() + delta);
+    this.fontSize.set(size);
+    try {
+      localStorage.setItem(FONT_KEY, String(size));
+    } catch {
+      // Storage can be unavailable; the size then resets on the next launch.
+    }
+    this.view?.dispatch({ effects: this.theme.reconfigure(themeFor(size)) });
   }
 
   protected rate(item: string, rating: Rating): void {

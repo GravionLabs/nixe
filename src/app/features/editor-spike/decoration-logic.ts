@@ -62,3 +62,14 @@ export function checklistMarkdown(
   }
   return lines.join("\n");
 }
+
+export const FONT_DEFAULT = 14;
+const FONT_MIN = 8;
+const FONT_MAX = 28;
+
+/** A usable editor font size in px: whole number within bounds, default for anything else. */
+export function clampFontSize(value: unknown): number {
+  const n = typeof value === "string" ? Number(value) : value;
+  if (typeof n !== "number" || !Number.isFinite(n)) return FONT_DEFAULT;
+  return Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(n)));
+}

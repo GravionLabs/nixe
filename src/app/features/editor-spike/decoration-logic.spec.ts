@@ -4,6 +4,7 @@ import {
   boldMarkers,
   checkbox,
   checklistMarkdown,
+  clampFontSize,
   toggledCheckbox,
 } from "./decoration-logic";
 
@@ -66,5 +67,23 @@ describe("checklistMarkdown", () => {
     expect(md).toContain("| undo | blocker | a\\|b c |");
     expect(md).toContain("| dictation | untested |  |");
     expect(md.split("\n")).toHaveLength(13);
+  });
+});
+
+describe("clampFontSize", () => {
+  it("keeps valid sizes and parses stored strings", () => {
+    expect(clampFontSize(16)).toBe(16);
+    expect(clampFontSize("12")).toBe(12);
+  });
+
+  it("clamps to the bounds", () => {
+    expect(clampFontSize(2)).toBe(8);
+    expect(clampFontSize(99)).toBe(28);
+  });
+
+  it("falls back to 14 for junk", () => {
+    expect(clampFontSize(null)).toBe(14);
+    expect(clampFontSize("abc")).toBe(14);
+    expect(clampFontSize(NaN)).toBe(14);
   });
 });
