@@ -197,6 +197,10 @@ fn backlinks_and_tags() {
     );
     assert_eq!(back[1].heading.as_deref(), Some("Part"));
     assert_eq!(back[1].alias.as_deref(), Some("alias"));
+    assert_eq!(
+        (back[0].line, back[0].context.as_str()),
+        (1, "[[Target]] and [[Target#Part|alias]] #shared #solo")
+    );
     assert!(read::backlinks(&conn, "c.md").unwrap().is_empty());
 
     let tags = read::tags(&conn).unwrap();

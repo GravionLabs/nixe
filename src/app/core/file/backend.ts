@@ -16,6 +16,36 @@ export interface IndexStatus {
   error: string | null;
 }
 
+export interface Backlink {
+  /** Vault-relative path of the note containing the link. */
+  source: string;
+  heading: string | null;
+  block: string | null;
+  alias: string | null;
+  kind: "link" | "embed" | "markdown";
+  /** 1-based line of the link in the source note. */
+  line: number;
+  /** The trimmed text of that line. */
+  context: string;
+}
+
+export interface IndexedLink {
+  target: string;
+  heading: string | null;
+  block: string | null;
+  alias: string | null;
+  kind: "link" | "embed" | "markdown";
+  /** Vault-relative path of the target; null when missing or ambiguous. */
+  resolved: string | null;
+  line: number;
+}
+
+export interface NoteRecord {
+  path: string;
+  title: string;
+  links: IndexedLink[];
+}
+
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
@@ -29,6 +59,9 @@ export const backend = {
   /** Starts the background scan of the vault index; returns at once. */
   indexStart: (root: string) => invoke<void>("index_start", { root }),
   indexStatus: () => invoke<IndexStatus>("index_status"),
+  backlinks: (path: string) => invoke<Backlink[]>("backlinks", { path }),
+  /** Metadata of one indexed note (vault-relative path); null when it is not indexed. */
+  noteMeta: (path: string) => invoke<NoteRecord | null>("note_meta", { path }),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
 };
 

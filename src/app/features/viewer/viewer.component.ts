@@ -102,6 +102,7 @@ export class ViewerComponent {
           this.host.nativeElement.scrollTop = 0;
         }
         this.applyPendingAnchor(false);
+        this.applyPendingLine(false);
         // Diagrams change the layout, so the anchor is applied again afterwards.
         // Embedded notes are loaded first so diagrams inside them render too.
         void this.markdown
@@ -114,7 +115,19 @@ export class ViewerComponent {
           })
           .catch(() => undefined)
           .then(() => this.mermaid.render(el, dark))
-          .then(() => this.applyPendingAnchor(true));
+          .then(() => {
+            this.applyPendingAnchor(true);
+            this.applyPendingLine(true);
+          });
+      });
+    });
+
+    // Opening a line of the note that is already shown renders nothing new, so scroll here.
+    effect(() => {
+      const line = this.doc.pendingLine();
+      if (line === null) return;
+      untracked(() => {
+        if (this.renderedPath === this.doc.path() && this.scrollToLine(line)) this.doc.pendingLine.set(null);
       });
     });
   }
@@ -273,6 +286,27 @@ export class ViewerComponent {
     const anchor = this.doc.pendingAnchor();
     if (anchor === null) return;
     if (this.scrollToAnchor(anchor) && done) this.doc.pendingAnchor.set(null);
+  }
+
+  /** `done`: the layout is final, so the line is consumed. */
+  private applyPendingLine(done: boolean): void {
+    const line = this.doc.pendingLine();
+    if (line === null) return;
+    if (this.scrollToLine(line) && done) this.doc.pendingLine.set(null);
+  }
+
+  /** Scrolls to the last top-level block that starts at or before the 1-based source `line`. */
+  private scrollToLine(line: number): boolean {
+    const blocks = this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]");
+    let best: HTMLElement | null = null;
+    for (const block of Array.from(blocks)) {
+      if (Number(block.dataset["line"]) <= line - 1) best = block;
+      else break;
+    }
+    best ??= blocks[0] ?? null;
+    if (!best) return false;
+    best.scrollIntoView({ block: "start" });
+    return true;
   }
 
   /** Accepts exact ids as well as un-slugified heading text (ADO: "#My-Heading"). */

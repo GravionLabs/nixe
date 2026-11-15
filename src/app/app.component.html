@@ -13,6 +13,9 @@
   }
   @if (doc.path()) {
     <app-viewer class="pane" [html]="html()" [dark]="settings.dark()" (notify)="showToast($event)" />
+    @if (showBacklinks()) {
+      <app-backlinks (error)="showToast($event)" />
+    }
   } @else {
     <section class="welcome">
       <h1>Nixe</h1>
@@ -26,6 +29,7 @@
         <dt>{{ mod }}O</dt><dd>Open file</dd>
         <dt>{{ mod }}⇧O</dt><dd>Open folder</dd>
         <dt>{{ mod }}B</dt><dd>Toggle sidebar</dd>
+        <dt>{{ mod }}⇧B</dt><dd>Toggle backlinks</dd>
         <dt>{{ mod }}[ / ]</dt><dd>Back / forward</dd>
       </dl>
     </section>

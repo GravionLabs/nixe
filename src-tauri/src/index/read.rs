@@ -20,6 +20,7 @@ pub struct IndexedLink {
     pub kind: String,
     /// Vault-relative path of the target, `None` when missing or ambiguous.
     pub resolved: Option<String>,
+    pub line: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -56,6 +57,10 @@ pub struct Backlink {
     pub block: Option<String>,
     pub alias: Option<String>,
     pub kind: String,
+    /// 1-based line of the link in the source note.
+    pub line: usize,
+    /// The trimmed text of that line.
+    pub context: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -121,7 +126,7 @@ pub fn note_meta(conn: &Connection, path: &str) -> rusqlite::Result<Option<NoteR
         return Ok(None);
     };
     let links = conn
-        .prepare("SELECT target, heading, block, alias, kind, resolved FROM links WHERE source_id = ?1 ORDER BY id")?
+        .prepare("SELECT target, heading, block, alias, kind, resolved, line FROM links WHERE source_id = ?1 ORDER BY id")?
         .query_map([id], |r| {
             Ok(IndexedLink {
                 target: r.get(0)?,
@@ -130,6 +135,7 @@ pub fn note_meta(conn: &Connection, path: &str) -> rusqlite::Result<Option<NoteR
                 alias: r.get(3)?,
                 kind: r.get(4)?,
                 resolved: r.get(5)?,
+                line: r.get::<_, i64>(6)? as usize,
             })
         })?
         .collect::<Result<_, _>>()?;
@@ -172,7 +178,7 @@ pub fn note_meta(conn: &Connection, path: &str) -> rusqlite::Result<Option<NoteR
 /// Links whose resolved target is `path`, a note linking to itself excluded.
 pub fn backlinks(conn: &Connection, path: &str) -> rusqlite::Result<Vec<Backlink>> {
     let mut stmt = conn.prepare(
-        "SELECT n.path, l.heading, l.block, l.alias, l.kind
+        "SELECT n.path, l.heading, l.block, l.alias, l.kind, l.line, l.context
          FROM links l JOIN notes n ON n.id = l.source_id
          WHERE l.resolved = ?1 AND n.path <> ?1
          ORDER BY n.path, l.id",
@@ -184,6 +190,8 @@ pub fn backlinks(conn: &Connection, path: &str) -> rusqlite::Result<Vec<Backlink
             block: r.get(2)?,
             alias: r.get(3)?,
             kind: r.get(4)?,
+            line: r.get::<_, i64>(5)? as usize,
+            context: r.get(6)?,
         })
     })?;
     rows.collect()

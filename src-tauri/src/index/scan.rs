@@ -141,9 +141,19 @@ pub(super) fn insert_note(
     )?;
 
     let mut link = tx.prepare_cached(
-        "INSERT INTO links (source_id, target, heading, block, alias, kind, resolved)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO links (source_id, target, heading, block, alias, kind, resolved, line, context)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
     )?;
+    let lines: Vec<&str> = body.lines().collect();
+    let context = |line: usize| -> String {
+        let text = lines.get(line.wrapping_sub(1)).copied().unwrap_or("");
+        text.trim()
+            .trim_start_matches('\u{feff}')
+            .trim()
+            .chars()
+            .take(200)
+            .collect()
+    };
     for l in &meta.links {
         // `[[#Heading]]` points at the note itself.
         let resolved = if l.target.is_empty() {
@@ -153,7 +163,15 @@ pub(super) fn insert_note(
         };
         let kind = if l.embed { "embed" } else { "link" };
         link.execute(params![
-            id, l.target, l.heading, l.block, l.alias, kind, resolved
+            id,
+            l.target,
+            l.heading,
+            l.block,
+            l.alias,
+            kind,
+            resolved,
+            l.line as i64,
+            context(l.line)
         ])?;
     }
     for l in &meta.markdown_links {
@@ -165,7 +183,9 @@ pub(super) fn insert_note(
             None::<String>,
             None::<String>,
             "markdown",
-            resolved
+            resolved,
+            l.line as i64,
+            context(l.line)
         ])?;
     }
     let mut tag = tx.prepare_cached("INSERT INTO tags (note_id, tag) VALUES (?1, ?2)")?;

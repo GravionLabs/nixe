@@ -57,7 +57,9 @@ README possible: that code could move into its own package unchanged.
 | `DocumentService` | `path`, `content`, `wikiRoot`, back/forward `history` | The single displayed document. |
 | `WorkspaceService` | `root`, the lazily-loaded tree (`visible` computed) | The opened folder's sidebar tree. |
 | `MarkdownService` | render cache (one `MarkdownIt` instance per math on/off) | Pure `render()`, see [markdown-pipeline.md](markdown-pipeline.md). |
-| `SettingsService` | theme, math toggle, sidebar width/visibility, last folder | Persisted to `localStorage`. |
+| `IndexService` | vault index `status`, a `revision` counter bumped on `vault-changed` | Listens to the `index-status` and `vault-changed` events. |
+| `BacklinksService` | backlinks and outgoing links of the open note | Feeds the right-hand `BacklinksComponent` panel (View → Toggle Backlinks Panel, ⌘⇧B). Backlinks carry the linking line; clicking one opens the note scrolled to it. Unresolved outgoing links are marked. |
+| `SettingsService` | theme, math toggle, sidebar width/visibility, backlinks panel visibility, last folder | Persisted to `localStorage`. |
 
 See [state-management.md](state-management.md) for how these interact when the user
 clicks a link or expands a tree node.
