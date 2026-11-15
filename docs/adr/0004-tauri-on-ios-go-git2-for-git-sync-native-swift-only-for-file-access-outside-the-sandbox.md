@@ -25,9 +25,11 @@ recorded elsewhere in the repository.
   Keychain through the `keyring` crate (`apple-native`), set and read from Rust, never on disk.
 - **Editor (#59):** CodeMirror 6 works in the iOS WebView: typing, Markdown highlighting,
   hiding `**` outside the cursor line, a checkbox widget, a visible caret and a configurable
-  font size. All 11 checklist items were rated ok. The vault folder `<Documents>/vault` is
+  font size. All 11 checklist items were rated ok. The editor spike's folder `<Documents>/vault` is
   visible in the Files app (`UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace`), and a
-  note in it opens in the app.
+  note in it opens in the app. The Git spike clones into a different folder,
+  `<app_data_dir>/vault`; the two folders were never used together, and cloning a repository and
+  then editing the clone in the Files app was not tested.
 - **Files outside the app folder:** the Tauri dialog plugin returns a percent-encoded `file://`
   URL, offers files only (no folder), and Rust cannot read that URL: `Operation not permitted
   (os error 1)`. iOS grants access only after `startAccessingSecurityScopedResource` on the URL,
@@ -46,8 +48,10 @@ notes, iPad, sync conflicts on a device, background behavior, and Git over SSH.
    token, with the features `https`, `vendored-libgit2` and `vendored-openssl` (`git2` 0.21 has no default features, so SSH is not compiled in). The same code serves desktop and iOS. The token is kept in the
    Keychain (macOS and iOS) through `keyring`. Windows and Linux have no token store yet; the
    spike returns an error there, and M003 decides which store to use.
-3. **The vault lives in the app container on iOS:** `<Documents>/vault`, created by cloning the
-   repository (the spike deletes an earlier folder before it clones; the real clone must not). The Rust commands name files relative to that folder, refuse names that leave it
+3. **The vault lives in the app container on iOS,** created by cloning the
+   repository. The spikes used two different folders (the Git spike `<app_data_dir>/vault`, the editor
+   spike `<Documents>/vault`); the MVP must pick one, and the folder must be visible in the Files app
+   for the editing path below to work, which was not tested for a clone (the spike deletes an earlier folder before it clones; the real clone must not). The Rust commands name files relative to that folder, refuse names that leave it
    and refuse symlinks, and write through a temporary file and a rename. Keep
    `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` so the user can see and edit
    the vault in the Files app.
