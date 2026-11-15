@@ -16,6 +16,7 @@ import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
 import { slugify } from "../../core/markdown/markdown-renderer";
+import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
@@ -73,6 +74,7 @@ export class ViewerComponent {
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
+  private readonly markdown = inject(MarkdownService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly content = viewChild.required<ElementRef<HTMLElement>>("content");
   /** Always mounted (visibility toggled via CSS), so it's available as soon as a diagram is clicked. */
@@ -101,7 +103,18 @@ export class ViewerComponent {
         }
         this.applyPendingAnchor(false);
         // Diagrams change the layout, so the anchor is applied again afterwards.
-        void this.mermaid.render(el, dark).then(() => this.applyPendingAnchor(true));
+        // Embedded notes are loaded first so diagrams inside them render too.
+        void this.markdown
+          .expandEmbeds(el, {
+            filePath: path,
+            wikiRoot: this.doc.wikiRoot(),
+            math: this.settings.math(),
+            vaultFiles: this.workspace.vaultFiles(),
+            vaultRoot: this.workspace.vaultRoot(),
+          })
+          .catch(() => undefined)
+          .then(() => this.mermaid.render(el, dark))
+          .then(() => this.applyPendingAnchor(true));
       });
     });
   }

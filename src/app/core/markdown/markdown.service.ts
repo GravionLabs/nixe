@@ -3,6 +3,8 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import DOMPurify from "dompurify";
 import type { MarkdownIt } from "markdown-it";
 
+import { expandEmbeds } from "./embed-expander";
+import { backend } from "../file/backend";
 import { classifyHref } from "./link-resolver";
 import { createMarkdownRenderer } from "./markdown-renderer";
 import { renderNote, type RenderedNote } from "./note";
@@ -14,6 +16,8 @@ export interface RenderContext {
   math: boolean;
   /** Vault-relative files; enables `unresolved` marking of wikilinks. */
   vaultFiles?: readonly string[] | null;
+  /** Absolute vault root; resolves embedded images and notes. */
+  vaultRoot?: string | null;
 }
 
 /** Markdown → sanitized HTML, with local image paths mapped to Tauri's asset protocol. */
@@ -45,11 +49,32 @@ export class MarkdownService {
     }
     this.current = ctx;
     try {
-      const note = renderNote(md, text, ctx.vaultFiles ?? undefined);
+      const note = renderNote(md, text, ctx.vaultFiles ?? undefined, ctx.vaultRoot ?? undefined);
       return { ...note, html: DOMPurify.sanitize(note.html) };
     } finally {
       this.current = null;
     }
+  }
+
+  /**
+   * Fills the `![[Note]]` placeholders below `root`: each note is read through the read command,
+   * rendered with the same pipeline (sanitized) and inserted. Cycles and depth > 3 get a placeholder.
+   */
+  async expandEmbeds(root: HTMLElement, ctx: RenderContext): Promise<void> {
+    const { vaultRoot, vaultFiles } = ctx;
+    if (!vaultRoot || !vaultFiles || !root.querySelector(".embed[data-embed]")) return;
+    const prefix = vaultRoot.endsWith("/") ? vaultRoot : vaultRoot + "/";
+    const current = ctx.filePath?.startsWith(prefix) ? ctx.filePath.slice(prefix.length) : "";
+    await expandEmbeds(
+      root,
+      {
+        vaultRoot,
+        vaultFiles,
+        read: (path) => backend.readTextFile(path),
+        render: (text, path) => this.render(text, { ...ctx, filePath: path }),
+      },
+      [current],
+    );
   }
 
   /**

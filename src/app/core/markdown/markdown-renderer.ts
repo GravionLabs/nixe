@@ -7,6 +7,7 @@ import hljs from "highlight.js/lib/common";
 
 import { adoMermaidPlugin } from "./plugins/ado-mermaid.plugin";
 import { adoTocPlugin } from "./plugins/ado-toc.plugin";
+import { embedPlugin } from "./plugins/embed.plugin";
 import { calloutPlugin } from "./plugins/callout.plugin";
 import { commentPlugin, highlightPlugin } from "./plugins/highlight-comment.plugin";
 import { mermaidFencePlugin } from "./plugins/mermaid-fence.plugin";
@@ -66,6 +67,7 @@ export function createMarkdownRenderer(options: RendererOptions): MarkdownIt {
     .use(highlightPlugin)
     .use(commentPlugin)
     .use(tagPlugin)
+    .use(embedPlugin)
     .use(wikilinkPlugin)
     .use(sourceLinePlugin);
 

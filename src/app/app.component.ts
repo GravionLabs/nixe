@@ -38,6 +38,7 @@ export class AppComponent {
       wikiRoot: this.doc.wikiRoot(),
       math: this.settings.math(),
       vaultFiles: this.workspace.vaultFiles(),
+      vaultRoot: this.workspace.vaultRoot(),
     }),
   );
 
