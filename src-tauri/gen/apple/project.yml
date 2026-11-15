@@ -53,6 +53,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 0.1.0
         CFBundleVersion: "0.1.0"
+        NSLocalNetworkUsageDescription: Nixe connects to the development server on your Mac in the local network.
     entitlements:
       path: nixe_iOS/nixe_iOS.entitlements
     scheme:
