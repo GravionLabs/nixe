@@ -5,6 +5,7 @@ import type { MarkdownIt } from "markdown-it";
 
 import { classifyHref } from "./link-resolver";
 import { createMarkdownRenderer } from "./markdown-renderer";
+import { renderNote, type RenderedNote } from "./note";
 import { dirname, isAbsolutePath, joinPath } from "./paths";
 
 export interface RenderContext {
@@ -30,6 +31,11 @@ export class MarkdownService {
   }
 
   render(text: string, ctx: RenderContext): string {
+    return this.renderNote(text, ctx).html;
+  }
+
+  /** Sanitized HTML plus the note's properties and collected tags. */
+  renderNote(text: string, ctx: RenderContext): RenderedNote {
     let md = this.renderers.get(ctx.math);
     if (!md) {
       md = createMarkdownRenderer({ math: ctx.math });
@@ -37,7 +43,8 @@ export class MarkdownService {
     }
     this.current = ctx;
     try {
-      return DOMPurify.sanitize(md.render(text));
+      const note = renderNote(md, text);
+      return { ...note, html: DOMPurify.sanitize(note.html) };
     } finally {
       this.current = null;
     }

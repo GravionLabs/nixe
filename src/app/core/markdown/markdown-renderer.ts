@@ -11,6 +11,7 @@ import { calloutPlugin } from "./plugins/callout.plugin";
 import { commentPlugin, highlightPlugin } from "./plugins/highlight-comment.plugin";
 import { mermaidFencePlugin } from "./plugins/mermaid-fence.plugin";
 import { sourceLinePlugin } from "./plugins/source-line.plugin";
+import { tagPlugin } from "./plugins/tag.plugin";
 
 export interface RendererOptions {
   /** Enables LaTeX math via KaTeX (`$…$`, `$$…$$`, ```math fences). */
@@ -63,6 +64,7 @@ export function createMarkdownRenderer(options: RendererOptions): MarkdownIt {
     .use(calloutPlugin)
     .use(highlightPlugin)
     .use(commentPlugin)
+    .use(tagPlugin)
     .use(sourceLinePlugin);
 
   if (options.math) {
