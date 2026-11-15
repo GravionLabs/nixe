@@ -2,13 +2,31 @@ import { Component, signal } from "@angular/core";
 import { invoke } from "@tauri-apps/api/core";
 import { appDataDir, join } from "@tauri-apps/api/path";
 
+const URL_KEY = "nixe.gitSpike.url";
+
+function readUrl(): string {
+  try {
+    return localStorage.getItem(URL_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveUrl(url: string): void {
+  try {
+    localStorage.setItem(URL_KEY, url);
+  } catch {
+    // Storage can be unavailable; the field then starts empty.
+  }
+}
+
 /** Temporary prototype for #60 (git2 on iOS). Dev builds only; remove after the spike. */
 @Component({
   selector: "app-git-spike",
   template: `
     <details class="spike">
       <summary>Git spike (#60)</summary>
-      <input #url placeholder="https://github.com/owner/private-repo.git" />
+      <input #url [value]="savedUrl" placeholder="https://github.com/owner/private-repo.git" />
       <input #token type="password" placeholder="personal access token" />
       <div class="row">
         <button type="button" (click)="run('token set', () => setToken(token))">Save token</button>
@@ -30,6 +48,8 @@ import { appDataDir, join } from "@tauri-apps/api/path";
 })
 export class GitSpikeComponent {
   protected readonly log = signal("");
+  /** The repository URL is remembered between launches (the token lives in the Keychain). */
+  protected readonly savedUrl = readUrl();
 
   protected async run(name: string, action: () => Promise<unknown>): Promise<void> {
     const start = performance.now();
@@ -52,7 +72,8 @@ export class GitSpikeComponent {
 
   protected async clone(url: string): Promise<string> {
     const dest = await this.vaultDir();
-    const ms = await invoke<number>("git_clone", { url, dest });
+    saveUrl(url);
+    const ms =await invoke<number>("git_clone", { url, dest });
     return `clone took ${ms} ms`;
   }
 

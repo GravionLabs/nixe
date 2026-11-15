@@ -138,8 +138,14 @@ pub fn git_token_get() -> Result<bool, String> {
 pub async fn git_clone(url: String, dest: String) -> Result<u128, String> {
     let token = stored_token()?;
     tauri::async_runtime::spawn_blocking(move || {
+        // Spike: a failed or earlier clone leaves the directory behind; start clean
+        // so the clone can be repeated and timed.
+        let dest_path = Path::new(&dest);
+        if dest_path.is_dir() {
+            std::fs::remove_dir_all(dest_path).map_err(|e| e.to_string())?;
+        }
         let start = std::time::Instant::now();
-        clone(&url, Path::new(&dest), token.as_deref()).map_err(err)?;
+        clone(&url, dest_path, token.as_deref()).map_err(err)?;
         Ok(start.elapsed().as_millis())
     })
     .await
