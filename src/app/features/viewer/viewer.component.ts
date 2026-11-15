@@ -193,6 +193,8 @@ export class ViewerComponent {
     const link = target.closest("a");
     if (!link) return;
     event.preventDefault();
+    // Tags open the search once it exists (#66); until then clicking is a no-op.
+    if (link.classList.contains("tag")) return;
 
     const href = classifyHref(link.getAttribute("href"));
     switch (href.kind) {
