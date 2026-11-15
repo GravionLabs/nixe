@@ -1,5 +1,7 @@
 //! Link resolution by Obsidian's rules. Mirrors `wikilink-resolver.ts`.
 
+use std::collections::HashMap;
+
 /// A wikilink target split into note, heading and block id.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LinkTarget {
@@ -96,6 +98,68 @@ pub fn resolve_link<S: AsRef<str>>(target: &str, files: &[S]) -> Option<String> 
     None
 }
 
+/// `resolve_link` with the file list indexed once, for resolving many links against one vault.
+pub struct Resolver {
+    files: Vec<String>,
+    exact: HashMap<String, usize>,
+    /// Lowercased path to the files with that path.
+    lower: HashMap<String, Vec<usize>>,
+    /// Lowercased tail after each `/` to the files ending with it.
+    tails: HashMap<String, Vec<usize>>,
+}
+
+impl Resolver {
+    pub fn new<S: AsRef<str>>(files: &[S]) -> Self {
+        let files: Vec<String> = files.iter().map(|f| f.as_ref().to_string()).collect();
+        let mut exact = HashMap::new();
+        let mut lower: HashMap<String, Vec<usize>> = HashMap::new();
+        let mut tails: HashMap<String, Vec<usize>> = HashMap::new();
+        for (i, f) in files.iter().enumerate() {
+            exact.entry(f.clone()).or_insert(i);
+            let l = f.to_lowercase();
+            for (pos, _) in l.match_indices('/') {
+                tails.entry(l[pos + 1..].to_string()).or_default().push(i);
+            }
+            lower.entry(l).or_default().push(i);
+        }
+        Resolver {
+            files,
+            exact,
+            lower,
+            tails,
+        }
+    }
+
+    /// Same result as `resolve_link(target, files)`.
+    pub fn resolve(&self, target: &str) -> Option<String> {
+        let note = parse_target(target).note;
+        if note.is_empty() {
+            return None;
+        }
+        let names: Vec<String> = if is_markdown_path(&note) {
+            vec![note]
+        } else {
+            vec![format!("{note}.md"), note]
+        };
+        for name in &names {
+            if let Some(&i) = self.exact.get(name) {
+                return Some(self.files[i].clone());
+            }
+        }
+        for name in &names {
+            let lower = name.to_lowercase();
+            for map in [&self.lower, &self.tails] {
+                match map.get(&lower).map(Vec::as_slice) {
+                    Some([only]) => return Some(self.files[*only].clone()),
+                    Some(more) if more.len() > 1 => return None,
+                    _ => {}
+                }
+            }
+        }
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,5 +217,28 @@ mod tests {
         assert_eq!(r("Twin"), None);
         assert_eq!(r("#Heading"), None);
         assert_eq!(r("other/Twin").as_deref(), Some("other/Twin.md"));
+    }
+
+    #[test]
+    fn resolver_agrees_with_resolve_link() {
+        let resolver = Resolver::new(FILES);
+        for t in [
+            "Note",
+            "folder/Deep",
+            "Deep",
+            "Deep.md",
+            "image.svg",
+            "note",
+            "note.MD",
+            "FOLDER/deep",
+            "Missing",
+            "Twin",
+            "#Heading",
+            "other/Twin",
+            "Note#H",
+            "doc.pdf",
+        ] {
+            assert_eq!(resolver.resolve(t), resolve_link(t, FILES), "{t}");
+        }
     }
 }

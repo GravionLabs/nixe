@@ -15,6 +15,7 @@ mod menu;
 // Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
 #[cfg(any(debug_assertions, mobile))]
 mod gitsync;
+mod index;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
 mod tree;
@@ -217,7 +218,8 @@ pub fn run() {
     builder = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(AppState::default());
+        .manage(AppState::default())
+        .manage(index::commands::IndexState::default());
 
     #[cfg(desktop)]
     {
@@ -265,6 +267,12 @@ pub fn run() {
         find_wiki_root,
         find_vault_root,
         list_vault_files,
+        index::commands::index_start,
+        index::commands::index_status,
+        index::commands::notes,
+        index::commands::note_meta,
+        index::commands::backlinks,
+        index::commands::tags,
         watch_file,
         gitsync::git_token_set,
         gitsync::git_token_get,
@@ -290,6 +298,12 @@ pub fn run() {
         find_wiki_root,
         find_vault_root,
         list_vault_files,
+        index::commands::index_start,
+        index::commands::index_status,
+        index::commands::notes,
+        index::commands::note_meta,
+        index::commands::backlinks,
+        index::commands::tags,
         watch_file
     ]);
 
