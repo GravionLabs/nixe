@@ -1,6 +1,6 @@
 # ADR 0004: Tauri on iOS: go, git2 for Git sync, native Swift only for file access outside the sandbox
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-15
 - Issues: #61
 - Builds on: [ADR 0003](0003-nixe-becomes-a-vault-app-with-editing-and-git-sync.md)
