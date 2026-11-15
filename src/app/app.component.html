@@ -29,7 +29,8 @@
       </div>
       <p class="hint">or drop a file or folder onto the window</p>
       <dl class="shortcuts">
-        <dt>{{ mod }}O</dt><dd>Open file</dd>
+        <dt>{{ mod }}O</dt><dd>Quick switcher</dd>
+        <dt>{{ mod }}⇧P</dt><dd>Open file</dd>
         <dt>{{ mod }}⇧O</dt><dd>Open folder</dd>
         <dt>{{ mod }}B</dt><dd>Toggle sidebar</dd>
         <dt>{{ mod }}⇧B</dt><dd>Toggle backlinks</dd>
@@ -39,6 +40,10 @@
     </section>
   }
 </main>
+
+@if (showSwitcher()) {
+  <app-switcher (error)="showToast($event)" />
+}
 
 @if (toast(); as message) {
   <div class="toast" role="status">{{ message }}</div>

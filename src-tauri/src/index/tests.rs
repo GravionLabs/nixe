@@ -127,6 +127,8 @@ fn indexes_notes_with_all_their_metadata() {
         ["Home.md", "dir/Other.md"]
     );
     assert_eq!(notes[1].title, "Other");
+    assert_eq!(notes[0].aliases, ["Start"]);
+    assert!(notes[1].aliases.is_empty());
 
     let meta = read::note_meta(&conn, "Home.md").unwrap().unwrap();
     assert_eq!(meta.aliases, ["Start"]);

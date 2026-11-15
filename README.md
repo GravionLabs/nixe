@@ -28,7 +28,7 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
   - `[[_TOC_]]`
   - The wiki root is the topmost folder with a `.order` file, otherwise the Git root.
 - **Open folder**: a file tree of Markdown files on the left. It loads lazily, its width is adjustable, and it expands to the active file as you navigate. In ADO wikis the `.order` sequence is used, `Page.md` and the folder `Page/` appear as a single node, and names are decoded (`Data-Flow.md` → "Data Flow"). The last opened folder is restored on startup.
-- **Native menu**: File (Open file, Open folder, Reload), Edit, View
+- **Native menu**: File (Quick switcher, Open file, Open folder, Reload), Edit, View
 - **Live reload** when the file changes on disk
 - **Light/dark**: follows the system or can be set manually
 - Open via menu/dialog, drag & drop, command line (`nixe README.md`, `nixe ./docs`), or file association
@@ -38,7 +38,8 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
 
 | Shortcut | Action |
 |---|---|
-| ⌘/Ctrl + O | Open file |
+| ⌘/Ctrl + O | Quick switcher: fuzzy search over note names and aliases, recent notes first (↑/↓, Enter, Esc) |
+| ⌘/Ctrl + ⇧ + P | Open file |
 | ⌘/Ctrl + ⇧ + O | Open folder |
 | ⌘/Ctrl + R | Reload |
 | ⌘/Ctrl + B | Toggle sidebar |

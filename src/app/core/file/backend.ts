@@ -54,6 +54,13 @@ export interface SearchHit {
   snippets: SearchSnippet[];
 }
 
+export interface NoteSummary {
+  /** Vault-relative path. */
+  path: string;
+  title: string;
+  aliases: string[];
+}
+
 export interface NoteRecord {
   path: string;
   title: string;
@@ -73,6 +80,7 @@ export const backend = {
   /** Starts the background scan of the vault index; returns at once. */
   indexStart: (root: string) => invoke<void>("index_start", { root }),
   indexStatus: () => invoke<IndexStatus>("index_status"),
+  notes: () => invoke<NoteSummary[]>("notes"),
   backlinks: (path: string) => invoke<Backlink[]>("backlinks", { path }),
   /** Metadata of one indexed note (vault-relative path); null when it is not indexed. */
   noteMeta: (path: string) => invoke<NoteRecord | null>("note_meta", { path }),
