@@ -13,6 +13,8 @@
 		499804C198347986246C8AE1 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6F11DC88C233087D6EE627FC /* CoreGraphics.framework */; };
 		6D0D468E334F464821FCF5FB /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 077600BBC832C95E064CA4D1 /* QuartzCore.framework */; };
 		71EEC679E767779835073F00 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 487D7983FD64521344C8F8E2 /* libapp.a */; };
+		79BE90023B7FE3A67426856E /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 34A6BE80DE98256FF4B1F710 /* libz.tbd */; };
+		A797551E7713EE358329C291 /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 630A6ADD5477D8A20EEE2690 /* libiconv.tbd */; };
 		B7A8829549D49C63F35C5425 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE509CD5FE7458994CFE31A0 /* MetalKit.framework */; };
 		BF00995403AFA98F8B11E6FA /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A16097400750E492FA00764 /* UIKit.framework */; };
 		C990FC04F41C97DE649D5D61 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 7D6E246662524632524A82FF /* assets */; };
@@ -26,12 +28,15 @@
 		077600BBC832C95E064CA4D1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		0A49F42C542D04E47B5FBBF1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1D8A236CC0FAB4824D5A3ADA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		34A6BE80DE98256FF4B1F710 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		360352614C9F6EEDAF705130 /* gitsync.rs */ = {isa = PBXFileReference; path = gitsync.rs; sourceTree = "<group>"; };
 		39BBF52A8CDD33BA652F7521 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		40045945AC40C9FF885DC91A /* nixe_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nixe_iOS.entitlements; sourceTree = "<group>"; };
 		487D7983FD64521344C8F8E2 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		4A8625CB4F7E493162DC9219 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		4AB1E487333129053D8CA980 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		56C8431BA7472FED06F76C76 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+		630A6ADD5477D8A20EEE2690 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = usr/lib/libiconv.tbd; sourceTree = SDKROOT; };
 		6F11DC88C233087D6EE627FC /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		7D6E246662524632524A82FF /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		7DBB71AB48828B1DECE9230B /* nixe_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = nixe_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -58,6 +63,8 @@
 				CEA4E49CA36798E2BFF1ED03 /* Security.framework in Frameworks */,
 				BF00995403AFA98F8B11E6FA /* UIKit.framework in Frameworks */,
 				17CD8D0BD01CAC7503A0D302 /* WebKit.framework in Frameworks */,
+				79BE90023B7FE3A67426856E /* libz.tbd in Frameworks */,
+				A797551E7713EE358329C291 /* libiconv.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				B6080FBDAAEB21F871FA38D6 /* cli_install.rs */,
+				360352614C9F6EEDAF705130 /* gitsync.rs */,
 				56C8431BA7472FED06F76C76 /* lib.rs */,
 				89144D851AF9AC3D5840CFE1 /* main.rs */,
 				94F3AE8E1929BE6D8F0B8BC7 /* menu.rs */,
@@ -146,6 +154,8 @@
 			children = (
 				6F11DC88C233087D6EE627FC /* CoreGraphics.framework */,
 				487D7983FD64521344C8F8E2 /* libapp.a */,
+				630A6ADD5477D8A20EEE2690 /* libiconv.tbd */,
+				34A6BE80DE98256FF4B1F710 /* libz.tbd */,
 				4AB1E487333129053D8CA980 /* Metal.framework */,
 				BE509CD5FE7458994CFE31A0 /* MetalKit.framework */,
 				077600BBC832C95E064CA4D1 /* QuartzCore.framework */,

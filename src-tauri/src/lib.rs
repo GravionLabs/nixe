@@ -12,6 +12,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 mod cli_install;
 #[cfg(desktop)]
 mod menu;
+mod gitsync;
 mod tree;
 
 /// Event telling the frontend that a file or folder is waiting in `take_pending_file`.
@@ -223,7 +224,14 @@ pub fn run() {
             is_dir,
             list_dir,
             find_wiki_root,
-            watch_file
+            watch_file,
+            gitsync::git_token_set,
+            gitsync::git_token_get,
+            gitsync::git_clone,
+            gitsync::git_spike_edit,
+            gitsync::git_commit,
+            gitsync::git_pull_rebase,
+            gitsync::git_push
         ])
         .build(tauri::generate_context!())
         .expect("error while building nixe");
