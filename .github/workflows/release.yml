@@ -177,8 +177,27 @@ jobs:
         shell: bash
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"
 
-  publish-release:
+  checksums:
     needs: [determine-version, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write, check and upload SHA256SUMS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="v${{ needs.determine-version.outputs.semver }}"
+          mkdir "$RUNNER_TEMP/assets"
+          gh release download "$tag" --repo "${{ github.repository }}" --dir "$RUNNER_TEMP/assets"
+          bash scripts/release-checksums.sh "$RUNNER_TEMP/assets"
+          gh release upload "$tag" "$RUNNER_TEMP/assets/SHA256SUMS" --repo "${{ github.repository }}" --clobber
+
+  publish-release:
+    needs: [determine-version, build, checksums]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
