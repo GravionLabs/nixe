@@ -1,3 +1,4 @@
+#[cfg(desktop)]
 use std::io::{IsTerminal, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -9,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 #[cfg(target_os = "macos")]
 mod cli_install;
+#[cfg(desktop)]
 mod menu;
 mod tree;
 
@@ -36,7 +38,18 @@ fn stdin_file_path() -> PathBuf {
     std::env::temp_dir().join("nixe-stdin").join("stdin.md")
 }
 
+/// Smoke-test document shown on mobile, where there is no CLI or file association yet.
+/// Writes `BUNDLED_FIXTURE` below `dir` and returns its path.
+#[cfg(any(mobile, test))]
+fn write_bundled_fixture(dir: &Path) -> std::io::Result<PathBuf> {
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join("ios.md");
+    std::fs::write(&path, include_str!("../../fixtures/ios.md"))?;
+    Ok(path)
+}
+
 /// Reads piped Markdown into `stdin_file_path()`. Does nothing for a terminal stdin.
+#[cfg(desktop)]
 fn capture_stdin(args: &[String]) {
     if !args.iter().skip(1).any(|arg| arg == "-") || std::io::stdin().is_terminal() {
         return;
@@ -151,6 +164,7 @@ fn watch_file(app: AppHandle, state: State<'_, AppState>, path: String) -> Resul
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Must happen before the single-instance plugin hands control to a running instance.
+    #[cfg(desktop)]
     capture_stdin(&std::env::args().collect::<Vec<_>>());
 
     let mut builder = tauri::Builder::default();
@@ -169,23 +183,36 @@ pub fn run() {
         }));
     }
 
-    let app = builder
+    builder = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(AppState::default())
-        .menu(menu::build)
-        .on_menu_event(|app, event| {
+        .manage(AppState::default());
+
+    #[cfg(desktop)]
+    {
+        builder = builder.menu(menu::build).on_menu_event(|app, event| {
             #[cfg(target_os = "macos")]
             if event.id().as_ref() == menu::INSTALL_CLI_ID {
                 return cli_install::run(app);
             }
             menu::forward_event(app, event.id().as_ref())
-        })
+        });
+    }
+
+    let app = builder
         .setup(|app| {
             let cwd = std::env::current_dir().unwrap_or_default();
             let args: Vec<String> = std::env::args().collect();
             if let Some(path) = path_from_args(&args, &cwd) {
                 *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
+            }
+            #[cfg(mobile)]
+            if app.state::<AppState>().pending_file.lock().unwrap().is_none() {
+                if let Ok(dir) = app.path().app_cache_dir() {
+                    if let Ok(path) = write_bundled_fixture(&dir) {
+                        *app.state::<AppState>().pending_file.lock().unwrap() = Some(path_to_string(&path));
+                    }
+                }
             }
             Ok(())
         })
@@ -262,5 +289,14 @@ mod tests {
         fs::create_dir_all(expected.parent().unwrap()).unwrap();
         fs::write(&expected, "# piped").unwrap();
         assert_eq!(path_from_args(&args, Path::new("/")), Some(path_to_string(&expected)));
+    }
+
+    #[test]
+    fn bundled_fixture_contains_mermaid_and_math() {
+        let dir = temp_dir("fixture").join("cache");
+        let path = write_bundled_fixture(&dir).unwrap();
+        let text = fs::read_to_string(path).unwrap();
+        assert!(text.contains("```mermaid"));
+        assert!(text.contains("$$"));
     }
 }

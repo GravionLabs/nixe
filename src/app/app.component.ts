@@ -57,15 +57,21 @@ export class AppComponent {
   }
 
   private async initDesktopIntegration(): Promise<void> {
-    await listen(OPEN_FILE_EVENT, () => this.openPending());
-    await listen<string>(FILE_CHANGED_EVENT, (e) => this.doc.onExternalChange(e.payload));
-    await listen<string>(MENU_EVENT, (e) => this.onMenu(e.payload));
+    // Desktop-only listeners must not stop the pending file from opening
+    // (on iOS some of them are unavailable).
+    try {
+      await listen(OPEN_FILE_EVENT, () => this.openPending());
+      await listen<string>(FILE_CHANGED_EVENT, (e) => this.doc.onExternalChange(e.payload));
+      await listen<string>(MENU_EVENT, (e) => this.onMenu(e.payload));
 
-    await getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type === "drop" && event.payload.paths[0]) {
-        void this.openPath(event.payload.paths[0]);
-      }
-    });
+      await getCurrentWebview().onDragDropEvent((event) => {
+        if (event.payload.type === "drop" && event.payload.paths[0]) {
+          void this.openPath(event.payload.paths[0]);
+        }
+      });
+    } catch (err) {
+      console.warn("desktop integration unavailable", err);
+    }
 
     // A file or folder passed on the command line may already be waiting;
     // otherwise the last opened folder is restored.

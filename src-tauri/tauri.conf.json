@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "identifier": "dev.nixe.app",
   "build": {
-    "beforeDevCommand": "pnpm run start",
+    "beforeDevCommand": "pnpm run start:tauri",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm run build",
     "frontendDist": "../dist/nixe/browser"
@@ -45,6 +45,9 @@
     "active": true,
     "targets": "all",
     "category": "Productivity",
+    "iOS": {
+      "minimumSystemVersion": "15.0"
+    },
     "shortDescription": "Markdown viewer with Mermaid, Azure DevOps wiki and LaTeX support",
     "icon": [
       "icons/32x32.png",
