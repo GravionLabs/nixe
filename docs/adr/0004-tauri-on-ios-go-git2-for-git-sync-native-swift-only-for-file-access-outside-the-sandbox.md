@@ -9,13 +9,14 @@
 
 ADR 0003 made the iOS spike (M000) the gate for Git sync and the iOS app: open a vault, edit a
 note in CodeMirror 6 and sync with GitHub, all on a real iPhone. Three PBIs ran the spike on an
-iPhone with a development build (`pnpm tauri ios dev`). The details are in
-[docs/ios.md](../ios.md).
+iPhone with a development build (`pnpm tauri ios dev`). The toolchain and editor details are in
+[docs/ios.md](../ios.md); the Git numbers come from the device runs of #60 (PR 125) and are not
+recorded elsewhere in the repository.
 
 - **Toolchain (#58):** the Tauri 2 viewer runs on the simulator and on the iPhone, including
   Mermaid and KaTeX. A debug simulator build takes about 53 s with a warm Rust cache and about
-  3 min cold; `Nixe.app` is 96 MB in debug. The desktop-only listeners (menu, drag and drop,
-  single instance) throw on iOS and are guarded. A device reaches the dev server only with
+  3 min cold; `Nixe.app` is 96 MB in debug. The frontend listeners for the menu and drag and drop
+  throw on iOS and are guarded; the desktop-only Rust plugins sit behind `cfg(desktop)`. A device reaches the dev server only with
   `NSLocalNetworkUsageDescription`.
 - **Git (#60):** `git2` 0.21 builds for `aarch64-apple-ios` and the simulator with the features
   `https`, `vendored-libgit2` and `vendored-openssl`; without `https` the clone fails with "no
@@ -42,12 +43,11 @@ notes, iPad, sync conflicts on a device, background behavior, and Git over SSH.
    run on the iPhone as ADR 0003 assumed. The spike gate of ADR 0003 is passed. M001, M001.1
    and M003 are not blocked by iOS, and M005 (iOS MVP) can be planned.
 2. **Git sync uses `git2` (libgit2) in the Rust core**, over HTTPS with a personal access
-   token, with the features `https`, `vendored-libgit2` and `vendored-openssl` (default
-   features stay off). The same code serves desktop and iOS. The token is kept in the
-   Keychain (macOS and iOS) through `keyring`; desktop platforms without Keychain support get
-   their own store when M003 is planned.
+   token, with the features `https`, `vendored-libgit2` and `vendored-openssl` (`git2` 0.21 has no default features, so SSH is not compiled in). The same code serves desktop and iOS. The token is kept in the
+   Keychain (macOS and iOS) through `keyring`. Windows and Linux have no token store yet; the
+   spike returns an error there, and M003 decides which store to use.
 3. **The vault lives in the app container on iOS:** `<Documents>/vault`, created by cloning the
-   repository. The Rust commands name files relative to that folder, refuse names that leave it
+   repository (the spike deletes an earlier folder before it clones; the real clone must not). The Rust commands name files relative to that folder, refuse names that leave it
    and refuse symlinks, and write through a temporary file and a rename. Keep
    `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` so the user can see and edit
    the vault in the Files app.
