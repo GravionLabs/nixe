@@ -122,7 +122,10 @@ fn list_dir(path: String) -> Result<Vec<tree::DirEntry>, String> {
 /// the search. Without any markers the file's own directory is used.
 #[tauri::command]
 fn find_wiki_root(path: String) -> String {
-    let file_dir = Path::new(&path).parent().map(Path::to_path_buf).unwrap_or_default();
+    let file_dir = Path::new(&path)
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_default();
     let mut last_order_dir: Option<PathBuf> = None;
 
     for dir in file_dir.ancestors() {
@@ -144,16 +147,25 @@ fn find_wiki_root(path: String) -> String {
 #[tauri::command]
 fn watch_file(app: AppHandle, state: State<'_, AppState>, path: String) -> Result<(), String> {
     let target = PathBuf::from(&path);
-    let dir = target.parent().ok_or("file has no parent directory")?.to_path_buf();
+    let dir = target
+        .parent()
+        .ok_or("file has no parent directory")?
+        .to_path_buf();
     let file_name = target.file_name().map(|n| n.to_os_string());
 
-    let mut debouncer = new_debouncer(Duration::from_millis(250), move |res: DebounceEventResult| {
-        if let Ok(events) = res {
-            if events.iter().any(|e| e.path.file_name().map(|n| n.to_os_string()) == file_name) {
-                let _ = app.emit(FILE_CHANGED_EVENT, &path);
+    let mut debouncer = new_debouncer(
+        Duration::from_millis(250),
+        move |res: DebounceEventResult| {
+            if let Ok(events) = res {
+                if events
+                    .iter()
+                    .any(|e| e.path.file_name().map(|n| n.to_os_string()) == file_name)
+                {
+                    let _ = app.emit(FILE_CHANGED_EVENT, &path);
+                }
             }
-        }
-    })
+        },
+    )
     .map_err(|e| e.to_string())?;
 
     debouncer
@@ -204,48 +216,54 @@ pub fn run() {
         });
     }
 
-    let builder = builder
-        .setup(|app| {
-            let cwd = std::env::current_dir().unwrap_or_default();
-            let args: Vec<String> = std::env::args().collect();
-            if let Some(path) = path_from_args(&args, &cwd) {
-                *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
-            }
-            #[cfg(mobile)]
-            if app.state::<AppState>().pending_file.lock().unwrap().is_none() {
-                if let Ok(dir) = app.path().app_cache_dir() {
-                    if let Ok(path) = write_bundled_fixture(&dir) {
-                        *app.state::<AppState>().pending_file.lock().unwrap() = Some(path_to_string(&path));
-                    }
+    let builder = builder.setup(|app| {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let args: Vec<String> = std::env::args().collect();
+        if let Some(path) = path_from_args(&args, &cwd) {
+            *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
+        }
+        #[cfg(mobile)]
+        if app
+            .state::<AppState>()
+            .pending_file
+            .lock()
+            .unwrap()
+            .is_none()
+        {
+            if let Ok(dir) = app.path().app_cache_dir() {
+                if let Ok(path) = write_bundled_fixture(&dir) {
+                    *app.state::<AppState>().pending_file.lock().unwrap() =
+                        Some(path_to_string(&path));
                 }
             }
-            Ok(())
-        });
+        }
+        Ok(())
+    });
 
     // Spike commands (#58 to #60) are reachable only in debug and mobile builds.
     #[cfg(any(debug_assertions, mobile))]
-    let builder = builder        .invoke_handler(tauri::generate_handler![
-            take_pending_file,
-            read_text_file,
-            is_file,
-            is_dir,
-            list_dir,
-            find_wiki_root,
-            watch_file,
-            gitsync::git_token_set,
-            gitsync::git_token_get,
-            gitsync::git_clone,
-            gitsync::git_spike_edit,
-            gitsync::git_commit,
-            gitsync::git_pull_rebase,
-            gitsync::git_push,
-            notes::notes_list,
-            notes::notes_read,
-            notes::notes_write,
-            notes::spike_external_path,
-            notes::spike_external_read,
-            notes::spike_external_write
-        ]);
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        take_pending_file,
+        read_text_file,
+        is_file,
+        is_dir,
+        list_dir,
+        find_wiki_root,
+        watch_file,
+        gitsync::git_token_set,
+        gitsync::git_token_get,
+        gitsync::git_clone,
+        gitsync::git_spike_edit,
+        gitsync::git_commit,
+        gitsync::git_pull_rebase,
+        gitsync::git_push,
+        notes::notes_list,
+        notes::notes_read,
+        notes::notes_write,
+        notes::spike_external_path,
+        notes::spike_external_read,
+        notes::spike_external_write
+    ]);
     #[cfg(not(any(debug_assertions, mobile)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         take_pending_file,
@@ -292,7 +310,10 @@ mod tests {
         fs::write(root.join("wiki/.order"), "").unwrap();
         fs::write(sub.join(".order"), "").unwrap();
         let file = sub.join("Overview.md");
-        assert_eq!(find_wiki_root(path_to_string(&file)), path_to_string(&root.join("wiki")));
+        assert_eq!(
+            find_wiki_root(path_to_string(&file)),
+            path_to_string(&root.join("wiki"))
+        );
     }
 
     #[test]
@@ -309,8 +330,16 @@ mod tests {
     fn cli_args_resolve_relative_files() {
         let root = temp_dir("args");
         fs::write(root.join("README.md"), "# hi").unwrap();
-        let args = vec!["nixe".into(), "--verbose".into(), "missing.md".into(), "README.md".into()];
-        assert_eq!(path_from_args(&args, &root), Some(path_to_string(&root.join("README.md"))));
+        let args = vec![
+            "nixe".into(),
+            "--verbose".into(),
+            "missing.md".into(),
+            "README.md".into(),
+        ];
+        assert_eq!(
+            path_from_args(&args, &root),
+            Some(path_to_string(&root.join("README.md")))
+        );
         let args = vec!["nixe".into(), ".".into()];
         assert_eq!(path_from_args(&args, &root), Some(path_to_string(&root)));
     }
@@ -321,7 +350,10 @@ mod tests {
         let expected = stdin_file_path();
         fs::create_dir_all(expected.parent().unwrap()).unwrap();
         fs::write(&expected, "# piped").unwrap();
-        assert_eq!(path_from_args(&args, Path::new("/")), Some(path_to_string(&expected)));
+        assert_eq!(
+            path_from_args(&args, Path::new("/")),
+            Some(path_to_string(&expected))
+        );
     }
 
     #[test]
