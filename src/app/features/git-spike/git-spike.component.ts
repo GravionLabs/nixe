@@ -1,6 +1,5 @@
 import { Component, signal } from "@angular/core";
 import { invoke } from "@tauri-apps/api/core";
-import { appDataDir, join } from "@tauri-apps/api/path";
 
 const URL_KEY = "nixe.gitSpike.url";
 
@@ -71,23 +70,17 @@ export class GitSpikeComponent {
   }
 
   protected async clone(url: string): Promise<string> {
-    const dest = await this.vaultDir();
     saveUrl(url);
-    const ms =await invoke<number>("git_clone", { url, dest });
+    const ms = await invoke<number>("git_clone", { url });
     return `clone took ${ms} ms`;
   }
 
   protected async commit(): Promise<boolean> {
-    const dir = await this.vaultDir();
-    await invoke("git_spike_edit", { dir });
-    return invoke<boolean>("git_commit", { dir, message: "chore: nixe git spike" });
+    await invoke("git_spike_edit");
+    return invoke<boolean>("git_commit", { message: "chore: nixe git spike" });
   }
 
   protected async cmd(name: "git_pull_rebase" | "git_push"): Promise<void> {
-    await invoke(name, { dir: await this.vaultDir() });
-  }
-
-  private async vaultDir(): Promise<string> {
-    return join(await appDataDir(), "vault");
+    await invoke(name);
   }
 }

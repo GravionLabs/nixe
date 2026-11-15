@@ -2,10 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
-vi.mock("@tauri-apps/api/path", () => ({
-  appDataDir: async () => "/data",
-  join: async (...parts: string[]) => parts.join("/"),
-}));
 
 import { GitSpikeComponent } from "./git-spike.component";
 
@@ -22,7 +18,7 @@ describe("GitSpikeComponent", () => {
     invoke.mockResolvedValue(42);
     const fixture = create();
     await (fixture.componentInstance as any).run("clone", () => (fixture.componentInstance as any).clone("u"));
-    expect(invoke).toHaveBeenCalledWith("git_clone", { url: "u", dest: "/data/vault" });
+    expect(invoke).toHaveBeenCalledWith("git_clone", { url: "u" });
     expect(fixture.componentInstance["log"]()).toContain("clone took 42 ms");
   });
 

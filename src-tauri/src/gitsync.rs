@@ -11,11 +11,47 @@ use git2::{
 const KEYCHAIN_SERVICE: &str = "dev.nixe.app.github";
 const KEYCHAIN_USER: &str = "token";
 
+const GITHUB_PREFIX: &str = "https://github.com/";
+
+/// True for plain `https://github.com/...` URLs without user info, whitespace or
+/// control characters. Only such URLs may ever receive the token.
+pub fn is_github_https(url: &str) -> bool {
+    match url.strip_prefix(GITHUB_PREFIX) {
+        Some(rest) => {
+            let host_and_path_ok = !rest.is_empty()
+                && !rest.contains('@')
+                && !rest.chars().any(|c| c.is_whitespace() || c.is_control());
+            host_and_path_ok
+        }
+        None => false,
+    }
+}
+
+/// The only directory the webview may touch: `<app data dir>/vault`.
+pub fn vault_path(app_data_dir: &Path) -> std::path::PathBuf {
+    app_data_dir.join("vault")
+}
+
 fn callbacks(token: Option<&str>) -> RemoteCallbacks<'_> {
     let mut cb = RemoteCallbacks::new();
     if let Some(token) = token {
+        let mut offered = false;
         // GitHub accepts a personal access token as the password of any user name.
-        cb.credentials(move |_, _, _| Cred::userpass_plaintext("x-access-token", token));
+        cb.credentials(move |url, _, _| {
+            if !is_github_https(url) {
+                return Err(git2::Error::from_str(
+                    "refusing to send credentials to a non-GitHub url",
+                ));
+            }
+            // libgit2 asks again after a rejected credential: fail instead of looping.
+            if offered {
+                return Err(git2::Error::from_str(
+                    "authentication failed (token rejected)",
+                ));
+            }
+            offered = true;
+            Cred::userpass_plaintext("x-access-token", token)
+        });
     }
     cb
 }
@@ -134,13 +170,24 @@ pub fn git_token_get() -> Result<bool, String> {
     Ok(token_get()?.is_some())
 }
 
+fn vault_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    Ok(vault_path(
+        &app.path().app_data_dir().map_err(|e| e.to_string())?,
+    ))
+}
+
 #[tauri::command]
-pub async fn git_clone(url: String, dest: String) -> Result<u128, String> {
+pub async fn git_clone(app: tauri::AppHandle, url: String) -> Result<u128, String> {
+    if !is_github_https(&url) {
+        return Err("only https://github.com/ urls without credentials are allowed".into());
+    }
+    let dest = vault_dir(&app)?;
     let token = stored_token()?;
     tauri::async_runtime::spawn_blocking(move || {
         // Spike: a failed or earlier clone leaves the directory behind; start clean
         // so the clone can be repeated and timed.
-        let dest_path = Path::new(&dest);
+        let dest_path = dest.as_path();
         if dest_path.is_dir() {
             std::fs::remove_dir_all(dest_path).map_err(|e| e.to_string())?;
         }
@@ -154,40 +201,39 @@ pub async fn git_clone(url: String, dest: String) -> Result<u128, String> {
 
 /// Changes a file in the vault so that `git_commit` has something to commit.
 #[tauri::command]
-pub fn git_spike_edit(dir: String) -> Result<(), String> {
+pub fn git_spike_edit(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = vault_dir(&app)?;
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_secs();
-    std::fs::write(Path::new(&dir).join("nixe-spike.md"), format!("spike {stamp}\n"))
-        .map_err(|e| e.to_string())
+    std::fs::write(dir.join("nixe-spike.md"), format!("spike {stamp}\n")).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn git_commit(dir: String, message: String) -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(move || commit_all(Path::new(&dir), &message).map_err(err))
+pub async fn git_commit(app: tauri::AppHandle, message: String) -> Result<bool, String> {
+    let dir = vault_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || commit_all(&dir, &message).map_err(err))
         .await
         .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub async fn git_pull_rebase(dir: String) -> Result<(), String> {
+pub async fn git_pull_rebase(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = vault_dir(&app)?;
     let token = stored_token()?;
-    tauri::async_runtime::spawn_blocking(move || {
-        pull_rebase(Path::new(&dir), token.as_deref()).map_err(err)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || pull_rebase(&dir, token.as_deref()).map_err(err))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub async fn git_push(dir: String) -> Result<(), String> {
+pub async fn git_push(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = vault_dir(&app)?;
     let token = stored_token()?;
-    tauri::async_runtime::spawn_blocking(move || {
-        push(Path::new(&dir), token.as_deref()).map_err(err)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || push(&dir, token.as_deref()).map_err(err))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]
@@ -287,6 +333,36 @@ mod tests {
         commit_all(&b, "b").unwrap();
         assert!(pull_rebase(&b, None).is_err());
         assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "from b");
+    }
+
+    #[test]
+    fn github_https_urls_are_accepted() {
+        assert!(is_github_https("https://github.com/GravionLabs/nixe.git"));
+    }
+
+    #[test]
+    fn non_github_or_credentialed_urls_are_rejected() {
+        for url in [
+            "https://user:PAT@github.com/a/b.git",
+            "https://github.com@evil.example/a/b",
+            "https://github.com/",
+            "https://github.com.evil.example/a/b",
+            "http://github.com/a/b",
+            "file:///tmp/repo",
+            "ssh://git@github.com/a/b.git",
+            "https://github.com/a/b\n.git",
+            "",
+        ] {
+            assert!(!is_github_https(url), "{url}");
+        }
+    }
+
+    #[test]
+    fn vault_path_is_below_app_data_dir() {
+        assert_eq!(
+            vault_path(Path::new("/data/app")),
+            Path::new("/data/app/vault")
+        );
     }
 
     #[test]
