@@ -1,6 +1,6 @@
 # ADR 0003: Nixe becomes an Obsidian-compatible vault app with editing and Git sync
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-06
 - Supersedes: [ADR 0002](0002-nixe-stays-a-lean-markdown-viewer-no-obsidian-rewrite.md)
 - Issues: #44
@@ -47,6 +47,17 @@ Nixe grows into an Obsidian-compatible vault app with editing and Git sync.
 5. **MVP:** file tree, editor, `[[wikilinks]]` with backlinks, search, Git sync (clone, pull
    with rebase, auto-commit, push; on a conflict keep both versions and mark the file). Graph
    view, plugin system and canvas are not part of the MVP.
+6. **Editor in stages.** Stage 1 is source mode with styled Markdown (nothing hidden, no
+   widgets). Live preview follows after the MVP as CodeMirror decorations: first hiding syntax
+   outside the cursor line, then widgets. The spike tests one hiding decoration on iOS.
+7. **Conflicts as copies.** On a sync conflict the remote version stays in `Note.md` and the
+   local version is written next to it as a conflict copy. The sync never blocks; the user
+   resolves with "keep this one" or "keep the other". A merge view can follow on the same basis.
+8. **After the MVP:** daily-use features (templates, daily notes, attachments, editable
+   properties), the iOS MVP, live preview, Bases, and a plugin system shaped like Obsidian's
+   with partial compatibility for selected Obsidian plugins. The index stores all frontmatter
+   properties with their type and actions go through a command registry from the start, so
+   these build on the MVP instead of reworking it.
 
 The read-only vault rendering of #9 and #11 stays: the same Markdown core renders the notes.
 
