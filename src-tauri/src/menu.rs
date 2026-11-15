@@ -46,6 +46,11 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             "Toggle Sidebar",
             Some("CmdOrCtrl+B"),
         )?)
+        .item(&item(
+            "toggle-backlinks",
+            "Toggle Backlinks Panel",
+            Some("CmdOrCtrl+Shift+B"),
+        )?)
         .item(&item("toggle-math", "Toggle LaTeX Math", None)?)
         .item(&item(
             "cycle-theme",

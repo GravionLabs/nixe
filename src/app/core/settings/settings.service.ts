@@ -9,6 +9,7 @@ interface StoredSettings {
   math: boolean;
   sidebar: boolean;
   sidebarWidth: number;
+  backlinks: boolean;
   lastFolder: string | null;
   zoom: number;
 }
@@ -18,6 +19,7 @@ const DEFAULTS: StoredSettings = {
   math: true,
   sidebar: true,
   sidebarWidth: 260,
+  backlinks: false,
   lastFolder: null,
   zoom: 100,
 };
@@ -43,6 +45,8 @@ export class SettingsService {
   readonly math = signal<boolean>(this.stored.math);
   readonly sidebarVisible = signal<boolean>(this.stored.sidebar);
   readonly sidebarWidth = signal<number>(this.stored.sidebarWidth);
+  /** Right-hand backlinks and outgoing links panel. */
+  readonly backlinksVisible = signal<boolean>(this.stored.backlinks);
   /** Folder reopened on the next start. */
   readonly lastFolder = signal<string | null>(this.stored.lastFolder);
   /** Document zoom, as a percentage (100 = actual size). */
@@ -68,6 +72,7 @@ export class SettingsService {
         math: this.math(),
         sidebar: this.sidebarVisible(),
         sidebarWidth: this.sidebarWidth(),
+        backlinks: this.backlinksVisible(),
         lastFolder: this.lastFolder(),
         zoom: this.zoom(),
       };

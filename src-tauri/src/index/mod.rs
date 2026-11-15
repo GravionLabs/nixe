@@ -15,7 +15,7 @@ pub use read::{Backlink, NoteRecord, NoteSummary, TagCount};
 pub use scan::scan;
 
 /// Bump on every schema change; a different version on disk means "drop and rebuild".
-pub const SCHEMA_VERSION: i32 = 1;
+pub const SCHEMA_VERSION: i32 = 2;
 
 const SCHEMA: &str = "
 CREATE TABLE files (
@@ -38,7 +38,9 @@ CREATE TABLE links (
     block TEXT,
     alias TEXT,
     kind TEXT NOT NULL CHECK (kind IN ('link', 'embed', 'markdown')),
-    resolved TEXT
+    resolved TEXT,
+    line INTEGER NOT NULL DEFAULT 0,
+    context TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX links_source ON links(source_id);
 CREATE INDEX links_resolved ON links(resolved);

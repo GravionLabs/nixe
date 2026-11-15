@@ -17,6 +17,9 @@ pub struct Link {
     /// Text after `|` (for embeds also a size like `100x60`).
     pub alias: Option<String>,
     pub embed: bool,
+    /// 1-based line in the whole note (frontmatter included). Not part of the shared fixtures.
+    #[serde(skip)]
+    pub line: usize,
 }
 
 /// A Markdown link `[text](Note.md#heading)` to a note.
@@ -24,6 +27,9 @@ pub struct Link {
 pub struct MarkdownLink {
     pub target: String,
     pub heading: Option<String>,
+    /// 1-based line in the whole note (frontmatter included).
+    #[serde(skip)]
+    pub line: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -76,14 +82,15 @@ pub const WARNING_INVALID_FRONTMATTER: &str = "invalid-frontmatter";
 pub fn extract(text: &str) -> NoteMeta {
     let mut meta = NoteMeta::default();
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    let body = match split_frontmatter(text) {
+    let (body, first_line) = match split_frontmatter(text) {
         Some((yaml, body)) => {
             read_frontmatter(yaml, &mut meta);
-            body
+            (body, text.len() - body.len())
         }
-        None => text,
+        None => (text, 0),
     };
-    scan_body(body, &mut meta);
+    let first_line = text[..first_line].matches('\n').count() + 1;
+    scan_body(body, first_line, &mut meta);
     meta
 }
 
@@ -271,12 +278,12 @@ struct Fence {
     len: usize,
 }
 
-fn scan_body(body: &str, meta: &mut NoteMeta) {
+fn scan_body(body: &str, first_line: usize, meta: &mut NoteMeta) {
     let mut fence: Option<Fence> = None;
     let mut in_comment = false;
     let mut inline_tags = Vec::new();
 
-    for line in body.lines() {
+    for (offset, line) in body.lines().enumerate() {
         if let Some(open) = &fence {
             if closes_fence(line, open) {
                 fence = None;
@@ -296,7 +303,13 @@ fn scan_body(body: &str, meta: &mut NoteMeta) {
         if let Some(id) = block_id(&text) {
             push_unique(&mut meta.blocks, id);
         }
+        let (links, markdown_links) = (meta.links.len(), meta.markdown_links.len());
         let rest = scan_links(&plain, meta);
+        let number = first_line + offset;
+        meta.links[links..].iter_mut().for_each(|l| l.line = number);
+        meta.markdown_links[markdown_links..]
+            .iter_mut()
+            .for_each(|l| l.line = number);
         scan_tags(&rest, &mut inline_tags);
     }
     for tag in inline_tags {
@@ -497,6 +510,7 @@ fn wikilink(line: &str, start: usize) -> Option<(Link, usize)> {
         block: parsed.block,
         alias: alias.map(str::to_string),
         embed: start > 0 && line.as_bytes()[start - 1] == b'!',
+        line: 0,
     };
     Some((link, end + 2))
 }
@@ -529,6 +543,7 @@ fn markdown_link(dest: &str) -> Option<MarkdownLink> {
     Some(MarkdownLink {
         target: path,
         heading: fragment.filter(|f| !f.is_empty()).map(str::to_string),
+        line: 0,
     })
 }
 
@@ -609,6 +624,7 @@ mod tests {
             block: None,
             alias: None,
             embed: false,
+            line: 1,
         }
     }
 
@@ -831,5 +847,23 @@ mod tests {
         // The 20 ms budget holds for release builds; debug builds only guard against blow-ups.
         let budget = if cfg!(debug_assertions) { 500 } else { 20 };
         assert!(elapsed.as_millis() < budget, "took {elapsed:?}");
+    }
+}
+
+#[cfg(test)]
+mod line_tests {
+    use super::*;
+
+    #[test]
+    fn links_know_their_line_in_the_whole_note() {
+        let meta = extract(
+            "---\ntags: [a]\n---\nintro\n\n```\n[[no]]\n```\nsee [[A]] and [x](B.md)\n[[C]]",
+        );
+        assert_eq!(
+            meta.links.iter().map(|l| l.line).collect::<Vec<_>>(),
+            [9, 10]
+        );
+        assert_eq!(meta.markdown_links[0].line, 9);
+        assert_eq!(extract("[[A]]").links[0].line, 1);
     }
 }

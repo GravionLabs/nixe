@@ -17,6 +17,8 @@ export class DocumentService {
   readonly content = signal("");
   /** Heading to scroll to once the next document is rendered. */
   readonly pendingAnchor = signal<string | null>(null);
+  /** 1-based source line to scroll to once the next document is rendered. */
+  readonly pendingLine = signal<number | null>(null);
 
   readonly fileName = computed(() => {
     const p = this.path();
@@ -30,9 +32,9 @@ export class DocumentService {
 
   async open(
     path: string,
-    options: { anchor?: string | null; addToHistory?: boolean } = {},
+    options: { anchor?: string | null; line?: number | null; addToHistory?: boolean } = {},
   ): Promise<void> {
-    const { anchor = null, addToHistory = true } = options;
+    const { anchor = null, line = null, addToHistory = true } = options;
     path = toSlashes(path);
 
     const [text, wikiRoot] = await Promise.all([
@@ -43,6 +45,7 @@ export class DocumentService {
     this.path.set(path);
     this.content.set(text);
     this.pendingAnchor.set(anchor);
+    this.pendingLine.set(line);
     await backend.watchFile(path);
 
     if (addToHistory && this.history()[this.historyIndex()] !== path) {

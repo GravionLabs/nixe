@@ -5,9 +5,11 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { FILE_CHANGED_EVENT, MENU_EVENT, OPEN_FILE_EVENT, STDIN_FILE_SUFFIX, backend } from "./core/file/backend";
 import { DocumentService } from "./core/file/document.service";
+import { IndexService } from "./core/index/index.service";
 import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
+import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
@@ -16,7 +18,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [BacklinksComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -26,6 +28,7 @@ export class AppComponent {
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
   private readonly markdown = inject(MarkdownService);
+  private readonly index = inject(IndexService);
 
   protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
   protected readonly gitSpike = isDevMode();
@@ -44,6 +47,10 @@ export class AppComponent {
 
   protected readonly showSidebar = computed(
     () => this.workspace.root() !== null && this.settings.sidebarVisible(),
+  );
+
+  protected readonly showBacklinks = computed(
+    () => this.workspace.vaultRoot() !== null && this.doc.path() !== null && this.settings.backlinksVisible(),
   );
 
   constructor() {
@@ -67,6 +74,7 @@ export class AppComponent {
     try {
       await listen(OPEN_FILE_EVENT, () => this.openPending());
       await listen<string>(FILE_CHANGED_EVENT, (e) => this.doc.onExternalChange(e.payload));
+      await this.index.init();
       await listen<string>(MENU_EVENT, (e) => this.onMenu(e.payload));
 
       await getCurrentWebview().onDragDropEvent((event) => {
@@ -126,6 +134,7 @@ export class AppComponent {
       back: () => this.run(() => this.doc.back()),
       forward: () => this.run(() => this.doc.forward()),
       "toggle-sidebar": () => this.settings.sidebarVisible.update((v) => !v),
+      "toggle-backlinks": () => this.settings.backlinksVisible.update((v) => !v),
       "toggle-math": () => this.settings.math.update((v) => !v),
       "cycle-theme": () => this.settings.cycleTheme(),
       "zoom-in": () => this.settings.zoomIn(),
