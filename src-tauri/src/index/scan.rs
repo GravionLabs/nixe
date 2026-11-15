@@ -102,7 +102,7 @@ pub fn scan(
     })
 }
 
-fn delete_note(tx: &Transaction, path: &str) -> rusqlite::Result<()> {
+pub(super) fn delete_note(tx: &Transaction, path: &str) -> rusqlite::Result<()> {
     let id: Option<i64> = tx
         .query_row("SELECT id FROM notes WHERE path = ?1", [path], |r| r.get(0))
         .ok();
@@ -113,7 +113,7 @@ fn delete_note(tx: &Transaction, path: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
-fn insert_note(
+pub(super) fn insert_note(
     tx: &Transaction,
     path: &str,
     body: &str,
@@ -192,7 +192,7 @@ fn insert_note(
 }
 
 /// Files appeared or vanished, so any link may now resolve differently.
-fn reresolve_all(tx: &Transaction, resolver: &Resolver) -> rusqlite::Result<()> {
+pub(super) fn reresolve_all(tx: &Transaction, resolver: &Resolver) -> rusqlite::Result<()> {
     let rows: Vec<(i64, String, Option<String>, String)> = {
         let mut stmt = tx.prepare(
             "SELECT l.id, l.target, l.resolved, n.path FROM links l JOIN notes n ON n.id = l.source_id",

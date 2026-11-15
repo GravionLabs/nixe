@@ -38,4 +38,13 @@ export const STDIN_FILE_SUFFIX = "/nixe-stdin/stdin.md";
 /** Emitted with an `IndexStatus` while the vault index is built. */
 export const INDEX_EVENT = "index-status";
 export const FILE_CHANGED_EVENT = "file-changed";
+/** Emitted with a `VaultChange[]` after the index applied a batch of vault file changes. */
+export const VAULT_CHANGED_EVENT = "vault-changed";
+export type VaultChangeKind = "create" | "modify" | "remove" | "rename";
+export interface VaultChange {
+  path: string;
+  kind: VaultChangeKind;
+  /** Old path of a rename. */
+  from?: string;
+}
 export const MENU_EVENT = "menu";

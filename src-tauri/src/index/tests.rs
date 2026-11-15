@@ -366,3 +366,130 @@ fn a_busy_database_is_not_deleted() {
     assert_eq!(read::notes(&second).unwrap().len(), 1);
     tx.commit().unwrap();
 }
+
+mod watching {
+    use super::*;
+    use crate::index::watch::{apply_changes, known_files, map_events, ChangeKind, VaultChange};
+
+    fn events(root: &Path, conn: &Connection, rels: &[&str]) -> Vec<VaultChange> {
+        let raw: Vec<PathBuf> = rels.iter().map(|r| root.join(r)).collect();
+        map_events(root, &raw, &known_files(conn).unwrap())
+    }
+
+    fn kinds(changes: &[VaultChange]) -> Vec<(&str, ChangeKind)> {
+        changes.iter().map(|c| (c.path.as_str(), c.kind)).collect()
+    }
+
+    #[test]
+    fn maps_create_modify_and_remove_by_what_is_on_disk() {
+        let (root, mut conn) = setup("map");
+        write(&root, "keep.md", "one");
+        write(&root, "gone.md", "two two");
+        run(&mut conn, &root);
+        write(&root, "keep.md", "changed text");
+        write(&root, "new/fresh.md", "x");
+        fs::remove_file(root.join("gone.md")).unwrap();
+        let changes = events(&root, &conn, &["keep.md", "new/fresh.md", "gone.md"]);
+        assert_eq!(
+            kinds(&changes),
+            [
+                ("gone.md", ChangeKind::Remove),
+                ("keep.md", ChangeKind::Modify),
+                ("new/fresh.md", ChangeKind::Create)
+            ]
+        );
+    }
+
+    #[test]
+    fn ignores_hidden_vault_folders_and_outside_paths() {
+        let (root, conn) = setup("ignored");
+        write(&root, ".git/x.md", "x");
+        write(&root, ".obsidian/y.json", "y");
+        let outside = root.parent().unwrap().join("other.md");
+        fs::write(&outside, "z").unwrap();
+        let raw = vec![
+            root.join(".git/x.md"),
+            root.join(".obsidian/y.json"),
+            outside,
+        ];
+        assert!(map_events(&root, &raw, &known_files(&conn).unwrap()).is_empty());
+    }
+
+    #[test]
+    fn a_moved_file_is_one_rename() {
+        let (root, mut conn) = setup("rename");
+        write(&root, "old.md", "same size");
+        run(&mut conn, &root);
+        fs::create_dir_all(root.join("dir")).unwrap();
+        fs::rename(root.join("old.md"), root.join("dir/new.md")).unwrap();
+        let changes = events(&root, &conn, &["old.md", "dir/new.md"]);
+        assert_eq!(
+            changes,
+            [VaultChange {
+                path: "dir/new.md".into(),
+                kind: ChangeKind::Rename,
+                from: Some("old.md".into())
+            }]
+        );
+    }
+
+    #[test]
+    fn a_removed_folder_removes_its_files() {
+        let (root, mut conn) = setup("rmdir");
+        write(&root, "d/a.md", "a");
+        write(&root, "d/b.md", "bb");
+        run(&mut conn, &root);
+        fs::remove_dir_all(root.join("d")).unwrap();
+        let changes = events(&root, &conn, &["d"]);
+        assert_eq!(
+            kinds(&changes),
+            [
+                ("d/a.md", ChangeKind::Remove),
+                ("d/b.md", ChangeKind::Remove)
+            ]
+        );
+    }
+
+    #[test]
+    fn applies_changes_to_the_index_like_a_full_scan() {
+        let (root, mut conn) = setup("apply");
+        write(&root, "a.md", "see [[b]]");
+        write(&root, "b.md", "# B");
+        run(&mut conn, &root);
+        assert_eq!(read::backlinks(&conn, "b.md").unwrap().len(), 1);
+
+        // modify, create and remove at once
+        write(&root, "a.md", "see [[c]] #tag");
+        write(&root, "c.md", "# C note");
+        fs::remove_file(root.join("b.md")).unwrap();
+        let changes = events(&root, &conn, &["a.md", "c.md", "b.md"]);
+        let summary = apply_changes(&mut conn, &root, &changes).unwrap();
+        assert_eq!(summary.extracted, 2);
+        assert_eq!(summary.removed, 1);
+        assert!(read::note_meta(&conn, "b.md").unwrap().is_none());
+        assert_eq!(read::backlinks(&conn, "c.md").unwrap()[0].source, "a.md");
+        assert_eq!(
+            read::note_meta(&conn, "a.md").unwrap().unwrap().tags,
+            ["tag"]
+        );
+
+        // a full scan finds nothing left to do
+        assert_eq!(run(&mut conn, &root), ScanSummary::default());
+    }
+
+    #[test]
+    fn a_rename_moves_the_row_and_keeps_links_resolved() {
+        let (root, mut conn) = setup("move");
+        write(&root, "a.md", "link to [[note]]");
+        write(&root, "note.md", "body text");
+        run(&mut conn, &root);
+        fs::create_dir_all(root.join("sub")).unwrap();
+        fs::rename(root.join("note.md"), root.join("sub/note.md")).unwrap();
+        let changes = events(&root, &conn, &["note.md", "sub/note.md"]);
+        apply_changes(&mut conn, &root, &changes).unwrap();
+        assert!(read::note_meta(&conn, "note.md").unwrap().is_none());
+        assert!(read::note_meta(&conn, "sub/note.md").unwrap().is_some());
+        assert_eq!(read::backlinks(&conn, "sub/note.md").unwrap().len(), 1);
+        assert_eq!(run(&mut conn, &root), ScanSummary::default());
+    }
+}
