@@ -2,6 +2,8 @@
 
 Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 2](https://tauri.app) and Angular.
 
+**Goal ([Epic #44](https://github.com/GravionLabs/nixe/issues/44)):** Nixe grows into an Obsidian-compatible vault app that can also edit and sync with Git, on desktop and iOS. It works on the same plain `.md` files as Obsidian, so both apps can use one vault. Nixe writes only the notes you edit and the Git metadata; its index and caches live in the app data directory, never in the vault. Today Nixe is the viewer described below; see the [roadmap](docs/roadmap.md) for what is planned.
+
 ## Features
 
 - **Markdown** (CommonMark + GFM): tables, task lists, footnotes, syntax highlighting

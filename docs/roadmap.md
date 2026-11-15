@@ -1,21 +1,49 @@
-# Roadmap: Nixe as a lean Markdown viewer
+# Roadmap: Nixe as a vault app
 
-Status: 2026-11-01. Epic: [#9](https://github.com/GravionLabs/nixe/issues/9).
-Decision: [ADR 0002](adr/0002-nixe-stays-a-lean-markdown-viewer-no-obsidian-rewrite.md).
+Status: 2026-11-15. Epic: [#44](https://github.com/GravionLabs/nixe/issues/44).
+Decisions: [ADR 0003](adr/0003-nixe-becomes-a-vault-app-with-editing-and-git-sync.md) (vault app,
+supersedes [ADR 0002](adr/0002-nixe-stays-a-lean-markdown-viewer-no-obsidian-rewrite.md)) and
+[ADR 0004](adr/0004-tauri-on-ios-go-git2-for-git-sync-native-swift-only-for-file-access-outside-the-sandbox.md)
+(Tauri on iOS: go).
+
+## Goal
+
+Nixe grows from a Markdown viewer into a vault app that edits and syncs, on desktop and iOS. It
+works on the same plain `.md` files and folder layout as Obsidian, so both apps can use one vault.
 
 ## Principles
 
-- **Lean and fast.** Nixe is a Markdown viewer. Fast startup and rendering beat feature count.
-- **Read-only.** Nixe never writes into the folders it opens. Editing, sync and history stay
-  in the editor of choice (Obsidian, VS Code) and Git.
-- **One grammar.** Markdown extensions live in the TypeScript Markdown core as markdown-it
-  plugins: framework-free, tested with Vitest, reusable for example by a VS Code extension.
-  Rust does file I/O, file walking and the watcher.
+- **Same format as Obsidian.** Notes are plain `.md` files and `.obsidian/` is never touched.
+- **One Rust core, thin frontends.** Vault scan, index, search and Git sync live in `src-tauri/`.
+- **Two parsers, one fixture vault.** The TypeScript Markdown core renders; the Rust core
+  extracts metadata for the index. Both will be tested against `fixtures/vault/` (not created yet).
+- **Lazy loading.** Startup stays fast: the editor and the index load on demand.
 
-## Next: Obsidian vault rendering (optional)
+## Milestones
 
-Feature [#11](https://github.com/GravionLabs/nixe/issues/11) lets Nixe display an Obsidian
-vault the way Obsidian renders it.
+| Milestone | Content | Features |
+|---|---|---|
+| M000 | iOS spike (gate): open a vault, edit, sync on a real iPhone. Result: go (ADR 0004) | #49 |
+| M001 | Vault viewer: Obsidian rendering and the vault index in the Rust core | #11, #50 |
+| M001.1 | Vault editor: CodeMirror 6, source mode with styled Markdown | #51 |
+| M001.2 | CLI, MCP and vault health | #87, #88 |
+| M003 | Git sync: clone, pull with rebase, auto-commit, push, conflict copies | #52 |
+| M003.1 | Git history per note, AI changes as review | #89, #90 |
+| M004 | Daily use: templates, daily notes, attachments, editable properties, tabs, settings | #53 |
+| M004.1 | Editor and workspace comforts | #91 |
+| M004.2 | Workspaces of several folders, quick capture, export | #92, #93, #94 |
+| M005 | iOS MVP, sync on open and close | #54 |
+| M006 | Live preview | #55 |
+| M007 | Bases | #56 |
+| M008 | Plugin system, shaped like Obsidian's with partial compatibility | #57 |
+
+M001, M001.1 and M003 together are the desktop MVP: file tree, editor, `[[wikilinks]]` with
+backlinks, search and Git sync. M000 gated Git sync and iOS only; the desktop viewer, index and
+editor did not wait for it.
+
+### Order of the PBIs
+
+Within a milestone a PBI starts when its blockers are done. The PBIs of Feature #11 (M001):
 
 | PBI | Content | Size |
 |---|---|---|
@@ -31,16 +59,31 @@ flowchart LR
   P21["#21 properties + tags"]
 ```
 
-Unblocked at the start: #18, #20, #21.
+#18, #20 and #21 are unblocked at the start. The PBIs of the other Features are created with the
+planner when their milestone comes up; the Features and their sub-issues are on the Epic.
 
-## Out of scope
+## After the MVP and later
 
-Vault index, backlinks, full-text search, quick switcher, editor, Git sync, Claude
-integration, plugin system and an iOS app. See ADR 0002 for the reasons.
+- **After the MVP:** daily use (M004), the iOS MVP (M005), live preview (M006), Bases (M007) and
+  the plugin system (M008).
+- **Later or never:** graph view, canvas, a Claude API client in the app (AI changes come
+  through Git branches, #90).
+
+## What Nixe writes
+
+- The notes the user edits, and the Git metadata (`.git/`) of the vault.
+- Never `.obsidian/`. The index and caches live in the app data directory, not in the vault.
+  They can be deleted and are rebuilt on open.
 
 ## Risks
 
-- **Scope creep.** Obsidian has many more syntax corners (Dataview, canvas, footnote styles).
-  The fixture vault under `fixtures/vault/` defines what is in; everything else is not rendered.
-- **Large vaults.** The in-memory file list is built on open. If that gets slow, cache it in
-  memory per session; do not add a persistent index.
+- **iOS.** CodeMirror 6 keyboard and selection in the WebView, no background sync (sync runs on
+  open and close), a younger Tauri Mobile. ADR 0004 records the spike results; the fallback is a
+  SwiftUI frontend through UniFFI on the same Rust core.
+- **Sync conflicts.** Two devices editing one note. The remote version stays in `Note.md` and the
+  local version is written next to it as a conflict copy; the sync never blocks.
+- **Two parsers.** The TypeScript and the Rust parser can drift apart. Both will be tested against
+  `fixtures/vault/`.
+- **Scope creep.** Obsidian has many syntax corners (Dataview, canvas, footnote styles). The
+  fixture vault defines what is in.
+- **Startup time.** The index and the editor load lazily to keep the viewer fast.
