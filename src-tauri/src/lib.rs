@@ -18,6 +18,7 @@ mod gitsync;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
 mod tree;
+mod vault;
 
 /// Event telling the frontend that a file or folder is waiting in `take_pending_file`.
 const OPEN_FILE_EVENT: &str = "open-file-requested";
@@ -139,6 +140,19 @@ fn find_wiki_root(path: String) -> String {
     path_to_string(last_order_dir.as_deref().unwrap_or(&file_dir))
 }
 
+/// Vault root for an opened file or folder: the topmost ancestor containing `.obsidian/`,
+/// else the opened folder. Read-only.
+#[tauri::command]
+fn find_vault_root(path: String) -> String {
+    path_to_string(&vault::find_vault_root(Path::new(&path)))
+}
+
+/// All files below the vault root (relative, forward slashes), see `vault::list_vault_files`.
+#[tauri::command]
+fn list_vault_files(root: String) -> Vec<String> {
+    vault::list_vault_files(Path::new(&root))
+}
+
 /// Watches a single file. The parent directory is watched (non-recursively) so
 /// that editors saving via "write temp file + rename" are detected as well.
 #[tauri::command]
@@ -231,6 +245,8 @@ pub fn run() {
             is_dir,
             list_dir,
             find_wiki_root,
+            find_vault_root,
+            list_vault_files,
             watch_file,
             gitsync::git_token_set,
             gitsync::git_token_get,
@@ -254,6 +270,8 @@ pub fn run() {
         is_dir,
         list_dir,
         find_wiki_root,
+        find_vault_root,
+        list_vault_files,
         watch_file
     ]);
 

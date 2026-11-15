@@ -9,6 +9,7 @@ import { adoMermaidPlugin } from "./plugins/ado-mermaid.plugin";
 import { adoTocPlugin } from "./plugins/ado-toc.plugin";
 import { mermaidFencePlugin } from "./plugins/mermaid-fence.plugin";
 import { sourceLinePlugin } from "./plugins/source-line.plugin";
+import { wikilinkPlugin } from "./plugins/wikilink.plugin";
 
 export interface RendererOptions {
   /** Enables LaTeX math via KaTeX (`$…$`, `$$…$$`, ```math fences). */
@@ -58,6 +59,7 @@ export function createMarkdownRenderer(options: RendererOptions): MarkdownIt {
     .use(adoMermaidPlugin)
     .use(mermaidFencePlugin)
     .use(adoTocPlugin)
+    .use(wikilinkPlugin)
     .use(sourceLinePlugin);
 
   if (options.math) {
