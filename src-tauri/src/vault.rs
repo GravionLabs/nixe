@@ -10,7 +10,11 @@ const SKIPPED_DIRS: &[&str] = &[".obsidian", ".git", ".trash"];
 /// The topmost ancestor of `path` (or `path` itself) that contains `.obsidian/`;
 /// without one, the opened folder (or the file's folder) is the vault root.
 pub fn find_vault_root(path: &Path) -> PathBuf {
-    let start = if path.is_dir() { path } else { path.parent().unwrap_or(path) };
+    let start = if path.is_dir() {
+        path
+    } else {
+        path.parent().unwrap_or(path)
+    };
     start
         .ancestors()
         .filter(|dir| dir.join(".obsidian").is_dir())
@@ -31,7 +35,10 @@ pub fn list_vault_files(root: &Path) -> Vec<String> {
         .filter_entry(|entry| {
             let skipped = entry.depth() > 0
                 && entry.file_type().is_some_and(|t| t.is_dir())
-                && entry.file_name().to_str().is_some_and(|n| SKIPPED_DIRS.contains(&n));
+                && entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|n| SKIPPED_DIRS.contains(&n));
             !skipped
         })
         .build()
@@ -120,7 +127,10 @@ mod tests {
             fs::write(root.join(file), "x").unwrap();
         }
         fs::write(root.join(".gitignore"), "build/\nsecret.md\n").unwrap();
-        assert_eq!(list_vault_files(&root), vec![".gitignore", "a.md", "sub/b.md"]);
+        assert_eq!(
+            list_vault_files(&root),
+            vec![".gitignore", "a.md", "sub/b.md"]
+        );
     }
 
     #[test]

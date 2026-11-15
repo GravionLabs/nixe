@@ -185,9 +185,19 @@ export class ViewerComponent {
       return;
     }
 
+    const calloutTitle = target.closest<HTMLElement>(".callout-title");
+    const callout = calloutTitle?.parentElement;
+    if (calloutTitle && callout?.classList.contains("is-collapsible") && !target.closest("a")) {
+      const collapsed = callout.classList.toggle("is-collapsed");
+      calloutTitle.setAttribute("aria-expanded", String(!collapsed));
+      return;
+    }
+
     const link = target.closest("a");
     if (!link) return;
     event.preventDefault();
+    // Tags open the search once it exists (#66); until then clicking is a no-op.
+    if (link.classList.contains("tag")) return;
 
     const wikiTarget = link.classList.contains("wikilink") ? link.getAttribute("data-target") : null;
     if (wikiTarget !== null) {

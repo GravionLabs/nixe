@@ -11,6 +11,15 @@
 
 - [LaTeX formulas](math.md)
 
+## Callouts
+
+- [Callouts, highlights and comments](callouts.md)
+
+## Properties and tags
+
+- [Frontmatter properties and #tags](properties.md)
+- [Invalid frontmatter](invalid-frontmatter.md)
+
 ## Links
 
 - [All link types](links.md)
