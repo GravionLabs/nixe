@@ -62,3 +62,22 @@ sequenceDiagram
 navigation that supersedes it can race; a stale event for a file that's no longer open
 is simply dropped. A read that fails outright (file mid-replace) is swallowed too — the
 next debounced event picks up the final content.
+
+## Vault-wide watcher
+
+Next to the single-file watcher, `index_start` starts a second debouncer (300 ms) that watches
+the **vault root recursively** (`index/commands.rs`, `watch_vault`). It catches changes of
+other editors and `git pull`. One batch goes through three steps:
+
+1. `watch::map_events` turns the raw paths into `VaultChange { path, kind, from? }`. The disk
+   decides the kind: a missing path is `remove`, an unknown one `create`, an indexed one
+   `modify`. A removed and a created file of the same size, with no other candidate, form one
+   `rename` (`from` is the old path). A removed folder removes every indexed file below it.
+   `.git/`, `.obsidian/`, `.trash/` and paths outside the vault are dropped.
+2. `watch::apply_changes` updates the index in one transaction: changed notes are
+   re-extracted, removed ones deleted, a rename moves the row; links are re-resolved when the
+   set of files changed. It waits for a running scan (`scan_lock`).
+3. The app emits `vault-changed` with the `VaultChange[]`, so the frontend reads fresh data
+   (backlinks, search, tree) after the event.
+
+Live reload of the open note is unchanged: it still uses `file-changed` from `watch_file`.

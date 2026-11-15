@@ -11,7 +11,7 @@ pub mod meta;
 #[allow(dead_code)]
 pub mod resolve;
 
-const SKIPPED_DIRS: &[&str] = &[".obsidian", ".git", ".trash"];
+pub(crate) const SKIPPED_DIRS: &[&str] = &[".obsidian", ".git", ".trash"];
 
 /// The topmost ancestor of `path` (or `path` itself) that contains `.obsidian/`;
 /// without one, the opened folder (or the file's folder) is the vault root.

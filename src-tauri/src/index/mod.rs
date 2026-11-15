@@ -5,6 +5,7 @@
 pub mod commands;
 mod read;
 mod scan;
+pub mod watch;
 
 use std::path::{Path, PathBuf};
 

@@ -3,13 +3,21 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use std::time::Duration;
+
+use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
+use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
+
+use super::watch::{apply_changes, known_files, map_events};
 
 use super::read::{self, IndexStatus};
 use super::{index_path, open, scan, Backlink, NoteRecord, NoteSummary, TagCount};
 
 /// Event carrying the `IndexStatus` whenever it changes.
 pub const INDEX_EVENT: &str = "index-status";
+/// Event carrying the `VaultChange`s of one debounced batch, after the index applied them.
+pub const VAULT_CHANGED_EVENT: &str = "vault-changed";
 
 #[derive(Default)]
 pub struct IndexState {
@@ -18,6 +26,8 @@ pub struct IndexState {
     status: Arc<Mutex<Tracked>>,
     /// Only one scan runs at a time; a later one waits and then finds little to do.
     scan_lock: Arc<Mutex<()>>,
+    /// Watches the whole vault; replacing it stops the previous watch.
+    watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
 }
 
 #[derive(Default)]
@@ -71,6 +81,10 @@ pub fn index_start(
     }
     let shared = state.status.clone();
     let scan_lock = state.scan_lock.clone();
+    match watch_vault(&app, &db, &root, scan_lock.clone()) {
+        Ok(w) => *state.watcher.lock().unwrap() = Some(w),
+        Err(e) => eprintln!("vault watcher not started: {e}"),
+    }
     let generation = {
         let mut tracked = shared.lock().unwrap();
         tracked.generation += 1;
@@ -90,6 +104,40 @@ pub fn index_start(
         run_scan(&app, &shared, generation, &db, &root)
     });
     Ok(())
+}
+
+/// Watches `root` recursively. Each debounced batch is mapped to changes, applied to the index
+/// (after a running scan) and then announced as `vault-changed`.
+fn watch_vault(
+    app: &AppHandle,
+    db: &Path,
+    root: &Path,
+    scan_lock: Arc<Mutex<()>>,
+) -> Result<Debouncer<RecommendedWatcher>, String> {
+    let (app, db, vault) = (app.clone(), db.to_path_buf(), root.to_path_buf());
+    let mut debouncer = new_debouncer(
+        Duration::from_millis(300),
+        move |res: DebounceEventResult| {
+            let Ok(events) = res else { return };
+            let raw: Vec<PathBuf> = events.into_iter().map(|e| e.path).collect();
+            let _one_at_a_time = scan_lock.lock().unwrap_or_else(|e| e.into_inner());
+            let Ok(mut conn) = open(&db) else { return };
+            let Ok(known) = known_files(&conn) else {
+                return;
+            };
+            let changes = map_events(&vault, &raw, &known);
+            if changes.is_empty() || apply_changes(&mut conn, &vault, &changes).is_err() {
+                return;
+            }
+            let _ = app.emit(VAULT_CHANGED_EVENT, &changes);
+        },
+    )
+    .map_err(|e| e.to_string())?;
+    debouncer
+        .watcher()
+        .watch(root, RecursiveMode::Recursive)
+        .map_err(|e| e.to_string())?;
+    Ok(debouncer)
 }
 
 fn run_scan(app: &AppHandle, shared: &Mutex<Tracked>, generation: u64, db: &Path, root: &Path) {
