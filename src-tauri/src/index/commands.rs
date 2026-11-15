@@ -14,7 +14,16 @@ pub const INDEX_EVENT: &str = "index-status";
 #[derive(Default)]
 pub struct IndexState {
     db: Mutex<Option<PathBuf>>,
-    status: Arc<Mutex<Option<IndexStatus>>>,
+    /// The status of the current scan generation; older scans cannot write it.
+    status: Arc<Mutex<Tracked>>,
+    /// Only one scan runs at a time; a later one waits and then finds little to do.
+    scan_lock: Arc<Mutex<()>>,
+}
+
+#[derive(Default)]
+struct Tracked {
+    generation: u64,
+    status: Option<IndexStatus>,
 }
 
 impl IndexState {
@@ -25,8 +34,13 @@ impl IndexState {
     }
 }
 
-fn set_status(app: &AppHandle, shared: &Mutex<Option<IndexStatus>>, status: IndexStatus) {
-    *shared.lock().unwrap() = Some(status.clone());
+/// Publishes `status` unless a newer scan has started since `generation`.
+fn set_status(app: &AppHandle, shared: &Mutex<Tracked>, generation: u64, status: IndexStatus) {
+    let mut tracked = shared.lock().unwrap();
+    if tracked.generation != generation {
+        return;
+    }
+    tracked.status = Some(status.clone());
     let _ = app.emit(INDEX_EVENT, status);
 }
 
@@ -47,6 +61,7 @@ pub fn index_start(
             .status
             .lock()
             .unwrap()
+            .status
             .as_ref()
             .is_some_and(|s| s.state == "scanning");
         if scanning && current.as_deref() == Some(db.as_path()) {
@@ -55,24 +70,35 @@ pub fn index_start(
         *current = Some(db.clone());
     }
     let shared = state.status.clone();
+    let scan_lock = state.scan_lock.clone();
+    let generation = {
+        let mut tracked = shared.lock().unwrap();
+        tracked.generation += 1;
+        tracked.generation
+    };
     set_status(
         &app,
         &shared,
+        generation,
         IndexStatus {
             state: "scanning".into(),
             ..IndexStatus::idle()
         },
     );
-    std::thread::spawn(move || run_scan(&app, &shared, &db, &root));
+    std::thread::spawn(move || {
+        let _one_at_a_time = scan_lock.lock().unwrap_or_else(|e| e.into_inner());
+        run_scan(&app, &shared, generation, &db, &root)
+    });
     Ok(())
 }
 
-fn run_scan(app: &AppHandle, shared: &Mutex<Option<IndexStatus>>, db: &Path, root: &Path) {
+fn run_scan(app: &AppHandle, shared: &Mutex<Tracked>, generation: u64, db: &Path, root: &Path) {
     let outcome = open(db).and_then(|mut conn| {
         scan(&mut conn, root, |p| {
             set_status(
                 app,
                 shared,
+                generation,
                 IndexStatus {
                     state: "scanning".into(),
                     done: p.done,
@@ -96,7 +122,7 @@ fn run_scan(app: &AppHandle, shared: &Mutex<Option<IndexStatus>>, db: &Path, roo
             ..IndexStatus::idle()
         },
     };
-    set_status(app, shared, status);
+    set_status(app, shared, generation, status);
 }
 
 #[tauri::command]
@@ -125,6 +151,7 @@ pub fn index_status(state: State<'_, IndexState>) -> IndexStatus {
         .status
         .lock()
         .unwrap()
+        .status
         .clone()
         .unwrap_or_else(IndexStatus::idle)
 }

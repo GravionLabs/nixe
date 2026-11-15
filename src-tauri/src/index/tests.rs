@@ -332,3 +332,37 @@ fn scans_2000_notes_quickly() {
     assert!(full.as_millis() < 5000 * factor, "full scan took {full:?}");
     assert!(rescan.as_millis() < 500 * factor, "rescan took {rescan:?}");
 }
+
+#[test]
+fn a_second_opener_during_creation_keeps_the_database() {
+    let base = temp_dir("race");
+    let db = base.join("index/v.sqlite");
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let db = db.clone();
+            std::thread::spawn(move || {
+                let conn = open(&db).unwrap();
+                assert!(tables(&conn).contains(&"notes".to_string()));
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+#[test]
+fn a_busy_database_is_not_deleted() {
+    let base = temp_dir("busy");
+    let db = base.join("index/v.sqlite");
+    let mut first = open(&db).unwrap();
+    let root = base.join("vault");
+    write(&root, "a.md", "kept");
+    run(&mut first, &root);
+    // Opening again while the first connection holds a write transaction must not delete the file.
+    let tx = first.transaction().unwrap();
+    tx.execute("UPDATE files SET size = size", []).unwrap();
+    let second = open(&db).unwrap();
+    assert_eq!(read::notes(&second).unwrap().len(), 1);
+    tx.commit().unwrap();
+}

@@ -81,39 +81,71 @@ pub fn vault_hash(root: &Path) -> String {
     format!("{hash:016x}")
 }
 
-/// Opens the index at `path`, creating it. A file with another schema version (or one that is
-/// not a usable database) is deleted and created anew.
+/// Opens the index at `path`, creating it. A file with another schema version, or one that is
+/// not a database, is deleted and created anew. Other errors (a busy database, for example)
+/// are returned and never delete anything.
 pub fn open(path: &Path) -> rusqlite::Result<Connection> {
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
     match try_open(path) {
-        Ok(conn) => Ok(conn),
-        Err(_) if path.exists() => {
+        Err(e) if is_unusable(&e) => {
             remove_files(path);
             try_open(path)
         }
-        Err(e) => Err(e),
+        other => other,
     }
 }
 
+fn is_unusable(e: &rusqlite::Error) -> bool {
+    matches!(
+        e.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::NotADatabase | rusqlite::ErrorCode::DatabaseCorrupt)
+    )
+}
+
 fn try_open(path: &Path) -> rusqlite::Result<Connection> {
-    let conn = Connection::open(path)?;
+    let mut conn = Connection::open(path)?;
+    conn.busy_timeout(std::time::Duration::from_secs(10))?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "synchronous", "NORMAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
-    let version: i32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-    if version == SCHEMA_VERSION {
+    if read_version(&conn)? == SCHEMA_VERSION {
         return Ok(conn);
     }
-    if version != 0 {
-        drop(conn);
-        remove_files(path);
-        return try_open(path);
+    // Create (or recreate) under one write lock, so a second opener waits and then sees the
+    // finished schema instead of a half-built one.
+    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+    let version = read_version(&tx)?;
+    if version == SCHEMA_VERSION {
+        tx.commit()?;
+        return Ok(conn);
     }
-    conn.execute_batch(SCHEMA)?;
-    conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+    drop_all(&tx)?;
+    tx.execute_batch(SCHEMA)?;
+    tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+    tx.commit()?;
     Ok(conn)
+}
+
+fn read_version(conn: &Connection) -> rusqlite::Result<i32> {
+    conn.pragma_query_value(None, "user_version", |r| r.get(0))
+}
+
+/// Drops every table (and with it its indexes) of an index with an old schema.
+fn drop_all(conn: &Connection) -> rusqlite::Result<()> {
+    // The FTS table goes first: it takes its shadow tables with it.
+    conn.execute_batch("DROP TABLE IF EXISTS notes_fts")?;
+    let tables: Vec<String> = conn
+        .prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+        )?
+        .query_map([], |r| r.get(0))?
+        .collect::<Result<_, _>>()?;
+    for t in tables {
+        conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{t}\""))?;
+    }
+    Ok(())
 }
 
 fn remove_files(path: &Path) {
