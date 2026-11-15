@@ -12,7 +12,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use super::watch::{apply_changes, known_files, map_events};
 
 use super::read::{self, IndexStatus};
-use super::{index_path, open, scan, Backlink, NoteRecord, NoteSummary, TagCount};
+use super::search;
+use super::{index_path, open, scan, Backlink, NoteRecord, NoteSummary, SearchHit, TagCount};
 
 /// Event carrying the `IndexStatus` whenever it changes.
 pub const INDEX_EVENT: &str = "index-status";
@@ -191,6 +192,11 @@ pub fn backlinks(state: State<'_, IndexState>, path: String) -> Result<Vec<Backl
 #[tauri::command]
 pub fn tags(state: State<'_, IndexState>) -> Result<Vec<TagCount>, String> {
     read::tags(&state.conn()?).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn search_notes(state: State<'_, IndexState>, query: String) -> Result<Vec<SearchHit>, String> {
+    search::search(&state.conn()?, &query).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -100,7 +100,7 @@ describe("properties panel", () => {
   it("renders chips, checkbox and links", () => {
     const { html } = renderNote(md, "---\ntags: [x]\nok: true\nr: '[[N]]'\n---\nBody\n");
     expect(html).toContain('<dl class="properties">');
-    expect(html).toContain('<a class="tag" href="#">#x</a>');
+    expect(html).toContain('<a class="tag" href="#" data-tag="x">#x</a>');
     expect(html).toContain('<input type="checkbox" disabled checked>');
     expect(html).toContain('class="wikilink"');
     expect(html).toContain("Body");

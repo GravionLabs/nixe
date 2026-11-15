@@ -84,7 +84,7 @@ function renderValue(p: Property): string {
         .filter(Boolean)
         .map((v) =>
           p.key.toLowerCase().startsWith("tag")
-            ? `<a class="tag" href="#">#${esc(v)}</a>`
+            ? `<a class="tag" href="#" data-tag="${esc(v)}">#${esc(v)}</a>`
             : `<span class="property-chip">${esc(v)}</span>`,
         );
       return `<span class="property-chips">${chips.join("")}</span>`;

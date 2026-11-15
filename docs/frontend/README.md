@@ -59,6 +59,7 @@ README possible: that code could move into its own package unchanged.
 | `MarkdownService` | render cache (one `MarkdownIt` instance per math on/off) | Pure `render()`, see [markdown-pipeline.md](markdown-pipeline.md). |
 | `IndexService` | vault index `status`, a `revision` counter bumped on `vault-changed` | Listens to the `index-status` and `vault-changed` events. |
 | `BacklinksService` | backlinks and outgoing links of the open note | Feeds the right-hand `BacklinksComponent` panel (View → Toggle Backlinks Panel, ⌘⇧B). Backlinks carry the linking line; clicking one opens the note scrolled to it. Unresolved outgoing links are marked. |
+| `SearchService` | vault-wide full-text search | Feeds the left-hand `SearchComponent` panel (View → Search Vault, ⌘⇧F / Ctrl+⇧+F). Results are grouped by note with highlighted snippets; clicking a snippet opens the note at its line. Operators: `tag:#name` (also nested tags), `path:folder/`, `"exact phrase"`; other words match as prefixes. Clicking a `#tag` in a note or the properties panel opens the search with `tag:#name`. The Rust side is `index/search.rs` (command `search_notes`). |
 | `SettingsService` | theme, math toggle, sidebar width/visibility, backlinks panel visibility, last folder | Persisted to `localStorage`. |
 
 See [state-management.md](state-management.md) for how these interact when the user

@@ -40,6 +40,20 @@ export interface IndexedLink {
   line: number;
 }
 
+export interface SearchSnippet {
+  /** 1-based line of the match. */
+  line: number;
+  /** The line around the match; matches are wrapped in \u0001 … \u0002. */
+  text: string;
+}
+
+export interface SearchHit {
+  /** Vault-relative path. */
+  path: string;
+  title: string;
+  snippets: SearchSnippet[];
+}
+
 export interface NoteRecord {
   path: string;
   title: string;
@@ -62,6 +76,7 @@ export const backend = {
   backlinks: (path: string) => invoke<Backlink[]>("backlinks", { path }),
   /** Metadata of one indexed note (vault-relative path); null when it is not indexed. */
   noteMeta: (path: string) => invoke<NoteRecord | null>("note_meta", { path }),
+  searchNotes: (query: string) => invoke<SearchHit[]>("search_notes", { query }),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
 };
 
