@@ -52,6 +52,50 @@ The frontend is intentionally "dumb" about the OS: `src/app/core/file/backend.ts
 thin typed wrapper around `invoke()`, and everything above it works with plain strings
 and signals.
 
+## Vault app: Rust core and two parsers
+
+[ADR 0003](adr/0003-nixe-becomes-a-vault-app-with-editing-and-git-sync.md) makes the Rust core
+the home of everything about the vault; the frontends stay thin. Planned and partly built (see
+[roadmap](roadmap.md)):
+
+- **Vault:** scan of the opened folder (`.obsidian/` marks the root), reading and writing notes.
+  Writes go to the notes the user edits, through a temporary file and a rename. File names are
+  relative to the vault and may not leave it.
+- **Index:** wikilinks, backlinks, tags, headings, frontmatter properties (with their types) and
+  full-text search.
+- **Git:** `git2` (libgit2) over HTTPS with a token: clone, pull with rebase, auto-commit, push.
+  On a conflict the remote version stays in the note and the local version is written next to
+  it as a conflict copy ([ADR 0004](adr/0004-tauri-on-ios-go-git2-for-git-sync-native-swift-only-for-file-access-outside-the-sandbox.md)).
+  The token is kept in the OS keychain.
+
+```mermaid
+flowchart LR
+    Vault[("Vault folder\n.md notes")] --> RustParser["Rust parser\n(metadata for the index)"]
+    Vault --> TsParser["TypeScript Markdown core\n(rendering)"]
+    RustParser --> Index[("Index and caches\napp data dir")]
+    Fixture[("fixtures/vault/")] -. "tests" .-> RustParser
+    Fixture -. "tests" .-> TsParser
+    Core["Rust core"] --> Git["git2"] --> Remote[("GitHub")]
+    Vault --- Git
+```
+
+### Two parsers, one fixture vault
+
+The TypeScript Markdown core (markdown-it plugins) renders notes and keeps its own grammar. The
+Rust core extracts links, embeds, tags, headings and frontmatter for the index, so a SwiftUI
+frontend could use the core without the WebView. Both parsers are tested against the same
+fixture vault under `fixtures/vault/`, so they cannot drift apart unnoticed.
+
+### What Nixe writes, and where
+
+| What | Where |
+|---|---|
+| Notes the user edits | the vault |
+| Git metadata and conflict copies | the vault (`.git/`, next to the note) |
+| Index, search data and other caches | app data directory, rebuilt on open, never in the vault |
+| Git token | OS keychain, never on disk |
+| `.obsidian/` | never written |
+
 ## Startup sequence
 
 A file can reach the app three ways: a CLI argument, double-clicking a file associated
