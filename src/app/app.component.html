@@ -1,5 +1,12 @@
 <app-toolbar />
 
+@if (gitSpike) {
+  @defer {
+    <app-git-spike />
+    <app-editor-spike />
+  }
+}
+
 <main>
   @if (showSidebar()) {
     <app-sidebar (error)="showToast($event)" />

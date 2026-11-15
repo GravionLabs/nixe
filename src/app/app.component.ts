@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from "@angular/core";
+import { Component, computed, effect, inject, isDevMode, signal } from "@angular/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -9,12 +9,14 @@ import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
+import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
+import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
 import { ToolbarComponent } from "./features/toolbar/toolbar.component";
 import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -26,6 +28,7 @@ export class AppComponent {
   private readonly markdown = inject(MarkdownService);
 
   protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
+  protected readonly gitSpike = isDevMode();
   protected readonly toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -57,15 +60,21 @@ export class AppComponent {
   }
 
   private async initDesktopIntegration(): Promise<void> {
-    await listen(OPEN_FILE_EVENT, () => this.openPending());
-    await listen<string>(FILE_CHANGED_EVENT, (e) => this.doc.onExternalChange(e.payload));
-    await listen<string>(MENU_EVENT, (e) => this.onMenu(e.payload));
+    // Desktop-only listeners must not stop the pending file from opening
+    // (on iOS some of them are unavailable).
+    try {
+      await listen(OPEN_FILE_EVENT, () => this.openPending());
+      await listen<string>(FILE_CHANGED_EVENT, (e) => this.doc.onExternalChange(e.payload));
+      await listen<string>(MENU_EVENT, (e) => this.onMenu(e.payload));
 
-    await getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type === "drop" && event.payload.paths[0]) {
-        void this.openPath(event.payload.paths[0]);
-      }
-    });
+      await getCurrentWebview().onDragDropEvent((event) => {
+        if (event.payload.type === "drop" && event.payload.paths[0]) {
+          void this.openPath(event.payload.paths[0]);
+        }
+      });
+    } catch (err) {
+      console.warn("desktop integration unavailable", err);
+    }
 
     // A file or folder passed on the command line may already be waiting;
     // otherwise the last opened folder is restored.

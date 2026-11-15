@@ -62,6 +62,10 @@ jobs:
       contents: write
     env:
       VERSION: ${{ needs.determine-version.outputs.semver }}
+      # Only a push to main publishes a release and signs/notarizes the macOS bundles.
+      # PRs, workflow_dispatch and other branches build unsigned, publish nothing and get no Apple secret.
+      PUBLISH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      SIGN_MACOS: ${{ startsWith(matrix.platform, 'macos') && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -69,6 +73,22 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Require the Apple signing secrets
+        if: env.SIGN_MACOS == 'true'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          missing=0
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_CONTENT; do
+            if [ -z "${!name}" ]; then echo "::error::Secret $name is not set; refusing to publish an unsigned macOS bundle"; missing=1; fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
       - name: Set release version
         shell: bash
         run: |
@@ -96,6 +116,33 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: pnpm install --frozen-lockfile
+      - name: Export the signing variables and write the App Store Connect API key
+        if: env.SIGN_MACOS == 'true'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          set -euo pipefail
+          umask 077
+          # Placed after `pnpm install` so no install script or earlier build step sees the signing variables.
+          # Tauri checks that these variables exist, not that they are non-empty, so they are exported only
+          # on a signing run and never set to '' on unsigned runs. Each value is written with a random
+          # delimiter, so line breaks in a value cannot end the entry or inject another variable.
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY; do
+            delimiter="EOF_$(openssl rand -hex 16)"
+            {
+              echo "$name<<$delimiter"
+              printf '%s\n' "${!name}"
+              echo "$delimiter"
+            } >> "$GITHUB_ENV"
+          done
+          echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+          printf '%s' "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -104,14 +151,33 @@ jobs:
           # just build, to validate the matrix without cutting a release. Kept as a draft
           # here so no platform publishes an incomplete release while the others are
           # still building — publish-release below publishes it once all four are done.
-          tagName: ${{ github.ref == 'refs/heads/main' && format('v{0}', env.VERSION) || '' }}
-          releaseName: ${{ github.ref == 'refs/heads/main' && format('Nixe v{0}', env.VERSION) || '' }}
+          tagName: ${{ env.PUBLISH == 'true' && format('v{0}', env.VERSION) || '' }}
+          releaseName: ${{ env.PUBLISH == 'true' && format('Nixe v{0}', env.VERSION) || '' }}
           releaseDraft: true
           args: ${{ matrix.args }}
+      - name: Verify signature and notarization
+        if: env.SIGN_MACOS == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apps=(src-tauri/target/*/release/bundle/macos/*.app)
+          [ "${#apps[@]}" -gt 0 ] || { echo "::error::no .app bundle found"; exit 1; }
+          for app in "${apps[@]}"; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            info=$(codesign -dv "$app" 2>&1)
+            grep -q 'flags=.*runtime' <<<"$info" || { echo "::error::$app has no hardened runtime"; exit 1; }
+            xcrun stapler validate "$app"
+            spctl -a -vv "$app"
+          done
+      - name: Remove the API key
+        if: always() && env.SIGN_MACOS == 'true'
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
 
   publish-release:
     needs: [determine-version, build]
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
