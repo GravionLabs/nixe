@@ -11,6 +11,10 @@
 
 - [LaTeX formulas](math.md)
 
+## Callouts
+
+- [Callouts, highlights and comments](callouts.md)
+
 ## Links
 
 - [All link types](links.md)
