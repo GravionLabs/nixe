@@ -13,8 +13,9 @@ the effort (about 15 PBIs to reach parity) and the unproven Tauri iOS and `git2`
 
 The owner now wants to build the editing and sync app in Nixe after all.
 
-Open point for the author: the motivation for reversing ADR 0002 (for example independence from
-Obsidian, or a sync flow of its own) is not written down yet. Add it here before accepting.
+Motivation: Nixe is a hobby project for learning. The effort and the iOS risk that ADR 0002
+weighed against the rewrite are the point of the project, not a cost to avoid: building the
+index, the editor, Git sync and the iOS app is what the owner wants to learn.
 
 Technical findings from the planning discussion:
 
@@ -34,7 +35,11 @@ Nixe grows into an Obsidian-compatible vault app with editing and Git sync.
    both apps can work on one vault. Nixe writes only the notes the user edits and the Git
    metadata; its index and caches live in the app data directory, not in the vault.
 2. **One Rust core.** Vault scan, wikilink and backlink index, full-text search and Git sync
-   (`git2`, HTTPS + token) live in the Rust core. The frontends stay thin.
+   (`git2`, HTTPS + token) live in the Rust core. The frontends stay thin. The metadata for the
+   index (links, embeds, tags, headings, frontmatter) is extracted in Rust too, so a SwiftUI
+   frontend could use the core without the WebView. The TypeScript Markdown core keeps its own
+   grammar for rendering; both parsers are tested against the same fixture vault under
+   `fixtures/vault/` so they cannot drift apart unnoticed.
 3. **Tauri 2 on desktop and iOS** with one Angular frontend and a CodeMirror 6 editor. Native
    Swift appears only as small Tauri plugins.
 4. **Spike first.** Milestone M0 is a prototype on a real iPhone: open a vault, edit a note,
