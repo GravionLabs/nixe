@@ -32,3 +32,7 @@ Behind `#[cfg(desktop)]` in `src-tauri/src/lib.rs`: `tauri-plugin-single-instanc
 
 - Debug simulator build (warm Rust cache, frontend build included): about 53 s; cold Rust build about 3 min.
 - `Nixe.app` debug, simulator: 96 MB.
+
+## Editor spike (#59)
+
+Dev-only "Editor spike (#59)" panel (`src/app/features/editor-spike/`): opens notes from `<Documents>/vault` (seeded with `sample.md` and a generated 2000-line note) in CodeMirror 6, saves through the Rust commands `notes_list`/`notes_read`/`notes_write` (`src-tauri/src/notes.rs`, the webview only names a file inside that folder), and has a checklist (ok / annoying / blocker) that copies as markdown. `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` make the folder visible in the Files app. A `tauri ios build` bundles the production frontend, so the panel only shows with `pnpm tauri ios dev`.
