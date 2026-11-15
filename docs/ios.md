@@ -32,3 +32,13 @@ Behind `#[cfg(desktop)]` in `src-tauri/src/lib.rs`: `tauri-plugin-single-instanc
 
 - Debug simulator build (warm Rust cache, frontend build included): about 53 s; cold Rust build about 3 min.
 - `Nixe.app` debug, simulator: 96 MB.
+
+## Editor spike (#59)
+
+Dev-only "Editor spike (#59)" panel (`src/app/features/editor-spike/`): opens notes from `<Documents>/vault` (seeded with `sample.md` and a generated 2000-line note) in CodeMirror 6, saves through the Rust commands `notes_list`/`notes_read`/`notes_write` (`src-tauri/src/notes.rs`, the webview only names a file inside that folder), and has a checklist (ok / annoying / blocker) that copies as markdown. `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` make the folder visible in the Files app. A `tauri ios build` bundles the production frontend, so the panel only shows with `pnpm tauri ios dev`.
+
+### Results on the device (iPhone, iOS dev build)
+
+- **CodeMirror 6 works** in the iOS WebView: typing, markdown highlighting, hidden `**` outside the cursor line, checkbox widget, visible caret (the spike's red caret is only a debugging aid, the real editor must not use it) and a font size setting. The checklist is all ok.
+- **Files app:** the folder `vault` is visible under "On My iPhone > Nixe". A note in it opens in the app through the Rust commands (`choose a note`).
+- **Outside the sandbox (iCloud Drive, other folders):** the Tauri dialog plugin returns a `file://` URL (percent-encoded) from `open({ fileAccessMode: "scoped" })`, files only, no folders. Reading that path from Rust fails with `Operation not permitted (os error 1)`: iOS grants access only after `startAccessingSecurityScopedResource` on the URL, which neither the plugin nor our Rust code calls. A file picked from the app's own folder through the same dialog fails with `No such file or directory (os error 2)`. Not tested: a Swift plugin that holds the security-scoped access (or a bookmark) open. Consequence for the ADR (#61): a vault outside the app folder (iCloud Drive, a folder picker) needs native Swift code; a vault inside `<Documents>` works with Rust alone.

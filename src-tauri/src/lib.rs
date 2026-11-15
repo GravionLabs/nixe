@@ -13,6 +13,7 @@ mod cli_install;
 #[cfg(desktop)]
 mod menu;
 mod gitsync;
+mod notes;
 mod tree;
 
 /// Event telling the frontend that a file or folder is waiting in `take_pending_file`.
@@ -231,7 +232,13 @@ pub fn run() {
             gitsync::git_spike_edit,
             gitsync::git_commit,
             gitsync::git_pull_rebase,
-            gitsync::git_push
+            gitsync::git_push,
+            notes::notes_list,
+            notes::notes_read,
+            notes::notes_write,
+            notes::spike_external_path,
+            notes::spike_external_read,
+            notes::spike_external_write
         ])
         .build(tauri::generate_context!())
         .expect("error while building nixe");
