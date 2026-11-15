@@ -25,9 +25,11 @@ recorded elsewhere in the repository.
   Keychain through the `keyring` crate (`apple-native`), set and read from Rust, never on disk.
 - **Editor (#59):** CodeMirror 6 works in the iOS WebView: typing, Markdown highlighting,
   hiding `**` outside the cursor line, a checkbox widget, a visible caret and a configurable
-  font size. All 11 checklist items were rated ok. The vault folder `<Documents>/vault` is
+  font size. All 11 checklist items were rated ok. The editor spike's folder `<Documents>/vault` is
   visible in the Files app (`UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace`), and a
-  note in it opens in the app.
+  note in it opens in the app. The Git spike cloned into a different folder,
+  `<app_data_dir>/vault`; the two folders are not the same, and cloning a repository and then
+  editing the clone in the Files app was not tested.
 - **Files outside the app folder:** the Tauri dialog plugin returns a percent-encoded `file://`
   URL, offers files only (no folder), and Rust cannot read that URL: `Operation not permitted
   (os error 1)`. iOS grants access only after `startAccessingSecurityScopedResource` on the URL,
@@ -71,6 +73,7 @@ notes, iPad, sync conflicts on a device, background behavior, and Git over SSH.
   `git2` tests run on the desktop against local bare repositories).
 - Easier: no Swift is needed for the MVP, so there is no second toolchain beyond Xcode and the
   signing of the app.
+- Not yet verified: that a clone made by the Git code can be opened and edited through the Files app folder of decision 3.
 - Harder: a vault outside the app container (iCloud Drive, a folder of another app) needs a
   Swift plugin and a bookmark flow that is untested. The Files app shows the container, but a
   user who keeps the vault in iCloud Drive cannot use it with the MVP. The MVP user clones from

@@ -1,3 +1,5 @@
+# No DEVELOPMENT_TEAM here: the team id never goes into a tracked file. Set the APPLE_DEVELOPMENT_TEAM
+# environment variable for `pnpm tauri ios dev` (see docs/ios.md).
 name: nixe
 options:
   bundleIdPrefix: dev.nixe.app

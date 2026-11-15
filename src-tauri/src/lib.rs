@@ -12,7 +12,10 @@ use tauri::{AppHandle, Emitter, Manager, State};
 mod cli_install;
 #[cfg(desktop)]
 mod menu;
+// Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
+#[cfg(any(debug_assertions, mobile))]
 mod gitsync;
+#[cfg(any(debug_assertions, mobile))]
 mod notes;
 mod tree;
 
@@ -201,7 +204,7 @@ pub fn run() {
         });
     }
 
-    let app = builder
+    let builder = builder
         .setup(|app| {
             let cwd = std::env::current_dir().unwrap_or_default();
             let args: Vec<String> = std::env::args().collect();
@@ -217,8 +220,11 @@ pub fn run() {
                 }
             }
             Ok(())
-        })
-        .invoke_handler(tauri::generate_handler![
+        });
+
+    // Spike commands (#58 to #60) are reachable only in debug and mobile builds.
+    #[cfg(any(debug_assertions, mobile))]
+    let builder = builder        .invoke_handler(tauri::generate_handler![
             take_pending_file,
             read_text_file,
             is_file,
@@ -239,7 +245,19 @@ pub fn run() {
             notes::spike_external_path,
             notes::spike_external_read,
             notes::spike_external_write
-        ])
+        ]);
+    #[cfg(not(any(debug_assertions, mobile)))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        take_pending_file,
+        read_text_file,
+        is_file,
+        is_dir,
+        list_dir,
+        find_wiki_root,
+        watch_file
+    ]);
+
+    let app = builder
         .build(tauri::generate_context!())
         .expect("error while building nixe");
 
