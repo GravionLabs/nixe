@@ -20,6 +20,7 @@ import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
+import { SearchService } from "../../core/index/search.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { SettingsService } from "../../core/settings/settings.service";
 
@@ -73,6 +74,7 @@ export class ViewerComponent {
 
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly search = inject(SearchService);
   protected readonly settings = inject(SettingsService);
   private readonly markdown = inject(MarkdownService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -222,8 +224,11 @@ export class ViewerComponent {
     const link = target.closest("a");
     if (!link) return;
     event.preventDefault();
-    // Tags open the search once it exists (#66); until then clicking is a no-op.
-    if (link.classList.contains("tag")) return;
+    if (link.classList.contains("tag")) {
+      const name = link.getAttribute("data-tag") ?? link.textContent?.replace(/^#/, "") ?? "";
+      if (name) this.search.openWith(`tag:#${name}`);
+      return;
+    }
 
     const wikiTarget = link.classList.contains("wikilink") ? link.getAttribute("data-target") : null;
     if (wikiTarget !== null) {

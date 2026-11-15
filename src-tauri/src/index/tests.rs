@@ -497,3 +497,151 @@ mod watching {
         assert_eq!(run(&mut conn, &root), ScanSummary::default());
     }
 }
+
+mod searching {
+    use super::*;
+    use crate::index::search::{parse_query, search};
+
+    #[test]
+    fn translates_words_phrases_and_operators() {
+        let q = parse_query(r#"foo "exact phrase" tag:#Work path:notes/sub/ b"ar"#);
+        assert_eq!(q.fts.as_deref(), Some(r#""foo"* "exact phrase" "bar"*"#));
+        assert_eq!(q.tags, ["work"]);
+        assert_eq!(q.paths, ["notes/sub/"]);
+        assert_eq!(q.terms, ["foo", "exact phrase", "bar"]);
+    }
+
+    #[test]
+    fn operators_take_a_quoted_operand_and_junk_is_dropped() {
+        let q = parse_query(r#"tag:# "" - * path:"#);
+        assert!(q.is_empty());
+        assert_eq!(
+            parse_query(r#"say "a""b""#).fts.as_deref(),
+            Some(r#""say"* "a" "b""#)
+        );
+        assert!(parse_query("   ").is_empty());
+    }
+
+    #[test]
+    fn fts_syntax_in_input_is_not_interpreted() {
+        let q = parse_query("a OR b NEAR(c) col:x -d");
+        assert_eq!(
+            q.fts.as_deref(),
+            Some(r#""a"* "OR"* "b"* "NEAR(c)"* "col:x"* "-d"*"#)
+        );
+    }
+
+    fn vault(name: &str) -> (PathBuf, Connection) {
+        let (root, mut conn) = setup(name);
+        write(
+            &root,
+            "a.md",
+            "# A\nthe quick brown fox\njumps over the lazy dog #animals",
+        );
+        write(
+            &root,
+            "work/b.md",
+            "---\ntags: [work]\n---\nA quick note about quickly foxes",
+        );
+        write(&root, "work/deep/c.md", "lazy sunday #work/plans");
+        write(&root, "other/d.md", "quick but not tagged. 100% sure_thing");
+        run(&mut conn, &root);
+        (root, conn)
+    }
+
+    fn paths(conn: &Connection, q: &str) -> Vec<String> {
+        let mut p: Vec<String> = search(conn, q)
+            .unwrap()
+            .into_iter()
+            .map(|h| h.path)
+            .collect();
+        p.sort();
+        p
+    }
+
+    #[test]
+    fn finds_words_by_prefix_and_phrases_exactly() {
+        let (_r, conn) = vault("s-words");
+        assert_eq!(paths(&conn, "quick"), ["a.md", "other/d.md", "work/b.md"]);
+        assert_eq!(paths(&conn, "fo"), ["a.md", "work/b.md"]);
+        assert_eq!(paths(&conn, r#""quick brown""#), ["a.md"]);
+        assert!(paths(&conn, r#""brown quick""#).is_empty());
+        assert!(search(&conn, "").unwrap().is_empty());
+    }
+
+    #[test]
+    fn narrows_by_tag_including_nested_tags_and_by_path() {
+        let (_r, conn) = vault("s-filter");
+        assert_eq!(paths(&conn, "lazy tag:#work"), ["work/deep/c.md"]);
+        assert_eq!(paths(&conn, "tag:#work"), ["work/b.md", "work/deep/c.md"]);
+        assert_eq!(paths(&conn, "tag:work/plans"), ["work/deep/c.md"]);
+        assert_eq!(paths(&conn, "tag:#wor"), Vec::<String>::new());
+        assert_eq!(paths(&conn, "quick path:work/"), ["work/b.md"]);
+        assert_eq!(
+            paths(&conn, "lazy path:work/ tag:animals"),
+            Vec::<String>::new()
+        );
+        assert_eq!(paths(&conn, "path:100%"), Vec::<String>::new());
+    }
+
+    #[test]
+    fn hits_carry_highlighted_snippets_with_their_line() {
+        let (_r, conn) = vault("s-snip");
+        let hits = search(&conn, "lazy").unwrap();
+        let a = hits.iter().find(|h| h.path == "a.md").unwrap();
+        assert_eq!(a.title, "a");
+        assert_eq!(a.snippets.len(), 1);
+        assert_eq!(a.snippets[0].line, 3);
+        assert!(a.snippets[0].text.contains("the \u{1}lazy\u{2} dog"));
+        let hits = search(&conn, "quick").unwrap();
+        let b = hits.iter().find(|h| h.path == "work/b.md").unwrap();
+        assert!(b.snippets[0]
+            .text
+            .contains("\u{1}quick\u{2} note about \u{1}quickly\u{2}"));
+        // A filter-only search lists notes without snippets.
+        assert!(search(&conn, "tag:work").unwrap()[0].snippets.is_empty());
+    }
+
+    #[test]
+    fn long_lines_are_shortened_around_the_match() {
+        let (root, mut conn) = setup("s-long");
+        write(
+            &root,
+            "long.md",
+            &format!("{} needle {}", "x ".repeat(200), "y ".repeat(200)),
+        );
+        run(&mut conn, &root);
+        let s = &search(&conn, "needle").unwrap()[0].snippets[0];
+        assert!(s.text.starts_with('…') && s.text.ends_with('…'));
+        assert!(s.text.contains("\u{1}needle\u{2}"));
+        assert!(s.text.chars().count() < 250);
+    }
+
+    #[test]
+    fn searches_2000_notes_quickly() {
+        let (root, mut conn) = setup("s-perf");
+        for i in 0..2000 {
+            write(
+                &root,
+                &format!("d{}/n{i}.md", i % 20),
+                &format!("note {i} common words alpha{} #t{}", i % 50, i % 7),
+            );
+        }
+        run(&mut conn, &root);
+        for q in [
+            "common",
+            "alpha7 tag:t3",
+            "\"common words\" path:d3/",
+            "tag:t1",
+        ] {
+            let start = Instant::now();
+            let hits = search(&conn, q).unwrap();
+            assert!(!hits.is_empty(), "{q}");
+            assert!(
+                start.elapsed().as_millis() < 100,
+                "{q}: {:?}",
+                start.elapsed()
+            );
+        }
+    }
+}

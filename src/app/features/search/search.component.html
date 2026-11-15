@@ -1,0 +1,50 @@
+<header>
+  <span>Search</span>
+  <button type="button" class="close" aria-label="Close search" (click)="search.close()">×</button>
+</header>
+
+<input
+  #input
+  type="search"
+  placeholder='Search… tag:#name path:folder/ "phrase"'
+  aria-label="Search the vault"
+  [value]="search.query()"
+  (input)="onInput($event)"
+  (keydown.escape)="search.close()"
+/>
+
+@switch (search.state()) {
+  @case ("loading") {
+    <p class="status" role="status">Indexing the vault…</p>
+  }
+  @case ("error") {
+    <p class="status" role="alert">The vault index is not available.</p>
+  }
+  @case ("ready") {
+    @if (search.hits().length === 0) {
+      <p class="status">No results</p>
+    } @else {
+      <ul aria-label="Results">
+        @for (hit of search.hits(); track hit.path) {
+          <li>
+            <button type="button" class="note" (click)="openHit(hit)" [title]="hit.path">
+              <span class="name">{{ hit.title }}</span>
+              <span class="path">{{ hit.path }}</span>
+            </button>
+            @for (snippet of hit.snippets; track snippet.line) {
+              <button type="button" class="snippet" (click)="openHit(hit, snippet)">
+                @for (part of segments(snippet.text); track $index) {
+                  @if (part.match) {
+                    <mark>{{ part.text }}</mark>
+                  } @else {
+                    {{ part.text }}
+                  }
+                }
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  }
+}

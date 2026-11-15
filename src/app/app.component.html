@@ -11,6 +11,9 @@
   @if (showSidebar()) {
     <app-sidebar (error)="showToast($event)" />
   }
+  @if (showSearch()) {
+    <app-search (error)="showToast($event)" />
+  }
   @if (doc.path()) {
     <app-viewer class="pane" [html]="html()" [dark]="settings.dark()" (notify)="showToast($event)" />
     @if (showBacklinks()) {
@@ -30,6 +33,7 @@
         <dt>{{ mod }}⇧O</dt><dd>Open folder</dd>
         <dt>{{ mod }}B</dt><dd>Toggle sidebar</dd>
         <dt>{{ mod }}⇧B</dt><dd>Toggle backlinks</dd>
+        <dt>{{ mod }}⇧F</dt><dd>Search the vault</dd>
         <dt>{{ mod }}[ / ]</dt><dd>Back / forward</dd>
       </dl>
     </section>

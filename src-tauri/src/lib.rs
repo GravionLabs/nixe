@@ -273,6 +273,7 @@ pub fn run() {
         index::commands::note_meta,
         index::commands::backlinks,
         index::commands::tags,
+        index::commands::search_notes,
         watch_file,
         gitsync::git_token_set,
         gitsync::git_token_get,
@@ -304,6 +305,7 @@ pub fn run() {
         index::commands::note_meta,
         index::commands::backlinks,
         index::commands::tags,
+        index::commands::search_notes,
         watch_file
     ]);
 

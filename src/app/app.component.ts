@@ -6,10 +6,12 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FILE_CHANGED_EVENT, MENU_EVENT, OPEN_FILE_EVENT, STDIN_FILE_SUFFIX, backend } from "./core/file/backend";
 import { DocumentService } from "./core/file/document.service";
 import { IndexService } from "./core/index/index.service";
+import { SearchService } from "./core/index/search.service";
 import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
+import { SearchComponent } from "./features/search/search.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
@@ -18,7 +20,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [BacklinksComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [BacklinksComponent, SearchComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -29,6 +31,7 @@ export class AppComponent {
   protected readonly settings = inject(SettingsService);
   private readonly markdown = inject(MarkdownService);
   private readonly index = inject(IndexService);
+  protected readonly search = inject(SearchService);
 
   protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
   protected readonly gitSpike = isDevMode();
@@ -52,6 +55,8 @@ export class AppComponent {
   protected readonly showBacklinks = computed(
     () => this.workspace.vaultRoot() !== null && this.doc.path() !== null && this.settings.backlinksVisible(),
   );
+
+  protected readonly showSearch = computed(() => this.workspace.vaultRoot() !== null && this.search.visible());
 
   constructor() {
     effect(() => {
@@ -134,6 +139,7 @@ export class AppComponent {
       back: () => this.run(() => this.doc.back()),
       forward: () => this.run(() => this.doc.forward()),
       "toggle-sidebar": () => this.settings.sidebarVisible.update((v) => !v),
+      search: () => this.search.openWith(),
       "toggle-backlinks": () => this.settings.backlinksVisible.update((v) => !v),
       "toggle-math": () => this.settings.math.update((v) => !v),
       "cycle-theme": () => this.settings.cycleTheme(),
@@ -146,6 +152,11 @@ export class AppComponent {
 
   /** Alt+←/→ as additional history shortcuts (menu accelerators cover the rest). */
   protected onKeydown(event: KeyboardEvent): void {
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {
+      this.search.openWith();
+      event.preventDefault();
+      return;
+    }
     if (!event.altKey) return;
     if (event.key === "ArrowLeft") void this.run(() => this.doc.back());
     else if (event.key === "ArrowRight") void this.run(() => this.doc.forward());

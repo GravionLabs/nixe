@@ -5,6 +5,7 @@
 pub mod commands;
 mod read;
 mod scan;
+pub mod search;
 pub mod watch;
 
 use std::path::{Path, PathBuf};
@@ -13,6 +14,7 @@ use rusqlite::Connection;
 
 pub use read::{Backlink, NoteRecord, NoteSummary, TagCount};
 pub use scan::scan;
+pub use search::SearchHit;
 
 /// Bump on every schema change; a different version on disk means "drop and rebuild".
 pub const SCHEMA_VERSION: i32 = 2;
