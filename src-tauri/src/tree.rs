@@ -32,9 +32,7 @@ fn is_visible_dir(name: &str) -> bool {
 
 /// True if `dir` (recursively) contains a markdown file.
 fn contains_markdown(dir: &Path, budget: &mut usize) -> bool {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return false;
-    };
+    let Ok(entries) = std::fs::read_dir(dir) else { return false };
     let mut subdirs = Vec::new();
     for entry in entries.flatten() {
         if *budget == 0 {
@@ -60,12 +58,7 @@ fn contains_markdown(dir: &Path, budget: &mut usize) -> bool {
 /// order), then the rest with folders before files, alphabetically.
 pub fn list_dir(dir: &Path) -> Result<Vec<DirEntry>, String> {
     let order: Vec<String> = std::fs::read_to_string(dir.join(".order"))
-        .map(|s| {
-            s.lines()
-                .map(|l| l.trim().to_string())
-                .filter(|l| !l.is_empty())
-                .collect()
-        })
+        .map(|s| s.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect())
         .unwrap_or_default();
 
     let mut entries = Vec::new();
@@ -93,10 +86,7 @@ pub fn list_dir(dir: &Path) -> Result<Vec<DirEntry>, String> {
         let key = if e.is_dir {
             e.name.as_str()
         } else {
-            Path::new(&e.name)
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or(&e.name)
+            Path::new(&e.name).file_stem().and_then(|s| s.to_str()).unwrap_or(&e.name)
         };
         order.iter().position(|o| o == key).unwrap_or(usize::MAX)
     };
@@ -123,11 +113,7 @@ mod tests {
         fs::write(root.join("image.png"), "").unwrap();
         fs::write(root.join(".order"), "Home\nZeta\n").unwrap();
 
-        let names: Vec<String> = list_dir(&root)
-            .unwrap()
-            .into_iter()
-            .map(|e| e.name)
-            .collect();
+        let names: Vec<String> = list_dir(&root).unwrap().into_iter().map(|e| e.name).collect();
         assert_eq!(names, ["Home.md", "Zeta", "Alpha.md", "Beta.md"]);
         fs::remove_dir_all(&root).unwrap();
     }
