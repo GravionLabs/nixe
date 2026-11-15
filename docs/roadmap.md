@@ -16,7 +16,7 @@ works on the same plain `.md` files and folder layout as Obsidian, so both apps 
 - **Same format as Obsidian.** Notes are plain `.md` files and `.obsidian/` is never touched.
 - **One Rust core, thin frontends.** Vault scan, index, search and Git sync live in `src-tauri/`.
 - **Two parsers, one fixture vault.** The TypeScript Markdown core renders; the Rust core
-  extracts metadata for the index. Both will be tested against `fixtures/vault/` (not created yet).
+  extracts metadata for the index. Both are tested against `fixtures/vault/`.
 - **Lazy loading.** Startup stays fast: the editor and the index load on demand.
 
 ## Milestones
@@ -82,7 +82,7 @@ planner when their milestone comes up; the Features and their sub-issues are on 
   SwiftUI frontend through UniFFI on the same Rust core.
 - **Sync conflicts.** Two devices editing one note. The remote version stays in `Note.md` and the
   local version is written next to it as a conflict copy; the sync never blocks.
-- **Two parsers.** The TypeScript and the Rust parser can drift apart. Both will be tested against
+- **Two parsers.** The TypeScript and the Rust parser can drift apart. Both are tested against
   `fixtures/vault/`.
 - **Scope creep.** Obsidian has many syntax corners (Dataview, canvas, footnote styles). The
   fixture vault defines what is in.

@@ -5,6 +5,12 @@ use std::path::{Path, PathBuf};
 
 use ignore::WalkBuilder;
 
+// Not called yet: the vault index (a later item of the same feature) is the first user.
+#[allow(dead_code)]
+pub mod meta;
+#[allow(dead_code)]
+pub mod resolve;
+
 const SKIPPED_DIRS: &[&str] = &[".obsidian", ".git", ".trash"];
 
 /// The topmost ancestor of `path` (or `path` itself) that contains `.obsidian/`;

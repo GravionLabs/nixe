@@ -1,0 +1,23 @@
+{
+  "aliases": [],
+  "blocks": [],
+  "headings": [
+    {
+      "level": 1,
+      "text": "L2"
+    }
+  ],
+  "links": [
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "L3"
+    }
+  ],
+  "markdownLinks": [],
+  "properties": [],
+  "tags": [],
+  "warnings": []
+}
