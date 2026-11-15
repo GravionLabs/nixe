@@ -83,8 +83,8 @@ flowchart LR
 
 The TypeScript Markdown core (markdown-it plugins) renders notes and keeps its own grammar. The
 Rust core extracts links, embeds, tags, headings and frontmatter for the index, so a SwiftUI
-frontend could use the core without the WebView. Both parsers are tested against the same
-fixture vault under `fixtures/vault/`, so they cannot drift apart unnoticed.
+frontend could use the core without the WebView. Both parsers will be tested against the same
+fixture vault under `fixtures/vault/` (not created yet), so they cannot drift apart unnoticed.
 
 ### What Nixe writes, and where
 
