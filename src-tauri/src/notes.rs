@@ -9,6 +9,8 @@ use tauri::Manager;
 const SAMPLE_NAME: &str = "sample.md";
 const LONG_NAME: &str = "long-2000-lines.md";
 const LONG_LINES: usize = 2000;
+/// Largest note the editor reads or writes.
+pub const MAX_BYTES: u64 = 5 * 1024 * 1024;
 
 /// The only directory the editor may touch.
 pub fn notes_dir(documents_dir: &Path) -> PathBuf {
@@ -47,7 +49,9 @@ fn long_note() -> String {
             1 => s.push_str(&format!("## Section {i}\n")),
             2 => s.push_str(&format!("- [ ] task on line {i}\n")),
             3 => s.push_str(&format!("Line {i} with **bold** and *italic* text.\n")),
-            _ => s.push_str(&format!("Line {i}: lorem ipsum dolor sit amet, consectetur.\n")),
+            _ => s.push_str(&format!(
+                "Line {i}: lorem ipsum dolor sit amet, consectetur.\n"
+            )),
         }
     }
     s
@@ -65,10 +69,15 @@ pub fn seed(dir: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// A regular file that is not a symlink (symlinks could point out of the vault).
+fn is_plain_file(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_file())
+}
+
 pub fn list(dir: &Path) -> std::io::Result<Vec<String>> {
     let mut names: Vec<String> = fs::read_dir(dir)?
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().is_file())
+        .filter(|e| is_plain_file(&e.path()))
         .filter_map(|e| e.file_name().into_string().ok())
         .filter(|n| checked_name(n).is_ok())
         .collect();
@@ -77,11 +86,53 @@ pub fn list(dir: &Path) -> std::io::Result<Vec<String>> {
 }
 
 pub fn read(dir: &Path, name: &str) -> Result<String, String> {
-    fs::read_to_string(dir.join(checked_name(name)?)).map_err(|e| e.to_string())
+    let path = dir.join(checked_name(name)?);
+    let meta = fs::symlink_metadata(&path).map_err(|e| e.to_string())?;
+    if !meta.file_type().is_file() {
+        return Err(format!("not a regular file: {name}"));
+    }
+    if meta.len() > MAX_BYTES {
+        return Err(format!("note too large: {name}"));
+    }
+    fs::read_to_string(path).map_err(|e| e.to_string())
 }
 
+/// Writes through a temp file in the same folder and renames it over the note.
 pub fn write(dir: &Path, name: &str, content: &str) -> Result<(), String> {
-    fs::write(dir.join(checked_name(name)?), content).map_err(|e| e.to_string())
+    let path = dir.join(checked_name(name)?);
+    if content.len() as u64 > MAX_BYTES {
+        return Err(format!("note too large: {name}"));
+    }
+    if let Ok(meta) = fs::symlink_metadata(&path) {
+        if !meta.file_type().is_file() {
+            return Err(format!("not a regular file: {name}"));
+        }
+    }
+    let tmp = dir.join(format!(".{name}.tmp"));
+    fs::write(&tmp, content).map_err(|e| e.to_string())?;
+    fs::rename(&tmp, &path).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        e.to_string()
+    })
+}
+
+/// Spike only (#59): read a file the document picker returned, to test iCloud access.
+/// Disabled in release builds because the path comes from the webview.
+#[tauri::command]
+pub fn spike_external_read(path: String) -> Result<String, String> {
+    if !cfg!(debug_assertions) {
+        return Err("only available in debug builds".into());
+    }
+    fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+/// Spike only (#59): write back to a picked file; debug builds only.
+#[tauri::command]
+pub fn spike_external_write(path: String, content: String) -> Result<(), String> {
+    if !cfg!(debug_assertions) {
+        return Err("only available in debug builds".into());
+    }
+    fs::write(path, content).map_err(|e| e.to_string())
 }
 
 fn dir_of(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -127,7 +178,9 @@ mod tests {
         seed(&dir).unwrap();
         assert_eq!(list(&dir).unwrap(), vec![LONG_NAME, SAMPLE_NAME]);
         assert_eq!(read(&dir, LONG_NAME).unwrap().lines().count(), 2000);
-        assert!(read(&dir, SAMPLE_NAME).unwrap().contains("- [ ] open a note"));
+        assert!(read(&dir, SAMPLE_NAME)
+            .unwrap()
+            .contains("- [ ] open a note"));
     }
 
     #[test]
@@ -156,6 +209,62 @@ mod tests {
             assert!(read(&dir, bad).is_err(), "{bad}");
             assert!(write(&dir, bad, "x").is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn rejects_nul_and_absolute_names() {
+        let dir = tmp("nul");
+        seed(&dir).unwrap();
+        for bad in ["a\0.md", "/etc/passwd.md", "/abs/x.md", "C:\\x.md"] {
+            assert!(read(&dir, bad).is_err(), "{bad:?}");
+            assert!(write(&dir, bad, "x").is_err(), "{bad:?}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_symlinks_when_listing_reading_and_writing() {
+        let dir = tmp("link");
+        seed(&dir).unwrap();
+        let outside = tmp("link-outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.md"), "secret").unwrap();
+        std::os::unix::fs::symlink(outside.join("secret.md"), dir.join("link.md")).unwrap();
+        assert!(!list(&dir).unwrap().contains(&"link.md".to_string()));
+        assert!(read(&dir, "link.md").is_err());
+        assert!(write(&dir, "link.md", "changed").is_err());
+        assert_eq!(
+            fs::read_to_string(outside.join("secret.md")).unwrap(),
+            "secret"
+        );
+    }
+
+    #[test]
+    fn write_leaves_no_temp_file_and_replaces_content() {
+        let dir = tmp("atomic");
+        seed(&dir).unwrap();
+        write(&dir, SAMPLE_NAME, "one").unwrap();
+        write(&dir, SAMPLE_NAME, "two").unwrap();
+        assert_eq!(read(&dir, SAMPLE_NAME).unwrap(), "two");
+        let files: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert!(files.iter().all(|f| !f.to_string_lossy().ends_with(".tmp")));
+    }
+
+    #[test]
+    fn enforces_the_size_limit_on_write_and_read() {
+        let dir = tmp("size");
+        seed(&dir).unwrap();
+        let big = "x".repeat(MAX_BYTES as usize + 1);
+        assert!(write(&dir, "big.md", &big).is_err());
+        assert!(!dir.join("big.md").exists());
+        fs::write(dir.join("big.md"), &big).unwrap();
+        assert!(read(&dir, "big.md").is_err());
+        let ok = "x".repeat(MAX_BYTES as usize);
+        write(&dir, "ok.md", &ok).unwrap();
+        assert_eq!(read(&dir, "ok.md").unwrap().len(), ok.len());
     }
 
     #[test]

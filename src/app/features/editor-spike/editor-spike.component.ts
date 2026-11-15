@@ -14,6 +14,7 @@ import {
 import { Compartment, EditorState, Extension } from "@codemirror/state";
 import { EditorView, drawSelection, keymap } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
+import { open as pickFile } from "@tauri-apps/plugin-dialog";
 
 import {
   CHECKLIST_ITEMS,
@@ -79,11 +80,14 @@ export function editorExtensions(
         <button type="button" (click)="resize(-1)">A-</button>
         <span>{{ fontSize() }}px</span>
         <button type="button" (click)="resize(1)">A+</button>
+        <button type="button" (click)="openExternal()">
+          Open external file (iCloud)
+        </button>
         <button type="button" (click)="save()" [disabled]="!current()">
           Save
         </button>
       </div>
-      <p>{{ status() }}</p>
+      <p style="white-space: pre-wrap">{{ status() }}</p>
       <div #host class="host"></div>
       <h4>Checklist</h4>
       @for (item of items; track item) {
@@ -218,6 +222,41 @@ export class EditorSpikeComponent implements OnDestroy {
       // Storage can be unavailable; the size then resets on the next launch.
     }
     this.view?.dispatch({ effects: this.theme.reconfigure(themeFor(size)) });
+  }
+
+  /** Spike #59: can a file outside the sandbox (iCloud Drive etc.) be read and written back? */
+  protected async openExternal(): Promise<void> {
+    const lines: string[] = [];
+    const report = (): void => this.status.set(lines.join("\n"));
+    try {
+      const picked = await pickFile({
+        multiple: false,
+        fileAccessMode: "scoped",
+      });
+      if (!picked) {
+        this.status.set("external: cancelled");
+        return;
+      }
+      lines.push(`external path: ${picked}`);
+      let content = "";
+      try {
+        content = await invoke<string>("spike_external_read", { path: picked });
+        lines.push(`read OK, ${content.length} chars`);
+      } catch (error) {
+        lines.push(`read FAILED: ${String(error)}`);
+        report();
+        return;
+      }
+      try {
+        await invoke("spike_external_write", { path: picked, content });
+        lines.push("write OK (same content written back)");
+      } catch (error) {
+        lines.push(`write FAILED: ${String(error)}`);
+      }
+    } catch (error) {
+      lines.push(`pick FAILED: ${String(error)}`);
+    }
+    report();
   }
 
   protected rate(item: string, rating: Rating): void {
