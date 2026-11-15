@@ -84,7 +84,10 @@ flowchart LR
 The TypeScript Markdown core (markdown-it plugins) renders notes and keeps its own grammar. The
 Rust core extracts links, embeds, tags, headings and frontmatter for the index, so a SwiftUI
 frontend could use the core without the WebView. Both parsers will be tested against the same
-fixture vault under `fixtures/vault/` (not created yet), so they cannot drift apart unnoticed.
+fixture vault under `fixtures/vault/`, so they cannot drift apart unnoticed. Each note there has an
+expected-metadata file in `fixtures/vault/.meta/<path>.json`; `vault::meta` (Rust) and
+`meta-fixture.spec.ts` (Vitest) both check their parser against it. Regenerate the files after an
+intended grammar change with `NIXE_UPDATE_FIXTURES=1 cargo test vault::meta` and review the diff.
 
 ### What Nixe writes, and where
 

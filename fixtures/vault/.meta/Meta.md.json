@@ -1,0 +1,128 @@
+{
+  "aliases": [
+    "Meta alias"
+  ],
+  "blocks": [
+    "para-1"
+  ],
+  "headings": [
+    {
+      "level": 1,
+      "text": "Meta"
+    },
+    {
+      "level": 2,
+      "text": "Sub heading"
+    }
+  ],
+  "links": [
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "Note"
+    },
+    {
+      "alias": "alias",
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": "Second heading",
+      "target": "Note"
+    },
+    {
+      "alias": "shown",
+      "block": "block1",
+      "embed": false,
+      "heading": null,
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": "Meta",
+      "target": ""
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "after"
+    }
+  ],
+  "markdownLinks": [
+    {
+      "heading": null,
+      "target": "Note.md"
+    },
+    {
+      "heading": "Top",
+      "target": "folder/Deep.md"
+    },
+    {
+      "heading": null,
+      "target": "Loop A.md"
+    }
+  ],
+  "properties": [
+    {
+      "key": "title",
+      "type": "text",
+      "value": "Meta demo"
+    },
+    {
+      "key": "count",
+      "type": "number",
+      "value": 3
+    },
+    {
+      "key": "published",
+      "type": "checkbox",
+      "value": true
+    },
+    {
+      "key": "created",
+      "type": "date",
+      "value": "2026-11-15"
+    },
+    {
+      "key": "tags",
+      "type": "list",
+      "value": [
+        "project/nixe",
+        "#Frontmatter"
+      ]
+    },
+    {
+      "key": "aliases",
+      "type": "list",
+      "value": [
+        "Meta alias"
+      ]
+    }
+  ],
+  "tags": [
+    "project/nixe",
+    "Frontmatter",
+    "todo",
+    "project/nixe/v1",
+    "übersicht"
+  ],
+  "warnings": []
+}

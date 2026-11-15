@@ -1,0 +1,23 @@
+{
+  "aliases": [],
+  "blocks": [],
+  "headings": [
+    {
+      "level": 1,
+      "text": "Loop A"
+    }
+  ],
+  "links": [
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "Loop B"
+    }
+  ],
+  "markdownLinks": [],
+  "properties": [],
+  "tags": [],
+  "warnings": []
+}

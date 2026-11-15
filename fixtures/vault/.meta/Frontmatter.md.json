@@ -1,0 +1,74 @@
+{
+  "aliases": [
+    "Single alias"
+  ],
+  "blocks": [],
+  "headings": [],
+  "links": [],
+  "markdownLinks": [],
+  "properties": [
+    {
+      "key": "title",
+      "type": "text",
+      "value": "Every property type"
+    },
+    {
+      "key": "text",
+      "type": "text",
+      "value": "plain"
+    },
+    {
+      "key": "number",
+      "type": "number",
+      "value": 42
+    },
+    {
+      "key": "ratio",
+      "type": "number",
+      "value": 0.75
+    },
+    {
+      "key": "checkbox",
+      "type": "checkbox",
+      "value": false
+    },
+    {
+      "key": "date",
+      "type": "date",
+      "value": "2026-11-15"
+    },
+    {
+      "key": "datetime",
+      "type": "date",
+      "value": "2026-11-15T21:45:00"
+    },
+    {
+      "key": "list",
+      "type": "list",
+      "value": [
+        "one",
+        "two"
+      ]
+    },
+    {
+      "key": "empty",
+      "type": "text",
+      "value": null
+    },
+    {
+      "key": "alias",
+      "type": "text",
+      "value": "Single alias"
+    },
+    {
+      "key": "tag",
+      "type": "text",
+      "value": "solo"
+    }
+  ],
+  "tags": [
+    "solo",
+    "body-tag"
+  ],
+  "warnings": []
+}

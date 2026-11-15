@@ -1,0 +1,79 @@
+{
+  "aliases": [],
+  "blocks": [],
+  "headings": [
+    {
+      "level": 1,
+      "text": "Vault index"
+    }
+  ],
+  "links": [
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "note.md"
+    },
+    {
+      "alias": "an alias",
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": "Second heading",
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": "block1",
+      "embed": false,
+      "heading": null,
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "folder/Deep"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "Deep"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "Missing"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "Twin"
+    }
+  ],
+  "markdownLinks": [],
+  "properties": [],
+  "tags": [],
+  "warnings": []
+}

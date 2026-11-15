@@ -52,3 +52,13 @@ any thread:
 
 Continue with [tauri-commands.md](tauri-commands.md) for the full IPC surface, or
 [file-watching.md](file-watching.md) for how disk changes reach the UI.
+
+## `vault::meta` and `vault::resolve`
+
+`vault/meta.rs` turns the text of one note into `NoteMeta` (`extract`): wikilinks and embeds
+(target, heading, block, alias), Markdown links to notes, inline and frontmatter tags, headings,
+block ids, typed frontmatter properties (text, number, checkbox, date, list) and aliases. Code
+spans, fences and `%%comments%%` are skipped. Invalid frontmatter gives a note without
+properties and the warning `invalid-frontmatter`, never an error. `vault/resolve.rs` resolves a
+link target to a file (exact path, then unique basename, case-insensitive) like
+`wikilink-resolver.ts`. Links inside frontmatter values are not extracted.
