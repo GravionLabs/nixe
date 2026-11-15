@@ -88,7 +88,13 @@ jobs:
           for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_CONTENT; do
             if [ -z "${!name}" ]; then echo "::error::Secret $name is not set; refusing to publish an unsigned macOS bundle"; missing=1; fi
           done
-          exit $missing
+          [ "$missing" -eq 0 ] || exit 1
+          # Tauri checks that these variables exist, not that they are non-empty, so they are exported only
+          # here (signing run) and never set to '' on unsigned runs. Tauri then imports the certificate, signs
+          # with the hardened runtime, notarizes through the API key and staples the ticket.
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY; do
+            echo "$name=${!name}" >> "$GITHUB_ENV"
+          done
       - name: Set release version
         shell: bash
         run: |
@@ -128,13 +134,6 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Tauri imports the certificate, signs with the hardened runtime, notarizes through the
-          # App Store Connect API key and staples the ticket. Empty (unsigned) unless SIGN_MACOS.
-          APPLE_CERTIFICATE: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_API_ISSUER: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_API_ISSUER || '' }}
-          APPLE_API_KEY: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_API_KEY || '' }}
         with:
           # Only builds from main create/update a GitHub release; PRs and other branches
           # just build, to validate the matrix without cutting a release. Kept as a draft
