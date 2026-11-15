@@ -12,6 +12,8 @@ export interface RenderContext {
   filePath: string | null;
   wikiRoot: string | null;
   math: boolean;
+  /** Vault-relative files; enables `unresolved` marking of wikilinks. */
+  vaultFiles?: readonly string[] | null;
 }
 
 /** Markdown → sanitized HTML, with local image paths mapped to Tauri's asset protocol. */
@@ -43,7 +45,7 @@ export class MarkdownService {
     }
     this.current = ctx;
     try {
-      const note = renderNote(md, text);
+      const note = renderNote(md, text, ctx.vaultFiles ?? undefined);
       return { ...note, html: DOMPurify.sanitize(note.html) };
     } finally {
       this.current = null;

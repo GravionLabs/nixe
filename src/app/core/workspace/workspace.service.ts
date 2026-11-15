@@ -25,6 +25,10 @@ export class WorkspaceService {
     const r = this.root();
     return r ? basename(r) : null;
   });
+  /** Vault root of the opened folder (topmost ancestor with `.obsidian/`, else the folder itself). */
+  readonly vaultRoot = signal<string | null>(null);
+  /** Vault-relative files, held in memory for wikilink resolution. */
+  readonly vaultFiles = signal<readonly string[] | null>(null);
   private readonly rootNodes = signal<TreeNode[]>([]);
 
   /** Flattened list of visible rows (expanded folders only). */
@@ -45,6 +49,10 @@ export class WorkspaceService {
     path = toSlashes(path);
     const hasOrder = await backend.isFile(joinPath(path, ".order"));
     const nodes = await this.load(path, hasOrder, 0);
+    const vaultRoot = toSlashes(await backend.findVaultRoot(path));
+    const vaultFiles = await backend.listVaultFiles(vaultRoot);
+    this.vaultRoot.set(vaultRoot);
+    this.vaultFiles.set(vaultFiles);
     this.root.set(path);
     this.rootNodes.set(nodes);
     this.settings.lastFolder.set(path);

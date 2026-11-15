@@ -11,6 +11,7 @@ import { calloutPlugin } from "./plugins/callout.plugin";
 import { commentPlugin, highlightPlugin } from "./plugins/highlight-comment.plugin";
 import { mermaidFencePlugin } from "./plugins/mermaid-fence.plugin";
 import { sourceLinePlugin } from "./plugins/source-line.plugin";
+import { wikilinkPlugin } from "./plugins/wikilink.plugin";
 import { tagPlugin } from "./plugins/tag.plugin";
 
 export interface RendererOptions {
@@ -65,6 +66,7 @@ export function createMarkdownRenderer(options: RendererOptions): MarkdownIt {
     .use(highlightPlugin)
     .use(commentPlugin)
     .use(tagPlugin)
+    .use(wikilinkPlugin)
     .use(sourceLinePlugin);
 
   if (options.math) {

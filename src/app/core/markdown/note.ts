@@ -13,9 +13,13 @@ export interface RenderedNote {
   frontmatterError: string | null;
 }
 
-export function renderNote(md: MarkdownIt, text: string): RenderedNote {
+export function renderNote(
+  md: MarkdownIt,
+  text: string,
+  vaultFiles?: readonly string[],
+): RenderedNote {
   const fm = splitFrontmatter(text);
-  const env: { tags?: string[] } = {};
+  const env: { tags?: string[]; vaultFiles?: readonly string[] } = { vaultFiles };
   const body = md.render(fm.body, env);
   const properties = toProperties(fm.data);
   const tags = [...new Set([...frontmatterTags(fm.data), ...(env.tags ?? [])])];

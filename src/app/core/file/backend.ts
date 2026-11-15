@@ -16,6 +16,8 @@ export const backend = {
   isDir: (path: string) => invoke<boolean>("is_dir", { path }),
   listDir: (path: string) => invoke<DirEntry[]>("list_dir", { path }),
   findWikiRoot: (path: string) => invoke<string>("find_wiki_root", { path }),
+  findVaultRoot: (path: string) => invoke<string>("find_vault_root", { path }),
+  listVaultFiles: (root: string) => invoke<string[]>("list_vault_files", { root }),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
 };
 

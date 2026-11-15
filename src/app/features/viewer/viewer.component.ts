@@ -17,7 +17,9 @@ import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
 import { slugify } from "../../core/markdown/markdown-renderer";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
-import { isMarkdownPath } from "../../core/markdown/paths";
+import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
+import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
+import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { SettingsService } from "../../core/settings/settings.service";
 
 const DIALOG_ZOOM_MIN = 0.25;
@@ -69,6 +71,7 @@ export class ViewerComponent {
   readonly notify = output<string>();
 
   private readonly doc = inject(DocumentService);
+  private readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly content = viewChild.required<ElementRef<HTMLElement>>("content");
@@ -196,6 +199,12 @@ export class ViewerComponent {
     // Tags open the search once it exists (#66); until then clicking is a no-op.
     if (link.classList.contains("tag")) return;
 
+    const wikiTarget = link.classList.contains("wikilink") ? link.getAttribute("data-target") : null;
+    if (wikiTarget !== null) {
+      await this.openWikilink(wikiTarget);
+      return;
+    }
+
     const href = classifyHref(link.getAttribute("href"));
     switch (href.kind) {
       case "anchor":
@@ -225,6 +234,25 @@ export class ViewerComponent {
         break;
       }
     }
+  }
+
+  /** Resolved links open the note (history included); unresolved ones do nothing yet (#69). */
+  private async openWikilink(target: string): Promise<void> {
+    const { note, heading } = parseWikilinkTarget(target);
+    if (!note) {
+      if (heading) this.scrollToAnchor(heading);
+      return;
+    }
+    const root = this.workspace.vaultRoot();
+    const files = this.workspace.vaultFiles();
+    const resolved = root && files ? resolveWikilink(target, files) : null;
+    if (!resolved || !root) return;
+    const path = joinPath(root, resolved);
+    if (!isMarkdownPath(path)) {
+      await openPath(path);
+      return;
+    }
+    await this.doc.open(path, { anchor: heading }).catch((err) => this.notify.emit(String(err)));
   }
 
   /** `done`: the layout is final (diagrams rendered), so the anchor is consumed. */

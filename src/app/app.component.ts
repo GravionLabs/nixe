@@ -37,6 +37,7 @@ export class AppComponent {
       filePath: this.doc.path(),
       wikiRoot: this.doc.wikiRoot(),
       math: this.settings.math(),
+      vaultFiles: this.workspace.vaultFiles(),
     }),
   );
 
