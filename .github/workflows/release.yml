@@ -3,7 +3,9 @@ name: Build & Release
 on:
   push:
     branches: [main]
+  # only the release pull request builds the installer matrix; other pull requests run ci.yml
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
