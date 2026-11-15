@@ -237,7 +237,14 @@ export class EditorSpikeComponent implements OnDestroy {
         this.status.set("external: cancelled");
         return;
       }
-      lines.push(`external path: ${picked}`);
+      lines.push(`external picked: ${picked}`);
+      try {
+        lines.push(
+          `decoded path: ${await invoke<string>("spike_external_path", { path: picked })}`,
+        );
+      } catch (error) {
+        lines.push(`decode FAILED: ${String(error)}`);
+      }
       let content = "";
       try {
         content = await invoke<string>("spike_external_read", { path: picked });

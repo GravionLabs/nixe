@@ -116,6 +116,38 @@ pub fn write(dir: &Path, name: &str, content: &str) -> Result<(), String> {
     })
 }
 
+/// Turns what the document picker returns (a percent-encoded `file://` URL or a plain path) into a path.
+pub fn picked_path(raw: &str) -> Result<PathBuf, String> {
+    let Some(rest) = raw.strip_prefix("file://") else {
+        return Ok(PathBuf::from(raw));
+    };
+    let bytes = rest.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            let hex = rest
+                .get(i + 1..i + 3)
+                .and_then(|h| u8::from_str_radix(h, 16).ok())
+                .ok_or_else(|| format!("invalid percent sequence in {raw}"))?;
+            out.push(hex);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out)
+        .map(PathBuf::from)
+        .map_err(|_| format!("path is not valid UTF-8: {raw}"))
+}
+
+/// Spike only (#59): the decoded path, shown in the status text.
+#[tauri::command]
+pub fn spike_external_path(path: String) -> Result<String, String> {
+    picked_path(&path).map(|p| p.to_string_lossy().into_owned())
+}
+
 /// Spike only (#59): read a file the document picker returned, to test iCloud access.
 /// Disabled in release builds because the path comes from the webview.
 #[tauri::command]
@@ -123,7 +155,7 @@ pub fn spike_external_read(path: String) -> Result<String, String> {
     if !cfg!(debug_assertions) {
         return Err("only available in debug builds".into());
     }
-    fs::read_to_string(path).map_err(|e| e.to_string())
+    fs::read_to_string(picked_path(&path)?).map_err(|e| e.to_string())
 }
 
 /// Spike only (#59): write back to a picked file; debug builds only.
@@ -132,7 +164,7 @@ pub fn spike_external_write(path: String, content: String) -> Result<(), String>
     if !cfg!(debug_assertions) {
         return Err("only available in debug builds".into());
     }
-    fs::write(path, content).map_err(|e| e.to_string())
+    fs::write(picked_path(&path)?, content).map_err(|e| e.to_string())
 }
 
 fn dir_of(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -265,6 +297,29 @@ mod tests {
         let ok = "x".repeat(MAX_BYTES as usize);
         write(&dir, "ok.md", &ok).unwrap();
         assert_eq!(read(&dir, "ok.md").unwrap().len(), ok.len());
+    }
+
+    #[test]
+    fn picked_path_decodes_file_urls() {
+        assert_eq!(
+            picked_path("file:///private/var/My%20Docs/n%C3%BCx.md").unwrap(),
+            Path::new("/private/var/My Docs/nüx.md")
+        );
+    }
+
+    #[test]
+    fn picked_path_passes_plain_paths_through() {
+        assert_eq!(
+            picked_path("/a/b%20c.md").unwrap(),
+            Path::new("/a/b%20c.md")
+        );
+    }
+
+    #[test]
+    fn picked_path_rejects_invalid_percent_sequences() {
+        assert!(picked_path("file:///a%zz.md").is_err());
+        assert!(picked_path("file:///a%2").is_err());
+        assert!(picked_path("file:///a%FF.md").is_err());
     }
 
     #[test]

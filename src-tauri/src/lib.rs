@@ -236,6 +236,7 @@ pub fn run() {
             notes::notes_list,
             notes::notes_read,
             notes::notes_write,
+            notes::spike_external_path,
             notes::spike_external_read,
             notes::spike_external_write
         ])

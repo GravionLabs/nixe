@@ -50,38 +50,47 @@ describe("EditorSpikeComponent", () => {
     expect(c.fontSize()).toBe(8);
   });
 
-  it("picks a scoped external file, reads it and writes it back", async () => {
-    pick.mockResolvedValue("/icloud/n.md");
-    invoke.mockImplementation(async (cmd: string) =>
-      cmd === "spike_external_read" ? "hello" : undefined,
-    );
+  function external(fail: Record<string, string> = {}) {
+    invoke.mockImplementation(async (cmd: string) => {
+      if (fail[cmd]) throw fail[cmd];
+      if (cmd === "spike_external_read") return "hello";
+      if (cmd === "spike_external_path") return "/decoded/n.md";
+      return undefined;
+    });
+  }
+
+  it("picks a scoped external file, shows the decoded path, reads it and writes it back", async () => {
+    pick.mockResolvedValue("file:///icloud/n.md");
     const c = new EditorSpikeComponent() as any;
+    external();
     await c.openExternal();
     expect(pick).toHaveBeenCalledWith({
       multiple: false,
       fileAccessMode: "scoped",
     });
     expect(invoke).toHaveBeenCalledWith("spike_external_write", {
-      path: "/icloud/n.md",
+      path: "file:///icloud/n.md",
       content: "hello",
     });
     expect(c.status()).toBe(
-      "external path: /icloud/n.md\nread OK, 5 chars\nwrite OK (same content written back)",
+      "external picked: file:///icloud/n.md\ndecoded path: /decoded/n.md\nread OK, 5 chars\nwrite OK (same content written back)",
     );
   });
 
-  it("reports the exact read and write errors", async () => {
+  it("reports the exact read error", async () => {
     pick.mockResolvedValue("/icloud/n.md");
     const c = new EditorSpikeComponent() as any;
-    await Promise.resolve();
-    invoke.mockReset();
-    invoke.mockRejectedValueOnce("Operation not permitted (os error 1)");
+    external({ spike_external_read: "Operation not permitted (os error 1)" });
     await c.openExternal();
     expect(c.status()).toContain(
       "read FAILED: Operation not permitted (os error 1)",
     );
-    invoke.mockReset();
-    invoke.mockResolvedValueOnce("x").mockRejectedValueOnce("read-only");
+  });
+
+  it("reports the exact write error", async () => {
+    pick.mockResolvedValue("/icloud/n.md");
+    const c = new EditorSpikeComponent() as any;
+    external({ spike_external_write: "read-only" });
     await c.openExternal();
     expect(c.status()).toContain("write FAILED: read-only");
   });
