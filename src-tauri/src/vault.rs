@@ -14,7 +14,7 @@ pub fn find_vault_root(path: &Path) -> PathBuf {
     start
         .ancestors()
         .filter(|dir| dir.join(".obsidian").is_dir())
-        .last()
+        .next_back()
         .unwrap_or(start)
         .to_path_buf()
 }
