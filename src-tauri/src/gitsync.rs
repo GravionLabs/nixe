@@ -50,7 +50,7 @@ impl Auth {
     }
 }
 
-fn callbacks(auth: Option<&Auth>) -> RemoteCallbacks<'_> {
+pub fn callbacks(auth: Option<&Auth>) -> RemoteCallbacks<'_> {
     let mut cb = RemoteCallbacks::new();
     if let Some(auth) = auth {
         let mut offered = false;

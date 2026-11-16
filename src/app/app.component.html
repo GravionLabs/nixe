@@ -42,6 +42,7 @@
       <div class="actions">
         <button type="button" class="primary" (click)="run(doc.openWithDialog.bind(doc))">Open file</button>
         <button type="button" (click)="run(workspace.openFolderWithDialog.bind(workspace))">Open folder</button>
+        <button type="button" (click)="cloneVault.open()">Clone vault</button>
       </div>
       <p class="hint">or drop a file or folder onto the window</p>
       <dl class="shortcuts">
@@ -66,6 +67,10 @@
 
 @if (showSwitcher()) {
   <app-switcher (error)="showToast($event)" />
+}
+
+@if (cloneVault.visible()) {
+  <app-clone />
 }
 
 @if (palette.visible()) {

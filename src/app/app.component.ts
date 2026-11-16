@@ -10,6 +10,7 @@ import { PaletteService } from "./core/commands/palette.service";
 import { DocumentService } from "./core/file/document.service";
 import { IndexService } from "./core/index/index.service";
 import { AutoSyncService } from "./core/git/auto-sync.service";
+import { CloneService } from "./core/git/clone.service";
 import { GitService } from "./core/git/git.service";
 import { HealthService } from "./core/index/health.service";
 import { SearchService } from "./core/index/search.service";
@@ -23,6 +24,7 @@ import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
 import { SwitcherComponent } from "./features/switcher/switcher.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
+import { CloneComponent } from "./features/clone/clone.component";
 import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
 import { GitComponent } from "./features/git/git.component";
 import { StatusBarComponent } from "./features/status-bar/status-bar.component";
@@ -35,7 +37,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [BacklinksComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -52,6 +54,7 @@ export class AppComponent {
   protected readonly search = inject(SearchService);
   protected readonly health = inject(HealthService);
   protected readonly git = inject(GitService);
+  protected readonly cloneVault = inject(CloneService);
   private readonly autoSync = inject(AutoSyncService);
   protected readonly switcher = inject(SwitcherService);
   private readonly commands = inject(CommandRegistry);
@@ -176,6 +179,7 @@ export class AppComponent {
       { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.viewer()?.topLine() ?? null)) },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },
+      { id: "clone-vault", title: "Clone vault…", run: () => this.cloneVault.open() },
       {
         id: "reload",
         title: "Reload",

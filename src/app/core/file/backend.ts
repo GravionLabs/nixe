@@ -211,6 +211,14 @@ export const backend = {
   /** Stores or replaces the token of a remote host in the OS keychain. */
   gitTokenSet: (host: string, token: string) => invoke<void>("git_token_set", { host, token }),
   gitTokenDelete: (host: string) => invoke<void>("git_token_delete", { host }),
+  /**
+   * Clones a GitHub HTTPS url into `<parent>/<repository name>` and returns that folder. Progress comes
+   * as `CLONE_PROGRESS_EVENT`. A failed or cancelled clone removes the folder it created. A missing or
+   * rejected token rejects with `auth-required:<host>` / `auth-failed:<host>`, a cancel with `cancelled`.
+   */
+  gitCloneVault: (url: string, parent: string) => invoke<string>("git_clone_vault", { url, parent }),
+  /** Stops the running clone. */
+  gitCloneCancel: () => invoke<void>("git_clone_cancel"),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
 };
 
@@ -230,3 +238,11 @@ export interface VaultChange {
   from?: string;
 }
 export const MENU_EVENT = "menu";
+/** Emitted with a `CloneProgress` while a vault is cloned. */
+export const CLONE_PROGRESS_EVENT = "git-clone-progress";
+export interface CloneProgress {
+  received: number;
+  total: number;
+}
+/** Error text of a clone the user cancelled. */
+export const CLONE_CANCELLED = "cancelled";

@@ -1,0 +1,48 @@
+<div class="backdrop" (click)="clone.close()" role="presentation"></div>
+<form class="dialog" role="dialog" aria-label="Clone vault" (submit)="submit($event)" (keydown.escape)="clone.close()">
+  <h2>Clone vault</h2>
+  <label>
+    Repository URL
+    <input
+      type="url"
+      autocomplete="off"
+      placeholder="https://github.com/owner/notes.git"
+      [value]="clone.url()"
+      [disabled]="clone.cloning()"
+      (input)="clone.url.set($any($event.target).value)"
+    />
+  </label>
+  <div class="folder">
+    <span class="path" [title]="clone.parent()">{{ clone.parent() || "No target folder chosen" }}</span>
+    <button type="button" [disabled]="clone.cloning()" (click)="chooseFolder()">Choose folder…</button>
+  </div>
+
+  @if (git.tokenPrompt(); as prompt) {
+    <div class="token" role="alert">
+      <p>
+        {{ prompt.reason === "failed" ? "GitHub rejected the token. Enter a new one." : "Enter a personal access token to reach GitHub." }}
+      </p>
+      <input #token type="password" autocomplete="off" aria-label="Personal access token" placeholder="Personal access token" />
+      <button type="button" (click)="saveToken(token)">Save token</button>
+    </div>
+  }
+
+  @if (clone.cloning()) {
+    <p class="status">
+      @if (clone.percent(); as percent) {
+        Cloning… {{ percent }}%
+      } @else {
+        Cloning…
+      }
+    </p>
+    <progress max="100" [value]="clone.percent() ?? 0"></progress>
+  }
+  @if (clone.error(); as message) {
+    <p class="status error" role="alert">{{ message }}</p>
+  }
+
+  <div class="buttons">
+    <button type="button" (click)="clone.close()">{{ clone.cloning() ? "Cancel clone" : "Close" }}</button>
+    <button type="submit" class="primary" [disabled]="!clone.canStart()">Clone</button>
+  </div>
+</form>
