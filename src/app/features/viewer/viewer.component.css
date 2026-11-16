@@ -5,6 +5,17 @@
   background: var(--bg);
 }
 
+.properties-host {
+  box-sizing: border-box;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 40px 0;
+}
+
+.properties-host + .markdown-body {
+  padding-top: 16px;
+}
+
 .markdown-body {
   box-sizing: border-box;
   max-width: 980px;
@@ -14,6 +25,10 @@
 }
 
 @media (max-width: 700px) {
+  .properties-host {
+    padding: 16px 16px 0;
+  }
+
   .markdown-body {
     padding: 20px 16px 60px;
   }

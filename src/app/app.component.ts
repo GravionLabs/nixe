@@ -70,14 +70,16 @@ export class AppComponent {
   protected readonly toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
-  protected readonly html = computed(() =>
-    this.markdown.render(this.doc.content(), {
-      filePath: this.doc.path(),
-      wikiRoot: this.doc.wikiRoot(),
-      math: this.settings.math(),
-      vaultFiles: this.workspace.vaultFiles(),
-      vaultRoot: this.workspace.vaultRoot(),
-    }),
+  /** The note's body; its properties are shown (and edited) by the viewer's properties panel. */
+  protected readonly html = computed(
+    () =>
+      this.markdown.renderNote(this.doc.content(), {
+        filePath: this.doc.path(),
+        wikiRoot: this.doc.wikiRoot(),
+        math: this.settings.math(),
+        vaultFiles: this.workspace.vaultFiles(),
+        vaultRoot: this.workspace.vaultRoot(),
+      }).body,
   );
 
   protected readonly showSidebar = computed(

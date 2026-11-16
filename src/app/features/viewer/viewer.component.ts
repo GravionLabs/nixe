@@ -21,6 +21,7 @@ import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
+import { PropertiesComponent } from "../properties/properties.component";
 import { SearchService } from "../../core/index/search.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -33,6 +34,7 @@ const DIALOG_ZOOM_STEP = 1.1;
 @Component({
   selector: "app-viewer",
   template: `
+    <app-properties class="properties-host" [style.zoom.%]="settings.zoom()" (error)="notify.emit($event)" />
     <article
       #content
       class="markdown-body"
@@ -67,6 +69,7 @@ const DIALOG_ZOOM_STEP = 1.1;
     </div>
   `,
   styleUrl: "./viewer.component.css",
+  imports: [PropertiesComponent],
 })
 export class ViewerComponent {
   /** Sanitized HTML (see MarkdownService). */
