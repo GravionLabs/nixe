@@ -111,11 +111,38 @@ pub enum Pulled {
     Rebased,
 }
 
+/// Names that make a conflict copy: the date and the device of the local side.
+#[derive(Debug, Clone)]
+pub struct Stamp {
+    pub date: String,
+    pub device: String,
+}
+
+impl Stamp {
+    pub fn now() -> Self {
+        Self {
+            date: crate::conflict::today(),
+            device: crate::conflict::device_name(),
+        }
+    }
+}
+
 /// `git pull --rebase`: fetch the branch and replay local commits on top of it.
 ///
-/// The working tree must be clean (commit first). A rebase that fails or stops on a conflict
-/// is aborted, so the branch and the working tree are left as they were.
+/// The working tree must be clean (commit first). A conflict never stops the sync: the remote
+/// version stays in the file and the local version is written next to it as
+/// `Name (conflict <date> <device>).ext`; both are part of the rebased commit. A rebase that
+/// fails for another reason is aborted, so the branch and the working tree are left as they were.
 pub fn pull_rebase(dir: &Path, auth: Option<&Auth>) -> Result<Pulled, git2::Error> {
+    pull_rebase_keeping_both(dir, auth, &Stamp::now()).map(|(pulled, _)| pulled)
+}
+
+/// Like `pull_rebase`; also returns the paths (vault-relative) of the notes that conflicted.
+pub fn pull_rebase_keeping_both(
+    dir: &Path,
+    auth: Option<&Auth>,
+    stamp: &Stamp,
+) -> Result<(Pulled, Vec<String>), git2::Error> {
     let repo = Repository::open(dir)?;
     let branch = branch_name(&repo)?;
     let mut fo = FetchOptions::new();
@@ -125,13 +152,13 @@ pub fn pull_rebase(dir: &Path, auth: Option<&Auth>) -> Result<Pulled, git2::Erro
     let upstream = repo.reference_to_annotated_commit(&repo.find_reference("FETCH_HEAD")?)?;
     let (analysis, _) = repo.merge_analysis(&[&upstream])?;
     if analysis.is_up_to_date() {
-        return Ok(Pulled::UpToDate);
+        return Ok((Pulled::UpToDate, Vec::new()));
     }
     if analysis.is_fast_forward() {
         let mut head = repo.head()?;
         head.set_target(upstream.id(), "sync: fast-forward")?;
         repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
-        return Ok(Pulled::FastForward);
+        return Ok((Pulled::FastForward, Vec::new()));
     }
     let head = repo.reference_to_annotated_commit(&repo.head()?)?;
     let mut opts = RebaseOptions::new();
@@ -139,12 +166,12 @@ pub fn pull_rebase(dir: &Path, auth: Option<&Auth>) -> Result<Pulled, git2::Erro
     let sig = repo
         .signature()
         .or_else(|_| Signature::now("Nixe", "nixe@localhost"))?;
+    let mut conflicts = Vec::new();
     let replay = (|| -> Result<(), git2::Error> {
         while let Some(op) = rebase.next() {
             op?;
-            // A conflicting step stays unresolved: abort so the vault is left untouched.
             if repo.index()?.has_conflicts() {
-                return Err(git2::Error::from_str(CONFLICT));
+                keep_both(&repo, stamp, &mut conflicts)?;
             }
             rebase.commit(None, &sig, None)?;
         }
@@ -154,11 +181,80 @@ pub fn pull_rebase(dir: &Path, auth: Option<&Auth>) -> Result<Pulled, git2::Erro
         rebase.abort()?;
         return Err(e);
     }
-    Ok(Pulled::Rebased)
+    Ok((Pulled::Rebased, conflicts))
 }
 
-/// Message of the error of a rebase that stopped on a conflict.
-pub const CONFLICT: &str = "sync stopped: your notes and the remote changed the same lines. Nothing was changed; resolve the conflict with Git";
+/// Resolves every conflict of the index of a running rebase: the remote side ("ours" while
+/// rebasing) stays at the path, the local side ("theirs") becomes the copy. A side that
+/// deleted the file is restored from the common ancestor as the copy, so the edit stays.
+fn keep_both(
+    repo: &Repository,
+    stamp: &Stamp,
+    conflicts: &mut Vec<String>,
+) -> Result<(), git2::Error> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| git2::Error::from_str("the repository has no working directory"))?
+        .to_path_buf();
+    let mut index = repo.index()?;
+    let entries: Vec<_> = index.conflicts()?.collect::<Result<_, _>>()?;
+    for c in entries {
+        let path_bytes = [&c.our, &c.their, &c.ancestor]
+            .into_iter()
+            .flatten()
+            .map(|e| e.path.clone())
+            .next()
+            .ok_or_else(|| git2::Error::from_str("a conflict without a path"))?;
+        let rel = String::from_utf8(path_bytes)
+            .map_err(|_| git2::Error::from_str("a conflicting path is not UTF-8"))?;
+        // (text at the path, text of the copy)
+        let (kept, copy) = match (&c.our, &c.their) {
+            (Some(our), Some(their)) => (our.id, their.id),
+            (Some(our), None) => (our.id, ancestor_or(&c, our.id)),
+            (None, Some(their)) => (their.id, ancestor_or(&c, their.id)),
+            (None, None) => {
+                index.conflict_remove(Path::new(&rel))?;
+                continue;
+            }
+        };
+        let file_name = Path::new(&rel)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&rel);
+        let parent = Path::new(&rel).parent().unwrap_or_else(|| Path::new(""));
+        let mut copy_rel = parent.join(crate::conflict::copy_name(
+            file_name,
+            &stamp.date,
+            &stamp.device,
+        ));
+        let mut n = 1;
+        while workdir.join(&copy_rel).exists() || index.get_path(&copy_rel, 0).is_some() {
+            n += 1;
+            copy_rel = parent.join(crate::conflict::copy_name(
+                file_name,
+                &stamp.date,
+                &format!("{} {n}", stamp.device),
+            ));
+        }
+        index.conflict_remove(Path::new(&rel))?;
+        for (rel_path, id) in [(Path::new(&rel), kept), (copy_rel.as_path(), copy)] {
+            let blob = repo.find_blob(id)?;
+            let file = workdir.join(rel_path);
+            if let Some(dir) = file.parent() {
+                std::fs::create_dir_all(dir).map_err(|e| git2::Error::from_str(&e.to_string()))?;
+            }
+            std::fs::write(&file, blob.content())
+                .map_err(|e| git2::Error::from_str(&e.to_string()))?;
+            index.add_path(rel_path)?;
+        }
+        conflicts.push(rel);
+    }
+    index.write()
+}
+
+fn ancestor_or(c: &git2::IndexConflict, fallback: git2::Oid) -> git2::Oid {
+    c.ancestor.as_ref().map_or(fallback, |a| a.id)
+}
 
 pub fn push(dir: &Path, auth: Option<&Auth>) -> Result<(), git2::Error> {
     let repo = Repository::open(dir)?;
@@ -221,6 +317,8 @@ pub struct SyncReport {
     pub pulled: bool,
     /// Local commits were published.
     pub pushed: bool,
+    /// Notes (vault-relative) that both sides changed; each kept both versions.
+    pub conflicts: Vec<String>,
 }
 
 /// Commits open changes, fetches, rebases local commits onto the remote branch and pushes.
@@ -238,8 +336,12 @@ pub fn sync_vault(
         report.committed = true;
     }
     let url = origin_url(dir).map_err(|_| "the repository has no remote named origin")?;
-    let pulled = with_auth(&url, store, |auth| pull_rebase(dir, auth))?;
+    let stamp = Stamp::now();
+    let (pulled, conflicts) = with_auth(&url, store, |auth| {
+        pull_rebase_keeping_both(dir, auth, &stamp)
+    })?;
     report.pulled = pulled != Pulled::UpToDate;
+    report.conflicts = conflicts;
     if backend.status()?.ahead > 0 {
         with_auth(&url, store, |auth| push(dir, auth))?;
         report.pushed = true;
@@ -392,8 +494,15 @@ mod tests {
         assert_eq!(head.parent(0).unwrap().message(), Ok("add x"));
     }
 
+    fn stamp() -> Stamp {
+        Stamp {
+            date: "2026-11-16".into(),
+            device: "mac".into(),
+        }
+    }
+
     #[test]
-    fn pull_rebase_conflict_aborts_and_errors() {
+    fn pull_rebase_conflict_keeps_both_versions() {
         let (_b, url) = remote("conflict");
         let a = tmp("conflict-a").join("v");
         let b = tmp("conflict-b").join("v");
@@ -404,8 +513,15 @@ mod tests {
         push(&a, None).unwrap();
         fs::write(b.join("a.md"), "from b").unwrap();
         commit_all(&b, "b").unwrap();
-        assert!(pull_rebase(&b, None).is_err());
-        assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "from b");
+        let (pulled, conflicts) = pull_rebase_keeping_both(&b, None, &stamp()).unwrap();
+        assert_eq!(pulled, Pulled::Rebased);
+        assert_eq!(conflicts, vec!["a.md".to_owned()]);
+        assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "from a");
+        assert_eq!(
+            fs::read_to_string(b.join("a (conflict 2026-11-16 mac).md")).unwrap(),
+            "from b"
+        );
+        assert!(clean(&b));
     }
 
     fn ident() -> crate::git::Identity {
@@ -456,21 +572,6 @@ mod tests {
         fs::write(b.join("y.md"), "y").unwrap();
         commit_all(&b, "add y").unwrap();
         assert_eq!(pull_rebase(&b, None).unwrap(), Pulled::Rebased);
-
-        let (a, b) = pair("conflict2");
-        fs::write(a.join("a.md"), "from a").unwrap();
-        commit_all(&a, "a").unwrap();
-        push(&a, None).unwrap();
-        fs::write(b.join("a.md"), "from b").unwrap();
-        commit_all(&b, "b").unwrap();
-        let before = Repository::open(&b).unwrap().head().unwrap().target();
-        let err = pull_rebase(&b, None).unwrap_err();
-        assert_eq!(err.message(), CONFLICT);
-        assert_eq!(
-            Repository::open(&b).unwrap().head().unwrap().target(),
-            before
-        );
-        assert!(clean(&b));
     }
 
     #[test]
@@ -487,7 +588,8 @@ mod tests {
             SyncReport {
                 committed: true,
                 pulled: true,
-                pushed: true
+                pushed: true,
+                conflicts: vec![]
             }
         );
         assert!(b.join("x.md").exists() && b.join("y.md").exists());
@@ -502,17 +604,82 @@ mod tests {
     }
 
     #[test]
-    fn sync_with_a_conflict_fails_readably_and_stays_clean() {
+    fn sync_with_a_conflict_completes_and_pushes_both_files() {
         let (a, b) = pair("sync-conflict");
         let store = credentials::MemoryStore::default();
         fs::write(a.join("a.md"), "from a").unwrap();
         commit_all(&a, "a").unwrap();
         push(&a, None).unwrap();
         fs::write(b.join("a.md"), "from b").unwrap();
-        let err = sync_vault(&b, Some(&ident()), &store).unwrap_err();
-        assert_eq!(err, CONFLICT);
+        let report = sync_vault(&b, Some(&ident()), &store).unwrap();
+        assert_eq!(report.conflicts, vec!["a.md".to_owned()]);
+        assert!(report.pushed && report.pulled && report.committed);
         assert!(clean(&b));
-        assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "from b");
+        assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "from a");
+        // The other side receives both files.
+        assert_eq!(pull_rebase(&a, None).unwrap(), Pulled::FastForward);
+        let copies: Vec<_> = fs::read_dir(&a)
+            .unwrap()
+            .flatten()
+            .filter(|e| crate::conflict::original_name(e.file_name().to_str().unwrap()).is_some())
+            .collect();
+        assert_eq!(copies.len(), 1);
+        assert_eq!(fs::read_to_string(copies[0].path()).unwrap(), "from b");
+    }
+
+    #[test]
+    fn binary_conflict_keeps_both_files_byte_for_byte() {
+        let (a, b) = pair("bin-conflict");
+        fs::write(a.join("p.png"), [0u8, 159, 146, 150]).unwrap();
+        commit_all(&a, "a").unwrap();
+        push(&a, None).unwrap();
+        fs::write(b.join("p.png"), [1u8, 2, 0, 255]).unwrap();
+        commit_all(&b, "b").unwrap();
+        let (_, conflicts) = pull_rebase_keeping_both(&b, None, &stamp()).unwrap();
+        assert_eq!(conflicts, vec!["p.png".to_owned()]);
+        assert_eq!(fs::read(b.join("p.png")).unwrap(), vec![0u8, 159, 146, 150]);
+        assert_eq!(
+            fs::read(b.join("p (conflict 2026-11-16 mac).png")).unwrap(),
+            vec![1u8, 2, 0, 255]
+        );
+        assert!(clean(&b));
+    }
+
+    #[test]
+    fn remote_delete_against_local_edit_restores_the_deleted_side_as_the_copy() {
+        let (a, b) = pair("del-remote");
+        fs::remove_file(a.join("a.md")).unwrap();
+        commit_all(&a, "delete").unwrap();
+        push(&a, None).unwrap();
+        fs::write(b.join("a.md"), "edited").unwrap();
+        commit_all(&b, "edit").unwrap();
+        let (_, conflicts) = pull_rebase_keeping_both(&b, None, &stamp()).unwrap();
+        assert_eq!(conflicts, vec!["a.md".to_owned()]);
+        // The edit is not lost; the deleted version is restored as the copy.
+        assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "edited");
+        assert_eq!(
+            fs::read_to_string(b.join("a (conflict 2026-11-16 mac).md")).unwrap(),
+            "one"
+        );
+        assert!(clean(&b));
+    }
+
+    #[test]
+    fn local_delete_against_remote_edit_keeps_the_remote_edit_and_a_copy() {
+        let (a, b) = pair("del-local");
+        fs::write(a.join("a.md"), "remote edit").unwrap();
+        commit_all(&a, "edit").unwrap();
+        push(&a, None).unwrap();
+        fs::remove_file(b.join("a.md")).unwrap();
+        commit_all(&b, "delete").unwrap();
+        let (_, conflicts) = pull_rebase_keeping_both(&b, None, &stamp()).unwrap();
+        assert_eq!(conflicts, vec!["a.md".to_owned()]);
+        assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "remote edit");
+        assert_eq!(
+            fs::read_to_string(b.join("a (conflict 2026-11-16 mac).md")).unwrap(),
+            "one"
+        );
+        assert!(clean(&b));
     }
 
     #[test]

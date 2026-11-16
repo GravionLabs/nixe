@@ -27,7 +27,9 @@ export function describeSync(report: SyncReport): string {
     report.pulled ? "pulled" : "",
     report.pushed ? "pushed" : "",
   ].filter(Boolean);
-  return parts.length ? `Synced (${parts.join(", ")})` : "Already in sync";
+  const n = report.conflicts?.length ?? 0;
+  const text = parts.length ? `Synced (${parts.join(", ")})` : "Already in sync";
+  return n > 0 ? `${text}; ${n} ${n === 1 ? "note" : "notes"} changed on both sides, both versions kept` : text;
 }
 
 /** Git state of the vault. `status` stays null for a vault without a repository: no Git UI then. */

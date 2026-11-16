@@ -7,6 +7,10 @@
   }
 }
 
+@if (doc.path()) {
+  <app-conflict-bar (error)="showToast($event)" />
+}
+
 <main>
   @if (showSidebar()) {
     <app-sidebar (error)="showToast($event)" />

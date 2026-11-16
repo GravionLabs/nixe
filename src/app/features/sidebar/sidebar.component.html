@@ -12,6 +12,7 @@
       role="treeitem"
       tabindex="0"
       [class.active]="node.filePath !== null && node.filePath === doc.path()"
+      [class.conflict]="node.filePath !== null && conflicted().has(node.filePath)"
       [attr.aria-expanded]="node.dirPath ? node.expanded() : null"
       [style.padding-left.px]="8 + node.depth * 14"
       [title]="node.filePath ?? node.dirPath ?? ''"
@@ -49,6 +50,9 @@
         />
       } @else {
         <span class="label">{{ node.name }}</span>
+        @if (node.filePath !== null && conflicted().has(node.filePath)) {
+          <span class="badge" title="Sync conflict: both versions were kept">conflict</span>
+        }
       }
     </div>
   } @empty {

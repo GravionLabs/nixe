@@ -1,9 +1,10 @@
-import { Component, ElementRef, effect, inject, output, signal, viewChild } from "@angular/core";
+import { Component, ElementRef, computed, effect, inject, output, signal, viewChild } from "@angular/core";
 
 import { DocumentService } from "../../core/file/document.service";
 import { basename } from "../../core/markdown/paths";
 import { SettingsService } from "../../core/settings/settings.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
+import { conflictPaths } from "../../core/workspace/tree-model";
 import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
 
 const MIN_WIDTH = 160;
@@ -29,6 +30,10 @@ export class SidebarComponent {
   private readonly ops = inject(VaultOpsService);
   readonly error = output<string>();
 
+  /** Files of a sync conflict: the copies and the originals next to them. */
+  protected readonly conflicted = computed(() =>
+    conflictPaths(this.workspace.visible().flatMap((n) => (n.filePath ? [n.filePath] : []))),
+  );
   protected readonly menu = signal<MenuState | null>(null);
   /** Path of the entry whose name is being edited. */
   protected readonly renaming = signal<string | null>(null);

@@ -22,6 +22,7 @@ import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
 import { SwitcherComponent } from "./features/switcher/switcher.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
+import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
 import { GitComponent } from "./features/git/git.component";
 import { StatusBarComponent } from "./features/status-bar/status-bar.component";
 import { HealthComponent } from "./features/health/health.component";
@@ -33,7 +34,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [BacklinksComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [BacklinksComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
