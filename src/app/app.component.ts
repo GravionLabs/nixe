@@ -16,12 +16,14 @@ import { HealthService } from "./core/index/health.service";
 import { SearchService } from "./core/index/search.service";
 import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
+import { TemplateService } from "./core/templates/template.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
+import { TemplatesComponent } from "./features/templates/templates.component";
 import { SwitcherComponent } from "./features/switcher/switcher.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { CloneComponent } from "./features/clone/clone.component";
@@ -37,7 +39,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -57,6 +59,7 @@ export class AppComponent {
   protected readonly cloneVault = inject(CloneService);
   private readonly autoSync = inject(AutoSyncService);
   protected readonly switcher = inject(SwitcherService);
+  protected readonly templates = inject(TemplateService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
 
@@ -176,6 +179,7 @@ export class AppComponent {
       { id: "command-palette", title: "Command palette", shortcut: "Mod+P", keys: ["Mod+P"], run: () => this.palette.open() },
       { id: "new-note", title: "New note", shortcut: "Mod+N", keys: ["Mod+N"], when: inVault, run: () => this.newNote() },
       { id: "quick-switcher", title: "Quick switcher", shortcut: "Mod+O", keys: ["Mod+O"], when: inVault, run: () => this.switcher.open() },
+      { id: "insert-template", title: "Insert template", when: () => noteOpen() && this.editor.editing(), run: () => this.run(() => this.templates.open()) },
       { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.viewer()?.topLine() ?? null)) },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },

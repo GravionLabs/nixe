@@ -11,6 +11,8 @@ export interface EditorHandle {
   flush(): Promise<void>;
   /** True while an external change waits for the user's choice (reload or keep mine). */
   blocked(): boolean;
+  /** Inserts an expanded template at the cursor and merges its frontmatter into the note's. */
+  insertTemplate(template: string): void;
 }
 
 /** Switches between the viewer and the editor of the open note. */

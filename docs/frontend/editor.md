@@ -54,3 +54,11 @@ CodeMirror completion for links and tags; nothing is offered in code.
   files from the index, renames, and writes all of them at once, so the watcher reports one batch.
   Links in the frontmatter, code spans, fenced code and `%%comments%%` are left alone, and a
   `relative` link is written as Obsidian does but the index only resolves it by name for now.
+
+## Templates
+
+The command `Insert template` (open in the editor) lists the Markdown files in the template folder and inserts the chosen one at the cursor.
+
+- **Folder:** `folder` of `.obsidian/templates.json` (`template_folder`), else the setting `templateFolder`.
+- **Variables** (`core/templates/template-core.ts`): `{{title}}` (note name), `{{date}}`, `{{time}}`, `{{date:FORMAT}}` and `{{time:FORMAT}}`. `FORMAT` uses Moment tokens in English (`YYYY MM DD Do dddd HH hh mm ss A Q W Z X …`, text in `[brackets]` stays). Without a format: `YYYY-MM-DD` and `HH:mm`; `dateFormat` and `timeFormat` of `templates.json` are not read. Other `{{…}}` text stays.
+- **Frontmatter:** the template's frontmatter is merged into the note's, not inserted in the body. The note keeps its own values; empty ones and missing properties come from the template; lists are joined without duplicates. A note with invalid frontmatter is refused.
