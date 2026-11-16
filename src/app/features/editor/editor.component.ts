@@ -3,7 +3,7 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { AutoSaver, ExternalChangeTracker, clampLine, toCrlf } from "../../core/editor/editor-core";
+import { AutoSaver, ExternalChangeTracker, changedRange, clampLine, toCrlf } from "../../core/editor/editor-core";
 import { blocksOf, headingsOf } from "../../core/editor/completion-core";
 import { OutlineService } from "../../core/outline/outline.service";
 import { EditorService } from "../../core/editor/editor.service";
@@ -77,6 +77,7 @@ export class EditorComponent implements OnDestroy {
       attachPaths: (paths) => this.attachPaths(paths),
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
+    this.doc.remoteHook = (text, saved) => this.onRemote(text, saved);
 
     effect(() => this.editor.blocked.set(this.conflict() !== null));
 
@@ -104,6 +105,7 @@ export class EditorComponent implements OnDestroy {
     this.outline.topLine.set(null);
     this.editor.blocked.set(false);
     this.doc.editorHook = null;
+    this.doc.remoteHook = null;
     this.view?.destroy();
   }
 
@@ -167,7 +169,9 @@ export class EditorComponent implements OnDestroy {
             this.outline.editorText.set(update.state.doc.toString());
           }
           if (update.docChanged && !this.loading && this.session === session) {
-            session.saver.change(update.state.doc.toString());
+            const text = update.state.doc.toString();
+            session.saver.change(text);
+            this.doc.typed(session.path, text);
           }
         }),
       ],
@@ -333,6 +337,26 @@ export class EditorComponent implements OnDestroy {
         session.saver.hold(true);
         this.conflict.set(diskText);
     }
+  }
+
+  /**
+   * Another tab shows the same note: its typing is taken over as a change that is not saved again
+   * (the tab that typed saves it); its save is an own write, not an external change.
+   */
+  private onRemote(text: string, saved: boolean): void {
+    const session = this.session;
+    const view = this.view;
+    if (!session || !view) return;
+    if (saved) {
+      session.tracker.willWrite(text);
+      session.tracker.written(text);
+    }
+    // Also for a save: the view may still lack what the other tab typed before it was opened.
+    const range = changedRange(view.state.doc.toString(), text.replace(/\r\n/g, "\n"));
+    if (!range) return;
+    this.loading = true;
+    view.dispatch({ changes: range });
+    this.loading = false;
   }
 
   /** Loading lossy text would let the next save destroy the original bytes. */

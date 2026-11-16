@@ -5,6 +5,8 @@ import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { basename, joinPath, toSlashes } from "../markdown/paths";
 import { SettingsService } from "../settings/settings.service";
+import { layoutHasNote } from "../tabs/layout";
+import { TabsService } from "../tabs/tabs.service";
 import { TreeItem, buildTreeItems, defaultPage } from "./tree-model";
 
 export interface TreeNode extends TreeItem {
@@ -19,6 +21,7 @@ export interface TreeNode extends TreeItem {
 export class WorkspaceService {
   private readonly doc = inject(DocumentService);
   private readonly settings = inject(SettingsService);
+  private readonly tabs = inject(TabsService);
 
   readonly root = signal<string | null>(null);
   readonly rootName = computed(() => {
@@ -38,7 +41,13 @@ export class WorkspaceService {
     effect(() => {
       const note = this.doc.path();
       const root = this.root();
-      if (root && note && note.startsWith(root + "/")) untracked(() => this.rememberState(root, note));
+      // The tabs and the split are part of the state: changing them stores it again.
+      this.tabs.panes();
+      this.tabs.focusedId();
+      // Closing every note stores the empty layout too, so the old tabs do not come back.
+      if (root && !this.opening && (note === null || note.startsWith(root + "/"))) {
+        untracked(() => this.rememberState(root, note));
+      }
     });
     window.addEventListener("pagehide", () => {
       const root = this.root();
@@ -59,7 +68,19 @@ export class WorkspaceService {
     return rows;
   });
 
+  /** True while a folder is being opened: the state stored for it must not be overwritten yet. */
+  private opening = false;
+
   async openFolder(path: string, options: { openDefaultPage?: boolean } = {}): Promise<void> {
+    this.opening = true;
+    try {
+      await this.openFolderNow(path, options);
+    } finally {
+      this.opening = false;
+    }
+  }
+
+  private async openFolderNow(path: string, options: { openDefaultPage?: boolean }): Promise<void> {
     const { openDefaultPage = true } = options;
     path = toSlashes(path);
     const previous = this.root();
@@ -83,10 +104,15 @@ export class WorkspaceService {
       this.settings.outlineVisible.set(state.outline);
     }
 
+    if (switching) this.tabs.reset();
     if (openDefaultPage) {
-      const remembered = state?.note && (await backend.isFile(state.note)) ? state.note : null;
-      const page = remembered ?? defaultPage(nodes);
-      if (page) await this.doc.open(page);
+      const layout = state?.layout;
+      const restored = layout && layoutHasNote(layout) ? await this.tabs.restore(layout) : false;
+      if (!restored) {
+        const remembered = state?.note && (await backend.isFile(state.note)) ? state.note : null;
+        const page = remembered ?? defaultPage(nodes);
+        if (page) await this.doc.open(page);
+      }
     }
     // After the first note is shown, so the scan never delays rendering. A failed index is not
     // fatal: the viewer works without it.
@@ -121,11 +147,13 @@ export class WorkspaceService {
   }
 
   private rememberState(root: string, note: string | null): void {
+    const layout = this.tabs.snapshot();
     this.settings.rememberVaultState(root, {
       note,
       sidebar: this.settings.sidebarVisible(),
       backlinks: this.settings.backlinksVisible(),
       outline: this.settings.outlineVisible(),
+      layout,
     });
   }
 

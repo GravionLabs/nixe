@@ -1,3 +1,5 @@
+import { LayoutState, sanitizeLayout } from "../tabs/layout";
+
 /** How many vaults `File → Open recent` remembers. */
 export const MAX_RECENT_VAULTS = 5;
 
@@ -8,6 +10,8 @@ export interface VaultState {
   sidebar: boolean;
   backlinks: boolean;
   outline: boolean;
+  /** The tabs and the split; absent in states stored before tabs existed. */
+  layout?: LayoutState;
 }
 
 export type VaultStates = Record<string, VaultState>;
@@ -46,6 +50,8 @@ export function sanitizeStates(value: unknown): VaultStates {
       backlinks: s["backlinks"] === true,
       outline: s["outline"] === true,
     };
+    const layout = sanitizeLayout(s["layout"]);
+    if (layout) out[path].layout = layout;
   }
   return out;
 }

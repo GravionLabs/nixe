@@ -40,7 +40,10 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         .separator()
         .item(&item("reload", "Reload", Some("CmdOrCtrl+R"))?)
         .separator()
-        .close_window();
+        .item(&item("new-tab", "New Tab", Some("CmdOrCtrl+T"))?)
+        // Closes the tab; the frontend closes the window when only an empty tab is left.
+        .item(&item("close-tab", "Close Tab", Some("CmdOrCtrl+W"))?)
+        .item(&item("split-right", "Split Tab to the Right", None)?);
     if !cfg!(target_os = "macos") {
         file = file.quit();
     }

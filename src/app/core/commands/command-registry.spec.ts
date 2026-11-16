@@ -27,6 +27,15 @@ describe("matchesBinding / formatShortcut", () => {
     expect(matchesBinding(key("ArrowLeft", { altKey: true }), "Alt+ArrowLeft")).toBe(true);
   });
 
+  it("matches Ctrl as the control key only", () => {
+    expect(matchesBinding(key("Tab", { ctrlKey: true }), "Ctrl+Tab")).toBe(true);
+    expect(matchesBinding(key("Tab", { metaKey: true }), "Ctrl+Tab")).toBe(false);
+    expect(matchesBinding(key("Tab", { ctrlKey: true, shiftKey: true }), "Ctrl+Tab")).toBe(false);
+    expect(matchesBinding(key("Tab", { ctrlKey: true, shiftKey: true }), "Ctrl+Shift+Tab")).toBe(true);
+    expect(formatShortcut("Ctrl+Tab", true)).toBe("⌃Tab");
+    expect(formatShortcut("Ctrl+Tab", false)).toBe("Ctrl+Tab");
+  });
+
   it("formats per platform", () => {
     expect(formatShortcut("Mod+Shift+F", true)).toBe("⌘⇧F");
     expect(formatShortcut("Mod+Shift+F", false)).toBe("Ctrl+Shift+F");

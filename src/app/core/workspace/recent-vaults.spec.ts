@@ -33,3 +33,18 @@ describe("recent vaults", () => {
     });
   });
 });
+
+describe("sanitizeStates layout", () => {
+  const tab = { path: "/a/x.md", history: ["/a/x.md"], index: 0, editing: true, line: 2 };
+
+  it("keeps the stored tabs of a vault", () => {
+    const layout = { panes: [{ tabs: [tab], active: 0 }], focused: 0, ratio: 0.5 };
+    expect(sanitizeStates({ "/a": { note: "/a/x.md", layout } })["/a"].layout).toEqual(layout);
+  });
+
+  it("leaves a broken layout out and reads states without one", () => {
+    const states = sanitizeStates({ "/a": { note: null, layout: { panes: 5 } }, "/b": { note: null } });
+    expect(states["/a"].layout).toBeUndefined();
+    expect(states["/b"].layout).toBeUndefined();
+  });
+});
