@@ -109,3 +109,5 @@ subcommand only shows when it is redirected or piped.
 
 `type` is the property type of the index (`text`, `number`, `checkbox`, `date` or
 `list`); `value` is the typed JSON value.
+
+`nixe mcp` serves the same queries to agents over MCP: see [mcp.md](mcp.md).

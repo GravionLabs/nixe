@@ -27,6 +27,13 @@ serde_yaml_ng = "0.10"
 ignore = "0.4"
 git2 = { version = "0.21.0", features = ["https", "vendored-libgit2", "vendored-openssl"] }
 rusqlite = { version = "0.43.0", features = ["bundled"] }
+# `nixe mcp`: read-only MCP server over stdio (protocol 2026-07-28, checked against the spec).
+rmcp = { version = "3.10", default-features = false, features = ["server", "macros", "schemars", "transport-io"] }
+tokio = { version = "1", features = ["rt", "macros"] }
+
+[dev-dependencies]
+rmcp = { version = "3.10", default-features = false, features = ["client", "transport-child-process"] }
+tokio = { version = "1", features = ["rt", "macros", "process"] }
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"

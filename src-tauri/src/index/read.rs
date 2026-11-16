@@ -215,6 +215,55 @@ pub fn referrers(conn: &Connection, paths: &[String]) -> rusqlite::Result<Vec<St
     Ok(out.into_iter().collect())
 }
 
+/// A note holding a property, with that property's typed value.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PropertyMatch {
+    pub path: String,
+    pub title: String,
+    pub value: Value,
+}
+
+/// True when `value` equals `wanted` (case-insensitive, compared as text) or, for a list,
+/// contains it.
+fn value_matches(value: &Value, wanted: &str) -> bool {
+    let wanted = wanted.to_lowercase();
+    match value {
+        Value::Array(items) => items.iter().any(|v| value_matches(v, &wanted)),
+        Value::String(s) => s.to_lowercase() == wanted,
+        Value::Null => false,
+        other => other.to_string().to_lowercase() == wanted,
+    }
+}
+
+/// Notes with the frontmatter property `key` (case-insensitive), sorted by path. With `value`,
+/// only those whose value equals it or, for a list property, contains it.
+pub fn notes_by_property(
+    conn: &Connection,
+    key: &str,
+    value: Option<&str>,
+) -> rusqlite::Result<Vec<PropertyMatch>> {
+    let mut stmt = conn.prepare(
+        "SELECT n.path, n.title, p.value FROM properties p JOIN notes n ON n.id = p.note_id
+         WHERE lower(p.key) = lower(?1) ORDER BY n.path, p.rowid",
+    )?;
+    let rows = stmt.query_map([key], |r| {
+        let raw: String = r.get(2)?;
+        Ok(PropertyMatch {
+            path: r.get(0)?,
+            title: r.get(1)?,
+            value: serde_json::from_str(&raw).unwrap_or(Value::Null),
+        })
+    })?;
+    let mut out = Vec::new();
+    for row in rows {
+        let row = row?;
+        if value.is_none_or(|w| value_matches(&row.value, w)) {
+            out.push(row);
+        }
+    }
+    Ok(out)
+}
+
 /// Every tag with the number of notes using it, most used first.
 pub fn tags(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
     let mut stmt = conn.prepare(

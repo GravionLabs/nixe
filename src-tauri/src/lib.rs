@@ -13,6 +13,8 @@ pub mod cli;
 #[cfg(target_os = "macos")]
 mod cli_install;
 #[cfg(desktop)]
+pub mod mcp;
+#[cfg(desktop)]
 mod menu;
 // Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
 mod fileops;
