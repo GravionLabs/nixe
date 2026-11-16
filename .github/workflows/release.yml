@@ -45,8 +45,28 @@ jobs:
           workspaces: src-tauri
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
+  # Release notes from the Conventional Commits since the last stable tag (cliff.toml), as the other
+  # GravionLabs repos do. The tag does not exist yet, so --unreleased --tag lists exactly this release.
+  release-notes:
+    needs: [determine-version]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.cliff.outputs.content }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate release notes
+        id: cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --unreleased --tag v${{ needs.determine-version.outputs.semver }}
+
   build:
-    needs: [determine-version, test]
+    needs: [determine-version, test, release-notes]
+    if: ${{ !cancelled() && needs.determine-version.result == 'success' && needs.test.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.release-notes.result) }}
     strategy:
       fail-fast: false
       matrix:
@@ -155,6 +175,7 @@ jobs:
           # still building — publish-release below publishes it once all four are done.
           tagName: ${{ env.PUBLISH == 'true' && format('v{0}', env.VERSION) || '' }}
           releaseName: ${{ env.PUBLISH == 'true' && format('Nixe v{0}', env.VERSION) || '' }}
+          releaseBody: ${{ needs.release-notes.outputs.notes }}
           releaseDraft: true
           # The MSI bundler rejects pre-release versions (1.1.0-rc021), so a pre-release builds
           # the Windows installer as NSIS only; stable versions keep every bundle target.
