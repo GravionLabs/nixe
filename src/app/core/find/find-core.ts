@@ -35,7 +35,7 @@ function escapeRegExp(text: string): string {
 export function buildPattern(query: string, options: FindOptions): RegExp | string | null {
   if (!query) return null;
   try {
-    return new RegExp(options.regex ? query : escapeRegExp(query), options.caseSensitive ? "gu" : "giu");
+    return new RegExp(options.regex ? query : escapeRegExp(query), options.caseSensitive ? "g" : "gi");
   } catch (error) {
     return error instanceof Error ? error.message : "Invalid regular expression";
   }

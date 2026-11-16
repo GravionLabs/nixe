@@ -1,7 +1,7 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxTree } from "@codemirror/language";
-import { openSearchPanel, search, searchKeymap, searchPanelOpen } from "@codemirror/search";
+import { getSearchQuery, openSearchPanel, search, searchKeymap, searchPanelOpen } from "@codemirror/search";
 import { EditorState, Extension, Range } from "@codemirror/state";
 import {
   Decoration,
@@ -123,6 +123,7 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
       ".cm-search [name=close]": { color: "var(--fg)", border: "none", backgroundColor: "transparent" },
       ".cm-search:not(.cm-replace-on) input[name=replace], .cm-search:not(.cm-replace-on) button[name=replace], .cm-search:not(.cm-replace-on) button[name=replaceAll]":
         { display: "none" },
+      ".cm-search-count": { margin: "0 8px", color: "var(--muted)" },
       ".cm-searchMatch": { backgroundColor: "rgb(255 200 0 / 0.35)" },
       ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "rgb(255 140 0 / 0.6)" },
       ".cm-completionDetail": { opacity: "0.6", marginLeft: "0.8em", fontStyle: "normal" },
@@ -147,6 +148,47 @@ export function openFind(view: EditorView, replace: boolean): boolean {
 
 const findCommand: Command = (view) => openFind(view, false);
 const replaceCommand: Command = (view) => openFind(view, true);
+
+/** Text of the match counter: `3 / 12`, `No matches`, or empty without a query. */
+export function matchCountLabel(state: EditorState): string {
+  const query = getSearchQuery(state);
+  if (!query.valid) return "";
+  const { from } = state.selection.main;
+  let total = 0;
+  let current = 0;
+  const cursor = query.getCursor(state);
+  for (let r = cursor.next(); !r.done && total < 5000; r = cursor.next()) {
+    total++;
+    if (r.value.from <= from) current = total;
+  }
+  if (total === 0) return "No matches";
+  return `${Math.max(current, 1)} / ${total}`;
+}
+
+/** Shows the match count inside the search panel. */
+const matchCounter = ViewPlugin.fromClass(
+  class {
+    constructor(private readonly view: EditorView) {
+      this.sync();
+    }
+    update(): void {
+      this.sync();
+    }
+    private sync(): void {
+      const panel = this.view.dom.querySelector<HTMLElement>(".cm-search");
+      if (!panel) return;
+      let label = panel.querySelector<HTMLElement>(".cm-search-count");
+      if (!label) {
+        label = document.createElement("span");
+        label.className = "cm-search-count";
+        label.setAttribute("aria-live", "polite");
+        panel.querySelector("[name=close]")?.before(label);
+      }
+      const text = matchCountLabel(this.view.state);
+      if (label.textContent !== text) label.textContent = text;
+    }
+  },
+);
 
 export interface EditorHooks {
   onSave(): void;
@@ -179,6 +221,7 @@ export function editorBehavior(hooks: EditorHooks): Extension[] {
     markdown(),
     drawSelection(),
     search({ top: true }),
+    matchCounter,
     EditorView.lineWrapping,
     markdownStyling,
     ...(hooks.completion ? [completionExtension(hooks.completion)] : []),

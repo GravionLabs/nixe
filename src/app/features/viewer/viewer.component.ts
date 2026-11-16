@@ -287,6 +287,9 @@ export class ViewerComponent {
         marks[seg.match]!.unshift(mark);
       }
     }
+    for (const group of marks) {
+      group.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    }
     this.findMarks = marks;
     this.findCount.set(marks.length);
     if (marks.length) this.activateMatch(jump ? 0 : Math.min(Math.max(previous, 0), marks.length - 1), jump);
