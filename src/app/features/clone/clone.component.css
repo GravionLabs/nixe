@@ -1,0 +1,111 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.3);
+}
+
+.dialog {
+  position: relative;
+  width: min(520px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--chrome);
+  color: var(--fg);
+  font-size: 13px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
+}
+
+h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+input {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+}
+
+button {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.folder,
+.buttons,
+.token {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.token {
+  flex-wrap: wrap;
+}
+
+.token p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.token input {
+  flex: 1;
+}
+
+.path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.buttons {
+  justify-content: flex-end;
+}
+
+.status {
+  margin: 0;
+  color: var(--muted);
+}
+
+.status.error {
+  color: var(--fg);
+}
+
+progress {
+  width: 100%;
+}

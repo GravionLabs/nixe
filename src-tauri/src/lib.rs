@@ -18,6 +18,7 @@ mod conflict;
 mod credentials;
 mod fileops;
 mod git;
+mod gitclone;
 mod gitsync;
 mod index;
 #[cfg(desktop)]
@@ -44,6 +45,8 @@ struct AppState {
     vault_root: Mutex<Option<PathBuf>>,
     /// Note last passed to `watch_file` (the open one); it and its siblings may be written.
     open_file: Mutex<Option<PathBuf>>,
+    /// Set by `git_clone_cancel`; stops the running clone (#78).
+    clone_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// Paths are handed to the frontend with forward slashes on every platform.
@@ -476,6 +479,8 @@ pub fn run() {
         credentials::git_token_status,
         credentials::git_token_set,
         credentials::git_token_delete,
+        gitclone::git_clone_vault,
+        gitclone::git_clone_cancel,
         gitsync::git_clone,
         gitsync::git_spike_edit,
         gitsync::git_commit,
@@ -523,7 +528,9 @@ pub fn run() {
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
-        credentials::git_token_delete
+        credentials::git_token_delete,
+        gitclone::git_clone_vault,
+        gitclone::git_clone_cancel
     ]);
 
     let app = builder
