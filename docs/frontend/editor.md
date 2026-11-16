@@ -62,3 +62,12 @@ The command `Insert template` (open in the editor) lists the Markdown files in t
 - **Folder:** `folder` of `.obsidian/templates.json` (`template_folder`), else the setting `templateFolder`.
 - **Variables** (`core/templates/template-core.ts`): `{{title}}` (note name), `{{date}}`, `{{time}}`, `{{date:FORMAT}}` and `{{time:FORMAT}}`. `FORMAT` uses Moment tokens in English (`YYYY MM DD Do dddd HH hh mm ss A Q W Z X …`, text in `[brackets]` stays). Without a format: `YYYY-MM-DD` and `HH:mm`; `dateFormat` and `timeFormat` of `templates.json` are not read. Other `{{…}}` text stays.
 - **Frontmatter:** the template's frontmatter is merged into the note's, not inserted in the body. The note keeps its own values; empty ones and missing properties come from the template; lists are joined without duplicates. A note with invalid frontmatter is refused.
+
+## Daily notes
+
+`Open today's daily note` (`Mod+Shift+D`) opens the note of today and creates it first when it does not exist; `Open previous daily note` and `Open next daily note` open the nearest existing daily note before or after the open one (before or after today when the open note is none). Code: `core/daily/`.
+
+- **Settings:** `folder`, `format` and `template` of `.obsidian/daily-notes.json` (`daily_notes_config`); a key it does not set comes from the settings `dailyFolder`, `dailyFormat` and `dailyTemplate`. Default: the vault root and `YYYY-MM-DD`.
+- **Format:** Moment tokens as in templates. A `/` nests folders: `YYYY/MM/YYYY-MM-DD` gives `2026/03/2026-03-02.md`, and the folders are created. Previous and next read year, month and day (`YYYY YY MM M MMMM MMM DD D Do`) back from the paths; a format without them has no previous or next note.
+- **Template:** expanded as in `Insert template` (`{{title}}` is the note name); the whole template, frontmatter included, becomes the new note. A missing template is an error and creates nothing.
+

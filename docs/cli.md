@@ -55,6 +55,7 @@ index.
 | `nixe new <title> [--folder <dir>] [--open]` | Creates an empty note `<title>.md` and never replaces one (exit 1 when it exists). The folder is `--folder` (vault-relative, created if missing), else the new-note folder of `.obsidian/app.json`, else the vault root. `--open` then opens the note in the viewer. |
 | `nixe append <note> [text]` | Appends the text (the remaining arguments joined by a space, or stdin when there are none) on its own line(s). A missing note is created: `a/b` is a path in the vault, a bare name goes to `--folder` or the new-note folder. |
 | `nixe append --inbox [text]` | Appends to `Inbox.md` in the inbox folder: the new-note folder of the vault when it sets one, else `Inbox/`. |
+| `nixe daily [--append <text>]` | The daily note of today: folder, date format and template come from `.obsidian/daily-notes.json` (the app settings do not reach the command line; the defaults are the vault root and `YYYY-MM-DD`). A missing note is created from its template. With `--append` the text goes on its own line at the end and nothing opens; without it the note opens in the viewer. Prints the path. |
 
 Writes replace the note atomically (a temp file renamed into place) and refuse paths outside
 the vault, including `..`, absolute paths and symlinks that lead out. A Nixe window that shows

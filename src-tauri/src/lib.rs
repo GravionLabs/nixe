@@ -16,6 +16,7 @@ mod cli_install;
 mod cli_write;
 mod conflict;
 mod credentials;
+mod daily;
 mod fileops;
 mod git;
 mod gitclone;
@@ -272,6 +273,12 @@ fn template_folder(state: State<'_, AppState>) -> Result<Option<String>, String>
     Ok(fileops::template_folder(&vault_root_of(&state)?))
 }
 
+/// The Daily notes settings from `.obsidian/daily-notes.json` of the vault.
+#[tauri::command]
+fn daily_notes_config(state: State<'_, AppState>) -> Result<fileops::DailyNotesConfig, String> {
+    Ok(fileops::daily_notes_config(&vault_root_of(&state)?))
+}
+
 /// How links to notes are written, from `.obsidian/app.json` of the vault.
 #[tauri::command]
 fn link_format(state: State<'_, AppState>) -> Result<vault::relink::LinkFormat, String> {
@@ -463,6 +470,7 @@ pub fn run() {
         resolve_conflict,
         new_note_location,
         template_folder,
+        daily_notes_config,
         link_format,
         is_utf8_file,
         is_file,
@@ -514,6 +522,7 @@ pub fn run() {
         resolve_conflict,
         new_note_location,
         template_folder,
+        daily_notes_config,
         link_format,
         is_utf8_file,
         is_file,

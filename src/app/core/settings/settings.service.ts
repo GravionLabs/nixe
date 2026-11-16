@@ -16,6 +16,9 @@ interface StoredSettings {
   zoom: number;
   healthExclude: string[];
   templateFolder: string;
+  dailyFolder: string;
+  dailyFormat: string;
+  dailyTemplate: string;
   gitAuthorName: string;
   gitAuthorEmail: string;
   autoSync: boolean;
@@ -34,6 +37,9 @@ const DEFAULTS: StoredSettings = {
   zoom: 100,
   healthExclude: [],
   templateFolder: "",
+  dailyFolder: "",
+  dailyFormat: "",
+  dailyTemplate: "",
   gitAuthorName: "",
   gitAuthorEmail: "",
   autoSync: false,
@@ -80,6 +86,11 @@ export class SettingsService {
     typeof this.stored.templateFolder === "string" ? this.stored.templateFolder : "",
   );
 
+  /** Daily notes: used for each key `.obsidian/daily-notes.json` does not set. Empty is the default. */
+  readonly dailyFolder = signal<string>(typeof this.stored.dailyFolder === "string" ? this.stored.dailyFolder : "");
+  readonly dailyFormat = signal<string>(typeof this.stored.dailyFormat === "string" ? this.stored.dailyFormat : "");
+  readonly dailyTemplate = signal<string>(typeof this.stored.dailyTemplate === "string" ? this.stored.dailyTemplate : "");
+
   /** Commit author used when the Git config of the vault has none. */
   readonly gitAuthorName = signal<string>(
     typeof this.stored.gitAuthorName === "string" ? this.stored.gitAuthorName : "",
@@ -119,6 +130,9 @@ export class SettingsService {
         zoom: this.zoom(),
         healthExclude: this.healthExclude(),
         templateFolder: this.templateFolder(),
+        dailyFolder: this.dailyFolder(),
+        dailyFormat: this.dailyFormat(),
+        dailyTemplate: this.dailyTemplate(),
         gitAuthorName: this.gitAuthorName(),
         gitAuthorEmail: this.gitAuthorEmail(),
         autoSync: this.autoSync(),
