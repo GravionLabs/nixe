@@ -29,11 +29,10 @@ describe("vault index commands", () => {
 describe("write_text_file", () => {
   beforeEach(() => invoke.mockReset());
 
-  it("passes root, path and content", async () => {
+  it("passes path and content", async () => {
     invoke.mockResolvedValue(undefined);
-    await backend.writeTextFile("/vault", "/vault/a.md", "# a");
+    await backend.writeTextFile("/vault/a.md", "# a");
     expect(invoke).toHaveBeenCalledWith("write_text_file", {
-      root: "/vault",
       path: "/vault/a.md",
       content: "# a",
     });

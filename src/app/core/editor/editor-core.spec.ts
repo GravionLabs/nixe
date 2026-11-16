@@ -3,10 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AutoSaver,
   ExternalChangeTracker,
+  OWN_WRITE_WINDOW_MS,
   SAVE_IDLE_MS,
   clampLine,
   inlineTokens,
   nodeClass,
+  toCrlf,
   tokenAt,
   viewerTopLine,
 } from "./editor-core";
@@ -105,6 +107,13 @@ describe("AutoSaver", () => {
     expect(write).toHaveBeenCalledWith("mine");
   });
 
+  it("exposes the pending text", () => {
+    const saver = new AutoSaver({ write: vi.fn() });
+    expect(saver.pendingText).toBeNull();
+    saver.change("p");
+    expect(saver.pendingText).toBe("p");
+  });
+
   it("discard drops the pending text", async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     const saver = new AutoSaver({ write });
@@ -118,24 +127,47 @@ describe("AutoSaver", () => {
 });
 
 describe("ExternalChangeTracker", () => {
-  it("ignores the text the editor opened with and the app's own writes", () => {
+  it("ignores the opened text and writes in flight", () => {
     const tracker = new ExternalChangeTracker("opened");
     expect(tracker.classify("opened", false)).toBe("ignore");
-    tracker.willWrite("saved 1");
-    tracker.willWrite("saved 2");
-    // the event of the first write arrives after the second write started
-    expect(tracker.classify("saved 1", true)).toBe("ignore");
-    expect(tracker.classify("saved 2", true)).toBe("ignore");
+    tracker.willWrite("w1");
+    tracker.willWrite("w2");
+    expect(tracker.classify("w1", true)).toBe("ignore");
+    expect(tracker.classify("w2", true)).toBe("ignore");
   });
 
-  it("reloads a foreign change when there are no unsaved changes", () => {
+  it("ignores a late event of an earlier write for a short while", () => {
+    let t = 0;
+    const tracker = new ExternalChangeTracker("a", () => t);
+    tracker.willWrite("b");
+    tracker.written("b");
+    tracker.willWrite("c");
+    tracker.written("c");
+    t = OWN_WRITE_WINDOW_MS - 1;
+    expect(tracker.classify("b", false)).toBe("ignore");
+    t = OWN_WRITE_WINDOW_MS + 1;
+    expect(tracker.classify("b", false)).toBe("reload");
+  });
+
+  it("treats a restore of an older text as a foreign change", () => {
+    let t = 0;
+    const tracker = new ExternalChangeTracker("A", () => t);
+    tracker.willWrite("B");
+    tracker.written("B");
+    t = 60_000;
+    expect(tracker.classify("A", false)).toBe("reload");
+    expect(tracker.classify("A", true)).toBe("conflict");
+  });
+
+  it("a failed write is no longer ignored", () => {
     const tracker = new ExternalChangeTracker("a");
+    tracker.willWrite("b");
+    tracker.failed("b");
     expect(tracker.classify("b", false)).toBe("reload");
   });
 
   it("asks when a foreign change meets unsaved changes", () => {
-    const tracker = new ExternalChangeTracker("a");
-    expect(tracker.classify("b", true)).toBe("conflict");
+    expect(new ExternalChangeTracker("a").classify("b", true)).toBe("conflict");
   });
 
   it("accepting the disk text makes it the shared one", () => {
@@ -144,11 +176,8 @@ describe("ExternalChangeTracker", () => {
     expect(tracker.classify("b", true)).toBe("ignore");
   });
 
-  it("forgets old writes beyond a few", () => {
-    const tracker = new ExternalChangeTracker("0");
-    for (const t of ["1", "2", "3", "4", "5"]) tracker.willWrite(t);
-    expect(tracker.classify("0", false)).toBe("reload");
-    expect(tracker.classify("5", false)).toBe("ignore");
+  it("converts line endings to CRLF without doubling", () => {
+    expect(toCrlf("a\nb\r\nc")).toBe("a\r\nb\r\nc");
   });
 });
 

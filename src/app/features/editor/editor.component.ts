@@ -3,8 +3,9 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { AutoSaver, ExternalChangeTracker, clampLine } from "../../core/editor/editor-core";
+import { AutoSaver, ExternalChangeTracker, clampLine, toCrlf } from "../../core/editor/editor-core";
 import { EditorService } from "../../core/editor/editor.service";
+import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
@@ -17,7 +18,8 @@ const BASE_FONT_PX = 16;
 /** The note being edited: its saver, its view of the disk and the folder a write may reach. */
 interface Session {
   path: string;
-  root: string;
+  /** The note had CRLF line endings; CodeMirror normalizes them, so they are restored on save. */
+  crlf: boolean;
   saver: AutoSaver;
   tracker: ExternalChangeTracker;
 }
@@ -60,6 +62,7 @@ export class EditorComponent implements OnDestroy {
     this.editor.handle = {
       topLine: () => this.topLine(),
       flush: () => this.flush(),
+      blocked: () => this.conflict() !== null,
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
 
@@ -81,7 +84,7 @@ export class EditorComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.unlistenClose?.();
-    void this.flush();
+    void this.settle();
     this.editor.handle = null;
     this.doc.editorHook = null;
     this.view?.destroy();
@@ -90,7 +93,7 @@ export class EditorComponent implements OnDestroy {
   private async watchWindowClose(): Promise<void> {
     try {
       const unlisten = await getCurrentWindow().onCloseRequested(async () => {
-        await this.flush();
+        await this.settle();
       });
       if (this.destroyed) unlisten();
       else this.unlistenClose = unlisten;
@@ -101,7 +104,7 @@ export class EditorComponent implements OnDestroy {
 
   /** The note switched: write the old one, then show the new one. */
   private async openNote(path: string | null, host: HTMLElement): Promise<void> {
-    await this.flush();
+    await this.settle();
     this.conflict.set(null);
     const current = this.doc.path();
     if (!current || current !== path) {
@@ -112,7 +115,7 @@ export class EditorComponent implements OnDestroy {
     const text = this.doc.content();
     const session: Session = {
       path: current,
-      root: this.editor.rootFor(current),
+      crlf: text.includes("\r\n"),
       tracker: new ExternalChangeTracker(text),
       saver: new AutoSaver({
         write: (t) => this.write(session, t),
@@ -149,8 +152,33 @@ export class EditorComponent implements OnDestroy {
   }
 
   private async write(session: Session, text: string): Promise<void> {
-    session.tracker.willWrite(text);
-    await this.doc.write(session.path, session.root, text);
+    const out = session.crlf ? toCrlf(text) : text;
+    session.tracker.willWrite(out);
+    try {
+      await this.doc.write(session.path, out);
+      session.tracker.written(out);
+    } catch (error) {
+      session.tracker.failed(out);
+      throw error;
+    }
+  }
+
+  /**
+   * Before the note is left or the window closes: write pending changes. While an external change
+   * is unresolved the note itself must not be overwritten, so the text goes to a copy next to it.
+   */
+  private async settle(): Promise<void> {
+    const session = this.session;
+    const pending = session?.saver.pendingText ?? null;
+    if (!session || this.conflict() === null || pending === null) return this.flush();
+    const copy = session.path.replace(/(\.[^./]+)?$/, " (unsaved copy).md");
+    try {
+      await backend.writeTextFile(copy, session.crlf ? toCrlf(pending) : pending);
+      session.saver.discard();
+      this.error.emit(`The note changed on disk; your edits were saved to ${copy}`);
+    } catch (error) {
+      this.error.emit(`Your edits could not be saved: ${String(error)}`);
+    }
   }
 
   private flush(): Promise<void> {
@@ -224,7 +252,7 @@ export class EditorComponent implements OnDestroy {
     if (!resolved || !root) return;
     const path = joinPath(root, resolved);
     if (!isMarkdownPath(path)) return;
-    await this.flush();
+    await this.settle();
     await this.doc.open(path, { anchor: heading }).catch((err) => this.error.emit(String(err)));
   }
 }

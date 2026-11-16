@@ -31,6 +31,35 @@ fn checked_target(root: &Path, path: &Path) -> Result<PathBuf, String> {
     Ok(target)
 }
 
+const NOTE_EXTENSIONS: [&str; 5] = ["md", "markdown", "mdown", "mkd", "txt"];
+
+/// The root a write of `path` is checked against: the vault root when the note lies below it,
+/// else the folder of the open note when `path` is in that folder. Only note files qualify.
+pub fn write_root(
+    vault: Option<&Path>,
+    open: Option<&Path>,
+    path: &Path,
+) -> Result<PathBuf, String> {
+    let is_note = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| NOTE_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()));
+    if !is_note {
+        return Err(format!("not a note file: {}", path.display()));
+    }
+    let parent = path
+        .parent()
+        .and_then(|p| dunce::canonicalize(p).ok())
+        .ok_or_else(|| format!("not a file path: {}", path.display()))?;
+    if let Some(vault) = vault.filter(|v| parent.starts_with(v)) {
+        return Ok(vault.to_path_buf());
+    }
+    if let Some(dir) = open.and_then(Path::parent).filter(|d| parent == *d) {
+        return Ok(dir.to_path_buf());
+    }
+    Err(format!("not allowed to write: {}", path.display()))
+}
+
 /// Writes `content` through a temp file in the same folder and renames it over `path`, so a
 /// crash leaves either the old or the new note, never half of one.
 pub fn write_text_file(root: &Path, path: &Path, content: &str) -> Result<(), String> {
@@ -75,6 +104,31 @@ mod tests {
             .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
             .filter(|n| n.ends_with(".nixe-tmp"))
             .collect()
+    }
+
+    #[test]
+    fn write_root_allows_the_vault_and_the_open_notes_folder_only() {
+        let base = tmp("wroot");
+        let vault = dunce::canonicalize(&base).unwrap().join("vault");
+        let loose = dunce::canonicalize(&base).unwrap().join("loose");
+        let elsewhere = dunce::canonicalize(&base).unwrap().join("else");
+        for d in [&vault, &loose, &elsewhere] {
+            fs::create_dir_all(d).unwrap();
+        }
+        let open = loose.join("a.md");
+        let root = |p: &Path| write_root(Some(&vault), Some(&open), p);
+        assert_eq!(root(&vault.join("n.md")).unwrap(), vault);
+        assert_eq!(root(&loose.join("b.md")).unwrap(), loose);
+        assert!(root(&elsewhere.join("n.md")).is_err());
+        assert!(write_root(None, None, &vault.join("n.md")).is_err());
+    }
+
+    #[test]
+    fn write_root_refuses_files_that_are_not_notes() {
+        let base = dunce::canonicalize(tmp("wext")).unwrap();
+        assert!(write_root(Some(&base), None, &base.join(".zshrc")).is_err());
+        assert!(write_root(Some(&base), None, &base.join("x.sh")).is_err());
+        assert!(write_root(Some(&base), None, &base.join("X.MD")).is_ok());
     }
 
     #[test]

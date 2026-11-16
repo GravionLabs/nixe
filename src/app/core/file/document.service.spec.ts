@@ -18,16 +18,16 @@ describe("DocumentService writing", () => {
     return doc;
   }
 
-  it("writes below the root and keeps the saved text as content", async () => {
+  it("writes the note and keeps the saved text as content", async () => {
     const doc = await opened();
-    await doc.write("/v/a.md", "/v", "new");
-    expect(invoke).toHaveBeenCalledWith("write_text_file", { root: "/v", path: "/v/a.md", content: "new" });
+    await doc.write("/v/a.md", "new");
+    expect(invoke).toHaveBeenCalledWith("write_text_file", { path: "/v/a.md", content: "new" });
     expect(doc.content()).toBe("new");
   });
 
   it("leaves the content alone when another note is open by now", async () => {
     const doc = await opened();
-    await doc.write("/v/other.md", "/v", "other");
+    await doc.write("/v/other.md", "other");
     expect(doc.content()).toBe("old");
   });
 
@@ -35,7 +35,7 @@ describe("DocumentService writing", () => {
     const doc = await opened();
     invoke.mockRejectedValueOnce("denied");
     try {
-      await doc.write("/v/a.md", "/v", "new");
+      await doc.write("/v/a.md", "new");
       expect.unreachable();
     } catch (e) {
       expect(e).toBe("denied");

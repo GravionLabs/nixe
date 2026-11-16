@@ -30,6 +30,11 @@ export class AutoSaver {
     this.delayMs = options.delayMs ?? SAVE_IDLE_MS;
   }
 
+  /** The changed text that is not written yet. */
+  get pendingText(): string | null {
+    return this.pending;
+  }
+
   /** Text that was changed and not written yet. */
   get dirty(): boolean {
     return this.pending !== null;
@@ -87,42 +92,60 @@ export type ExternalChange =
   /** The editor has unsaved changes: ask (reload or keep mine). */
   | "conflict";
 
-const REMEMBERED_WRITES = 4;
+/** How long after a write its watcher event may still arrive. */
+export const OWN_WRITE_WINDOW_MS = 2000;
 
 /**
- * Tells the app's own writes from foreign ones. The watcher reports a path, not who wrote it, so
- * every text that is about to be written is remembered, and a disk text that equals one of them
- * is ignored.
+ * Tells the app's own writes from foreign ones. The watcher reports a path, not who wrote it.
+ * `base` is the text editor and disk are known to agree on; a disk text equal to it is no change.
+ * Texts being written, or written within `OWN_WRITE_WINDOW_MS`, are ignored too (their events
+ * arrive late). Anything else is foreign, even if it equals an older text.
  */
 export class ExternalChangeTracker {
-  private readonly own: string[] = [];
+  private base: string;
+  private readonly recent: Array<{ text: string; until: number }> = [];
 
-  /** `text` is what the editor and the disk are known to agree on (opened, reloaded or written). */
-  constructor(initial: string) {
-    this.remember(initial);
+  constructor(
+    initial: string,
+    private readonly now: () => number = Date.now,
+  ) {
+    this.base = initial;
   }
 
   /** Call before a write starts: its watcher event may arrive before the write resolves. */
   willWrite(text: string): void {
-    this.remember(text);
+    this.recent.push({ text, until: Number.POSITIVE_INFINITY });
+  }
+
+  /** The write of `text` succeeded. */
+  written(text: string): void {
+    this.base = text;
+    for (const r of this.recent) if (r.text === text && r.until === Number.POSITIVE_INFINITY) r.until = this.now() + OWN_WRITE_WINDOW_MS;
+  }
+
+  /** The write of `text` failed: the disk does not have it. */
+  failed(text: string): void {
+    const at = this.recent.findIndex((r) => r.text === text && r.until === Number.POSITIVE_INFINITY);
+    if (at >= 0) this.recent.splice(at, 1);
   }
 
   /** The user chose "reload": the disk text is now the shared one. */
   accept(text: string): void {
-    this.remember(text);
+    this.base = text;
+    this.recent.length = 0;
   }
 
   classify(disk: string, dirty: boolean): ExternalChange {
-    if (this.own.includes(disk)) return "ignore";
+    const now = this.now();
+    for (let i = this.recent.length - 1; i >= 0; i--) if (this.recent[i].until < now) this.recent.splice(i, 1);
+    if (disk === this.base || this.recent.some((r) => r.text === disk)) return "ignore";
     return dirty ? "conflict" : "reload";
   }
+}
 
-  private remember(text: string): void {
-    const at = this.own.indexOf(text);
-    if (at >= 0) this.own.splice(at, 1);
-    this.own.push(text);
-    if (this.own.length > REMEMBERED_WRITES) this.own.shift();
-  }
+/** Converts LF to CRLF (CodeMirror normalizes line endings; a CRLF note keeps them on save). */
+export function toCrlf(text: string): string {
+  return text.replace(/\r?\n/g, "\r\n");
 }
 
 export interface LineBlock {

@@ -66,9 +66,9 @@ export class DocumentService {
    */
   editorHook: ((path: string, diskText: string) => void) | null = null;
 
-  /** Writes `text` below `root` and, when it is still the open note, makes it the content. */
-  async write(path: string, root: string, text: string): Promise<void> {
-    await backend.writeTextFile(root, path, text);
+  /** Writes `text` and, when it is still the open note, makes it the content. */
+  async write(path: string, text: string): Promise<void> {
+    await backend.writeTextFile(path, text);
     if (this.path() === path) this.content.set(text);
   }
 

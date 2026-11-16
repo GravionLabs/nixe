@@ -32,6 +32,10 @@ struct AppState {
     /// File or folder requested via CLI argument, OS file association or a second instance.
     pending_file: Mutex<Option<String>>,
     watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
+    /// Vault root last returned by `find_vault_root`; notes below it may be written.
+    vault_root: Mutex<Option<PathBuf>>,
+    /// Note last passed to `watch_file` (the open one); it and its siblings may be written.
+    open_file: Mutex<Option<PathBuf>>,
 }
 
 /// Paths are handed to the frontend with forward slashes on every platform.
@@ -103,10 +107,24 @@ fn read_text_file(path: String) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
-/// Atomically writes a note; `path` must lie below `root` (the vault root).
+/// Atomically writes a note. The backend decides what may be written: a Markdown file below the
+/// vault root, or one in the folder of the open note. The caller cannot name the root.
 #[tauri::command]
-fn write_text_file(root: String, path: String, content: String) -> Result<(), String> {
-    write::write_text_file(Path::new(&root), Path::new(&path), &content)
+fn write_text_file(
+    state: State<'_, AppState>,
+    path: String,
+    content: String,
+) -> Result<(), String> {
+    let vault = state.vault_root.lock().unwrap().clone();
+    let open = state.open_file.lock().unwrap().clone();
+    let root = write::write_root(vault.as_deref(), open.as_deref(), Path::new(&path))?;
+    write::write_text_file(&root, Path::new(&path), &content)
+}
+
+/// False when the file holds bytes that are not UTF-8 (`read_text_file` would replace them).
+#[tauri::command]
+fn is_utf8_file(path: String) -> bool {
+    std::fs::read(&path).is_ok_and(|bytes| std::str::from_utf8(&bytes).is_ok())
 }
 
 #[tauri::command]
@@ -154,8 +172,10 @@ fn find_wiki_root(path: String) -> String {
 /// Vault root for an opened file or folder: the topmost ancestor containing `.obsidian/`,
 /// else the opened folder. Read-only.
 #[tauri::command]
-fn find_vault_root(path: String) -> String {
-    path_to_string(&vault::find_vault_root(Path::new(&path)))
+fn find_vault_root(state: State<'_, AppState>, path: String) -> String {
+    let root = vault::find_vault_root(Path::new(&path));
+    *state.vault_root.lock().unwrap() = dunce::canonicalize(&root).ok();
+    path_to_string(&root)
 }
 
 /// All files below the vault root (relative, forward slashes), see `vault::list_vault_files`.
@@ -194,6 +214,8 @@ fn watch_file(app: AppHandle, state: State<'_, AppState>, path: String) -> Resul
         .watcher()
         .watch(&dir, RecursiveMode::NonRecursive)
         .map_err(|e| e.to_string())?;
+
+    *state.open_file.lock().unwrap() = dunce::canonicalize(&target).ok();
 
     // Replacing the old debouncer drops (and stops) the previous watch.
     *state.watcher.lock().unwrap() = Some(debouncer);
@@ -269,6 +291,7 @@ pub fn run() {
         take_pending_file,
         read_text_file,
         write_text_file,
+        is_utf8_file,
         is_file,
         is_dir,
         list_dir,
@@ -302,6 +325,7 @@ pub fn run() {
         take_pending_file,
         read_text_file,
         write_text_file,
+        is_utf8_file,
         is_file,
         is_dir,
         list_dir,
