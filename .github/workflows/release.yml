@@ -100,8 +100,8 @@ jobs:
             const fs = require('fs');
             const version = process.env.VERSION;
             // The MSI bundler accepts only a numeric pre-release identifier up to 65535, so on Windows
-            // 1.0.7-beta004 is built as 1.0.7-4. The release tag and the other platforms keep the full version.
-            const bundleVersion = process.platform === 'win32' ? version.replace(/-[A-Za-z]+0*(\d+)\$/, '-\$1') : version;
+            // 1.0.7-beta004 is built as 1.0.7-4 and 1.1.0-PullRequest134.23 as 1.1.0-23. The release tag and the other platforms keep the full version.
+            const bundleVersion = process.platform === 'win32' ? version.replace(/-.*?0*(\d+)\$/, '-\$1') : version;
             const versions = { 'package.json': version, 'src-tauri/tauri.conf.json': bundleVersion };
             for (const file of Object.keys(versions)) {
               const json = JSON.parse(fs.readFileSync(file, 'utf8'));
