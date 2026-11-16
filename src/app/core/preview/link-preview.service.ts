@@ -67,6 +67,7 @@ export class LinkPreviewService {
   leave(): void {
     clearTimeout(this.showTimer);
     this.seq++; // a render in progress is dropped
+    if (!this.shown()) this.key = null; // nothing opened yet: coming back starts the delay again
     this.cancelHide();
     this.hideTimer = setTimeout(() => this.close(), PREVIEW_HIDE_MS);
   }

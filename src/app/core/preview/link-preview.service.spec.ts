@@ -106,6 +106,16 @@ describe("LinkPreviewService", () => {
     expect(service.shown()).toBeNull();
   });
 
+  it("starts over when the pointer leaves and returns to the same link before it opened", async () => {
+    const { service } = setup("always");
+    service.hover("A", anchor, false);
+    await settle(100);
+    service.leave();
+    service.hover("A", anchor, false);
+    await settle(PREVIEW_DELAY_MS);
+    expect(service.shown()).not.toBeNull();
+  });
+
   it("renders a note once until its file changes", async () => {
     const { service, notes, render } = setup("always");
     await service.render("A");
