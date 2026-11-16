@@ -144,10 +144,37 @@ fn create_dir(state: State<'_, AppState>, path: String) -> Result<(), String> {
     fileops::create_dir(&vault_root_of(&state)?, Path::new(&path))
 }
 
-/// Renames or moves a file or folder inside the vault; refuses to replace anything.
+/// Renames or moves a file or folder inside the vault and rewrites the links to it in the notes
+/// that contain them (one batch). Returns the notes that were rewritten.
 #[tauri::command]
-fn rename_path(state: State<'_, AppState>, from: String, to: String) -> Result<(), String> {
-    fileops::rename_path(&vault_root_of(&state)?, Path::new(&from), Path::new(&to))
+fn rename_path(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    from: String,
+    to: String,
+) -> Result<Vec<vault::relink::Change>, String> {
+    vault::relink::rename_with_links(
+        &vault_root_of(&state)?,
+        Path::new(&from),
+        Path::new(&to),
+        |targets| index.referrers(targets),
+    )
+}
+
+/// The notes whose links a rename of `from` to `to` would rewrite; changes nothing.
+#[tauri::command]
+fn relink_preview(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    from: String,
+    to: String,
+) -> Result<Vec<vault::relink::Change>, String> {
+    Ok(vault::relink::preview(
+        &vault_root_of(&state)?,
+        Path::new(&from),
+        Path::new(&to),
+        |targets| index.referrers(targets),
+    ))
 }
 
 /// Moves a file or folder to `.trash/` in the vault; returns its new path.
@@ -335,6 +362,7 @@ pub fn run() {
         create_file,
         create_dir,
         rename_path,
+        relink_preview,
         trash_path,
         new_note_location,
         is_utf8_file,
@@ -374,6 +402,7 @@ pub fn run() {
         create_file,
         create_dir,
         rename_path,
+        relink_preview,
         trash_path,
         new_note_location,
         is_utf8_file,

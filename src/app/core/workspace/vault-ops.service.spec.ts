@@ -6,7 +6,10 @@ import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
+
+import { ask } from "@tauri-apps/plugin-dialog";
 
 import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
@@ -36,7 +39,11 @@ describe("VaultOpsService", () => {
     vi.spyOn(backend, "listDir").mockResolvedValue([]);
     vi.spyOn(backend, "createDir").mockResolvedValue(undefined);
     vi.spyOn(backend, "createFile").mockResolvedValue(undefined);
-    vi.spyOn(backend, "renamePath").mockResolvedValue(undefined);
+    vi.spyOn(backend, "renamePath").mockResolvedValue([]);
+    vi.spyOn(backend, "isDir").mockResolvedValue(false);
+    vi.spyOn(backend, "relinkPreview").mockResolvedValue([]);
+    vi.mocked(ask).mockReset();
+    vi.mocked(ask).mockResolvedValue(true);
     vi.spyOn(backend, "trashPath").mockResolvedValue("/v/.trash/x");
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -101,6 +108,37 @@ describe("VaultOpsService", () => {
     await expect(ops.rename("/v/d", "e")).resolves.toBe("/v/e");
     expect(backend.renamePath).toHaveBeenCalledWith("/v/d", "/v/e");
     expect(doc.open).toHaveBeenCalledWith("/v/e/a.md", { addToHistory: false });
+  });
+
+  it("lists the notes a folder rename changes and renames after the user agrees", async () => {
+    vi.spyOn(backend, "isDir").mockResolvedValue(true);
+    vi.spyOn(backend, "relinkPreview").mockResolvedValue([{ path: "a.md", links: 2 }]);
+    await expect(ops.rename("/v/d", "e")).resolves.toBe("/v/e");
+    expect(backend.relinkPreview).toHaveBeenCalledWith("/v/d", "/v/e");
+    expect(vi.mocked(ask).mock.calls[0][0]).toContain("a.md (2)");
+    expect(backend.renamePath).toHaveBeenCalledWith("/v/d", "/v/e");
+  });
+
+  it("does not rename a folder when the user declines the confirmation", async () => {
+    vi.spyOn(backend, "isDir").mockResolvedValue(true);
+    vi.spyOn(backend, "relinkPreview").mockResolvedValue([{ path: "a.md", links: 1 }]);
+    vi.mocked(ask).mockResolvedValue(false);
+    await expect(ops.rename("/v/d", "e")).resolves.toBe("/v/d");
+    expect(backend.renamePath).not.toHaveBeenCalled();
+    expect(workspace.reloadTree).not.toHaveBeenCalled();
+  });
+
+  it("renames a folder without asking when no link changes", async () => {
+    vi.spyOn(backend, "isDir").mockResolvedValue(true);
+    await ops.rename("/v/d", "e");
+    expect(ask).not.toHaveBeenCalled();
+    expect(backend.renamePath).toHaveBeenCalled();
+  });
+
+  it("renames a note without asking", async () => {
+    await ops.rename("/v/a.md", "b");
+    expect(backend.relinkPreview).not.toHaveBeenCalled();
+    expect(ask).not.toHaveBeenCalled();
   });
 
   it("keeps .md when a note is renamed without an extension", async () => {

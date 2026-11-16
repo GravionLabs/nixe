@@ -45,6 +45,24 @@ impl IndexState {
     }
 }
 
+impl IndexState {
+    /// The notes that link to any of `targets`, from the index; `None` while the index is
+    /// missing or still being built (it may not know every link yet).
+    pub fn referrers(&self, targets: &[String]) -> Option<Vec<String>> {
+        let ready = self
+            .status
+            .lock()
+            .unwrap()
+            .status
+            .as_ref()
+            .is_some_and(|s| s.state == "ready");
+        if !ready {
+            return None;
+        }
+        read::referrers(&self.conn().ok()?, targets).ok()
+    }
+}
+
 /// Publishes `status` unless a newer scan has started since `generation`.
 fn set_status(app: &AppHandle, shared: &Mutex<Tracked>, generation: u64, status: IndexStatus) {
     let mut tracked = shared.lock().unwrap();

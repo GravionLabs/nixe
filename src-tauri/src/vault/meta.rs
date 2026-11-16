@@ -95,7 +95,7 @@ pub fn extract(text: &str) -> NoteMeta {
 }
 
 /// `(yaml, body)` when the note starts with a `---` fenced block that is closed by `---` or `...`.
-fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
+pub(super) fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
     let mut lines = text.split_inclusive('\n');
     let first = lines.next()?;
     if !is_fence(first) {
@@ -273,7 +273,7 @@ fn push_unique(list: &mut Vec<String>, item: String) {
 // Body
 // ---------------------------------------------------------------------------------------------
 
-struct Fence {
+pub(super) struct Fence {
     marker: u8,
     len: usize,
 }
@@ -330,7 +330,7 @@ fn fence_start(line: &str) -> Option<(u8, usize, &str)> {
     (len >= 3).then(|| (marker, len, &trimmed[len..]))
 }
 
-fn opens_fence(line: &str) -> Option<Fence> {
+pub(super) fn opens_fence(line: &str) -> Option<Fence> {
     let (marker, len, info) = fence_start(line)?;
     // An info string with a backtick makes it an inline code span instead of a fence.
     if marker == b'`' && info.contains('`') {
@@ -339,7 +339,7 @@ fn opens_fence(line: &str) -> Option<Fence> {
     Some(Fence { marker, len })
 }
 
-fn closes_fence(line: &str, open: &Fence) -> bool {
+pub(super) fn closes_fence(line: &str, open: &Fence) -> bool {
     fence_start(line).is_some_and(|(marker, len, rest)| {
         marker == open.marker && len >= open.len && rest.trim().is_empty()
     })
@@ -390,7 +390,7 @@ fn mask(line: &str, in_comment: &mut bool) -> (String, String) {
 }
 
 /// Offset of the next run of exactly `n` backticks.
-fn find_backtick_run(s: &str, n: usize) -> Option<usize> {
+pub(super) fn find_backtick_run(s: &str, n: usize) -> Option<usize> {
     let bytes = s.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
@@ -547,7 +547,7 @@ fn markdown_link(dest: &str) -> Option<MarkdownLink> {
     })
 }
 
-fn has_scheme(dest: &str) -> bool {
+pub(super) fn has_scheme(dest: &str) -> bool {
     match dest.find(':') {
         Some(i) if i > 1 => {
             let mut chars = dest[..i].chars();
@@ -558,7 +558,7 @@ fn has_scheme(dest: &str) -> bool {
     }
 }
 
-fn percent_decode(s: &str) -> String {
+pub(super) fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
