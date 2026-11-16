@@ -113,3 +113,14 @@ export function blockAt(text: string, id: string): NotePart | null {
 }
 
 export const MAX_EMBED_DEPTH = 3;
+
+/**
+ * The part of a note a link target shows: the section of `Note#Heading`, the block of `Note#^id`, or
+ * the whole body. Null when the heading or block is not in the note.
+ */
+export function notePart(text: string, target: string): NotePart | null {
+  const { heading, block } = parseWikilinkTarget(target);
+  if (heading) return headingSectionAt(text, heading);
+  if (block) return blockAt(text, block);
+  return { text: splitFrontmatter(text).body, start: 0 };
+}

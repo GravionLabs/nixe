@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, signal } from "@angular/core";
 
 import { clampMinutes } from "../git/auto-sync";
+import { LinkPreviewMode, sanitizeMode } from "../preview/preview-core";
 import {
   VaultState,
   VaultStates,
@@ -22,6 +23,7 @@ interface StoredSettings {
   sidebarWidth: number;
   backlinks: boolean;
   outline: boolean;
+  linkPreview: LinkPreviewMode;
   lastFolder: string | null;
   recentVaults: string[];
   vaultStates: VaultStates;
@@ -46,6 +48,7 @@ const DEFAULTS: StoredSettings = {
   sidebarWidth: 260,
   backlinks: false,
   outline: false,
+  linkPreview: "modifier",
   lastFolder: null,
   recentVaults: [],
   vaultStates: {},
@@ -88,6 +91,8 @@ export class SettingsService {
   readonly backlinksVisible = signal<boolean>(this.stored.backlinks);
   /** Right-hand outline panel (the headings of the open note). */
   readonly outlineVisible = signal<boolean>(this.stored.outline === true);
+  /** Hover preview of links: with ⌘/Ctrl held, or always. */
+  readonly linkPreview = signal<LinkPreviewMode>(sanitizeMode(this.stored.linkPreview));
   /** Folder reopened on the next start. */
   readonly lastFolder = signal<string | null>(this.stored.lastFolder);
   /** The last vaults opened, newest first. */
@@ -148,6 +153,7 @@ export class SettingsService {
         sidebarWidth: this.sidebarWidth(),
         backlinks: this.backlinksVisible(),
         outline: this.outlineVisible(),
+        linkPreview: this.linkPreview(),
         lastFolder: this.lastFolder(),
         recentVaults: this.recentVaults(),
         vaultStates: this.vaultStates(),

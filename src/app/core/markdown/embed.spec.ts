@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractBlock, extractHeadingSection, parseEmbed } from "./embed";
+import { extractBlock, extractHeadingSection, notePart, parseEmbed } from "./embed";
 
 describe("parseEmbed", () => {
   it("classifies notes, images and other files", () => {
@@ -38,5 +38,29 @@ describe("extractBlock", () => {
   it("returns null when missing", () => expect(extractBlock(note, "zz")).toBeNull());
   it("supports a marker on its own line", () => {
     expect(extractBlock("first\nsecond\n\n^id\n", "id")).toBe("first\nsecond");
+  });
+});
+
+describe("notePart", () => {
+  const text = "---\ntitle: T\n---\n# One\n\nintro\n\n## Two\n\ntwo text ^b1\n";
+
+  it("is the body without frontmatter for a plain note", () => {
+    const part = notePart(text, "Note");
+    expect(part?.start).toBe(0);
+    expect(part?.text).toContain("# One");
+    expect(part?.text).not.toContain("title");
+  });
+
+  it("is the section of a heading target", () => {
+    expect(notePart(text, "Note#Two")?.text).toBe("## Two\n\ntwo text ^b1");
+  });
+
+  it("is the block of a block target", () => {
+    expect(notePart(text, "Note#^b1")?.text).toBe("two text");
+  });
+
+  it("is null for a missing heading or block", () => {
+    expect(notePart(text, "Note#Nope")).toBeNull();
+    expect(notePart(text, "Note#^nope")).toBeNull();
   });
 });

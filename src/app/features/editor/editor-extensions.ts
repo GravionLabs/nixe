@@ -195,6 +195,8 @@ export interface EditorHooks {
   onBlur(): void;
   /** ⌘/Ctrl+click on a `[[wikilink]]`; `value` is the text between the brackets. */
   onWikilink(value: string): void;
+  /** The pointer is on a `[[wikilink]]` (`value` as above, `anchor` its place on screen) or left it (null). */
+  onWikilinkHover?(hover: { value: string; anchor: { left: number; top: number; bottom: number }; modifier: boolean } | null): void;
   /** Vault data for the `[[` and `#` completion; without it the editor does not complete. */
   completion?: CompletionData;
 }
@@ -228,6 +230,23 @@ export function editorBehavior(hooks: EditorHooks): Extension[] {
     EditorView.domEventHandlers({
       blur: () => {
         hooks.onBlur();
+      },
+      mousemove(event, view) {
+        if (!hooks.onWikilinkHover) return false;
+        const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        const line = pos === null ? null : view.state.doc.lineAt(pos);
+        const token = line && pos !== null ? tokenAt(line.text, pos - line.from, "wikilink") : null;
+        const start = line && token ? view.coordsAtPos(line.from + token.from) : null;
+        hooks.onWikilinkHover(
+          token && start
+            ? { value: token.value, anchor: start, modifier: event.metaKey || event.ctrlKey }
+            : null,
+        );
+        return false;
+      },
+      mouseleave() {
+        hooks.onWikilinkHover?.(null);
+        return false;
       },
       mousedown(event, view) {
         if (!(event.metaKey || event.ctrlKey) || event.button !== 0) return false;
