@@ -45,28 +45,47 @@ jobs:
           workspaces: src-tauri
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
-  # Release notes from the Conventional Commits since the last stable tag (cliff.toml), as the other
-  # GravionLabs repos do. The tag does not exist yet, so --unreleased --tag lists exactly this release.
-  release-notes:
-    needs: [determine-version]
-    if: github.ref == 'refs/heads/main'
+  # Push to main (the merge of the release PR): git-cliff writes CHANGELOG.md and commits it to main ([skip ci]),
+  # the version is tagged, the GitHub release is created with the git-cliff notes and the issues delivered by the
+  # release PR are closed (GravionLabs/ci gh-release, as in poimen). The release stays a draft until publish-release.
+  # GH_PAT pushes the changelog commit past the main ruleset.
+  release:
+    needs: [determine-version, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
-      notes: ${{ steps.cliff.outputs.content }}
+      release-id: ${{ steps.release-id.outputs.id }}
+    permissions:
+      contents: write # changelog commit, tag, GitHub release
+      issues: write # close-issues
+      pull-requests: read # close-issues reads the release PR
     steps:
-      - uses: actions/checkout@v4
+      - name: Create GitHub release
+        uses: GravionLabs/ci/versioning/gh-release@v1
         with:
-          fetch-depth: 0
-      - name: Generate release notes
-        id: cliff
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          args: --unreleased --tag v${{ needs.determine-version.outputs.semver }}
+          version: ${{ needs.determine-version.outputs.semver }}
+          changelog-file: CHANGELOG.md
+          cliff-config: cliff.toml
+          update-changelog: "true"
+          close-issues: "true"
+          token: ${{ secrets.GH_PAT }}
+
+      # The installers are uploaded to this release (tauri-action releaseId).
+      - name: Find the release id
+        id: release-id
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ needs.determine-version.outputs.semver }}
+        run: |
+          set -euo pipefail
+          id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq .id)"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          # Hidden until every installer is built and verified; publish-release makes it public.
+          gh release edit "$TAG" --draft --repo "$GITHUB_REPOSITORY"
 
   build:
-    needs: [determine-version, test, release-notes]
-    if: ${{ !cancelled() && needs.determine-version.result == 'success' && needs.test.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.release-notes.result) }}
+    needs: [determine-version, test, release]
+    if: ${{ !cancelled() && needs.determine-version.result == 'success' && needs.test.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.release.result) }}
     strategy:
       fail-fast: false
       matrix:
@@ -169,14 +188,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Only builds from main create/update a GitHub release; PRs and other branches
-          # just build, to validate the matrix without cutting a release. Kept as a draft
-          # here so no platform publishes an incomplete release while the others are
-          # still building — publish-release below publishes it once all four are done.
-          tagName: ${{ env.PUBLISH == 'true' && format('v{0}', env.VERSION) || '' }}
-          releaseName: ${{ env.PUBLISH == 'true' && format('Nixe v{0}', env.VERSION) || '' }}
-          releaseBody: ${{ needs.release-notes.outputs.notes }}
-          releaseDraft: true
+          # Only builds from main upload to the draft release created by the release job; PRs and other
+          # branches just build, to validate the matrix. publish-release publishes it once all four are done.
+          releaseId: ${{ env.PUBLISH == 'true' && needs.release.outputs.release-id || '' }}
           # The MSI bundler rejects pre-release versions (1.1.0-rc021), so a pre-release builds
           # the Windows installer as NSIS only; stable versions keep every bundle target.
           args: ${{ matrix.args }}${{ matrix.platform == 'windows-latest' && contains(env.VERSION, '-') && ' --bundles nsis' || '' }}
