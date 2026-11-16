@@ -63,6 +63,10 @@ README possible: that code could move into its own package unchanged.
 | `SwitcherService` | quick switcher state | Opened with ⌘/Ctrl+O (File → Quick Switcher; Open file moved to ⌘/Ctrl+⇧+P). Notes come from the index (`notes` command, with aliases), falling back to the vault file list. Matching is pure TypeScript in `core/switcher/fuzzy.ts` over file names and aliases; recently opened notes win ties and lead with an empty query. Enter with no match does nothing yet. |
 | `SettingsService` | theme, math toggle, sidebar width/visibility, backlinks panel visibility, last folder | Persisted to `localStorage`. |
 
+### Properties panel
+
+`PropertiesComponent` sits above the note in the viewer and edits the frontmatter in place: one control per type (text, number, checkbox, date, list), chip inputs for `tags` and `aliases` that complete from the index (`tags` and `notes` commands), and add, rename and remove of properties. A change goes through `editFrontmatter` (`core/markdown/frontmatter-edit.ts`), which edits only the lines of the changed key, so key order, comments and the formatting of the other keys stay as they are, and then through `DocumentService.write`. A note without frontmatter gets one with the first property added; a frontmatter that is not valid YAML is shown as an error and not edited.
+
 See [state-management.md](state-management.md) for how these interact when the user
 clicks a link or expands a tree node.
 

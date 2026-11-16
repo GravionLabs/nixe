@@ -50,7 +50,7 @@ export class MarkdownService {
     this.current = ctx;
     try {
       const note = renderNote(md, text, ctx.vaultFiles ?? undefined, ctx.vaultRoot ?? undefined);
-      return { ...note, html: DOMPurify.sanitize(note.html) };
+      return { ...note, html: DOMPurify.sanitize(note.html), body: DOMPurify.sanitize(note.body) };
     } finally {
       this.current = null;
     }
