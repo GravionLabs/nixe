@@ -8,6 +8,7 @@ use ignore::WalkBuilder;
 // Not called yet: the vault index (a later item of the same feature) is the first user.
 #[allow(dead_code)]
 pub mod meta;
+pub mod relink;
 #[allow(dead_code)]
 pub mod resolve;
 

@@ -32,4 +32,11 @@
   nothing matches.
 - The **sidebar context menu** (right click, F2 renames inline) offers New note, New folder,
   Rename, Delete and Reveal in Finder/Explorer. Delete moves to `.trash/` of the vault.
-- Links are not rewritten when a note is renamed.
+- Renaming or moving a note or folder rewrites the links to it in the notes that contain them
+  (`[[wikilinks]]`, `![[embeds]]` and Markdown links), like Obsidian's `alwaysUpdateLinks`.
+  Aliases, headings and block references stay; the path form follows `newLinkFormat` of
+  `.obsidian/app.json` (`shortest`, `relative`, `absolute`). A folder rename first lists the notes
+  that change and asks for confirmation. The Rust core reads the notes that link to the renamed
+  files from the index, renames, and writes all of them at once, so the watcher reports one batch.
+  Links in the frontmatter, code spans, fenced code and `%%comments%%` are left alone, and a
+  `relative` link is written as Obsidian does but the index only resolves it by name for now.

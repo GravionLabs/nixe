@@ -200,6 +200,21 @@ pub fn backlinks(conn: &Connection, path: &str) -> rusqlite::Result<Vec<Backlink
     rows.collect()
 }
 
+/// The notes that link to any of `paths` (resolved targets), each once, sorted. Includes notes
+/// that link to themselves.
+pub fn referrers(conn: &Connection, paths: &[String]) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = conn.prepare_cached(
+        "SELECT DISTINCT n.path FROM links l JOIN notes n ON n.id = l.source_id WHERE l.resolved = ?1",
+    )?;
+    let mut out = std::collections::BTreeSet::new();
+    for path in paths {
+        for row in stmt.query_map(params![path], |r| r.get::<_, String>(0))? {
+            out.insert(row?);
+        }
+    }
+    Ok(out.into_iter().collect())
+}
+
 /// Every tag with the number of notes using it, most used first.
 pub fn tags(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
     let mut stmt = conn.prepare(

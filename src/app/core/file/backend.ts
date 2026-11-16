@@ -68,6 +68,14 @@ export interface NewNoteLocation {
   folder: string;
 }
 
+/** A note whose links a rename rewrites. */
+export interface RelinkChange {
+  /** Vault-relative path of the note after the rename. */
+  path: string;
+  /** Number of links changed in it. */
+  links: number;
+}
+
 export interface NoteRecord {
   path: string;
   title: string;
@@ -84,8 +92,10 @@ export const backend = {
   createFile: (path: string) => invoke<void>("create_file", { path }),
   /** Creates a folder and its missing parents inside the vault. */
   createDir: (path: string) => invoke<void>("create_dir", { path }),
-  /** Moves a file or folder inside the vault; fails rather than replace. */
-  renamePath: (from: string, to: string) => invoke<void>("rename_path", { from, to }),
+  /** Moves a file or folder inside the vault, fails rather than replace, and rewrites the links to it in one batch. */
+  renamePath: (from: string, to: string) => invoke<RelinkChange[]>("rename_path", { from, to }),
+  /** The notes whose links a rename would rewrite; changes nothing. */
+  relinkPreview: (from: string, to: string) => invoke<RelinkChange[]>("relink_preview", { from, to }),
   /** Moves a file or folder to `.trash/` of the vault; returns the new path. */
   trashPath: (path: string) => invoke<string>("trash_path", { path }),
   newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),

@@ -1,7 +1,8 @@
 import { Injectable, inject } from "@angular/core";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
-import { NewNoteLocation, backend } from "../file/backend";
+import { NewNoteLocation, RelinkChange, backend } from "../file/backend";
 import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
 import { basename, dirname, joinPath } from "../markdown/paths";
@@ -61,13 +62,20 @@ export class VaultOpsService {
     return path;
   }
 
-  /** Returns the new path. */
+  /**
+   * Renames or moves a note or folder; links to it are rewritten by the backend. A folder rename
+   * lists the notes that change first. Returns the new path, or `path` when the user declines.
+   */
   async rename(path: string, typed: string): Promise<string> {
     const name = renamedName(basename(path), typed);
     if (!name) throw new Error("That is not a valid name.");
     const to = joinPath(dirname(path), name);
     if (to === path) return path;
     await this.editor.handle?.flush();
+    if (await backend.isDir(path)) {
+      const changes = await backend.relinkPreview(path, to).catch(() => [] as RelinkChange[]);
+      if (changes.length > 0 && !(await this.confirmRelink(changes))) return path;
+    }
     await backend.renamePath(path, to);
     const open = this.doc.path();
     const moved = open ? remapPath(open, path, to) : null;
@@ -87,6 +95,15 @@ export class VaultOpsService {
       this.doc.close();
     }
     await this.changed();
+  }
+
+  private confirmRelink(changes: RelinkChange[]): Promise<boolean> {
+    const shown = changes.slice(0, 10).map((c) => `• ${c.path} (${c.links})`);
+    if (changes.length > shown.length) shown.push(`… and ${changes.length - shown.length} more`);
+    return ask(`Links in ${changes.length} note(s) will be updated:\n\n${shown.join("\n")}`, {
+      title: "Rename folder",
+      okLabel: "Rename",
+    });
   }
 
   reveal(path: string): Promise<void> {
