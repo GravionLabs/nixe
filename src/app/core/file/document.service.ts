@@ -60,6 +60,18 @@ export class DocumentService {
     if (typeof selected === "string") await this.open(selected);
   }
 
+  /**
+   * Set while the editor is open: external changes go to it instead of `content`, so the
+   * editor can ask before it replaces unsaved text.
+   */
+  editorHook: ((path: string, diskText: string) => void) | null = null;
+
+  /** Writes `text` and, when it is still the open note, makes it the content. */
+  async write(path: string, text: string): Promise<void> {
+    await backend.writeTextFile(path, text);
+    if (this.path() === path) this.content.set(text);
+  }
+
   async reload(): Promise<void> {
     const path = this.path();
     if (path) this.content.set(await backend.readTextFile(path));
@@ -77,7 +89,9 @@ export class DocumentService {
   async onExternalChange(path: string): Promise<void> {
     if (toSlashes(path) !== this.path()) return;
     try {
-      this.content.set(await backend.readTextFile(path));
+      const text = await backend.readTextFile(path);
+      if (this.editorHook) this.editorHook(toSlashes(path), text);
+      else this.content.set(text);
     } catch {
       // file is being replaced – the next event will pick it up
     }

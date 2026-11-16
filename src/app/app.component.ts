@@ -1,9 +1,10 @@
-import { Component, computed, effect, inject, isDevMode, signal, untracked } from "@angular/core";
+import { Component, computed, effect, inject, isDevMode, signal, untracked, viewChild } from "@angular/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { FILE_CHANGED_EVENT, MENU_EVENT, OPEN_FILE_EVENT, STDIN_FILE_SUFFIX, backend } from "./core/file/backend";
+import { EditorService } from "./core/editor/editor.service";
 import { DocumentService } from "./core/file/document.service";
 import { IndexService } from "./core/index/index.service";
 import { SearchService } from "./core/index/search.service";
@@ -15,6 +16,7 @@ import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { SearchComponent } from "./features/search/search.component";
 import { SwitcherComponent } from "./features/switcher/switcher.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
+import { EditorComponent } from "./features/editor/editor.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
 import { ToolbarComponent } from "./features/toolbar/toolbar.component";
@@ -22,7 +24,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [BacklinksComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [BacklinksComponent, EditorComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -33,6 +35,8 @@ export class AppComponent {
   protected readonly settings = inject(SettingsService);
   private readonly markdown = inject(MarkdownService);
   private readonly index = inject(IndexService);
+  protected readonly editor = inject(EditorService);
+  private readonly viewer = viewChild(ViewerComponent);
   protected readonly search = inject(SearchService);
   protected readonly switcher = inject(SwitcherService);
 
@@ -141,6 +145,7 @@ export class AppComponent {
   private onMenu(id: string): void {
     const actions: Record<string, () => unknown> = {
       "quick-switcher": () => this.openSwitcher(),
+      "toggle-editor": () => this.run(() => this.editor.toggle(this.viewer()?.topLine() ?? null)),
       "open-file": () => this.run(() => this.doc.openWithDialog()),
       "open-folder": () => this.run(() => this.workspace.openFolderWithDialog()),
       reload: () => this.run(async () => {

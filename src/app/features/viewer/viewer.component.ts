@@ -12,6 +12,7 @@ import {
 } from "@angular/core";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
+import { viewerTopLine } from "../../core/editor/editor-core";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
@@ -132,6 +133,18 @@ export class ViewerComponent {
         if (this.renderedPath === this.doc.path() && this.scrollToLine(line)) this.doc.pendingLine.set(null);
       });
     });
+  }
+
+  /** 1-based source line at the top of the visible area; null when no block carries one. */
+  topLine(): number | null {
+    const top = this.host.nativeElement.getBoundingClientRect().top;
+    const blocks = Array.from(this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]")).map(
+      (el) => {
+        const rect = el.getBoundingClientRect();
+        return { line: Number(el.dataset["line"]), top: rect.top - top, bottom: rect.bottom - top };
+      },
+    );
+    return viewerTopLine(blocks, 0);
   }
 
   /** Ctrl/Cmd + wheel always zooms the whole document. */

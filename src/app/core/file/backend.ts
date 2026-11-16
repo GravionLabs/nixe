@@ -71,6 +71,10 @@ export interface NoteRecord {
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
+  /** Atomic write; the Rust side only accepts the open note or a note inside the vault. */
+  writeTextFile: (path: string, content: string) => invoke<void>("write_text_file", { path, content }),
+  /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
+  isUtf8File: (path: string) => invoke<boolean>("is_utf8_file", { path }),
   isFile: (path: string) => invoke<boolean>("is_file", { path }),
   isDir: (path: string) => invoke<boolean>("is_dir", { path }),
   listDir: (path: string) => invoke<DirEntry[]>("list_dir", { path }),

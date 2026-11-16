@@ -1,0 +1,41 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  background: var(--bg);
+}
+
+.host {
+  flex: 1;
+  min-height: 0;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--error-border);
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+
+.bar span {
+  flex: 1;
+}
+
+.bar button {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--chrome);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.bar button:hover {
+  background: var(--hover);
+}
