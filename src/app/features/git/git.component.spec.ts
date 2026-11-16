@@ -38,6 +38,14 @@ function render(
   const cancelTokenPrompt = vi.fn();
   const open = vi.fn().mockResolvedValue(undefined);
   const close = vi.fn();
+  const settings = {
+    gitAuthorName: signal(""),
+    gitAuthorEmail: signal(""),
+    autoSync: signal(false),
+    autoSyncMinutes: signal(10),
+    autoSyncOnFocus: signal(false),
+    autoSyncOnQuit: signal(false),
+  };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -52,7 +60,7 @@ function render(
           deleteToken,
           cancelTokenPrompt,
         } },
-      { provide: SettingsService, useValue: { gitAuthorName: signal(""), gitAuthorEmail: signal("") } },
+      { provide: SettingsService, useValue: settings },
       { provide: DocumentService, useValue: { open } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
     ],
@@ -68,7 +76,7 @@ function render(
   const errors: string[] = [];
   fixture.componentInstance.error.subscribe((e) => errors.push(e));
   fixture.detectChanges();
-  return { fixture, el: fixture.nativeElement as HTMLElement, open, close, commit, errors, saveToken, deleteToken, cancelTokenPrompt };
+  return { settings, fixture, el: fixture.nativeElement as HTMLElement, open, close, commit, errors, saveToken, deleteToken, cancelTokenPrompt };
 }
 
 describe("GitComponent", () => {
@@ -83,6 +91,27 @@ describe("GitComponent", () => {
     const kinds = [...el.querySelectorAll(".kind")].map((k) => k.textContent);
     expect(kinds).toEqual(["M", "A", "D"]);
     expect(el.querySelector(".count")?.textContent).toBe("3");
+  });
+
+  it("turns automatic sync on and sets the interval, focus and quit options", () => {
+    const { el, settings, fixture } = render(status);
+    expect(el.querySelector("[aria-label='Sync interval in minutes']")).toBeNull();
+    const toggle = el.querySelector<HTMLInputElement>(".auto-sync input[type=checkbox]")!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    fixture.detectChanges();
+    expect(settings.autoSync()).toBe(true);
+    const minutes = el.querySelector<HTMLInputElement>("[aria-label='Sync interval in minutes']")!;
+    minutes.value = "0";
+    minutes.dispatchEvent(new Event("change"));
+    expect(settings.autoSyncMinutes()).toBe(1);
+    const [, focus, quit] = el.querySelectorAll<HTMLInputElement>(".auto-sync input[type=checkbox]");
+    focus.checked = true;
+    focus.dispatchEvent(new Event("change"));
+    quit.checked = true;
+    quit.dispatchEvent(new Event("change"));
+    expect(settings.autoSyncOnFocus()).toBe(true);
+    expect(settings.autoSyncOnQuit()).toBe(true);
   });
 
   it("opens a changed note but not a deleted one", () => {

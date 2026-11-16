@@ -9,6 +9,7 @@ import { Command, CommandRegistry } from "./core/commands/command-registry";
 import { PaletteService } from "./core/commands/palette.service";
 import { DocumentService } from "./core/file/document.service";
 import { IndexService } from "./core/index/index.service";
+import { AutoSyncService } from "./core/git/auto-sync.service";
 import { GitService } from "./core/git/git.service";
 import { HealthService } from "./core/index/health.service";
 import { SearchService } from "./core/index/search.service";
@@ -51,6 +52,7 @@ export class AppComponent {
   protected readonly search = inject(SearchService);
   protected readonly health = inject(HealthService);
   protected readonly git = inject(GitService);
+  private readonly autoSync = inject(AutoSyncService);
   protected readonly switcher = inject(SwitcherService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
@@ -114,6 +116,7 @@ export class AppComponent {
       await listen(OPEN_FILE_EVENT, () => this.openPending());
       await listen<string>(FILE_CHANGED_EVENT, (e) => this.doc.onExternalChange(e.payload));
       await this.index.init();
+      await this.autoSync.listenWindow();
       await listen<string>(MENU_EVENT, (e) => this.commands.execute(e.payload));
 
       await getCurrentWebview().onDragDropEvent((event) => {

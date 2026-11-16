@@ -49,6 +49,8 @@ export class GitService {
   /** Progress and result of the last sync, for the status bar. */
   readonly syncState = signal<SyncState>({ phase: "idle", message: "" });
   private request = 0;
+  /** The last sync error that was shown; an automatic sync does not show it again. */
+  private lastError: string | null = null;
   private promptResult: ((token: string | null) => void) | null = null;
 
   /** True when the vault is a Git repository. */
@@ -168,22 +170,30 @@ export class GitService {
    * branch and pushes. Progress and result are in `syncState`; never throws. The backend
    * leaves the repository clean on every failure. The index and the open note follow the
    * pulled files through the watcher.
+   *
+   * An automatic sync (`auto`) never asks for a token and shows an error only when it differs
+   * from the one already shown, so a failing remote does not repeat on every interval.
    */
-  async sync(): Promise<void> {
+  async sync(options: { auto?: boolean } = {}): Promise<void> {
     if (!this.available() || this.syncState().phase === "syncing") return;
+    const auto = options.auto === true;
+    const before = this.syncState();
     this.syncState.set({ phase: "syncing", message: "Syncing…" });
-    try {
-      const report = await this.runRemote(() =>
-        backend.gitVaultSync(
-          this.settings.gitAuthorName().trim() || null,
-          this.settings.gitAuthorEmail().trim() || null,
-        ),
+    const call = () =>
+      backend.gitVaultSync(
+        this.settings.gitAuthorName().trim() || null,
+        this.settings.gitAuthorEmail().trim() || null,
       );
+    try {
+      const report = await (auto ? call() : this.runRemote(call));
+      this.lastError = null;
       this.syncState.set({ phase: "done", message: describeSync(report) });
     } catch (err) {
       const text = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");
       const message = AUTH_ERROR.test(text) ? "Sync failed: GitHub needs a valid access token" : `Sync failed: ${text}`;
-      this.syncState.set({ phase: "error", message });
+      if (auto && message === this.lastError) this.syncState.set(before);
+      else this.syncState.set({ phase: "error", message });
+      this.lastError = message;
     } finally {
       await this.refresh();
     }

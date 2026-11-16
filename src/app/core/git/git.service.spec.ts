@@ -175,6 +175,42 @@ describe("GitService", () => {
     });
   });
 
+  describe("automatic sync", () => {
+    beforeEach(async () => {
+      await git.refresh();
+    });
+
+    it("shows an error once and not again on the next interval", async () => {
+      vi.spyOn(backend, "gitVaultSync").mockRejectedValue("network down");
+      await git.sync({ auto: true });
+      expect(git.syncState()).toEqual({ phase: "error", message: "Sync failed: network down" });
+      git.syncState.set({ phase: "idle", message: "" });
+      await git.sync({ auto: true });
+      expect(git.syncState()).toEqual({ phase: "idle", message: "" });
+    });
+
+    it("shows a different error and an error again after a success", async () => {
+      const sync = vi.spyOn(backend, "gitVaultSync").mockRejectedValue("a");
+      await git.sync({ auto: true });
+      sync.mockRejectedValue("b");
+      await git.sync({ auto: true });
+      expect(git.syncState().message).toBe("Sync failed: b");
+      sync.mockResolvedValue({ committed: false, pulled: false, pushed: false, conflicts: [] });
+      await git.sync({ auto: true });
+      expect(git.syncState().phase).toBe("done");
+      sync.mockRejectedValue("b");
+      await git.sync({ auto: true });
+      expect(git.syncState()).toEqual({ phase: "error", message: "Sync failed: b" });
+    });
+
+    it("never asks for a token", async () => {
+      vi.spyOn(backend, "gitVaultSync").mockRejectedValue("auth-required:github.com");
+      await git.sync({ auto: true });
+      expect(git.tokenPrompt()).toBeNull();
+      expect(git.syncState().message).toContain("access token");
+    });
+  });
+
   describe("access token", () => {
     beforeEach(() => {
       vi.spyOn(backend, "gitTokenStatus").mockResolvedValue(false);
