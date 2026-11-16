@@ -29,13 +29,13 @@ export function matchesBinding(event: KeyInput, binding: string): boolean {
   const mods = new Set(parts.map((p) => p.toLowerCase()));
   return (
     event.key.toLowerCase() === key &&
-    (event.metaKey || event.ctrlKey) === mods.has("mod") &&
+    (mods.has("ctrl") ? event.ctrlKey && !event.metaKey : (event.metaKey || event.ctrlKey) === mods.has("mod")) &&
     event.shiftKey === mods.has("shift") &&
     event.altKey === mods.has("alt")
   );
 }
 
-const MAC_SYMBOLS: Record<string, string> = { mod: "⌘", shift: "⇧", alt: "⌥", arrowleft: "←", arrowright: "→" };
+const MAC_SYMBOLS: Record<string, string> = { mod: "⌘", ctrl: "⌃", shift: "⇧", alt: "⌥", arrowleft: "←", arrowright: "→" };
 const OTHER_NAMES: Record<string, string> = { mod: "Ctrl", arrowleft: "←", arrowright: "→" };
 
 /** A shortcut as shown to the user: `⌘⇧F` on macOS, `Ctrl+Shift+F` elsewhere. */

@@ -54,7 +54,8 @@ README possible: that code could move into its own package unchanged.
 
 | Service | State it owns | Notes |
 | --- | --- | --- |
-| `DocumentService` | `path`, `content`, `wikiRoot`, back/forward `history` | The single displayed document. |
+| `DocumentService` | `path`, `content`, `wikiRoot`, back/forward `history` | The document of one tab. The app-wide instance follows the shown tab of the focused pane (see [Tabs and split view](state-management.md#tabs-and-split-view)). |
+| `TabsService` | panes, their tabs, the focused pane, the divider ratio | Every tab owns a `DocumentService`, `EditorService` and `OutlineService`. |
 | `WorkspaceService` | `root`, the lazily-loaded tree (`visible` computed) | The opened folder's sidebar tree. |
 | `MarkdownService` | render cache (one `MarkdownIt` instance per math on/off) | Pure `render()`, see [markdown-pipeline.md](markdown-pipeline.md). |
 | `IndexService` | vault index `status`, a `revision` counter bumped on `vault-changed` | Listens to the `index-status` and `vault-changed` events. |

@@ -88,3 +88,27 @@ leaves and restores that of the vault it opens (a vault opened for the first tim
 panels and shows its default page). `File → Open Recent…` and the command `open-recent` show the
 picker (`RecentPickerService`); a vault whose folder no longer exists is removed from the list and a
 message tells so, also at startup.
+
+### Tabs and split view
+
+`TabsService` (`core/tabs/`) holds one or two panes (the second one to the right), each with tabs. A
+tab has its own injector with its own `DocumentService`, `EditorService` and `OutlineService`, so
+its back/forward history, scroll position and mode (viewer or editor) belong to the tab. `PaneComponent`
+is created with that injector (`WorkspaceComponent` uses `ngComponentOutlet`), so the viewer and the
+editor inside need no knowledge of tabs.
+
+The app-wide `DocumentService`, `EditorService` and `OutlineService` (`ACTIVE_TAB_PROVIDERS` in
+`app.config.ts`) are stand-ins that forward to the shown tab of the focused pane. Everything outside
+the panes (backlinks, outline, commands, the toolbar, the vault operations) therefore follows the
+focus without change. A click or focus inside a pane focuses it. Only the note of the focused pane
+is watched for external changes; the watcher event goes to every tab showing that note.
+
+- Commands: `new-tab` (⌘/Ctrl+T), `close-tab` (⌘/Ctrl+W; closes the window when only an empty tab is
+  left), `next-tab` / `previous-tab` (⌃Tab, ⌃⇧Tab), `split-right`, `unsplit`, `focus-other-pane`.
+  ⌘/Ctrl+click on a link, a tree entry or a backlink opens the note in a new tab.
+- The same note in two panes: typing in an editor is passed to the other tabs on that note
+  (`DocumentService.typed` → `remote`), an editor there applies it as a change that is not saved
+  again; a save marks the write as the pane's own so the watcher does not report a conflict.
+- Restoring: the tabs, their history, mode, scroll line, the split and the divider are stored in the
+  vault state (`VaultState.layout`, `core/tabs/layout.ts`) and opened again by `WorkspaceService.openFolder`;
+  notes that are gone are left out.

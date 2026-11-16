@@ -24,6 +24,7 @@ import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
 import { OutlineService } from "../../core/outline/outline.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { PropertiesComponent } from "../properties/properties.component";
 import { SearchService } from "../../core/index/search.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
@@ -119,6 +120,7 @@ export class ViewerComponent {
 
   private readonly doc = inject(DocumentService);
   private readonly outline = inject(OutlineService);
+  private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
   private readonly search = inject(SearchService);
@@ -450,7 +452,7 @@ export class ViewerComponent {
 
     const wikiTarget = link.classList.contains("wikilink") ? link.getAttribute("data-target") : null;
     if (wikiTarget !== null) {
-      await this.openWikilink(wikiTarget);
+      await this.openWikilink(wikiTarget, event.metaKey || event.ctrlKey);
       return;
     }
 
@@ -476,7 +478,7 @@ export class ViewerComponent {
         if (!resolved) {
           this.notify.emit(`File not found: ${href.path}`);
         } else if (isMarkdownPath(resolved)) {
-          await this.doc.open(resolved, { anchor: href.anchor }).catch((err) => this.notify.emit(String(err)));
+          await this.openNote(resolved, { anchor: href.anchor }, event.metaKey || event.ctrlKey);
         } else {
           await openPath(resolved);
         }
@@ -527,7 +529,17 @@ export class ViewerComponent {
   }
 
   /** Resolved links open the note (history included); unresolved ones create the note. */
-  private async openWikilink(target: string): Promise<void> {
+  /** Opens a note in this tab, or in a new one (⌘/Ctrl+click). */
+  private async openNote(path: string, options: { anchor?: string | null }, newTab: boolean): Promise<void> {
+    try {
+      if (newTab) await this.tabs.openInNewTab(path, options);
+      else await this.doc.open(path, options);
+    } catch (err) {
+      this.notify.emit(String(err));
+    }
+  }
+
+  private async openWikilink(target: string, newTab = false): Promise<void> {
     const { note, heading } = parseWikilinkTarget(target);
     if (!note) {
       if (heading) this.scrollToAnchor(heading);
@@ -546,7 +558,7 @@ export class ViewerComponent {
       await openPath(path);
       return;
     }
-    await this.doc.open(path, { anchor: heading }).catch((err) => this.notify.emit(String(err)));
+    await this.openNote(path, { anchor: heading }, newTab);
   }
 
   /** `done`: the layout is final (diagrams rendered), so the anchor is consumed. */

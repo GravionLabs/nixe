@@ -11,6 +11,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { SettingsService } from "../settings/settings.service";
+import { TabsService } from "../tabs/tabs.service";
 import { RecentPickerService, missingMessage } from "./recent-picker.service";
 import { WorkspaceService } from "./workspace.service";
 
@@ -82,6 +83,54 @@ describe("recent vaults in WorkspaceService", () => {
     expect(settings.backlinksVisible()).toBe(true);
     expect(settings.outlineVisible()).toBe(true);
     expect(settings.sidebarVisible()).toBe(false);
+  });
+
+  describe("tabs of a vault", () => {
+    const layout = {
+      panes: [{ tabs: [{ path: "/b/other.md", history: ["/b/other.md"], index: 0, editing: false, line: null }], active: 0 }],
+      focused: 0,
+      ratio: 0.5,
+    };
+
+    function withTabs(restore: () => Promise<boolean>) {
+      const fake = { panes: signal([]), focusedId: signal(0), reset: vi.fn(), restore: vi.fn(restore), snapshot: vi.fn(() => layout) };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: DocumentService, useValue: doc },
+          { provide: TabsService, useValue: fake },
+        ],
+      });
+      settings = TestBed.inject(SettingsService);
+      workspace = TestBed.inject(WorkspaceService);
+      settings.noteVaultOpened("/b");
+      settings.rememberVaultState("/b", { note: "/b/other.md", sidebar: true, backlinks: false, outline: false, layout });
+      return fake;
+    }
+
+    it("opens the stored tabs instead of one note", async () => {
+      const tabs = withTabs(async () => true);
+      await workspace.openFolder("/b");
+      expect(tabs.reset).toHaveBeenCalled();
+      expect(tabs.restore).toHaveBeenCalledWith(layout);
+      expect(doc.open).not.toHaveBeenCalled();
+    });
+
+    it("opens the remembered note when no tab can be restored", async () => {
+      files.add("/b/other.md");
+      const tabs = withTabs(async () => false);
+      await workspace.openFolder("/b");
+      expect(tabs.restore).toHaveBeenCalled();
+      expect(doc.open).toHaveBeenCalledWith("/b/other.md");
+    });
+
+    it("stores the tabs with the vault state", async () => {
+      withTabs(async () => true);
+      await workspace.openFolder("/c", { openDefaultPage: false });
+      await doc.open("/c/home.md");
+      await flush();
+      expect(settings.vaultStates()["/c"]?.layout).toEqual(layout);
+    });
   });
 
   it("falls back to the default page when the remembered note is gone", async () => {

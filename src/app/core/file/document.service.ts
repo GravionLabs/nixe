@@ -32,9 +32,9 @@ export class DocumentService {
 
   async open(
     path: string,
-    options: { anchor?: string | null; line?: number | null; addToHistory?: boolean } = {},
+    options: { anchor?: string | null; line?: number | null; addToHistory?: boolean; watch?: boolean } = {},
   ): Promise<void> {
-    const { anchor = null, line = null, addToHistory = true } = options;
+    const { anchor = null, line = null, addToHistory = true, watch = true } = options;
     path = toSlashes(path);
 
     const [text, wikiRoot] = await Promise.all([
@@ -46,7 +46,7 @@ export class DocumentService {
     this.content.set(text);
     this.pendingAnchor.set(anchor);
     this.pendingLine.set(line);
-    await backend.watchFile(path);
+    if (watch) await backend.watchFile(path);
 
     if (addToHistory && this.history()[this.historyIndex()] !== path) {
       const next = [...this.history().slice(0, this.historyIndex() + 1), path];
@@ -75,10 +75,43 @@ export class DocumentService {
    */
   editorHook: ((path: string, diskText: string) => void) | null = null;
 
+  /** Set by the tabs: tells the other tabs that show the same note about typing and saving. */
+  tabsHook: {
+    typed(source: DocumentService, path: string, text: string): void;
+    wrote(source: DocumentService, path: string, text: string): void;
+  } | null = null;
+
+  /** Set by the open editor: takes text that another tab typed or saved (`saved`: it is on disk). */
+  remoteHook: ((text: string, saved: boolean) => void) | null = null;
+
+  /** The editor's text changed while typing; the other tabs on this note follow it. */
+  typed(path: string, text: string): void {
+    this.tabsHook?.typed(this, path, text);
+  }
+
+  /** Text of this note from another tab: becomes the content and reaches an open editor. */
+  remote(path: string, text: string, saved: boolean): void {
+    if (this.path() !== path) return;
+    this.content.set(text);
+    this.remoteHook?.(text, saved);
+  }
+
   /** Writes `text` and, when it is still the open note, makes it the content. */
   async write(path: string, text: string): Promise<void> {
     await backend.writeTextFile(path, text);
     if (this.path() === path) this.content.set(text);
+    this.tabsHook?.wrote(this, path, text);
+  }
+
+  /** The back/forward list, for restoring the tab after a restart. */
+  historyState(): { history: string[]; index: number } {
+    return { history: [...this.history()], index: this.historyIndex() };
+  }
+
+  /** Puts a stored back/forward list back; the shown note is not loaded. */
+  restoreHistory(history: readonly string[], index: number): void {
+    this.history.set([...history]);
+    this.historyIndex.set(Math.min(Math.max(index, -1), history.length - 1));
   }
 
   async reload(): Promise<void> {

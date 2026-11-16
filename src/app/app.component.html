@@ -24,14 +24,8 @@
   @if (showGit()) {
     <app-git (error)="showToast($event)" (committed)="showToast('Committed')" />
   }
-  @if (doc.path()) {
-    @if (editor.editing()) {
-      @defer (on immediate) {
-        <app-editor class="pane" (error)="showToast($event)" />
-      }
-    } @else {
-      <app-viewer class="pane" [html]="html()" [dark]="settings.dark()" (notify)="showToast($event)" />
-    }
+  @if (tabs.showWorkspace()) {
+    <app-workspace class="pane" />
     @if (showOutline()) {
       <app-outline />
     }

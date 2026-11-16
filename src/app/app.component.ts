@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, isDevMode, signal, untracked, viewChild } from "@angular/core";
+import { Component, computed, effect, inject, isDevMode, signal, untracked } from "@angular/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -14,7 +14,6 @@ import { CloneService } from "./core/git/clone.service";
 import { GitService } from "./core/git/git.service";
 import { HealthService } from "./core/index/health.service";
 import { SearchService } from "./core/index/search.service";
-import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
 import { DailyService } from "./core/daily/daily.service";
 import { TemplateService } from "./core/templates/template.service";
@@ -35,15 +34,15 @@ import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.compo
 import { GitComponent } from "./features/git/git.component";
 import { StatusBarComponent } from "./features/status-bar/status-bar.component";
 import { HealthComponent } from "./features/health/health.component";
-import { EditorComponent } from "./features/editor/editor.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
 import { ToolbarComponent } from "./features/toolbar/toolbar.component";
-import { ViewerComponent } from "./features/viewer/viewer.component";
+import { WorkspaceComponent } from "./features/workspace/workspace.component";
+import { TabsService } from "./core/tabs/tabs.service";
 
 @Component({
   selector: "app-root",
-  imports: [OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -52,11 +51,10 @@ export class AppComponent {
   protected readonly doc = inject(DocumentService);
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
-  private readonly markdown = inject(MarkdownService);
   private readonly index = inject(IndexService);
   private readonly ops = inject(VaultOpsService);
   protected readonly editor = inject(EditorService);
-  private readonly viewer = viewChild(ViewerComponent);
+  protected readonly tabs = inject(TabsService);
   protected readonly search = inject(SearchService);
   protected readonly health = inject(HealthService);
   protected readonly git = inject(GitService);
@@ -73,18 +71,6 @@ export class AppComponent {
   protected readonly gitSpike = isDevMode();
   protected readonly toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
-
-  /** The note's body; its properties are shown (and edited) by the viewer's properties panel. */
-  protected readonly html = computed(
-    () =>
-      this.markdown.renderNote(this.doc.content(), {
-        filePath: this.doc.path(),
-        wikiRoot: this.doc.wikiRoot(),
-        math: this.settings.math(),
-        vaultFiles: this.workspace.vaultFiles(),
-        vaultRoot: this.workspace.vaultRoot(),
-      }).body,
-  );
 
   protected readonly showSidebar = computed(
     () => this.workspace.root() !== null && this.settings.sidebarVisible(),
@@ -122,6 +108,15 @@ export class AppComponent {
     });
 
     effect(() => {
+      const notice = this.tabs.notice();
+      if (notice === null) return;
+      untracked(() => {
+        this.showToast(notice);
+        this.tabs.notice.set(null);
+      });
+    });
+
+    effect(() => {
       const notice = this.recent.notice();
       if (notice === null) return;
       untracked(() => {
@@ -139,7 +134,7 @@ export class AppComponent {
     // (on iOS some of them are unavailable).
     try {
       await listen(OPEN_FILE_EVENT, () => this.openPending());
-      await listen<string>(FILE_CHANGED_EVENT, (e) => this.doc.onExternalChange(e.payload));
+      await listen<string>(FILE_CHANGED_EVENT, (e) => this.tabs.onExternalChange(e.payload));
       await this.index.init();
       await this.autoSync.listenWindow();
       await listen<string>(MENU_EVENT, (e) => this.commands.execute(e.payload));
@@ -209,8 +204,15 @@ export class AppComponent {
       { id: "daily-previous", title: "Open previous daily note", when: inVault, run: () => this.run(() => this.daily.previous()) },
       { id: "daily-next", title: "Open next daily note", when: inVault, run: () => this.run(() => this.daily.next()) },
       { id: "insert-template", title: "Insert template", when: () => noteOpen() && this.editor.editing(), run: () => this.run(() => this.templates.open()) },
-      { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.viewer()?.topLine() ?? null)) },
-      { id: "find", title: "Find in note", shortcut: "Mod+F", keys: ["Mod+F"], when: () => noteOpen() && !this.editor.editing(), run: () => this.viewer()?.openFind() },
+      { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.tabs.activeTab().viewer?.topLine() ?? null)) },
+      { id: "find", title: "Find in note", shortcut: "Mod+F", keys: ["Mod+F"], when: () => noteOpen() && !this.editor.editing(), run: () => this.tabs.activeTab().viewer?.openFind() },
+      { id: "new-tab", title: "New tab", shortcut: "Mod+T", run: () => this.run(async () => void this.tabs.newTab()) },
+      { id: "close-tab", title: "Close tab", shortcut: "Mod+W", run: () => this.closeTab() },
+      { id: "next-tab", title: "Next tab", shortcut: "Ctrl+Tab", keys: ["Ctrl+Tab"], run: () => this.tabs.cycle(1) },
+      { id: "previous-tab", title: "Previous tab", shortcut: "Ctrl+Shift+Tab", keys: ["Ctrl+Shift+Tab"], run: () => this.tabs.cycle(-1) },
+      { id: "split-right", title: "Split tab to the right", when: noteOpen, run: () => this.run(() => this.tabs.splitRight()) },
+      { id: "unsplit", title: "Merge the split panes", when: () => this.tabs.split(), run: () => this.tabs.unsplit() },
+      { id: "focus-other-pane", title: "Focus the other pane", when: () => this.tabs.split(), run: () => this.tabs.focusNextPane() },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },
       { id: "open-recent", title: "Open recent vault…", run: () => this.run(() => this.recent.open()) },
@@ -241,6 +243,12 @@ export class AppComponent {
       { id: "zoom-reset", title: "Actual size", shortcut: "Mod+0", run: () => this.settings.resetZoom() },
     ];
     for (const command of commands) this.commands.register(command);
+  }
+
+  /** Closes the shown tab; the window closes when there is only an empty tab left. */
+  private closeTab(): void {
+    if (this.tabs.closeTab()) return;
+    void getCurrentWindow().close().catch(() => undefined);
   }
 
   /** A new note in the new-note folder of the vault, opened in the editor. */

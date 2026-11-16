@@ -1,0 +1,404 @@
+import { Injectable, InjectionToken, Injector, Provider, computed, inject, isSignal, signal } from "@angular/core";
+
+import { EditorService } from "../editor/editor.service";
+import { backend } from "../file/backend";
+import { DocumentService } from "../file/document.service";
+import { OutlineService } from "../outline/outline.service";
+import { toSlashes } from "../markdown/paths";
+import { LayoutState, MAX_TABS, TabState, clampRatio } from "./layout";
+
+/** What the viewer of a tab offers to the app. */
+export interface ViewerHandle {
+  topLine(): number | null;
+  openFind(): void;
+}
+
+/**
+ * One note view. Every tab has its own document, editor and outline state (its own injector), so
+ * back/forward history, scroll position and viewer/editor mode belong to the tab.
+ */
+export interface Tab {
+  readonly id: number;
+  readonly injector: Injector;
+  readonly doc: DocumentService;
+  readonly editor: EditorService;
+  readonly outline: OutlineService;
+  /** Set by the pane while the viewer of the tab is shown. */
+  viewer: ViewerHandle | null;
+  /** 1-based first visible line, kept while the tab is not shown. */
+  scrollLine: number | null;
+}
+
+export interface Pane {
+  readonly id: number;
+  readonly tabs: readonly Tab[];
+  readonly activeId: number;
+}
+
+/** The tab a pane component belongs to; provided by the tab's injector. */
+export const CURRENT_TAB = new InjectionToken<Tab>("CURRENT_TAB");
+
+/**
+ * A stand-in that always forwards to the object `read` returns now. Reading through it inside a
+ * computed or an effect tracks the signals of `read`, so a consumer follows the focused tab.
+ */
+export function followActive<T extends object>(read: () => T): T {
+  return new Proxy({} as T, {
+    get(_, key) {
+      const target = read();
+      const value = Reflect.get(target, key, target);
+      return typeof value === "function" && !isSignal(value) ? value.bind(target) : value;
+    },
+    set(_, key, value) {
+      const target = read();
+      return Reflect.set(target, key, value, target);
+    },
+    has(_, key) {
+      return Reflect.has(read(), key);
+    },
+  });
+}
+
+/**
+ * Makes the app-wide `DocumentService`, `EditorService` and `OutlineService` the ones of the
+ * active tab of the focused pane (the panels and commands follow the focus). Only the app
+ * registers these; the tab's own components get the tab's instances from its injector.
+ */
+export const ACTIVE_TAB_PROVIDERS: Provider[] = [
+  { provide: DocumentService, useFactory: () => followTab((t) => t.doc) },
+  { provide: EditorService, useFactory: () => followTab((t) => t.editor) },
+  { provide: OutlineService, useFactory: () => followTab((t) => t.outline) },
+];
+
+function followTab<T extends object>(pick: (tab: Tab) => T): T {
+  const tabs = inject(TabsService);
+  return followActive(() => pick(tabs.activeTab()));
+}
+
+/** Tabs in one or two panes (the second one to the right). */
+@Injectable({ providedIn: "root" })
+export class TabsService {
+  private readonly injector = inject(Injector);
+  private nextId = 1;
+
+  readonly panes = signal<readonly Pane[]>([]);
+  readonly focusedId = signal(0);
+  /** Share of the width the first pane takes while split. */
+  readonly ratio = signal(0.5);
+  /** A message for the user, from a pane that has no way to show it itself. */
+  readonly notice = signal<string | null>(null);
+
+  readonly focusedPane = computed(() => {
+    const panes = this.panes();
+    return panes.find((p) => p.id === this.focusedId()) ?? panes[0];
+  });
+  /** The tab of the focused pane that is shown. */
+  readonly activeTab = computed(() => {
+    const pane = this.focusedPane();
+    return pane.tabs.find((t) => t.id === pane.activeId) ?? pane.tabs[0];
+  });
+  readonly split = computed(() => this.panes().length > 1);
+  /** False while there is only one empty tab: the welcome page is shown then. */
+  readonly showWorkspace = computed(() => {
+    const panes = this.panes();
+    return panes.length > 1 || panes[0].tabs.length > 1 || this.activeTab().doc.path() !== null;
+  });
+
+  private readonly hook = {
+    typed: (source: DocumentService, path: string, text: string) => this.sync(source, path, text, false),
+    wrote: (source: DocumentService, path: string, text: string) => this.sync(source, path, text, true),
+  };
+
+  constructor() {
+    this.reset();
+  }
+
+  /** Closes everything and starts with one empty tab. */
+  reset(): void {
+    const tab = this.createTab();
+    const id = this.nextId++;
+    this.panes.set([{ id, tabs: [tab], activeId: tab.id }]);
+    this.focusedId.set(id);
+    this.ratio.set(0.5);
+  }
+
+  /** A new empty tab in the focused pane, shown at once. */
+  newTab(): Tab {
+    const pane = this.focusedPane();
+    if (pane.tabs.length >= MAX_TABS) throw new Error(`At most ${MAX_TABS} tabs can be open.`);
+    const tab = this.createTab();
+    this.leave(this.shownTab(pane));
+    this.updatePane(pane.id, (p) => ({ ...p, tabs: [...p.tabs, tab], activeId: tab.id }));
+    this.watch();
+    return tab;
+  }
+
+  /** Opens a note in a new tab of the focused pane; the tab is dropped again when it fails. */
+  async openInNewTab(path: string, options: Parameters<DocumentService["open"]>[1] = {}): Promise<void> {
+    const paneId = this.focusedPane().id;
+    const tab = this.newTab();
+    try {
+      await tab.doc.open(path, options);
+    } catch (err) {
+      this.closeTab(paneId, tab.id);
+      throw err;
+    }
+  }
+
+  /**
+   * Closes a tab (default: the shown one). The last tab of the second pane takes the pane with it;
+   * the last tab of all stays as an empty one. Returns false when there was nothing to close
+   * (a single empty tab).
+   */
+  closeTab(paneId: number = this.focusedPane().id, tabId?: number): boolean {
+    const panes = this.panes();
+    const pane = panes.find((p) => p.id === paneId);
+    if (!pane) return false;
+    const id = tabId ?? pane.activeId;
+    const at = pane.tabs.findIndex((t) => t.id === id);
+    if (at < 0) return false;
+    const closing = pane.tabs[at];
+
+    if (pane.tabs.length === 1) {
+      if (panes.length > 1) {
+        const rest = panes.filter((p) => p.id !== paneId);
+        this.panes.set(rest);
+        this.focusedId.set(rest[0].id);
+        this.watch();
+        return true;
+      }
+      if (closing.doc.path() === null) return false;
+      const fresh = this.createTab();
+      this.panes.set([{ ...pane, tabs: [fresh], activeId: fresh.id }]);
+      this.watch();
+      return true;
+    }
+
+    const tabs = pane.tabs.filter((t) => t.id !== id);
+    const activeId = id === pane.activeId ? tabs[Math.min(at, tabs.length - 1)].id : pane.activeId;
+    this.updatePane(paneId, (p) => ({ ...p, tabs, activeId }));
+    this.watch();
+    return true;
+  }
+
+  /** Shows a tab and focuses its pane. */
+  activate(paneId: number, tabId: number): void {
+    const pane = this.panes().find((p) => p.id === paneId);
+    if (!pane || !pane.tabs.some((t) => t.id === tabId)) return;
+    if (pane.activeId !== tabId) {
+      this.leave(this.shownTab(pane));
+      this.updatePane(paneId, (p) => ({ ...p, activeId: tabId }));
+    }
+    this.focusPane(paneId);
+    this.watch();
+  }
+
+  focusPane(paneId: number): void {
+    if (this.focusedId() === paneId || !this.panes().some((p) => p.id === paneId)) return;
+    this.focusedId.set(paneId);
+    this.watch();
+  }
+
+  /** The other pane gets the focus (the first one when there is only one). */
+  focusNextPane(): void {
+    const panes = this.panes();
+    const at = panes.findIndex((p) => p.id === this.focusedPane().id);
+    this.focusPane(panes[(at + 1) % panes.length].id);
+  }
+
+  /** Shows the next (`1`) or previous (`-1`) tab of the focused pane, wrapping around. */
+  cycle(delta: 1 | -1): void {
+    const pane = this.focusedPane();
+    if (pane.tabs.length < 2) return;
+    const at = pane.tabs.findIndex((t) => t.id === pane.activeId);
+    this.activate(pane.id, pane.tabs[(at + delta + pane.tabs.length) % pane.tabs.length].id);
+  }
+
+  /**
+   * Shows a copy of the shown tab in the right pane (created when needed): same note, same mode,
+   * its own history. Both views stay in sync while typing.
+   */
+  async splitRight(): Promise<void> {
+    const source = this.activeTab();
+    const copy = this.createTab();
+    const path = source.doc.path();
+    if (path) {
+      await copy.doc.open(path, { addToHistory: false, watch: false });
+      const { history, index } = source.doc.historyState();
+      copy.doc.restoreHistory(history, index);
+      const line = this.lineOf(source);
+      if (source.editor.editing()) {
+        copy.editor.startLine.set(line);
+        copy.editor.editing.set(true);
+      } else {
+        copy.doc.pendingLine.set(line);
+      }
+      copy.scrollLine = line;
+    }
+    const panes = this.panes();
+    if (panes.length < 2) {
+      const id = this.nextId++;
+      this.panes.set([...panes, { id, tabs: [copy], activeId: copy.id }]);
+      this.focusedId.set(id);
+    } else {
+      const right = panes[1];
+      this.leave(this.shownTab(right));
+      this.updatePane(right.id, (p) => ({ ...p, tabs: [...p.tabs, copy], activeId: copy.id }));
+      this.focusedId.set(right.id);
+    }
+    this.watch();
+  }
+
+  /** Merges the right pane's tabs into the first pane. */
+  unsplit(): void {
+    const panes = this.panes();
+    if (panes.length < 2) return;
+    const [left, right] = panes;
+    const activeId = this.focusedPane().id === right.id ? right.activeId : left.activeId;
+    if (activeId !== left.activeId) this.leave(this.shownTab(left));
+    this.panes.set([{ ...left, tabs: [...left.tabs, ...right.tabs], activeId }]);
+    this.focusedId.set(left.id);
+    this.watch();
+  }
+
+  setRatio(ratio: number): void {
+    this.ratio.set(clampRatio(ratio));
+  }
+
+  /** The watcher reported a change of `path`: every tab showing it takes the change. */
+  async onExternalChange(path: string): Promise<void> {
+    const tabs = this.allTabs().filter((t) => t.doc.path() === toSlashes(path));
+    await Promise.all(tabs.map((t) => t.doc.onExternalChange(path)));
+  }
+
+  /** The tabs and the split, as stored per vault. */
+  snapshot(): LayoutState {
+    const panes = this.panes();
+    return {
+      panes: panes.map((pane) => ({
+        tabs: pane.tabs.map((tab) => this.tabState(tab)),
+        active: Math.max(0, pane.tabs.findIndex((t) => t.id === pane.activeId)),
+      })),
+      focused: Math.max(0, panes.findIndex((p) => p.id === this.focusedPane().id)),
+      ratio: this.ratio(),
+    };
+  }
+
+  /**
+   * Opens the tabs of a stored layout. Notes that cannot be read are left out; false when no tab
+   * with a note is left (the layout is not applied then).
+   */
+  async restore(layout: LayoutState): Promise<boolean> {
+    const built = await Promise.all(
+      layout.panes.map(async (pane) => {
+        const tabs = await Promise.all(pane.tabs.map((state) => this.restoreTab(state)));
+        const kept = tabs.map((tab, i) => ({ tab, i })).filter((x) => x.tab !== null) as { tab: Tab; i: number }[];
+        return { pane, kept };
+      }),
+    );
+    if (!built.some((b) => b.kept.some((k) => k.tab.doc.path() !== null))) return false;
+    const panes: Pane[] = [];
+    let focused = -1;
+    built.forEach((b, i) => {
+      if (b.kept.length === 0) return;
+      const shown = b.kept.find((k) => k.i === b.pane.active) ?? b.kept[0];
+      const id = this.nextId++;
+      panes.push({ id, tabs: b.kept.map((k) => k.tab), activeId: shown.tab.id });
+      if (i === layout.focused) focused = panes.length - 1;
+    });
+    this.panes.set(panes);
+    this.focusedId.set(panes[Math.max(focused, 0)].id);
+    this.ratio.set(clampRatio(layout.ratio));
+    this.watch();
+    return true;
+  }
+
+  private async restoreTab(state: TabState): Promise<Tab | null> {
+    const tab = this.createTab();
+    if (state.path === null) return tab;
+    try {
+      await tab.doc.open(state.path, { addToHistory: false, watch: false });
+    } catch {
+      return null;
+    }
+    const path = tab.doc.path()!;
+    const usable = state.history.length > 0 && state.history[state.index] === path;
+    tab.doc.restoreHistory(usable ? state.history : [path], usable ? state.index : 0);
+    tab.scrollLine = state.line;
+    if (state.editing && (await backend.isUtf8File(path).catch(() => false))) {
+      tab.editor.startLine.set(state.line);
+      tab.editor.editing.set(true);
+    } else {
+      tab.doc.pendingLine.set(state.line);
+    }
+    return tab;
+  }
+
+  private tabState(tab: Tab): TabState {
+    const path = tab.doc.path();
+    const { history, index } = tab.doc.historyState();
+    return { path, history, index, editing: path !== null && tab.editor.editing(), line: this.lineOf(tab) };
+  }
+
+  private lineOf(tab: Tab): number | null {
+    return tab.viewer?.topLine() ?? tab.editor.handle?.topLine() ?? tab.scrollLine ?? tab.doc.pendingLine();
+  }
+
+  /** Remembers where the tab is scrolled to, so it comes back there when it is shown again. */
+  private leave(tab: Tab): void {
+    const line = tab.viewer?.topLine() ?? tab.editor.handle?.topLine() ?? null;
+    if (line === null) return;
+    tab.scrollLine = line;
+    if (tab.editor.editing()) tab.editor.startLine.set(line);
+    else tab.doc.pendingLine.set(line);
+  }
+
+  private shownTab(pane: Pane): Tab {
+    return pane.tabs.find((t) => t.id === pane.activeId) ?? pane.tabs[0];
+  }
+
+  private allTabs(): Tab[] {
+    return this.panes().flatMap((p) => [...p.tabs]);
+  }
+
+  private updatePane(id: number, change: (pane: Pane) => Pane): void {
+    this.panes.update((panes) => panes.map((p) => (p.id === id ? change(p) : p)));
+  }
+
+  /** Only one file is watched: the note of the shown tab of the focused pane. */
+  private watch(): void {
+    const path = this.activeTab().doc.path();
+    if (path) backend.watchFile(path).catch(() => undefined);
+  }
+
+  /** Typing or saving in one tab reaches the other tabs showing the same note. */
+  private sync(source: DocumentService, path: string, text: string, saved: boolean): void {
+    for (const tab of this.allTabs()) if (tab.doc !== source) tab.doc.remote(path, text, saved);
+  }
+
+  private createTab(): Tab {
+    const holder: { tab?: Tab } = {};
+    const injector = Injector.create({
+      parent: this.injector,
+      providers: [
+        { provide: DocumentService, useClass: DocumentService, deps: [] },
+        { provide: EditorService, useClass: EditorService, deps: [] },
+        { provide: OutlineService, useClass: OutlineService, deps: [] },
+        { provide: CURRENT_TAB, useFactory: () => holder.tab, deps: [] },
+      ],
+    });
+    const doc = injector.get(DocumentService);
+    doc.tabsHook = this.hook;
+    const tab: Tab = {
+      id: this.nextId++,
+      injector,
+      doc,
+      editor: injector.get(EditorService),
+      outline: injector.get(OutlineService),
+      viewer: null,
+      scrollLine: null,
+    };
+    holder.tab = tab;
+    return tab;
+  }
+}

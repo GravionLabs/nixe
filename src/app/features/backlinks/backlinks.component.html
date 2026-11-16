@@ -16,7 +16,7 @@
         <ul>
           @for (link of links.backlinks(); track $index) {
             <li>
-              <button type="button" (click)="openBacklink(link)" [title]="link.source + ':' + link.line">
+              <button type="button" (click)="openBacklink(link, $event)" [title]="link.source + ':' + link.line">
                 <span class="name">{{ link.source }}</span>
                 <span class="context">{{ link.context }}</span>
               </button>
@@ -40,7 +40,7 @@
                 type="button"
                 [class.unresolved]="!link.resolved"
                 [disabled]="!link.resolved"
-                (click)="openOutgoing(link)"
+                (click)="openOutgoing(link, $event)"
               >
                 <span class="name">{{ link.label }}</span>
                 @if (!link.resolved) {
