@@ -71,6 +71,8 @@ export class EditorComponent implements OnDestroy {
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
 
+    effect(() => this.editor.blocked.set(this.conflict() !== null));
+
     effect(() => {
       const path = this.doc.path();
       const host = this.host().nativeElement;
@@ -91,6 +93,7 @@ export class EditorComponent implements OnDestroy {
     this.unlistenClose?.();
     void this.settle();
     this.editor.handle = null;
+    this.editor.blocked.set(false);
     this.doc.editorHook = null;
     this.view?.destroy();
   }
