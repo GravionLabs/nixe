@@ -72,10 +72,10 @@ export async function expandEmbeds(root: ParentNode, deps: EmbedDeps, stack: rea
     const target$ = body as HTMLElement;
     target$.dataset["sourcePath"] = abs;
     target$.dataset["lineOffset"] = String(offset);
-    const partLines = part.split(/\r?\n/);
+    const fileLines = splitFrontmatter(text).body.split("\n");
     for (const li of Array.from(body.querySelectorAll<HTMLElement>("li[data-line]"))) {
       if (li.closest(".embed-body") !== body) continue;
-      li.dataset["srcLine"] = taskShape(partLines[Number(li.dataset["line"])] ?? "");
+      li.dataset["srcLine"] = taskShape(fileLines[offset + Number(li.dataset["line"])] ?? "");
     }
     await expandEmbeds(body, deps, [...stack, resolved]);
   }

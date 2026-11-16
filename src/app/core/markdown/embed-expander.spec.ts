@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
+import { taskShape } from "./task-toggle";
 import { expandEmbeds, type EmbedDeps } from "./embed-expander";
 
 const notes: Record<string, string> = {
@@ -70,5 +71,13 @@ describe("expandEmbeds", () => {
     expect(whole.dataset["lineOffset"]).toBe("0");
     const dup = (await runDup()).querySelector<HTMLElement>(".embed-body")!;
     expect(dup.dataset["lineOffset"]).toBe("2");
+  });
+
+  it("records the real file line of a task, also when the block marker was stripped", async () => {
+    const root = document.createElement("div");
+    root.innerHTML = embed("Dup#^b1");
+    const li = { ...deps, render: () => '<ul><li class="task-list-item" data-line="0">milk</li></ul>' };
+    await expandEmbeds(root, li, ["Doc.md"]);
+    expect(root.querySelector<HTMLElement>("li")!.dataset["srcLine"]).toBe(taskShape("- [ ] milk ^b1"));
   });
 });
