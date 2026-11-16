@@ -50,6 +50,17 @@ describe("editFrontmatter set", () => {
     expect(set("---\na:\nb: 2\n---\n", "a", "v")).toBe("---\na: v\nb: 2\n---\n");
   });
 
+  it("keeps a comment after a key without a value", () => {
+    expect(set("---\na: # c\nb: 2\n---\n", "a", 5)).toBe("---\na: 5 # c\nb: 2\n---\n");
+    expect(set("---\na:\nb: 2\n---\n", "a", ["x"])).toBe("---\na:\n  - x\nb: 2\n---\n");
+  });
+
+  it("refuses to change a value that an alias points to", () => {
+    expect(() => set("---\na: &x 1\nb: *x\n---\n", "a", 3)).toThrow(/alias/);
+    expect(() => editFrontmatter("---\na: &x 1\nb: *x\n---\n", { kind: "remove", key: "a" })).toThrow(/alias/);
+    expect(editFrontmatter("---\na: &x 1\nb: *x\n---\n", { kind: "remove", key: "b" })).toBe("---\na: &x 1\n---\n");
+  });
+
   it("appends a new key at the end of the frontmatter", () => {
     const out = set(NOTE, "status", "open");
     expect(out).toBe(NOTE.replace("aliases: [x, y]\n", "aliases: [x, y]\nstatus: open\n"));

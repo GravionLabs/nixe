@@ -49,6 +49,14 @@ function lineContentEnd(yamlText: string, end: number): number {
   return e;
 }
 
+/** Replacing or removing an anchored value would leave its aliases without a target. */
+function guardAnchor(pair: Pair, yamlText: string): void {
+  const anchor = (pair.value as { anchor?: string } | null)?.anchor;
+  if (anchor && yamlText.includes(`*${anchor}`)) {
+    throw new Error(`The value of "${String(keyOf(pair))}" is referenced by an alias and cannot be changed here.`);
+  }
+}
+
 /** `key: value` as YAML, one entry, without the trailing newline. */
 function entry(key: string, value: unknown): string {
   return stringify({ [key]: value }).replace(/\n$/, "");
@@ -92,10 +100,17 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
         const sep = yamlText === "" || /\n$/.test(yamlText) ? "" : eol;
         return splice(yamlText.length, yamlText.length, `${sep}${lines(entry(edit.key, edit.value))}${eol}`);
       }
+      guardAnchor(pair, yamlText);
       const keyRange = (pair.key as { range: [number, number, number] }).range;
       const valueRange = (pair.value as { range?: [number, number, number] } | null)?.range;
-      const end = valueRange ? lineContentEnd(yamlText, valueRange[1]) : keyRange[1] + 1; // `key:` without a value ends after the colon
-      return splice(keyRange[0], end, lines(entry(edit.key, edit.value)));
+      const written = lines(entry(edit.key, edit.value));
+      if (!valueRange || valueRange[1] === valueRange[0]) {
+        // `key:` without a value: replace through the colon and keep what follows (a comment).
+        const end = yamlText.indexOf(":", keyRange[1]) + 1;
+        const next = yamlText[end];
+        return splice(keyRange[0], end, next === undefined || /[ \t\r\n]/.test(next) ? written : `${written} `);
+      }
+      return splice(keyRange[0], lineContentEnd(yamlText, valueRange[1]), written);
     }
     case "rename": {
       if (!pair) return text;
@@ -105,6 +120,7 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
     }
     case "remove": {
       if (!pair) return text;
+      guardAnchor(pair, yamlText);
       const keyRange = (pair.key as { range: [number, number, number] }).range;
       const valueRange = (pair.value as { range?: [number, number, number] } | null)?.range;
       const valueEnd = valueRange ? lineContentEnd(yamlText, valueRange[1]) : keyRange[1] + 1;
