@@ -8,6 +8,7 @@ import { blocksOf, headingsOf } from "../../core/editor/completion-core";
 import { EditorService } from "../../core/editor/editor.service";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
+import { embedFor, pastedImageName } from "../../core/editor/attachment-core";
 import { insertTemplate } from "../../core/templates/template-core";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
@@ -70,6 +71,7 @@ export class EditorComponent implements OnDestroy {
       flush: () => this.flush(),
       blocked: () => this.conflict() !== null,
       insertTemplate: (template) => this.insertTemplate(template),
+      attachPaths: (paths) => this.attachPaths(paths),
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
 
@@ -151,6 +153,9 @@ export class EditorComponent implements OnDestroy {
           completion: this.completionData,
         }),
         this.theme.of(editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100)),
+        EditorView.domEventHandlers({
+          paste: (event) => this.onPaste(event),
+        }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged && !this.loading && this.session === session) {
             session.saver.change(update.state.doc.toString());
@@ -234,6 +239,53 @@ export class EditorComponent implements OnDestroy {
     if (!view) throw new Error("Open the editor first.");
     const { changes, cursor } = insertTemplate(view.state.doc.toString(), view.state.selection.main.head, template);
     view.dispatch({ changes, selection: { anchor: cursor }, scrollIntoView: true, userEvent: "input.paste" });
+    view.focus();
+  }
+
+  /** A pasted image (or file) is copied into the vault; plain text pastes as usual. */
+  private onPaste(event: ClipboardEvent): boolean {
+    const files = Array.from(event.clipboardData?.files ?? []);
+    if (files.length === 0 || !this.session) return false;
+    event.preventDefault();
+    void this.attachFiles(files).catch((err) => this.error.emit(`Attaching failed: ${String(err)}`));
+    return true;
+  }
+
+  private async attachFiles(files: File[]): Promise<void> {
+    const note = this.session?.path;
+    if (!note) return;
+    const saved: string[] = [];
+    for (const file of files) {
+      const name = file.type.startsWith("image/") && (!file.name || /^image\.\w+$/iu.test(file.name))
+        ? pastedImageName(new Date(), file.type)
+        : file.name || pastedImageName(new Date(), file.type);
+      const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
+      saved.push(await backend.saveAttachment(note, name, bytes));
+    }
+    await this.insertEmbeds(saved);
+  }
+
+  private async attachPaths(paths: string[]): Promise<void> {
+    const note = this.session?.path;
+    if (!note) return;
+    const saved: string[] = [];
+    for (const source of paths) saved.push(await backend.importAttachment(note, source));
+    await this.insertEmbeds(saved);
+  }
+
+  private async insertEmbeds(relativePaths: string[]): Promise<void> {
+    const view = this.view;
+    if (!view) return;
+    await this.workspace.reloadTree().catch(() => undefined);
+    const files = this.workspace.vaultFiles() ?? [];
+    const text = relativePaths.map((p) => embedFor(p, files)).join("\n");
+    const { from, to } = view.state.selection.main;
+    view.dispatch({
+      changes: { from, to, insert: text },
+      selection: { anchor: from + text.length },
+      scrollIntoView: true,
+      userEvent: "input.paste",
+    });
     view.focus();
   }
 

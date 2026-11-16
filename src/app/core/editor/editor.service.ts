@@ -13,6 +13,8 @@ export interface EditorHandle {
   blocked(): boolean;
   /** Inserts an expanded template at the cursor and merges its frontmatter into the note's. */
   insertTemplate(template: string): void;
+  /** Brings dropped files into the vault and inserts `![[name]]` links at the cursor. */
+  attachPaths(paths: string[]): Promise<void>;
 }
 
 /** Switches between the viewer and the editor of the open note. */

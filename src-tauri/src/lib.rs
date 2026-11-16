@@ -8,6 +8,7 @@ use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+mod attachments;
 #[cfg(desktop)]
 pub mod cli;
 #[cfg(target_os = "macos")]
@@ -279,6 +280,32 @@ fn daily_notes_config(state: State<'_, AppState>) -> Result<fileops::DailyNotesC
     Ok(fileops::daily_notes_config(&vault_root_of(&state)?))
 }
 
+/// Saves pasted bytes as `name` in the attachment folder of `note`; returns the vault-relative path.
+#[tauri::command]
+fn save_attachment(
+    state: State<'_, AppState>,
+    note: String,
+    name: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    attachments::save_bytes(&vault_root_of(&state)?, Path::new(&note), &name, &bytes)
+}
+
+/// Brings a dropped file into the vault (copied into the attachment folder of `note` unless it
+/// already lies in the vault); returns the vault-relative path.
+#[tauri::command]
+fn import_attachment(
+    state: State<'_, AppState>,
+    note: String,
+    source: String,
+) -> Result<String, String> {
+    attachments::import_file(
+        &vault_root_of(&state)?,
+        Path::new(&note),
+        Path::new(&source),
+    )
+}
+
 /// How links to notes are written, from `.obsidian/app.json` of the vault.
 #[tauri::command]
 fn link_format(state: State<'_, AppState>) -> Result<vault::relink::LinkFormat, String> {
@@ -472,6 +499,8 @@ pub fn run() {
         template_folder,
         daily_notes_config,
         link_format,
+        save_attachment,
+        import_attachment,
         is_utf8_file,
         is_file,
         is_dir,
@@ -524,6 +553,8 @@ pub fn run() {
         template_folder,
         daily_notes_config,
         link_format,
+        save_attachment,
+        import_attachment,
         is_utf8_file,
         is_file,
         is_dir,

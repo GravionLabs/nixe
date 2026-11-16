@@ -91,7 +91,7 @@ pub fn daily_notes_config(root: &Path) -> DailyNotesConfig {
     }
 }
 
-fn canonical_root(root: &Path) -> Result<PathBuf, String> {
+pub(crate) fn canonical_root(root: &Path) -> Result<PathBuf, String> {
     dunce::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))
 }
 
@@ -142,7 +142,7 @@ fn confined_entry(root: &Path, path: &Path) -> Result<PathBuf, String> {
     Ok(entry)
 }
 
-fn confined_or_root(root: &Path, path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn confined_or_root(root: &Path, path: &Path) -> Result<PathBuf, String> {
     let canon_root = canonical_root(root)?;
     match dunce::canonicalize(path) {
         Ok(p) if p == canon_root => Ok(p),
