@@ -17,6 +17,8 @@ const SUBCOMMANDS: &[&str] = &[
     "tags",
     "notes",
     "props",
+    "new",
+    "append",
     "mcp",
 ];
 
@@ -31,6 +33,9 @@ usage: nixe <path>|-                       open the viewer
        nixe tags [--vault <dir>] [--json]
        nixe notes [--tag <tag>]... [--path <prefix>] [--vault <dir>] [--json]
        nixe props <note> [--vault <dir>] [--json]
+       nixe new <title> [--folder <dir>] [--open] [--vault <dir>]
+       nixe append <note> [text] [--vault <dir>]   text from stdin when omitted
+       nixe append --inbox [text] [--vault <dir>]
        nixe mcp [--vault <dir>]                   MCP server over stdio (read-only)";
 
 /// Runs the subcommand named by the process arguments. `None` when they name none (the viewer
@@ -120,6 +125,9 @@ struct Parsed {
     json: bool,
     tags: Vec<String>,
     path: String,
+    folder: Option<String>,
+    open: bool,
+    inbox: bool,
     positional: Vec<String>,
 }
 
@@ -139,6 +147,9 @@ fn parse(args: &[String]) -> Result<Parsed, CliError> {
         };
         match flag {
             "--json" => p.json = true,
+            "--open" => p.open = true,
+            "--inbox" => p.inbox = true,
+            "--folder" => p.folder = Some(value(flag, inline, &mut it)?),
             "--vault" => p.vault = Some(value(flag, inline, &mut it)?),
             "--tag" => p.tags.push(value(flag, inline, &mut it)?),
             "--path" => p.path = value(flag, inline, &mut it)?,
@@ -177,8 +188,29 @@ pub fn execute(
     app_data: &Path,
     out: &mut dyn Write,
 ) -> Result<(), CliError> {
+    execute_with(args, cwd, app_data, &mut std::io::stdin().lock(), out)
+}
+
+/// Like `execute`, with the standard input given (`append` reads it when no text is passed).
+pub fn execute_with(
+    args: &[String],
+    cwd: &Path,
+    app_data: &Path,
+    input: &mut dyn std::io::Read,
+    out: &mut dyn Write,
+) -> Result<(), CliError> {
     let command = args.first().map(String::as_str).unwrap_or_default();
     let p = parse(&args[1..])?;
+    if matches!(command, "new" | "append") {
+        let root = vault_root(p.vault.as_deref(), cwd)?;
+        let request = crate::cli_write::Request {
+            positional: &p.positional,
+            folder: p.folder.as_deref(),
+            open: p.open,
+            inbox: p.inbox,
+        };
+        return crate::cli_write::run(command, &request, &root, app_data, input, out);
+    }
     let needs_note = matches!(command, "backlinks" | "links" | "props");
     let needs_text = command == "search";
     let expected = usize::from(needs_note);

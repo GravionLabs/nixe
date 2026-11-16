@@ -13,6 +13,8 @@ pub mod cli;
 #[cfg(target_os = "macos")]
 mod cli_install;
 #[cfg(desktop)]
+mod cli_write;
+#[cfg(desktop)]
 pub mod mcp;
 #[cfg(desktop)]
 mod menu;

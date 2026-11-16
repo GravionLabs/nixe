@@ -253,3 +253,152 @@ fn a_subcommand_answers_quickly_on_a_2000_note_vault() {
     let limit = if cfg!(debug_assertions) { 1500 } else { 300 };
     assert!(took.as_millis() < limit, "took {took:?}");
 }
+
+// --- `new` and `append` write, so they work on a copy of the vault. ---
+
+use nixe_lib::cli::execute_with;
+
+fn scratch(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("nixe-cli-w-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("folder")).unwrap();
+    std::fs::write(dir.join("folder/Deep.md"), "# Deep\nbody").unwrap();
+    std::fs::write(dir.join("Plain.md"), "one\n").unwrap();
+    dunce::canonicalize(dir).unwrap()
+}
+
+fn write_cmd(name: &str, root: &Path, args: &[&str], stdin: &str) -> Result<String, CliError> {
+    let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+    let mut out = Vec::new();
+    execute_with(
+        &args,
+        root,
+        &data_dir(name),
+        &mut stdin.as_bytes(),
+        &mut out,
+    )?;
+    Ok(String::from_utf8(out).unwrap())
+}
+
+#[test]
+fn new_creates_a_note_in_the_root_and_prints_its_path() {
+    let root = scratch("new");
+    let out = write_cmd("new", &root, &["new", "Idea"], "").unwrap();
+    assert_eq!(out.trim(), root.join("Idea.md").to_str().unwrap());
+    assert_eq!(std::fs::read_to_string(root.join("Idea.md")).unwrap(), "");
+    // An existing note is never replaced.
+    assert!(write_cmd("new", &root, &["new", "Idea"], "").is_err());
+}
+
+#[test]
+fn new_uses_the_folder_option_and_the_vault_setting() {
+    let root = scratch("new-folder");
+    write_cmd("nf", &root, &["new", "A", "--folder", "x/y"], "").unwrap();
+    assert!(root.join("x/y/A.md").is_file());
+    std::fs::create_dir_all(root.join(".obsidian")).unwrap();
+    std::fs::write(
+        root.join(".obsidian/app.json"),
+        r#"{"newFileLocation":"folder","newFileFolderPath":"Notes"}"#,
+    )
+    .unwrap();
+    write_cmd("nf", &root, &["new", "B"], "").unwrap();
+    assert!(root.join("Notes/B.md").is_file());
+}
+
+#[test]
+fn new_refuses_paths_outside_the_vault() {
+    let root = scratch("new-out");
+    assert!(write_cmd("no", &root, &["new", "A", "--folder", "../out"], "").is_err());
+    assert!(write_cmd("no", &root, &["new", "A", "--folder", "/tmp"], "").is_err());
+    assert!(write_cmd("no", &root, &["new", "../A"], "").is_err());
+    assert!(!root.parent().unwrap().join("out").exists());
+    #[cfg(unix)]
+    {
+        let outside = scratch("new-outside-target");
+        std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
+        assert!(write_cmd("no", &root, &["new", "A", "--folder", "link"], "").is_err());
+        assert!(!outside.join("A.md").exists());
+    }
+    assert!(matches!(
+        write_cmd("no", &root, &["new"], ""),
+        Err(CliError::Usage(_))
+    ));
+}
+
+#[test]
+fn append_adds_text_to_an_existing_note_by_name_or_path() {
+    let root = scratch("append");
+    write_cmd("a", &root, &["append", "Plain", "two", "words"], "").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(root.join("Plain.md")).unwrap(),
+        "one\ntwo words\n"
+    );
+    // A unique name resolves like a wikilink; a missing final newline is added first.
+    let out = write_cmd("a", &root, &["append", "Deep"], "from stdin\n").unwrap();
+    assert_eq!(out.trim(), root.join("folder/Deep.md").to_str().unwrap());
+    assert_eq!(
+        std::fs::read_to_string(root.join("folder/Deep.md")).unwrap(),
+        "# Deep\nbody\nfrom stdin\n"
+    );
+    write_cmd("a", &root, &["append", "folder/Deep.md", "end"], "").unwrap();
+    assert!(std::fs::read_to_string(root.join("folder/Deep.md"))
+        .unwrap()
+        .ends_with("from stdin\nend\n"));
+    assert!(std::fs::read_dir(&root).unwrap().all(|e| !e
+        .unwrap()
+        .file_name()
+        .to_string_lossy()
+        .ends_with(".nixe-tmp")));
+}
+
+#[test]
+fn append_creates_a_missing_note() {
+    let root = scratch("append-new");
+    write_cmd("an", &root, &["append", "Fresh", "hello"], "").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(root.join("Fresh.md")).unwrap(),
+        "hello\n"
+    );
+    write_cmd("an", &root, &["append", "sub/Other", "x"], "").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(root.join("sub/Other.md")).unwrap(),
+        "x\n"
+    );
+}
+
+#[test]
+fn append_refuses_paths_outside_the_vault_and_empty_text() {
+    let root = scratch("append-out");
+    assert!(write_cmd("ao", &root, &["append", "../evil", "x"], "").is_err());
+    assert!(write_cmd("ao", &root, &["append", "/tmp/evil.md", "x"], "").is_err());
+    assert!(matches!(
+        write_cmd("ao", &root, &["append", "Plain"], ""),
+        Err(CliError::Usage(_))
+    ));
+    assert!(matches!(
+        write_cmd("ao", &root, &["append"], "x"),
+        Err(CliError::Usage(_))
+    ));
+}
+
+#[test]
+fn append_inbox_writes_to_the_inbox_folder() {
+    let root = scratch("inbox");
+    write_cmd("i", &root, &["append", "--inbox", "first"], "").unwrap();
+    write_cmd("i", &root, &["append", "--inbox"], "second").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(root.join("Inbox/Inbox.md")).unwrap(),
+        "first\nsecond\n"
+    );
+    std::fs::create_dir_all(root.join(".obsidian")).unwrap();
+    std::fs::write(
+        root.join(".obsidian/app.json"),
+        r#"{"newFileLocation":"folder","newFileFolderPath":"Capture"}"#,
+    )
+    .unwrap();
+    write_cmd("i", &root, &["append", "--inbox", "third"], "").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(root.join("Capture/Inbox.md")).unwrap(),
+        "third\n"
+    );
+}
