@@ -22,6 +22,7 @@ import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { SearchService } from "../../core/index/search.service";
+import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { SettingsService } from "../../core/settings/settings.service";
 
@@ -75,6 +76,7 @@ export class ViewerComponent {
 
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly ops = inject(VaultOpsService);
   private readonly search = inject(SearchService);
   protected readonly settings = inject(SettingsService);
   private readonly markdown = inject(MarkdownService);
@@ -280,7 +282,7 @@ export class ViewerComponent {
     }
   }
 
-  /** Resolved links open the note (history included); unresolved ones do nothing yet (#69). */
+  /** Resolved links open the note (history included); unresolved ones create the note. */
   private async openWikilink(target: string): Promise<void> {
     const { note, heading } = parseWikilinkTarget(target);
     if (!note) {
@@ -290,7 +292,11 @@ export class ViewerComponent {
     const root = this.workspace.vaultRoot();
     const files = this.workspace.vaultFiles();
     const resolved = root && files ? resolveWikilink(target, files) : null;
-    if (!resolved || !root) return;
+    if (!root || !files) return;
+    if (!resolved) {
+      await this.ops.createNoteForLink(target).catch((err) => this.notify.emit(String(err)));
+      return;
+    }
     const path = joinPath(root, resolved);
     if (!isMarkdownPath(path)) {
       await openPath(path);

@@ -55,6 +55,15 @@ export class DocumentService {
     }
   }
 
+  /** Shows no note (the open one was deleted). */
+  close(): void {
+    this.path.set(null);
+    this.wikiRoot.set(null);
+    this.content.set("");
+    this.pendingAnchor.set(null);
+    this.pendingLine.set(null);
+  }
+
   async openWithDialog(): Promise<void> {
     const selected = await open({ multiple: false, directory: false, filters: [MARKDOWN_FILTER] });
     if (typeof selected === "string") await this.open(selected);

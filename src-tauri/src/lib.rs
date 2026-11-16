@@ -13,6 +13,7 @@ mod cli_install;
 #[cfg(desktop)]
 mod menu;
 // Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
+mod fileops;
 #[cfg(any(debug_assertions, mobile))]
 mod gitsync;
 mod index;
@@ -119,6 +120,46 @@ fn write_text_file(
     let open = state.open_file.lock().unwrap().clone();
     let root = write::write_root(vault.as_deref(), open.as_deref(), Path::new(&path))?;
     write::write_text_file(&root, Path::new(&path), &content)
+}
+
+/// The vault root the file operations are confined to.
+fn vault_root_of(state: &State<'_, AppState>) -> Result<PathBuf, String> {
+    state
+        .vault_root
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or_else(|| "no vault is open".to_string())
+}
+
+/// Creates an empty file inside the vault; refuses to overwrite and paths outside the root.
+#[tauri::command]
+fn create_file(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    fileops::create_file(&vault_root_of(&state)?, Path::new(&path))
+}
+
+/// Creates a folder (and its missing parents) inside the vault.
+#[tauri::command]
+fn create_dir(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    fileops::create_dir(&vault_root_of(&state)?, Path::new(&path))
+}
+
+/// Renames or moves a file or folder inside the vault; refuses to replace anything.
+#[tauri::command]
+fn rename_path(state: State<'_, AppState>, from: String, to: String) -> Result<(), String> {
+    fileops::rename_path(&vault_root_of(&state)?, Path::new(&from), Path::new(&to))
+}
+
+/// Moves a file or folder to `.trash/` in the vault; returns its new path.
+#[tauri::command]
+fn trash_path(state: State<'_, AppState>, path: String) -> Result<String, String> {
+    fileops::trash_path(&vault_root_of(&state)?, Path::new(&path)).map(|p| path_to_string(&p))
+}
+
+/// Where a new note goes, from `.obsidian/app.json` of the vault.
+#[tauri::command]
+fn new_note_location(state: State<'_, AppState>) -> Result<fileops::NewNoteLocation, String> {
+    Ok(fileops::new_note_location(&vault_root_of(&state)?))
 }
 
 /// False when the file holds bytes that are not UTF-8 (`read_text_file` would replace them).
@@ -291,6 +332,11 @@ pub fn run() {
         take_pending_file,
         read_text_file,
         write_text_file,
+        create_file,
+        create_dir,
+        rename_path,
+        trash_path,
+        new_note_location,
         is_utf8_file,
         is_file,
         is_dir,
@@ -325,6 +371,11 @@ pub fn run() {
         take_pending_file,
         read_text_file,
         write_text_file,
+        create_file,
+        create_dir,
+        rename_path,
+        trash_path,
+        new_note_location,
         is_utf8_file,
         is_file,
         is_dir,

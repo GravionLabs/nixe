@@ -61,6 +61,13 @@ export interface NoteSummary {
   aliases: string[];
 }
 
+/** Where a new note goes, from `.obsidian/app.json`. */
+export interface NewNoteLocation {
+  location: "root" | "current" | "folder";
+  /** Vault-relative folder for `folder`; empty otherwise. */
+  folder: string;
+}
+
 export interface NoteRecord {
   path: string;
   title: string;
@@ -73,6 +80,15 @@ export const backend = {
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
   /** Atomic write; the Rust side only accepts the open note or a note inside the vault. */
   writeTextFile: (path: string, content: string) => invoke<void>("write_text_file", { path, content }),
+  /** Creates an empty file inside the vault; fails when it exists. */
+  createFile: (path: string) => invoke<void>("create_file", { path }),
+  /** Creates a folder and its missing parents inside the vault. */
+  createDir: (path: string) => invoke<void>("create_dir", { path }),
+  /** Moves a file or folder inside the vault; fails rather than replace. */
+  renamePath: (from: string, to: string) => invoke<void>("rename_path", { from, to }),
+  /** Moves a file or folder to `.trash/` of the vault; returns the new path. */
+  trashPath: (path: string) => invoke<string>("trash_path", { path }),
+  newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
   isUtf8File: (path: string) => invoke<boolean>("is_utf8_file", { path }),
   isFile: (path: string) => invoke<boolean>("is_file", { path }),

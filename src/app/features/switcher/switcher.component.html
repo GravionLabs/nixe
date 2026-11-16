@@ -24,7 +24,13 @@
         </button>
       </li>
     } @empty {
-      <li class="empty">No matching notes</li>
+      <li class="empty">
+        @if (switcher.query().trim()) {
+          <button type="button" (click)="create()">Create “{{ switcher.query().trim() }}” (Enter)</button>
+        } @else {
+          No notes
+        }
+      </li>
     }
   </ul>
 </div>

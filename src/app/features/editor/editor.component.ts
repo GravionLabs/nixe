@@ -10,6 +10,7 @@ import { DocumentService } from "../../core/file/document.service";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { SettingsService } from "../../core/settings/settings.service";
+import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
 
@@ -44,6 +45,7 @@ export class EditorComponent implements OnDestroy {
 
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly ops = inject(VaultOpsService);
   private readonly settings = inject(SettingsService);
   private readonly editor = inject(EditorService);
   private readonly host = viewChild.required<ElementRef<HTMLElement>>("host");
@@ -271,7 +273,12 @@ export class EditorComponent implements OnDestroy {
     const root = this.workspace.vaultRoot();
     const files = this.workspace.vaultFiles();
     const resolved = note && root && files ? resolveWikilink(value, files) : null;
-    if (!resolved || !root) return;
+    if (!root || !files || !note) return;
+    if (!resolved) {
+      await this.settle();
+      await this.ops.createNoteForLink(value).catch((err) => this.error.emit(String(err)));
+      return;
+    }
     const path = joinPath(root, resolved);
     if (!isMarkdownPath(path)) return;
     await this.settle();
