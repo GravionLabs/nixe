@@ -1,5 +1,7 @@
-import { Component, signal } from "@angular/core";
+import { Component, inject, signal } from "@angular/core";
 import { invoke } from "@tauri-apps/api/core";
+
+import { GitService } from "../../core/git/git.service";
 
 const URL_KEY = "nixe.gitSpike.url";
 
@@ -35,6 +37,9 @@ function saveUrl(url: string): void {
         <button type="button" (click)="run('pull --rebase', () => cmd('git_pull_rebase'))">Pull</button>
         <button type="button" (click)="run('push', () => cmd('git_push'))">Push</button>
       </div>
+      @if (git.tokenPrompt()) {
+        <p role="alert">A token is needed: enter it above and press "Save token".</p>
+      }
       <pre>{{ log() }}</pre>
     </details>
   `,
@@ -46,6 +51,7 @@ function saveUrl(url: string): void {
   `,
 })
 export class GitSpikeComponent {
+  protected readonly git = inject(GitService);
   protected readonly log = signal("");
   /** The repository URL is remembered between launches (the token lives in the Keychain). */
   protected readonly savedUrl = readUrl();
@@ -61,17 +67,18 @@ export class GitSpikeComponent {
   }
 
   protected async setToken(input: HTMLInputElement): Promise<void> {
-    await invoke("git_token_set", { host: "github.com", token: input.value });
+    // Also answers a token prompt raised by a remote operation below.
+    await this.git.saveToken(input.value);
     input.value = "";
   }
 
   protected async hasToken(): Promise<boolean> {
-    return invoke<boolean>("git_token_status", { host: "github.com" });
+    return this.git.refreshToken().then(() => this.git.tokenStored());
   }
 
   protected async clone(url: string): Promise<string> {
     saveUrl(url);
-    const ms = await invoke<number>("git_clone", { url });
+    const ms = await this.git.runRemote(() => invoke<number>("git_clone", { url }));
     return `clone took ${ms} ms`;
   }
 
@@ -81,6 +88,6 @@ export class GitSpikeComponent {
   }
 
   protected async cmd(name: "git_pull_rebase" | "git_push"): Promise<void> {
-    await invoke(name);
+    await this.git.runRemote(() => invoke<void>(name));
   }
 }
