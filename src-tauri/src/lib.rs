@@ -266,6 +266,12 @@ fn new_note_location(state: State<'_, AppState>) -> Result<fileops::NewNoteLocat
     Ok(fileops::new_note_location(&vault_root_of(&state)?))
 }
 
+/// The template folder from `.obsidian/templates.json` of the vault; `None` when it names none.
+#[tauri::command]
+fn template_folder(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    Ok(fileops::template_folder(&vault_root_of(&state)?))
+}
+
 /// How links to notes are written, from `.obsidian/app.json` of the vault.
 #[tauri::command]
 fn link_format(state: State<'_, AppState>) -> Result<vault::relink::LinkFormat, String> {
@@ -456,6 +462,7 @@ pub fn run() {
         conflict_pair,
         resolve_conflict,
         new_note_location,
+        template_folder,
         link_format,
         is_utf8_file,
         is_file,
@@ -506,6 +513,7 @@ pub fn run() {
         conflict_pair,
         resolve_conflict,
         new_note_location,
+        template_folder,
         link_format,
         is_utf8_file,
         is_file,

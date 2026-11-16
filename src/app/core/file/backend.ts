@@ -162,6 +162,8 @@ export const backend = {
   /** Moves a file or folder to `.trash/` of the vault; returns the new path. */
   trashPath: (path: string) => invoke<string>("trash_path", { path }),
   newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),
+  /** The template folder of `.obsidian/templates.json` (vault-relative); null when it names none. */
+  templateFolder: () => invoke<string | null>("template_folder"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
   /** Every tag of the vault with the number of notes using it, most used first. */

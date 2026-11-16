@@ -8,6 +8,7 @@ import { blocksOf, headingsOf } from "../../core/editor/completion-core";
 import { EditorService } from "../../core/editor/editor.service";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
+import { insertTemplate } from "../../core/templates/template-core";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { fileLabel } from "../../core/switcher/fuzzy";
@@ -68,6 +69,7 @@ export class EditorComponent implements OnDestroy {
       topLine: () => this.topLine(),
       flush: () => this.flush(),
       blocked: () => this.conflict() !== null,
+      insertTemplate: (template) => this.insertTemplate(template),
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
 
@@ -225,6 +227,14 @@ export class EditorComponent implements OnDestroy {
     } catch (error) {
       this.error.emit(`Your edits could not be saved: ${String(error)}`);
     }
+  }
+
+  private insertTemplate(template: string): void {
+    const view = this.view;
+    if (!view) throw new Error("Open the editor first.");
+    const { changes, cursor } = insertTemplate(view.state.doc.toString(), view.state.selection.main.head, template);
+    view.dispatch({ changes, selection: { anchor: cursor }, scrollIntoView: true, userEvent: "input.paste" });
+    view.focus();
   }
 
   private flush(): Promise<void> {

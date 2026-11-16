@@ -15,6 +15,7 @@ interface StoredSettings {
   lastFolder: string | null;
   zoom: number;
   healthExclude: string[];
+  templateFolder: string;
   gitAuthorName: string;
   gitAuthorEmail: string;
   autoSync: boolean;
@@ -32,6 +33,7 @@ const DEFAULTS: StoredSettings = {
   lastFolder: null,
   zoom: 100,
   healthExclude: [],
+  templateFolder: "",
   gitAuthorName: "",
   gitAuthorEmail: "",
   autoSync: false,
@@ -73,6 +75,11 @@ export class SettingsService {
     Array.isArray(this.stored.healthExclude) ? this.stored.healthExclude : [],
   );
 
+  /** Vault-relative template folder, used when `.obsidian/templates.json` names none. */
+  readonly templateFolder = signal<string>(
+    typeof this.stored.templateFolder === "string" ? this.stored.templateFolder : "",
+  );
+
   /** Commit author used when the Git config of the vault has none. */
   readonly gitAuthorName = signal<string>(
     typeof this.stored.gitAuthorName === "string" ? this.stored.gitAuthorName : "",
@@ -111,6 +118,7 @@ export class SettingsService {
         lastFolder: this.lastFolder(),
         zoom: this.zoom(),
         healthExclude: this.healthExclude(),
+        templateFolder: this.templateFolder(),
         gitAuthorName: this.gitAuthorName(),
         gitAuthorEmail: this.gitAuthorEmail(),
         autoSync: this.autoSync(),

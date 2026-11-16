@@ -48,6 +48,20 @@ pub fn new_note_location(root: &Path) -> NewNoteLocation {
     }
 }
 
+/// The template folder of the Templates plugin, from `.obsidian/templates.json` (`folder`);
+/// vault-relative with forward slashes. `None` when the file or the key is missing, invalid or empty.
+pub fn template_folder(root: &Path) -> Option<String> {
+    let text = fs::read_to_string(root.join(".obsidian").join("templates.json")).ok()?;
+    let json = serde_json::from_str::<serde_json::Value>(&text).ok()?;
+    let folder = json
+        .get("folder")?
+        .as_str()?
+        .replace('\\', "/")
+        .trim_matches('/')
+        .to_string();
+    (!folder.is_empty()).then_some(folder)
+}
+
 fn canonical_root(root: &Path) -> Result<PathBuf, String> {
     dunce::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))
 }
@@ -230,6 +244,26 @@ mod tests {
         assert_eq!(new_note_location(&root).location, "root");
         fs::write(&app, r#"{"newFileLocation":"current"}"#).unwrap();
         assert_eq!(new_note_location(&root).location, "current");
+    }
+
+    #[test]
+    fn template_folder_comes_from_templates_json() {
+        let root = tmp("tpl");
+        assert_eq!(template_folder(&root), None);
+        fs::create_dir_all(root.join(".obsidian")).unwrap();
+        let file = root.join(".obsidian/templates.json");
+        fs::write(&file, "not json").unwrap();
+        assert_eq!(template_folder(&root), None);
+        fs::write(&file, r#"{"dateFormat":"YYYY"}"#).unwrap();
+        assert_eq!(template_folder(&root), None);
+        fs::write(&file, r#"{"folder":""}"#).unwrap();
+        assert_eq!(template_folder(&root), None);
+        fs::write(
+            &file,
+            r#"{"folder":"/Meta\\Templates/","dateFormat":"YYYY"}"#,
+        )
+        .unwrap();
+        assert_eq!(template_folder(&root).as_deref(), Some("Meta/Templates"));
     }
 
     #[test]

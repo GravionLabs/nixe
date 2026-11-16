@@ -69,6 +69,10 @@
   <app-switcher (error)="showToast($event)" />
 }
 
+@if (templates.visible()) {
+  <app-templates (error)="showToast($event)" />
+}
+
 @if (cloneVault.visible()) {
   <app-clone />
 }
