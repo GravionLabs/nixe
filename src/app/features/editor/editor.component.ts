@@ -5,6 +5,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { AutoSaver, ExternalChangeTracker, changedRange, clampLine, toCrlf } from "../../core/editor/editor-core";
 import { blocksOf, headingsOf } from "../../core/editor/completion-core";
+import { LinkPreviewService } from "../../core/preview/link-preview.service";
+import { targetOf } from "../../core/preview/preview-core";
 import { OutlineService } from "../../core/outline/outline.service";
 import { EditorService } from "../../core/editor/editor.service";
 import { backend } from "../../core/file/backend";
@@ -52,6 +54,7 @@ export class EditorComponent implements OnDestroy {
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
+  private readonly preview = inject(LinkPreviewService);
   private readonly settings = inject(SettingsService);
   private readonly editor = inject(EditorService);
   private readonly outline = inject(OutlineService);
@@ -157,6 +160,8 @@ export class EditorComponent implements OnDestroy {
           onSave: () => void this.flush(),
           onBlur: () => void this.flush(),
           onWikilink: (value) => void this.openWikilink(value),
+          onWikilinkHover: (hover) =>
+            hover ? this.preview.hover(targetOf(hover.value), hover.anchor, hover.modifier) : this.preview.leave(),
           completion: this.completionData,
         }),
         this.theme.of(editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100)),

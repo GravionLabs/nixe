@@ -22,6 +22,7 @@ import { RecentPickerService, missingMessage } from "./core/workspace/recent-pic
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
+import { LinkPreviewComponent } from "./features/link-preview/link-preview.component";
 import { OutlineComponent } from "./features/outline/outline.component";
 import { RecentComponent } from "./features/recent/recent.component";
 import { PaletteComponent } from "./features/palette/palette.component";
@@ -42,7 +43,7 @@ import { TabsService } from "./core/tabs/tabs.service";
 
 @Component({
   selector: "app-root",
-  imports: [OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
+  imports: [LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -236,6 +237,11 @@ export class AppComponent {
       { id: "git-sync", title: "Sync with the remote", shortcut: "Mod+Shift+S", keys: ["Mod+Shift+S"], when: () => this.git.available(), run: () => this.git.sync() },
       { id: "toggle-backlinks", title: "Toggle backlinks panel", shortcut: "Mod+Shift+B", when: inVault, run: () => this.settings.backlinksVisible.update((v) => !v) },
       { id: "toggle-outline", title: "Toggle outline panel", shortcut: "Mod+Shift+L", when: noteOpen, run: () => this.settings.outlineVisible.update((v) => !v) },
+      {
+        id: "toggle-link-preview",
+        title: "Link preview: always on hover / only with ⌘/Ctrl held",
+        run: () => this.settings.linkPreview.update((m) => (m === "always" ? "modifier" : "always")),
+      },
       { id: "toggle-math", title: "Toggle LaTeX math", run: () => this.settings.math.update((v) => !v) },
       { id: "cycle-theme", title: "Cycle theme (system, light, dark)", run: () => this.settings.cycleTheme() },
       { id: "zoom-in", title: "Zoom in", shortcut: "Mod+=", run: () => this.settings.zoomIn() },

@@ -4,6 +4,7 @@ import { Backlink } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { BacklinksService, OutgoingLink } from "../../core/index/backlinks.service";
 import { joinPath } from "../../core/markdown/paths";
+import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
@@ -18,6 +19,7 @@ export class BacklinksComponent {
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
   private readonly tabs = inject(TabsService);
+  private readonly preview = inject(LinkPreviewService);
 
   readonly error = output<string>();
 
@@ -35,6 +37,16 @@ export class BacklinksComponent {
   protected openOutgoing(link: OutgoingLink, event?: MouseEvent): Promise<void> {
     const target = link.resolved;
     return target ? this.open(target, null, link.heading, event) : Promise.resolve();
+  }
+
+  /** Preview of the note of a row on hover; `heading` narrows it to that section. */
+  protected hover(event: MouseEvent, rel: string, heading: string | null = null): void {
+    const target = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.preview.hover(heading ? `${rel}#${heading}` : rel, target, event.metaKey || event.ctrlKey);
+  }
+
+  protected leave(): void {
+    this.preview.leave();
   }
 
   private async open(rel: string, line: number | null, anchor: string | null, event?: MouseEvent): Promise<void> {

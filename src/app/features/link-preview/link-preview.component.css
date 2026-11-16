@@ -1,0 +1,40 @@
+:host {
+  display: contents;
+}
+
+.link-preview {
+  position: fixed;
+  z-index: 60;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 4px 16px 12px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+}
+
+.markdown-body {
+  padding: 0;
+  background: transparent;
+}
+
+:host ::ng-deep .markdown-body > :first-child {
+  margin-top: 12px;
+}
+
+:host ::ng-deep .embed {
+  margin: 1em 0;
+  padding: 0 1em;
+  border-left: 3px solid var(--border);
+  background: var(--hover);
+  border-radius: 4px;
+}
+
+:host ::ng-deep a.wikilink.unresolved {
+  opacity: 0.6;
+  text-decoration: underline dotted;
+  cursor: default;
+}

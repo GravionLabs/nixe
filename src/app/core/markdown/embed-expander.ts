@@ -1,8 +1,8 @@
-import { MAX_EMBED_DEPTH, blockAt, headingSectionAt } from "./embed";
+import { MAX_EMBED_DEPTH, notePart } from "./embed";
 import { splitFrontmatter } from "./frontmatter";
 import { joinPath } from "./paths";
 import { taskShape } from "./task-toggle";
-import { parseWikilinkTarget, resolveWikilink } from "./wikilink-resolver";
+import { resolveWikilink } from "./wikilink-resolver";
 
 export interface EmbedDeps {
   vaultRoot: string;
@@ -52,18 +52,13 @@ export async function expandEmbeds(root: ParentNode, deps: EmbedDeps, stack: rea
       placeholder(el, `Cannot read ${resolved}: ${String(err)}`);
       continue;
     }
-    const { heading, block } = parseWikilinkTarget(target);
-    let part: string | null = splitFrontmatter(text).body;
-    let offset = 0;
-    const found = heading ? headingSectionAt(text, heading) : block ? blockAt(text, block) : undefined;
-    if (found !== undefined) {
-      part = found?.text ?? null;
-      offset = found?.start ?? 0;
-    }
-    if (part === null) {
+    const found = notePart(text, target);
+    if (found === null) {
       placeholder(el, `Section not found: ${target}`);
       continue;
     }
+    const part = found.text;
+    const offset = found.start;
     const body = el.querySelector(":scope > .embed-body");
     if (!body) continue;
     body.innerHTML = deps.render(part, abs); // sanitized by the caller's render

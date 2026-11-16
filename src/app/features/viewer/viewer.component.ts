@@ -23,6 +23,7 @@ import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
+import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { OutlineService } from "../../core/outline/outline.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { PropertiesComponent } from "../properties/properties.component";
@@ -81,6 +82,8 @@ const DIALOG_ZOOM_STEP = 1.1;
       [style.zoom.%]="settings.zoom()"
       (click)="onClick($event)"
       (wheel)="onWheel($event)"
+      (mousemove)="onHover($event)"
+      (mouseleave)="preview.leave()"
     ></article>
 
     <div
@@ -120,6 +123,7 @@ export class ViewerComponent {
 
   private readonly doc = inject(DocumentService);
   private readonly outline = inject(OutlineService);
+  protected readonly preview = inject(LinkPreviewService);
   private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
@@ -345,6 +349,17 @@ export class ViewerComponent {
   /** Tells the outline which line is at the top. */
   protected trackScroll(): void {
     this.outline.topLine.set(this.topLine());
+  }
+
+  /** A resolved wikilink under the pointer gets a preview (see LinkPreviewService). */
+  protected onHover(event: MouseEvent): void {
+    const link = (event.target as Element).closest?.("a.wikilink:not(.unresolved)");
+    const target = link?.getAttribute("data-target");
+    if (!link || !target) {
+      this.preview.leave();
+      return;
+    }
+    this.preview.hover(target, link.getBoundingClientRect(), event.metaKey || event.ctrlKey);
   }
 
   /** Ctrl/Cmd + wheel always zooms the whole document. */
