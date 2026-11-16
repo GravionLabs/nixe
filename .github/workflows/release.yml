@@ -23,6 +23,8 @@ jobs:
         uses: GravionLabs/ci/versioning/determine-version@main
         with:
           gitversion-config-file: GitVersion.yml
+          # No rc/beta builds: the MSI bundler rejects non-numeric pre-release identifiers.
+          channel: stable
 
   test:
     runs-on: ubuntu-24.04
