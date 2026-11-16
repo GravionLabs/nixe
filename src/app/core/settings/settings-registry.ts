@@ -15,7 +15,9 @@ export type SettingItem = SettingBase &
     | { kind: "select"; options: readonly { value: string; label: string }[]; get: () => string; set: (value: string) => void }
     | { kind: "text"; placeholder?: string; get: () => string; set: (value: string) => void }
     | { kind: "number"; min: number; max: number; get: () => number; set: (value: number) => void }
-    /** A value the app only shows: from `.obsidian/` (with its file as `source`) or a keyboard shortcut. */
+    /** The keyboard shortcut of a command; the page records, changes, removes and resets it. */
+    | { kind: "shortcut"; commandId: string }
+    /** A value the app only shows: from `.obsidian/` (with its file as `source`) (or from the app). */
     | { kind: "readonly"; value: () => string; source?: () => string }
   );
 

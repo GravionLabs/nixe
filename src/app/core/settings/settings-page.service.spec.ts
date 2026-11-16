@@ -32,6 +32,7 @@ describe("settings page", () => {
     TestBed.configureTestingModule({ providers: [{ provide: WorkspaceService, useValue: { vaultRoot } }] });
     settings = TestBed.inject(SettingsService);
     TestBed.inject(CommandRegistry).register({ id: "x", title: "Do x", shortcut: "Mod+,", run: () => undefined });
+    TestBed.inject(CommandRegistry).register({ id: "a", title: "Do a", run: () => undefined });
     page = TestBed.inject(SettingsPageService);
   });
 
@@ -88,9 +89,12 @@ describe("settings page", () => {
     expect(page.listed()).toEqual([]);
   });
 
-  it("lists the shortcuts of the commands", () => {
+  it("lists every command in the Shortcuts section, with or without a shortcut", () => {
     const items = page.sections().find((s) => s.id === "shortcuts")!.items;
-    expect(items.map((i) => i.label)).toEqual(["Do x"]);
+    expect(items.map((i) => [i.label, i.kind === "shortcut" ? i.commandId : null])).toEqual([
+      ["Do a", "a"],
+      ["Do x", "x"],
+    ]);
   });
 
   it("parses comma separated lists", () => {

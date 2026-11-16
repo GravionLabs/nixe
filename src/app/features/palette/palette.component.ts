@@ -1,6 +1,6 @@
 import { Component, ElementRef, effect, inject, viewChild } from "@angular/core";
 
-import { Command, formatShortcut } from "../../core/commands/command-registry";
+import { Command, CommandRegistry, formatShortcut } from "../../core/commands/command-registry";
 import { PaletteService } from "../../core/commands/palette.service";
 
 /** Command palette overlay: type to filter, arrow keys to choose, Enter to run. */
@@ -11,6 +11,7 @@ import { PaletteService } from "../../core/commands/palette.service";
 })
 export class PaletteComponent {
   protected readonly palette = inject(PaletteService);
+  private readonly registry = inject(CommandRegistry);
   private readonly mac = navigator.userAgent.includes("Mac");
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("input");
 
@@ -19,7 +20,8 @@ export class PaletteComponent {
   }
 
   protected shortcut(command: Command): string {
-    return command.shortcut ? formatShortcut(command.shortcut, this.mac) : "";
+    const shortcut = this.registry.shortcutOf(command);
+    return shortcut ? formatShortcut(shortcut, this.mac) : "";
   }
 
   protected onInput(event: Event): void {

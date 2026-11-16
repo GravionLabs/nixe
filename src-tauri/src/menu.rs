@@ -1,7 +1,9 @@
 //! Native application menu. Custom items are forwarded to the frontend as a
 //! `menu` event carrying the item id.
 
-use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use std::collections::HashMap;
+
+use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Runtime};
 
 pub const MENU_EVENT: &str = "menu";
@@ -127,4 +129,74 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
 
 pub fn forward_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
     let _ = app.emit(MENU_EVENT, id);
+}
+
+/// Sets the accelerator of every menu item named in `shortcuts` (`None` removes it), looking into
+/// the submenus. Ids that are no menu item are skipped, and so is an accelerator the menu cannot
+/// parse: the item keeps what it had. Returns how many items changed.
+pub fn apply_shortcuts<R: Runtime>(
+    app: &AppHandle<R>,
+    shortcuts: &HashMap<String, Option<String>>,
+) -> usize {
+    let Some(menu) = app.menu() else { return 0 };
+    let Ok(items) = menu.items() else { return 0 };
+    apply_to(items, shortcuts)
+}
+
+fn apply_to<R: Runtime>(
+    items: Vec<MenuItemKind<R>>,
+    shortcuts: &HashMap<String, Option<String>>,
+) -> usize {
+    let mut changed = 0;
+    for kind in items {
+        match &kind {
+            MenuItemKind::Submenu(sub) => {
+                if let Ok(inner) = sub.items() {
+                    changed += apply_to(inner, shortcuts);
+                }
+            }
+            MenuItemKind::MenuItem(mi) => {
+                if let Some(acc) = shortcuts.get(mi.id().as_ref()) {
+                    if mi.set_accelerator(acc.as_deref()).is_ok() {
+                        changed += 1;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    changed
+}
+
+/// The shortcuts the frontend sends, without the ones that cannot be an accelerator (empty or
+/// absurdly long text); an empty one means "no shortcut".
+pub fn clean_shortcuts(raw: HashMap<String, Option<String>>) -> HashMap<String, Option<String>> {
+    raw.into_iter()
+        .filter(|(id, _)| !id.is_empty() && id.len() <= 128)
+        .map(|(id, acc)| {
+            let acc = acc.filter(|a| !a.is_empty() && a.len() <= 64);
+            (id, acc)
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clean_shortcuts_drops_empty_and_oversized() {
+        let mut raw = HashMap::new();
+        raw.insert("a".to_string(), Some("CmdOrCtrl+K".to_string()));
+        raw.insert("b".to_string(), Some(String::new()));
+        raw.insert("c".to_string(), None);
+        raw.insert("d".to_string(), Some("x".repeat(65)));
+        raw.insert(String::new(), Some("CmdOrCtrl+J".to_string()));
+        let clean = clean_shortcuts(raw);
+        assert_eq!(clean.len(), 4);
+        assert_eq!(clean["a"].as_deref(), Some("CmdOrCtrl+K"));
+        assert_eq!(clean["b"], None);
+        assert_eq!(clean["c"], None);
+        assert_eq!(clean["d"], None);
+    }
 }

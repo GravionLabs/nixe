@@ -1,5 +1,7 @@
-import { Component, ElementRef, effect, inject, viewChild } from "@angular/core";
+import { Component, ElementRef, OnDestroy, effect, inject, viewChild } from "@angular/core";
 
+import { CommandRegistry } from "../../core/commands/command-registry";
+import { ShortcutService } from "../../core/commands/shortcut.service";
 import { SettingItem } from "../../core/settings/settings-registry";
 import { SettingsPageService } from "../../core/settings/settings-page.service";
 
@@ -10,12 +12,29 @@ import { SettingsPageService } from "../../core/settings/settings-page.service";
   styleUrl: "./settings.component.css",
   host: { "(document:keydown.escape)": "page.close()" },
 })
-export class SettingsComponent {
+export class SettingsComponent implements OnDestroy {
   protected readonly page = inject(SettingsPageService);
+  protected readonly shortcuts = inject(ShortcutService);
+  protected readonly commands = inject(CommandRegistry);
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("search");
+
+  private readonly recorder = viewChild<ElementRef<HTMLButtonElement>>("recorder");
 
   constructor() {
     effect(() => this.input()?.nativeElement.focus());
+    effect(() => this.recorder()?.nativeElement.focus());
+  }
+
+  ngOnDestroy(): void {
+    this.shortcuts.cancel();
+  }
+
+  /** While recording, the button swallows every key so no command runs and Escape does not close the page. */
+  protected onShortcutKey(event: KeyboardEvent): void {
+    if (!this.shortcuts.recording()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.shortcuts.capture(event);
   }
 
   protected value(event: Event): string {

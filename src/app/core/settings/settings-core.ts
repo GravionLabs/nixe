@@ -1,3 +1,4 @@
+import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
 import { LinkPreviewMode, sanitizeMode } from "../preview/preview-core";
 import { VaultStates, sanitizeRecent, sanitizeStates } from "../workspace/recent-vaults";
@@ -34,6 +35,8 @@ export interface StoredSettings {
   autoSyncMinutes: number;
   autoSyncOnFocus: boolean;
   autoSyncOnQuit: boolean;
+  /** Shortcut of a command id that differs from its default; "" means removed. */
+  shortcuts: Record<string, string>;
 }
 
 export const DEFAULT_SETTINGS: StoredSettings = {
@@ -59,6 +62,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   autoSyncMinutes: 10,
   autoSyncOnFocus: false,
   autoSyncOnQuit: false,
+  shortcuts: {},
 };
 
 const bool = (value: unknown, fallback: boolean): boolean => (typeof value === "boolean" ? value : fallback);
@@ -93,6 +97,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     autoSyncMinutes: clampMinutes(Number(o["autoSyncMinutes"] ?? d.autoSyncMinutes)),
     autoSyncOnFocus: o["autoSyncOnFocus"] === true,
     autoSyncOnQuit: o["autoSyncOnQuit"] === true,
+    shortcuts: sanitizeShortcuts(o["shortcuts"]),
   };
 }
 

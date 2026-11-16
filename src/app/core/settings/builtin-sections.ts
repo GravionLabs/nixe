@@ -1,5 +1,5 @@
 import { ObsidianSetting } from "../file/backend";
-import { Command, formatShortcut } from "../commands/command-registry";
+import { Command } from "../commands/command-registry";
 import { clampMinutes } from "../git/auto-sync";
 import { sanitizeMode } from "../preview/preview-core";
 import { SettingItem, SettingsSection } from "./settings-registry";
@@ -12,7 +12,6 @@ export interface SectionSources {
   /** The Obsidian settings of the open vault; null when no vault is open. */
   obsidian: () => readonly ObsidianSetting[] | null;
   commands: () => readonly Command[];
-  mac: boolean;
 }
 
 /** Comma-separated list as typed in a text field. */
@@ -171,14 +170,14 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       items: () =>
         src
           .commands()
-          .filter((c) => c.shortcut)
+          .slice()
           .sort((a, b) => a.title.localeCompare(b.title))
           .map((c) => ({
-            kind: "readonly" as const,
+            kind: "shortcut" as const,
             id: `shortcut-${c.id}`,
+            commandId: c.id,
             label: c.title,
-            keywords: ["keyboard", "key", "binding"],
-            value: () => formatShortcut(c.shortcut!, src.mac),
+            keywords: ["keyboard", "key", "binding", c.id],
           })),
     },
   ];

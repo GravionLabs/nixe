@@ -78,6 +78,9 @@ export class SettingsService {
   readonly autoSyncOnFocus = signal<boolean>(this.stored.autoSyncOnFocus);
   readonly autoSyncOnQuit = signal<boolean>(this.stored.autoSyncOnQuit);
 
+  /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
+  readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
+
   private readonly systemDark = signal(false);
   readonly dark = computed(
     () => this.themeMode() === "dark" || (this.themeMode() === "system" && this.systemDark()),
@@ -120,6 +123,7 @@ export class SettingsService {
       autoSyncMinutes: this.autoSyncMinutes(),
       autoSyncOnFocus: this.autoSyncOnFocus(),
       autoSyncOnQuit: this.autoSyncOnQuit(),
+      shortcuts: this.shortcuts(),
     };
   }
 
@@ -147,6 +151,7 @@ export class SettingsService {
     this.autoSyncMinutes.set(s.autoSyncMinutes);
     this.autoSyncOnFocus.set(s.autoSyncOnFocus);
     this.autoSyncOnQuit.set(s.autoSyncOnQuit);
+    this.shortcuts.set(s.shortcuts);
   }
 
   /** True once the settings file is known to be readable; only then it is written. */

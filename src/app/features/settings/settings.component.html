@@ -68,6 +68,46 @@
                     (change)="setNumber(item, $event)"
                   />
                 }
+                @case ("shortcut") {
+                  @let command = commands.get(item.commandId);
+                  @if (command) {
+                    @let pending = shortcuts.pending();
+                    @if (shortcuts.recordingId() === item.commandId) {
+                      <button
+                        type="button"
+                        class="key recording"
+                        [id]="'setting-' + item.id"
+                        (keydown)="onShortcutKey($event)"
+                        (blur)="shortcuts.cancel()"
+                        #recorder
+                      >
+                        Press the new shortcut…
+                      </button>
+                      <span class="hint">Esc cancels</span>
+                    } @else if (pending && pending.id === item.commandId) {
+                      <span class="key" [id]="'setting-' + item.id">{{ shortcuts.formatBinding(pending.binding) }}</span>
+                      @if (pending.conflicts.length) {
+                        <span class="conflict" role="alert">Also used by {{ pending.conflicts.join(", ") }}; saving removes it there.</span>
+                      }
+                      <span class="actions">
+                        <button type="button" (click)="shortcuts.savePending()">Save</button>
+                        <button type="button" (click)="shortcuts.cancel()">Cancel</button>
+                      </span>
+                    } @else {
+                      <button type="button" class="key" [id]="'setting-' + item.id" (click)="shortcuts.startRecording(item.commandId)">
+                        {{ shortcuts.display(item.commandId) || "Not set" }}
+                      </button>
+                      <span class="actions">
+                        @if (shortcuts.display(item.commandId)) {
+                          <button type="button" (click)="shortcuts.assign(command, '')">Remove</button>
+                        }
+                        @if (!shortcuts.isDefault(command)) {
+                          <button type="button" (click)="shortcuts.reset(command)">Reset</button>
+                        }
+                      </span>
+                    }
+                  }
+                }
                 @case ("readonly") {
                   <span class="readonly" [id]="'setting-' + item.id">{{ item.value() }}</span>
                   @if (item.source) {

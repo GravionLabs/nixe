@@ -28,7 +28,6 @@ export class SettingsPageService {
       settings: inject(SettingsService),
       obsidian: () => this.obsidian(),
       commands: () => commands.all(),
-      mac: navigator.userAgent.includes("Mac"),
     });
     for (const section of sections) this.registry.register(section);
   }
