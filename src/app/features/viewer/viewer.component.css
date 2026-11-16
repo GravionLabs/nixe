@@ -59,3 +59,60 @@
   opacity: 0.7;
   padding-bottom: 0.5em;
 }
+
+.find-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--chrome);
+  color: var(--fg);
+  border-bottom: 1px solid var(--muted);
+}
+
+.find-bar .find-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--muted);
+  border-radius: 3px;
+}
+
+.find-bar .find-count {
+  min-width: 5em;
+  color: var(--muted);
+  font-size: 0.85em;
+  text-align: right;
+}
+
+.find-bar button {
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.find-bar button.active {
+  color: var(--bg);
+  background: var(--accent);
+}
+
+.markdown-body:focus {
+  outline: none;
+}
+
+.markdown-body mark.find-hit {
+  color: inherit;
+  background: rgb(255 200 0 / 0.4);
+  border-radius: 2px;
+}
+
+.markdown-body mark.find-hit.find-active {
+  background: rgb(255 140 0 / 0.7);
+}

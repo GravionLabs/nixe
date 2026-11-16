@@ -13,6 +13,7 @@ import {
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { viewerTopLine } from "../../core/editor/editor-core";
+import { TextPart, findInParts, stepIndex } from "../../core/find/find-core";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
@@ -35,10 +36,46 @@ const DIALOG_ZOOM_STEP = 1.1;
 @Component({
   selector: "app-viewer",
   template: `
+    @if (findOpen()) {
+      <div class="find-bar" role="search" (keydown)="onFindKeydown($event)">
+        <input
+          #findInput
+          type="text"
+          class="find-input"
+          placeholder="Find"
+          aria-label="Find in note"
+          [value]="findQuery()"
+          (input)="setFindQuery($any($event.target).value)"
+        />
+        <span class="find-count" aria-live="polite">{{ findStatus() }}</span>
+        <button type="button" (click)="findStep(-1)" title="Previous match" aria-label="Previous match">↑</button>
+        <button type="button" (click)="findStep(1)" title="Next match" aria-label="Next match">↓</button>
+        <button
+          type="button"
+          [class.active]="findCase()"
+          [attr.aria-pressed]="findCase()"
+          (click)="toggleFindOption('case')"
+          title="Match case"
+        >
+          Aa
+        </button>
+        <button
+          type="button"
+          [class.active]="findRegex()"
+          [attr.aria-pressed]="findRegex()"
+          (click)="toggleFindOption('regex')"
+          title="Regular expression"
+        >
+          .*
+        </button>
+        <button type="button" (click)="closeFind()" title="Close" aria-label="Close find bar">✕</button>
+      </div>
+    }
     <app-properties class="properties-host" [style.zoom.%]="settings.zoom()" (error)="notify.emit($event)" />
     <article
       #content
       class="markdown-body"
+      tabindex="-1"
       [style.zoom.%]="settings.zoom()"
       (click)="onClick($event)"
       (wheel)="onWheel($event)"
@@ -90,12 +127,27 @@ export class ViewerComponent {
   private readonly content = viewChild.required<ElementRef<HTMLElement>>("content");
   /** Always mounted (visibility toggled via CSS), so it's available as soon as a diagram is clicked. */
   private readonly dialogContent = viewChild<ElementRef<HTMLElement>>("dialogContent");
+  private readonly findInput = viewChild<ElementRef<HTMLInputElement>>("findInput");
   private readonly mermaid = new MermaidRenderer();
   private renderedPath: string | null = null;
 
   protected readonly dialogOpen = signal(false);
   protected readonly dialogZoom = signal(1);
   protected readonly dialogZoomPercent = computed(() => Math.round(this.dialogZoom() * 100));
+  protected readonly findOpen = signal(false);
+  protected readonly findQuery = signal("");
+  protected readonly findCase = signal(false);
+  protected readonly findRegex = signal(false);
+  private readonly findError = signal<string | null>(null);
+  private readonly findCount = signal(0);
+  private readonly findCurrent = signal(-1);
+  protected readonly findStatus = computed(() => {
+    if (this.findError()) return "Invalid";
+    if (!this.findQuery()) return "";
+    return this.findCount() === 0 ? "No matches" : `${this.findCurrent() + 1} / ${this.findCount()}`;
+  });
+  private findMarks: HTMLElement[][] = [];
+
   /** The dialog's diagram, in its own SVG user units (from its viewBox) at zoom 1. */
   private dialogNaturalSize: { width: number; height: number } | null = null;
 
@@ -112,9 +164,11 @@ export class ViewerComponent {
           this.renderedPath = path;
           this.host.nativeElement.scrollTop = 0;
         }
+        this.findMarks = [];
         this.applyPendingAnchor(false);
         this.applyPendingLine(false);
         this.trackScroll();
+        this.refreshFind(false);
         // Diagrams change the layout, so the anchor is applied again afterwards.
         // Embedded notes are loaded first so diagrams inside them render too.
         void this.markdown
@@ -131,6 +185,7 @@ export class ViewerComponent {
             this.applyPendingAnchor(true);
             this.applyPendingLine(true);
             this.trackScroll();
+            this.refreshFind(false);
           });
       });
     });
@@ -143,6 +198,124 @@ export class ViewerComponent {
         if (this.renderedPath === this.doc.path() && this.scrollToLine(line)) this.doc.pendingLine.set(null);
       });
     });
+  }
+
+  /** Opens the find bar (⌘/Ctrl+F), or focuses it when it is open. */
+  openFind(): void {
+    this.findOpen.set(true);
+    setTimeout(() => {
+      const input = this.findInput()?.nativeElement;
+      input?.focus();
+      input?.select();
+    });
+    this.refreshFind(true);
+  }
+
+  protected closeFind(): void {
+    this.findOpen.set(false);
+    this.clearFind();
+    this.content().nativeElement.focus({ preventScroll: true });
+  }
+
+  protected onFindKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeFind();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      this.findStep(event.shiftKey ? -1 : 1);
+    }
+  }
+
+  protected setFindQuery(query: string): void {
+    this.findQuery.set(query);
+    this.refreshFind(true);
+  }
+
+  protected toggleFindOption(option: "case" | "regex"): void {
+    (option === "case" ? this.findCase : this.findRegex).update((v) => !v);
+    this.refreshFind(true);
+  }
+
+  protected findStep(step: 1 | -1): void {
+    const next = stepIndex(this.findCurrent(), step, this.findMarks.length);
+    this.activateMatch(next);
+  }
+
+  /** Removes the highlights and puts the text back together. */
+  private clearFind(): void {
+    const el = this.content().nativeElement;
+    for (const mark of Array.from(el.querySelectorAll("mark.find-hit"))) {
+      const parent = mark.parentNode;
+      mark.replaceWith(document.createTextNode(mark.textContent ?? ""));
+      parent?.normalize();
+    }
+    this.findMarks = [];
+    this.findCount.set(0);
+    this.findCurrent.set(-1);
+    this.findError.set(null);
+  }
+
+  /** Highlights the matches of the query in the rendered note; `jump` selects and scrolls to the first. */
+  private refreshFind(jump: boolean): void {
+    if (!this.findOpen()) return;
+    const previous = this.findCurrent();
+    this.clearFind();
+    const query = this.findQuery();
+    if (!query) return;
+    const nodes = this.textNodes();
+    const parts: TextPart[] = nodes.map((n) => ({ text: n.data, group: blockId(n, this.content().nativeElement) }));
+    const result = findInParts(parts, query, { caseSensitive: this.findCase(), regex: this.findRegex() });
+    if (typeof result === "string") {
+      this.findError.set(result);
+      return;
+    }
+    // Wrap from the end of each node so earlier offsets stay valid.
+    const marks: HTMLElement[][] = result.matches.map(() => []);
+    const byNode = new Map<number, typeof result.segments>();
+    for (const seg of result.segments) byNode.set(seg.part, [...(byNode.get(seg.part) ?? []), seg]);
+    for (const [index, segs] of byNode) {
+      const node = nodes[index]!;
+      for (const seg of [...segs].sort((a, b) => b.from - a.from)) {
+        const range = document.createRange();
+        range.setStart(node, seg.from);
+        range.setEnd(node, seg.to);
+        const mark = document.createElement("mark");
+        mark.className = "find-hit";
+        range.surroundContents(mark);
+        marks[seg.match]!.unshift(mark);
+      }
+    }
+    for (const group of marks) {
+      group.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    }
+    this.findMarks = marks;
+    this.findCount.set(marks.length);
+    if (marks.length) this.activateMatch(jump ? 0 : Math.min(Math.max(previous, 0), marks.length - 1), jump);
+  }
+
+  private activateMatch(index: number, scroll = true): void {
+    for (const mark of this.findMarks.flat()) mark.classList.remove("find-active");
+    this.findCurrent.set(index);
+    const marks = this.findMarks[index];
+    if (!marks?.length) return;
+    for (const mark of marks) mark.classList.add("find-active");
+    if (scroll) marks[0]!.scrollIntoView({ block: "center" });
+  }
+
+  /** Text of the note as rendered; diagrams and scripts are skipped. */
+  private textNodes(): Text[] {
+    const root = this.content().nativeElement;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) =>
+        node.parentElement?.closest("svg, script, style, .mermaid-diagram") || !(node as Text).data
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT,
+    });
+    const nodes: Text[] = [];
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n as Text);
+    return nodes;
   }
 
   /** 1-based source line at the top of the visible area; null when no block carries one. */
@@ -359,4 +532,16 @@ export class ViewerComponent {
     }
     return false;
   }
+}
+
+const BLOCKS = "p, li, h1, h2, h3, h4, h5, h6, pre, td, th, blockquote, div, dt, dd, summary";
+const blockIds = new WeakMap<Element, number>();
+let nextBlockId = 0;
+
+/** A number that is the same for all text nodes of the nearest block element. */
+function blockId(node: Node, root: HTMLElement): number {
+  const block = node.parentElement?.closest(BLOCKS) ?? root;
+  let id = blockIds.get(block);
+  if (id === undefined) blockIds.set(block, (id = nextBlockId++));
+  return id;
 }

@@ -210,6 +210,7 @@ export class AppComponent {
       { id: "daily-next", title: "Open next daily note", when: inVault, run: () => this.run(() => this.daily.next()) },
       { id: "insert-template", title: "Insert template", when: () => noteOpen() && this.editor.editing(), run: () => this.run(() => this.templates.open()) },
       { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.viewer()?.topLine() ?? null)) },
+      { id: "find", title: "Find in note", shortcut: "Mod+F", keys: ["Mod+F"], when: () => noteOpen() && !this.editor.editing(), run: () => this.viewer()?.openFind() },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },
       { id: "open-recent", title: "Open recent vault…", run: () => this.run(() => this.recent.open()) },

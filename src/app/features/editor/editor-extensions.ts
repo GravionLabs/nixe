@@ -1,6 +1,7 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxTree } from "@codemirror/language";
+import { getSearchQuery, openSearchPanel, search, searchKeymap, searchPanelOpen } from "@codemirror/search";
 import { EditorState, Extension, Range } from "@codemirror/state";
 import {
   Decoration,
@@ -8,6 +9,7 @@ import {
   EditorView,
   ViewPlugin,
   ViewUpdate,
+  Command,
   drawSelection,
   keymap,
 } from "@codemirror/view";
@@ -106,11 +108,87 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
         backgroundColor: "var(--accent)",
         color: "var(--bg)",
       },
+      ".cm-panels": { backgroundColor: "var(--chrome)", color: "var(--fg)" },
+      ".cm-panels-top": { borderBottom: "1px solid var(--muted)" },
+      ".cm-search": { padding: "6px 10px", fontSize: "0.85em" },
+      ".cm-search input, .cm-search button": {
+        color: "var(--fg)",
+        backgroundColor: "var(--bg)",
+        border: "1px solid var(--muted)",
+        borderRadius: "3px",
+        backgroundImage: "none",
+      },
+      ".cm-search button:hover": { backgroundColor: "var(--chrome)" },
+      ".cm-search label": { color: "var(--fg)" },
+      ".cm-search [name=close]": { color: "var(--fg)", border: "none", backgroundColor: "transparent" },
+      ".cm-search:not(.cm-replace-on) input[name=replace], .cm-search:not(.cm-replace-on) button[name=replace], .cm-search:not(.cm-replace-on) button[name=replaceAll]":
+        { display: "none" },
+      ".cm-search-count": { margin: "0 8px", color: "var(--muted)" },
+      ".cm-searchMatch": { backgroundColor: "rgb(255 200 0 / 0.35)" },
+      ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "rgb(255 140 0 / 0.6)" },
       ".cm-completionDetail": { opacity: "0.6", marginLeft: "0.8em", fontStyle: "normal" },
     },
     { dark },
   );
 }
+
+/** Class of the search panel while replace is shown (⌘/Ctrl+⌥+F); plain ⌘/Ctrl+F hides it. */
+export const REPLACE_CLASS = "cm-replace-on";
+
+/** Opens the find bar; with `replace` the replace field is shown and focused. */
+export function openFind(view: EditorView, replace: boolean): boolean {
+  if (!searchPanelOpen(view.state)) openSearchPanel(view);
+  const panel = view.dom.querySelector<HTMLElement>(".cm-search");
+  panel?.classList.toggle(REPLACE_CLASS, replace);
+  const field = panel?.querySelector<HTMLInputElement>(replace ? "input[name=replace]" : "input[name=search]");
+  field?.focus();
+  field?.select();
+  return true;
+}
+
+const findCommand: Command = (view) => openFind(view, false);
+const replaceCommand: Command = (view) => openFind(view, true);
+
+/** Text of the match counter: `3 / 12`, `No matches`, or empty without a query. */
+export function matchCountLabel(state: EditorState): string {
+  const query = getSearchQuery(state);
+  if (!query.valid) return "";
+  const { from } = state.selection.main;
+  let total = 0;
+  let current = 0;
+  const cursor = query.getCursor(state);
+  for (let r = cursor.next(); !r.done && total < 5000; r = cursor.next()) {
+    total++;
+    if (r.value.from <= from) current = total;
+  }
+  if (total === 0) return "No matches";
+  return `${Math.max(current, 1)} / ${total}`;
+}
+
+/** Shows the match count inside the search panel. */
+const matchCounter = ViewPlugin.fromClass(
+  class {
+    constructor(private readonly view: EditorView) {
+      this.sync();
+    }
+    update(): void {
+      this.sync();
+    }
+    private sync(): void {
+      const panel = this.view.dom.querySelector<HTMLElement>(".cm-search");
+      if (!panel) return;
+      let label = panel.querySelector<HTMLElement>(".cm-search-count");
+      if (!label) {
+        label = document.createElement("span");
+        label.className = "cm-search-count";
+        label.setAttribute("aria-live", "polite");
+        panel.querySelector("[name=close]")?.before(label);
+      }
+      const text = matchCountLabel(this.view.state);
+      if (label.textContent !== text) label.textContent = text;
+    }
+  },
+);
 
 export interface EditorHooks {
   onSave(): void;
@@ -134,11 +212,16 @@ export function editorBehavior(hooks: EditorHooks): Extension[] {
           return true;
         },
       },
+      { key: "Mod-f", run: findCommand, preventDefault: true },
+      { key: "Mod-Alt-f", run: replaceCommand, preventDefault: true },
+      ...searchKeymap,
       ...defaultKeymap,
       ...historyKeymap,
     ]),
     markdown(),
     drawSelection(),
+    search({ top: true }),
+    matchCounter,
     EditorView.lineWrapping,
     markdownStyling,
     ...(hooks.completion ? [completionExtension(hooks.completion)] : []),
