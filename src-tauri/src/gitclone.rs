@@ -52,9 +52,14 @@ pub fn clone_vault(
     }
     let name = repo_name(url).ok_or("the url has no repository name")?;
     let dest = parent.join(name);
-    if dest.exists() {
-        return Err(format!("{} already exists", dest.display()));
-    }
+    // Claim the folder atomically: only a folder this call created is ever removed.
+    std::fs::create_dir(&dest).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::AlreadyExists {
+            format!("{} already exists", dest.display())
+        } else {
+            e.to_string()
+        }
+    })?;
     let result = with_auth(url, store, |auth| {
         let mut cb = callbacks(auth);
         cb.transfer_progress(|p| {
@@ -74,10 +79,8 @@ pub fn clone_vault(
     match result {
         Ok(()) if !cancel.load(Ordering::SeqCst) => Ok(dest),
         other => {
-            // The folder did not exist before, so everything in it is ours.
-            if dest.exists() {
-                let _ = std::fs::remove_dir_all(&dest);
-            }
+            // This call created the folder, so everything in it is ours.
+            let _ = std::fs::remove_dir_all(&dest);
             match other {
                 _ if cancel.load(Ordering::SeqCst) => Err(CANCELLED.into()),
                 Err(e) => Err(e),
