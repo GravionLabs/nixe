@@ -29,6 +29,7 @@ pub mod mcp;
 mod menu;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
+mod settings;
 mod tree;
 mod vault;
 mod write;
@@ -312,6 +313,26 @@ fn link_format(state: State<'_, AppState>) -> Result<vault::relink::LinkFormat, 
     Ok(vault::relink::link_format(&vault_root_of(&state)?))
 }
 
+/// The app settings file of the app config directory; `None` when there is none yet.
+#[tauri::command]
+fn read_app_settings(app: AppHandle) -> Result<Option<String>, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    settings::read_settings(&dir)
+}
+
+/// Replaces the app settings file of the app config directory.
+#[tauri::command]
+fn write_app_settings(app: AppHandle, content: String) -> Result<(), String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    settings::write_settings(&dir, &content)
+}
+
+/// The Obsidian settings of the open vault, with the file each one comes from.
+#[tauri::command]
+fn obsidian_settings(state: State<'_, AppState>) -> Result<Vec<settings::ObsidianSetting>, String> {
+    Ok(settings::obsidian_settings(&vault_root_of(&state)?))
+}
+
 /// False when the file holds bytes that are not UTF-8 (`read_text_file` would replace them).
 #[tauri::command]
 fn is_utf8_file(path: String) -> bool {
@@ -499,6 +520,9 @@ pub fn run() {
         template_folder,
         daily_notes_config,
         link_format,
+        read_app_settings,
+        write_app_settings,
+        obsidian_settings,
         save_attachment,
         import_attachment,
         is_utf8_file,
@@ -553,6 +577,9 @@ pub fn run() {
         template_folder,
         daily_notes_config,
         link_format,
+        read_app_settings,
+        write_app_settings,
+        obsidian_settings,
         save_attachment,
         import_attachment,
         is_utf8_file,

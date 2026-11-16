@@ -14,6 +14,7 @@ import { CloneService } from "./core/git/clone.service";
 import { GitService } from "./core/git/git.service";
 import { HealthService } from "./core/index/health.service";
 import { SearchService } from "./core/index/search.service";
+import { SettingsPageService } from "./core/settings/settings-page.service";
 import { SettingsService } from "./core/settings/settings.service";
 import { DailyService } from "./core/daily/daily.service";
 import { TemplateService } from "./core/templates/template.service";
@@ -24,6 +25,7 @@ import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { LinkPreviewComponent } from "./features/link-preview/link-preview.component";
 import { OutlineComponent } from "./features/outline/outline.component";
+import { SettingsComponent } from "./features/settings/settings.component";
 import { RecentComponent } from "./features/recent/recent.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
@@ -43,7 +45,7 @@ import { TabsService } from "./core/tabs/tabs.service";
 
 @Component({
   selector: "app-root",
-  imports: [LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
+  imports: [LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SettingsComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -67,6 +69,7 @@ export class AppComponent {
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
   protected readonly recent = inject(RecentPickerService);
+  protected readonly settingsPage = inject(SettingsPageService);
 
   protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
   protected readonly gitSpike = isDevMode();
@@ -214,6 +217,7 @@ export class AppComponent {
       { id: "split-right", title: "Split tab to the right", when: noteOpen, run: () => this.run(() => this.tabs.splitRight()) },
       { id: "unsplit", title: "Merge the split panes", when: () => this.tabs.split(), run: () => this.tabs.unsplit() },
       { id: "focus-other-pane", title: "Focus the other pane", when: () => this.tabs.split(), run: () => this.tabs.focusNextPane() },
+      { id: "open-settings", title: "Open settings", shortcut: "Mod+,", keys: ["Mod+,"], run: () => this.run(() => this.settingsPage.open()) },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },
       { id: "open-recent", title: "Open recent vault…", run: () => this.run(() => this.recent.open()) },
