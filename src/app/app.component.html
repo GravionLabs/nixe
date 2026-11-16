@@ -15,7 +15,13 @@
     <app-search (error)="showToast($event)" />
   }
   @if (doc.path()) {
-    <app-viewer class="pane" [html]="html()" [dark]="settings.dark()" (notify)="showToast($event)" />
+    @if (editor.editing()) {
+      @defer (on immediate) {
+        <app-editor class="pane" (error)="showToast($event)" />
+      }
+    } @else {
+      <app-viewer class="pane" [html]="html()" [dark]="settings.dark()" (notify)="showToast($event)" />
+    }
     @if (showBacklinks()) {
       <app-backlinks (error)="showToast($event)" />
     }
@@ -32,6 +38,7 @@
         <dt>{{ mod }}O</dt><dd>Quick switcher</dd>
         <dt>{{ mod }}⇧P</dt><dd>Open file</dd>
         <dt>{{ mod }}⇧O</dt><dd>Open folder</dd>
+        <dt>{{ mod }}E</dt><dd>Edit / view the note</dd>
         <dt>{{ mod }}B</dt><dd>Toggle sidebar</dd>
         <dt>{{ mod }}⇧B</dt><dd>Toggle backlinks</dd>
         <dt>{{ mod }}⇧F</dt><dd>Search the vault</dd>

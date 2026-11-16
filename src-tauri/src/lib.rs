@@ -20,6 +20,7 @@ mod index;
 mod notes;
 mod tree;
 mod vault;
+mod write;
 
 /// Event telling the frontend that a file or folder is waiting in `take_pending_file`.
 const OPEN_FILE_EVENT: &str = "open-file-requested";
@@ -100,6 +101,12 @@ fn take_pending_file(state: State<'_, AppState>) -> Option<String> {
 fn read_text_file(path: String) -> Result<String, String> {
     let bytes = std::fs::read(&path).map_err(|e| format!("{path}: {e}"))?;
     Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// Atomically writes a note; `path` must lie below `root` (the vault root).
+#[tauri::command]
+fn write_text_file(root: String, path: String, content: String) -> Result<(), String> {
+    write::write_text_file(Path::new(&root), Path::new(&path), &content)
 }
 
 #[tauri::command]
@@ -261,6 +268,7 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         take_pending_file,
         read_text_file,
+        write_text_file,
         is_file,
         is_dir,
         list_dir,
@@ -293,6 +301,7 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         take_pending_file,
         read_text_file,
+        write_text_file,
         is_file,
         is_dir,
         list_dir,

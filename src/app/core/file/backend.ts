@@ -71,6 +71,9 @@ export interface NoteRecord {
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
+  /** Atomic write; the Rust side refuses a `path` outside `root`. */
+  writeTextFile: (root: string, path: string, content: string) =>
+    invoke<void>("write_text_file", { root, path, content }),
   isFile: (path: string) => invoke<boolean>("is_file", { path }),
   isDir: (path: string) => invoke<boolean>("is_dir", { path }),
   listDir: (path: string) => invoke<DirEntry[]>("list_dir", { path }),

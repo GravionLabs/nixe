@@ -56,6 +56,11 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             "Toggle Backlinks Panel",
             Some("CmdOrCtrl+Shift+B"),
         )?)
+        .item(&item(
+            "toggle-editor",
+            "Toggle Editor",
+            Some("CmdOrCtrl+E"),
+        )?)
         .item(&item("search", "Search Vault", Some("CmdOrCtrl+Shift+F"))?)
         .item(&item("toggle-math", "Toggle LaTeX Math", None)?)
         .item(&item(

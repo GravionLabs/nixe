@@ -25,3 +25,17 @@ describe("vault index commands", () => {
     expect(INDEX_EVENT).toBe("index-status");
   });
 });
+
+describe("write_text_file", () => {
+  beforeEach(() => invoke.mockReset());
+
+  it("passes root, path and content", async () => {
+    invoke.mockResolvedValue(undefined);
+    await backend.writeTextFile("/vault", "/vault/a.md", "# a");
+    expect(invoke).toHaveBeenCalledWith("write_text_file", {
+      root: "/vault",
+      path: "/vault/a.md",
+      content: "# a",
+    });
+  });
+});
