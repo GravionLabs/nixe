@@ -14,7 +14,7 @@ import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { viewerTopLine } from "../../core/editor/editor-core";
 import { TextPart, findInParts, stepIndex } from "../../core/find/find-core";
-import { backend } from "../../core/file/backend";
+import { STDIN_FILE_SUFFIX, backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
 import { slugify } from "../../core/markdown/markdown-renderer";
@@ -22,6 +22,7 @@ import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
+import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
 import { OutlineService } from "../../core/outline/outline.service";
 import { PropertiesComponent } from "../properties/properties.component";
 import { SearchService } from "../../core/index/search.service";
@@ -130,6 +131,10 @@ export class ViewerComponent {
   private readonly findInput = viewChild<ElementRef<HTMLInputElement>>("findInput");
   private readonly mermaid = new MermaidRenderer();
   private renderedPath: string | null = null;
+  /** Text this viewer just saved from a checkbox: its DOM is already right, so that render is skipped. */
+  private toggledText: string | null = null;
+  /** Toggles run one after the other, so a quick second click builds on the saved first one. */
+  private toggleQueue: Promise<void> = Promise.resolve();
 
   protected readonly dialogOpen = signal(false);
   protected readonly dialogZoom = signal(1);
@@ -157,6 +162,9 @@ export class ViewerComponent {
       const html = this.html();
       const dark = this.dark();
       untracked(() => {
+        const skip = this.toggledText !== null && this.toggledText === this.doc.content();
+        this.toggledText = null;
+        if (skip) return;
         el.innerHTML = html; // already sanitized with DOMPurify
         // A newly opened document starts at the top (external reloads keep the position).
         const path = this.doc.path();
@@ -165,6 +173,7 @@ export class ViewerComponent {
           this.host.nativeElement.scrollTop = 0;
         }
         this.findMarks = [];
+        this.enableTasks();
         this.applyPendingAnchor(false);
         this.applyPendingLine(false);
         this.trackScroll();
@@ -182,6 +191,7 @@ export class ViewerComponent {
           .catch(() => undefined)
           .then(() => this.mermaid.render(el, dark))
           .then(() => {
+            this.enableTasks();
             this.applyPendingAnchor(true);
             this.applyPendingLine(true);
             this.trackScroll();
@@ -414,6 +424,13 @@ export class ViewerComponent {
       return;
     }
 
+    if (target instanceof HTMLInputElement && target.classList.contains("task-list-item-checkbox")) {
+      const run = this.toggleQueue.then(() => this.toggleTask(event, target));
+      this.toggleQueue = run.catch(() => undefined);
+      await run;
+      return;
+    }
+
     const calloutTitle = target.closest<HTMLElement>(".callout-title");
     const callout = calloutTitle?.parentElement;
     if (calloutTitle && callout?.classList.contains("is-collapsible") && !target.closest("a")) {
@@ -465,6 +482,47 @@ export class ViewerComponent {
         }
         break;
       }
+    }
+  }
+
+  /** Checkboxes are rendered disabled; here they are enabled where a source line is known to write to. */
+  private enableTasks(): void {
+    const piped = this.doc.path()?.endsWith(STDIN_FILE_SUFFIX) ?? false;
+    for (const box of Array.from(this.content().nativeElement.querySelectorAll<HTMLInputElement>("input.task-list-item-checkbox"))) {
+      const embed = box.closest<HTMLElement>(".embed-body");
+      const known = embed ? !!embed.dataset["sourcePath"] : !piped && !!this.doc.path();
+      box.disabled = !known || !box.closest("[data-line]");
+    }
+  }
+
+  /** Writes the ticked or unticked task to the file of the item (the open note or an embedded one). */
+  private async toggleTask(event: Event, box: HTMLInputElement): Promise<void> {
+    const item = box.closest<HTMLElement>("li[data-line]");
+    const embed = box.closest<HTMLElement>(".embed-body");
+    const path = embed ? embed.dataset["sourcePath"] : this.doc.path();
+    if (!item || !path || (!embed && path.endsWith(STDIN_FILE_SUFFIX))) {
+      event.preventDefault();
+      return;
+    }
+    const line = Number(item.dataset["line"]) + Number(embed?.dataset["lineOffset"] ?? 0);
+    const checked = box.checked; // the browser has already flipped it
+    const isOpenNote = path === this.doc.path();
+    try {
+      const text = isOpenNote ? this.doc.content() : await backend.readTextFile(path);
+      const next = setTaskState(text, line, checked);
+      const rendered = item.dataset["srcLine"];
+      const stale = embed && rendered !== undefined && taskShape(text.split("\n")[line] ?? "") !== rendered;
+      if (next === null || stale) {
+        // Not a `[ ]`/`[x]` line any more (the file changed): leave the file alone.
+        box.checked = !checked;
+        return;
+      }
+      if (isOpenNote) this.toggledText = next;
+      await this.doc.write(path, next);
+    } catch (err) {
+      this.toggledText = null;
+      box.checked = !checked;
+      this.notify.emit(String(err));
     }
   }
 

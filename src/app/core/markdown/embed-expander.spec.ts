@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
+import { taskShape } from "./task-toggle";
 import { expandEmbeds, type EmbedDeps } from "./embed-expander";
 
 const notes: Record<string, string> = {
@@ -10,6 +11,7 @@ const notes: Record<string, string> = {
   "L2.md": "![[L3]]",
   "L3.md": "![[L4]]",
   "L4.md": "deep",
+  "Dup.md": "- [ ] milk\n\n- [ ] milk ^b1\n",
 };
 const embed = (t: string) =>
   `<div class="embed" data-embed="${t}"><div class="embed-title"></div><div class="embed-body"></div></div>`;
@@ -19,6 +21,12 @@ const deps: EmbedDeps = {
   read: async (p) => notes[p.slice(3)],
   // trivial renderer: nested embeds survive as placeholders
   render: (text) => text.replace(/!\[\[(.+?)\]\]/g, (_, t) => embed(t)).replace(/\n/g, " "),
+};
+const runDup = async () => {
+  const root = document.createElement("div");
+  root.innerHTML = embed("Dup#^b1");
+  await expandEmbeds(root, deps, ["Doc.md"]);
+  return root;
 };
 const run = async (target: string, current = "Doc.md") => {
   const root = document.createElement("div");
@@ -53,5 +61,23 @@ describe("expandEmbeds", () => {
   it("reports missing notes and sections", async () => {
     expect((await run("Nope")).textContent).toContain("Note not found");
     expect((await run("Note#Zzz")).textContent).toContain("Section not found");
+  });
+
+  it("records the file and line offset of an embedded section for its checkboxes", async () => {
+    const el = (await run("Note#Second")).querySelector<HTMLElement>(".embed-body")!;
+    expect(el.dataset["sourcePath"]).toBe("/v/Note.md");
+    expect(el.dataset["lineOffset"]).toBe("4");
+    const whole = (await run("Note")).querySelector<HTMLElement>(".embed-body")!;
+    expect(whole.dataset["lineOffset"]).toBe("0");
+    const dup = (await runDup()).querySelector<HTMLElement>(".embed-body")!;
+    expect(dup.dataset["lineOffset"]).toBe("2");
+  });
+
+  it("records the real file line of a task, also when the block marker was stripped", async () => {
+    const root = document.createElement("div");
+    root.innerHTML = embed("Dup#^b1");
+    const li = { ...deps, render: () => '<ul><li class="task-list-item" data-line="0">milk</li></ul>' };
+    await expandEmbeds(root, li, ["Doc.md"]);
+    expect(root.querySelector<HTMLElement>("li")!.dataset["srcLine"]).toBe(taskShape("- [ ] milk ^b1"));
   });
 });
