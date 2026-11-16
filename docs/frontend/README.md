@@ -84,3 +84,12 @@ built-in ones. The native menu only emits a command id (`menu` event), the webvi
 runs the commands that declare `keys`, and the palette (⌘/Ctrl+P) lists the commands whose
 `when` holds, ranked by fuzzy match on the title, with their shortcuts. Plugins will register
 into the same registry.
+
+Every command can get a shortcut of the user's choice (Settings → Shortcuts). `ShortcutService`
+(`core/commands/shortcut.service.ts`) records a key press (`bindingFromEvent` in `shortcuts-core.ts`
+normalizes it: `Mod` is ⌘ on macOS and Ctrl elsewhere, ⌥ letters are read from the physical key),
+shows conflicts before saving and stores only the differences from the defaults as `shortcuts` in
+`settings.json` of the app config directory, never in the vault. The overrides replace the `keys`
+of the webview key handler (`CommandRegistry.overrides`) and are sent to the native menu
+(`set_menu_shortcuts`), so the menu shows the changed shortcuts. While a shortcut is recorded the
+menu accelerators are off, so the pressed keys do not run commands.

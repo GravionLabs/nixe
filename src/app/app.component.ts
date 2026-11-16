@@ -7,6 +7,7 @@ import { FILE_CHANGED_EVENT, MENU_EVENT, OPEN_FILE_EVENT, STDIN_FILE_SUFFIX, bac
 import { EditorService } from "./core/editor/editor.service";
 import { Command, CommandRegistry } from "./core/commands/command-registry";
 import { PaletteService } from "./core/commands/palette.service";
+import { ShortcutService } from "./core/commands/shortcut.service";
 import { DocumentService } from "./core/file/document.service";
 import { IndexService } from "./core/index/index.service";
 import { AutoSyncService } from "./core/git/auto-sync.service";
@@ -70,6 +71,8 @@ export class AppComponent {
   protected readonly palette = inject(PaletteService);
   protected readonly recent = inject(RecentPickerService);
   protected readonly settingsPage = inject(SettingsPageService);
+  /** Applies the user's shortcuts to the key handling and the native menu. */
+  private readonly shortcuts = inject(ShortcutService);
 
   protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
   protected readonly gitSpike = isDevMode();

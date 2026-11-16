@@ -327,6 +327,21 @@ fn write_app_settings(app: AppHandle, content: String) -> Result<(), String> {
     settings::write_settings(&dir, &content)
 }
 
+/// Shows the user's shortcuts in the native menu: the accelerator per menu item id, `null` for none.
+#[tauri::command]
+fn set_menu_shortcuts(
+    app: AppHandle,
+    shortcuts: std::collections::HashMap<String, Option<String>>,
+) -> usize {
+    #[cfg(desktop)]
+    return menu::apply_shortcuts(&app, &menu::clean_shortcuts(shortcuts));
+    #[cfg(not(desktop))]
+    {
+        let _ = (app, shortcuts);
+        0
+    }
+}
+
 /// The Obsidian settings of the open vault, with the file each one comes from.
 #[tauri::command]
 fn obsidian_settings(state: State<'_, AppState>) -> Result<Vec<settings::ObsidianSetting>, String> {
@@ -522,6 +537,7 @@ pub fn run() {
         link_format,
         read_app_settings,
         write_app_settings,
+        set_menu_shortcuts,
         obsidian_settings,
         save_attachment,
         import_attachment,
@@ -579,6 +595,7 @@ pub fn run() {
         link_format,
         read_app_settings,
         write_app_settings,
+        set_menu_shortcuts,
         obsidian_settings,
         save_attachment,
         import_attachment,

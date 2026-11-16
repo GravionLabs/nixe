@@ -132,3 +132,18 @@ describe("PaletteService", () => {
     expect(palette.selected()).toBe(0);
   });
 });
+
+describe("matchesBinding with the physical key", () => {
+  it("matches ⌥ letters on macOS, where key is another character", () => {
+    const event = { ...key("å", { metaKey: true, altKey: true }), code: "KeyA" };
+    expect(matchesBinding(event, "Mod+Alt+A")).toBe(true);
+    expect(matchesBinding({ ...event, code: "KeyB" }, "Mod+Alt+A")).toBe(false);
+  });
+
+  it("matches Plus and Space by name", () => {
+    expect(matchesBinding(key("+", { ctrlKey: true, shiftKey: true }), "Mod+Shift+Plus")).toBe(true);
+    expect(matchesBinding(key(" ", { ctrlKey: true }), "Mod+Space")).toBe(true);
+    expect(formatShortcut("Mod+Shift+Plus", true)).toBe("⌘⇧+");
+    expect(formatShortcut("Mod+Shift+Plus", false)).toBe("Ctrl+Shift++");
+  });
+});

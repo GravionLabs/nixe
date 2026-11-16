@@ -107,6 +107,53 @@ h2 {
   font: inherit;
 }
 
+.key {
+  min-width: 90px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  text-align: center;
+}
+
+button.key {
+  cursor: pointer;
+}
+
+.key.recording {
+  border-color: var(--accent, currentColor);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+}
+
+.actions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.hint,
+.conflict {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.conflict {
+  max-width: 260px;
+  color: #c0392b;
+  text-align: right;
+}
+
 .readonly {
   text-align: right;
 }

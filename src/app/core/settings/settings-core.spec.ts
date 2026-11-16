@@ -68,3 +68,11 @@ describe("loadSettings (migration from the localStorage SettingsService)", () =>
     expect(loadSettings(null, legacy).damaged).toBe(false);
   });
 });
+
+describe("shortcuts setting", () => {
+  it("defaults to none and keeps only string overrides", () => {
+    expect(sanitizeSettings(null).shortcuts).toEqual({});
+    expect(sanitizeSettings({ shortcuts: { a: "Mod+K", b: 1, c: "" } }).shortcuts).toEqual({ a: "Mod+K", c: "" });
+    expect(sanitizeSettings({ shortcuts: "Mod+K" }).shortcuts).toEqual({});
+  });
+});
