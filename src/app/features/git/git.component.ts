@@ -36,6 +36,23 @@ export class GitComponent {
     }
   }
 
+  protected async saveToken(input: HTMLInputElement): Promise<void> {
+    try {
+      await this.git.saveToken(input.value);
+      input.value = "";
+    } catch (err) {
+      this.error.emit(String(err));
+    }
+  }
+
+  protected async deleteToken(): Promise<void> {
+    try {
+      await this.git.deleteToken();
+    } catch (err) {
+      this.error.emit(String(err));
+    }
+  }
+
   protected async commit(event: Event, message: string): Promise<void> {
     event.preventDefault();
     try {

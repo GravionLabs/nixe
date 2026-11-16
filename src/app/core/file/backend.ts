@@ -176,6 +176,11 @@ export const backend = {
    */
   gitVaultCommit: (message: string | null, name: string | null, email: string | null) =>
     invoke<string>("git_vault_commit", { message, name, email }),
+  /** Whether an access token is stored in the OS keychain for the remote host. The token is never returned. */
+  gitTokenStatus: (host: string) => invoke<boolean>("git_token_status", { host }),
+  /** Stores or replaces the token of a remote host in the OS keychain. */
+  gitTokenSet: (host: string, token: string) => invoke<void>("git_token_set", { host, token }),
+  gitTokenDelete: (host: string) => invoke<void>("git_token_delete", { host }),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
 };
 

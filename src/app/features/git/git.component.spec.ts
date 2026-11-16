@@ -28,13 +28,30 @@ const status: GitStatus = {
   behind: 1,
 };
 
-function render(value: GitStatus, commit = vi.fn().mockResolvedValue(undefined)) {
+function render(
+  value: GitStatus,
+  commit = vi.fn().mockResolvedValue(undefined),
+  token: { stored?: boolean; prompt?: { reason: "required" | "failed" } | null } = {},
+) {
+  const saveToken = vi.fn().mockResolvedValue(undefined);
+  const deleteToken = vi.fn().mockResolvedValue(undefined);
+  const cancelTokenPrompt = vi.fn();
   const open = vi.fn().mockResolvedValue(undefined);
   const close = vi.fn();
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
-      { provide: GitService, useValue: { status: signal(value), committing: signal(false), commit, close } },
+      { provide: GitService, useValue: {
+          status: signal(value),
+          committing: signal(false),
+          commit,
+          close,
+          tokenStored: signal(token.stored ?? false),
+          tokenPrompt: signal(token.prompt ?? null),
+          saveToken,
+          deleteToken,
+          cancelTokenPrompt,
+        } },
       { provide: SettingsService, useValue: { gitAuthorName: signal(""), gitAuthorEmail: signal("") } },
       { provide: DocumentService, useValue: { open } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
@@ -51,7 +68,7 @@ function render(value: GitStatus, commit = vi.fn().mockResolvedValue(undefined))
   const errors: string[] = [];
   fixture.componentInstance.error.subscribe((e) => errors.push(e));
   fixture.detectChanges();
-  return { fixture, el: fixture.nativeElement as HTMLElement, open, close, commit, errors };
+  return { fixture, el: fixture.nativeElement as HTMLElement, open, close, commit, errors, saveToken, deleteToken, cancelTokenPrompt };
 }
 
 describe("GitComponent", () => {
@@ -95,5 +112,46 @@ describe("GitComponent", () => {
     const clean = render({ ...status, changes: [] });
     expect(clean.el.querySelector<HTMLButtonElement>("button.primary")!.disabled).toBe(true);
     expect(clean.el.textContent).toContain("No changes");
+  });
+
+  describe("access token", () => {
+    const buttonByText = (el: HTMLElement, text: string) =>
+      [...el.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === text);
+
+    it("offers to save a token when none is stored", () => {
+      const { el } = render(status);
+      expect(el.textContent).toContain("No token stored");
+      expect(buttonByText(el, "Save token")).toBeTruthy();
+      expect(buttonByText(el, "Delete token")).toBeUndefined();
+    });
+
+    it("shows that a token is stored without showing it, and offers replace and delete", async () => {
+      const { el, saveToken, deleteToken, fixture } = render(status, undefined, { stored: true });
+      expect(el.textContent).toContain("A token is stored");
+      const input = el.querySelector<HTMLInputElement>("input[type=password]")!;
+      input.value = "ghp_secret";
+      buttonByText(el, "Replace token")!.click();
+      await fixture.whenStable();
+      expect(saveToken).toHaveBeenCalledWith("ghp_secret");
+      expect(input.value).toBe("");
+      expect(el.textContent).not.toContain("ghp_secret");
+      buttonByText(el, "Delete token")!.click();
+      expect(deleteToken).toHaveBeenCalled();
+    });
+
+    it("asks for a token when a remote operation needs one", () => {
+      const { el } = render(status, undefined, { prompt: { reason: "failed" } });
+      expect(el.querySelector("[role=alert]")!.textContent).toContain("rejected the token");
+      const required = render(status, undefined, { prompt: { reason: "required" } });
+      expect(required.el.querySelector("[role=alert]")!.textContent).toContain("Enter a personal access token");
+    });
+
+    it("reports a failed save", async () => {
+      const { el, errors, saveToken, fixture } = render(status);
+      saveToken.mockRejectedValue("keychain locked");
+      buttonByText(el, "Save token")!.click();
+      await fixture.whenStable();
+      expect(errors).toEqual(["keychain locked"]);
+    });
   });
 });

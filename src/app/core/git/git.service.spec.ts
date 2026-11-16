@@ -100,4 +100,79 @@ describe("GitService", () => {
     await expect(git.commit("m")).rejects.toBe("nothing to commit");
     expect(git.committing()).toBe(false);
   });
+
+  describe("access token", () => {
+    beforeEach(() => {
+      vi.spyOn(backend, "gitTokenStatus").mockResolvedValue(false);
+    });
+
+    it("reads whether a token is stored", async () => {
+      vi.spyOn(backend, "gitTokenStatus").mockResolvedValue(true);
+      await git.refreshToken();
+      expect(backend.gitTokenStatus).toHaveBeenCalledWith("github.com");
+      expect(git.tokenStored()).toBe(true);
+    });
+
+    it("stores, replaces and deletes the token", async () => {
+      const set = vi.spyOn(backend, "gitTokenSet").mockResolvedValue();
+      const del = vi.spyOn(backend, "gitTokenDelete").mockResolvedValue();
+      await git.saveToken("  ghp_new ");
+      expect(set).toHaveBeenCalledWith("github.com", "ghp_new");
+      expect(git.tokenStored()).toBe(true);
+      await git.deleteToken();
+      expect(del).toHaveBeenCalledWith("github.com");
+      expect(git.tokenStored()).toBe(false);
+    });
+
+    it("refuses an empty token", async () => {
+      const set = vi.spyOn(backend, "gitTokenSet").mockResolvedValue();
+      await expect(git.saveToken("  ")).rejects.toThrow();
+      expect(set).not.toHaveBeenCalled();
+    });
+
+    it("passes the result of a remote operation that needs no token", async () => {
+      await expect(git.runRemote(() => Promise.resolve(7))).resolves.toBe(7);
+      expect(git.tokenPrompt()).toBeNull();
+    });
+
+    it("rethrows other errors without asking", async () => {
+      await expect(git.runRemote(() => Promise.reject("network down"))).rejects.toBe("network down");
+      expect(git.tokenPrompt()).toBeNull();
+    });
+
+    it("asks for a token when none is stored and retries with it", async () => {
+      vi.spyOn(backend, "gitTokenSet").mockResolvedValue();
+      const op = vi.fn().mockRejectedValueOnce("auth-required:github.com").mockResolvedValue("done");
+      const run = git.runRemote(op);
+      await vi.waitFor(() => expect(git.tokenPrompt()).toEqual({ reason: "required" }));
+      await git.saveToken("ghp_x");
+      await expect(run).resolves.toBe("done");
+      expect(op).toHaveBeenCalledTimes(2);
+      expect(git.tokenPrompt()).toBeNull();
+    });
+
+    it("asks again when the token is rejected", async () => {
+      vi.spyOn(backend, "gitTokenSet").mockResolvedValue();
+      const op = vi
+        .fn()
+        .mockRejectedValueOnce("auth-failed:github.com")
+        .mockRejectedValueOnce("auth-failed:github.com")
+        .mockResolvedValue("done");
+      const run = git.runRemote(op);
+      await vi.waitFor(() => expect(git.tokenPrompt()).toEqual({ reason: "failed" }));
+      await git.saveToken("bad");
+      await vi.waitFor(() => expect(op).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(git.tokenPrompt()).toEqual({ reason: "failed" }));
+      await git.saveToken("good");
+      await expect(run).resolves.toBe("done");
+    });
+
+    it("fails with the original error when the prompt is cancelled", async () => {
+      const run = git.runRemote(() => Promise.reject("auth-required:github.com"));
+      await vi.waitFor(() => expect(git.tokenPrompt()).not.toBeNull());
+      git.cancelTokenPrompt();
+      await expect(run).rejects.toBe("auth-required:github.com");
+      expect(git.tokenPrompt()).toBeNull();
+    });
+  });
 });
