@@ -1,5 +1,7 @@
 import { Injectable, computed, effect, signal } from "@angular/core";
 
+import { clampMinutes } from "../git/auto-sync";
+
 export type ThemeMode = "system" | "light" | "dark";
 
 const STORAGE_KEY = "nixe.settings";
@@ -15,6 +17,10 @@ interface StoredSettings {
   healthExclude: string[];
   gitAuthorName: string;
   gitAuthorEmail: string;
+  autoSync: boolean;
+  autoSyncMinutes: number;
+  autoSyncOnFocus: boolean;
+  autoSyncOnQuit: boolean;
 }
 
 const DEFAULTS: StoredSettings = {
@@ -28,6 +34,10 @@ const DEFAULTS: StoredSettings = {
   healthExclude: [],
   gitAuthorName: "",
   gitAuthorEmail: "",
+  autoSync: false,
+  autoSyncMinutes: 10,
+  autoSyncOnFocus: false,
+  autoSyncOnQuit: false,
 };
 
 export const ZOOM_MIN = 50;
@@ -71,6 +81,12 @@ export class SettingsService {
     typeof this.stored.gitAuthorEmail === "string" ? this.stored.gitAuthorEmail : "",
   );
 
+  /** Automatic sync of the vault; everything is off by default. */
+  readonly autoSync = signal<boolean>(this.stored.autoSync === true);
+  readonly autoSyncMinutes = signal<number>(clampMinutes(Number(this.stored.autoSyncMinutes)));
+  readonly autoSyncOnFocus = signal<boolean>(this.stored.autoSyncOnFocus === true);
+  readonly autoSyncOnQuit = signal<boolean>(this.stored.autoSyncOnQuit === true);
+
   private readonly systemDark = signal(false);
   readonly dark = computed(
     () => this.themeMode() === "dark" || (this.themeMode() === "system" && this.systemDark()),
@@ -97,6 +113,10 @@ export class SettingsService {
         healthExclude: this.healthExclude(),
         gitAuthorName: this.gitAuthorName(),
         gitAuthorEmail: this.gitAuthorEmail(),
+        autoSync: this.autoSync(),
+        autoSyncMinutes: this.autoSyncMinutes(),
+        autoSyncOnFocus: this.autoSyncOnFocus(),
+        autoSyncOnQuit: this.autoSyncOnQuit(),
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));

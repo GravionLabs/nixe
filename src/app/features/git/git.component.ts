@@ -1,5 +1,6 @@
 import { Component, inject, output } from "@angular/core";
 
+import { clampMinutes } from "../../core/git/auto-sync";
 import { GitChange } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { GitService } from "../../core/git/git.service";
@@ -21,6 +22,12 @@ export class GitComponent {
 
   readonly error = output<string>();
   readonly committed = output<void>();
+
+  protected setMinutes(input: HTMLInputElement): void {
+    const minutes = clampMinutes(input.valueAsNumber);
+    this.settings.autoSyncMinutes.set(minutes);
+    input.value = String(minutes);
+  }
 
   protected letter(kind: GitChange["kind"]): string {
     return kind === "added" ? "A" : kind === "deleted" ? "D" : "M";
