@@ -1,4 +1,4 @@
-import { KeyInput } from "./command-registry";
+import { KeyInput, physicalKey } from "./command-registry";
 
 export type Platform = "mac" | "windows" | "linux";
 
@@ -19,15 +19,16 @@ const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "O
 /** The key name of a binding for an event: a letter or digit from the physical key, else the key itself. */
 function keyName(event: RecordedKey): string | null {
   if (MODIFIER_KEYS.has(event.key)) return null;
-  const code = event.code ?? "";
-  const letter = /^Key([A-Z])$/.exec(code);
-  if (letter) return letter[1];
-  const digit = /^Digit(\d)$/.exec(code);
-  if (digit) return digit[1];
+  if (/^[a-z0-9]$/i.test(event.key)) return event.key.toUpperCase();
+  const physical = physicalKey(event.code);
   if (event.key === " ") return "Space";
   if (event.key === "+") return "Plus";
+  if (physical) return physical.toUpperCase();
   return event.key.length === 1 ? event.key.toUpperCase() : event.key;
 }
+
+/** Shortcuts of the native menu (copy, paste, quit, …) that no command may take. */
+const RESERVED = new Set(["mod+c", "mod+x", "mod+v", "mod+a", "mod+z", "mod+q", "mod+h", "mod+m"]);
 
 /**
  * The binding (`Mod+Shift+F`) a key press records, or null when it is no usable shortcut: only a
@@ -48,6 +49,7 @@ export function bindingFromEvent(event: RecordedKey, platform: Platform): string
   }
   if (event.altKey) mods.push("Alt");
   if (event.shiftKey) mods.push("Shift");
+  if (RESERVED.has(canonicalBinding([...mods, key].join("+"), platform))) return null;
   if (mods.length === 0 && !/^F([1-9]|1\d|2[0-4])$/.test(key)) return null;
   return [...mods, key].join("+");
 }

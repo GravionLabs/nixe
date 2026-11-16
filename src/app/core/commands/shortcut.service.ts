@@ -65,11 +65,18 @@ export class ShortcutService {
     this.settings.shortcuts.set(this.withoutDefaults(next));
   }
 
+  private conflictsWith(overrides: Record<string, string>, command: Command, binding: string): string[] {
+    const defaults = Object.fromEntries(this.registry.all().map((c) => [c.id, c.shortcut ?? ""]));
+    return findConflicts(effectiveBindings(defaults, overrides), command.id, binding, this.platform);
+  }
+
   /** Back to the default shortcut. */
   reset(command: Command): void {
     const next = { ...this.settings.shortcuts() };
     delete next[command.id];
-    this.settings.shortcuts.set(next);
+    // Another command may hold the default by now; it gives it back to this one.
+    for (const other of this.conflictsWith(next, command, this.defaultOf(command))) next[other] = "";
+    this.settings.shortcuts.set(this.withoutDefaults(next));
   }
 
   /** Waits for the key press that becomes the shortcut of the command. */

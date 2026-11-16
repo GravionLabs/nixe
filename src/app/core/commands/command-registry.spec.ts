@@ -147,3 +147,10 @@ describe("matchesBinding with the physical key", () => {
     expect(formatShortcut("Mod+Shift+Plus", false)).toBe("Ctrl+Shift++");
   });
 });
+
+describe("matchesBinding on other layouts", () => {
+  it("does not match a letter by position when the key shows another letter", () => {
+    expect(matchesBinding({ ...key("w", { ctrlKey: true }), code: "KeyZ" }, "Mod+Z")).toBe(false);
+    expect(matchesBinding({ ...key("z", { ctrlKey: true }), code: "KeyW" }, "Mod+Z")).toBe(true);
+  });
+});

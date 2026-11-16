@@ -24,13 +24,26 @@ export interface KeyInput {
   code?: string;
 }
 
+const PUNCTUATION: Record<string, string> = {
+  Comma: ",", Period: ".", Slash: "/", Semicolon: ";", Quote: "'", BracketLeft: "[",
+  BracketRight: "]", Backslash: "\\", Backquote: "`", Minus: "-", Equal: "=",
+};
+
+/** The lower-case key name of a physical key code (`KeyA` → `a`, `Comma` → `,`); null for others. */
+export function physicalKey(code: string | undefined): string | null {
+  if (!code) return null;
+  const m = /^Key([A-Z])$/.exec(code) ?? /^Digit(\d)$/.exec(code);
+  return m ? m[1].toLowerCase() : (PUNCTUATION[code] ?? null);
+}
+
 /** True when `event` is the key combination `binding` (`Mod+Shift+F`, `Alt+ArrowLeft`). */
 export function matchesBinding(event: KeyInput, binding: string): boolean {
   const parts = binding.split("+");
   const key = parts.pop()!.toLowerCase();
   const mods = new Set(parts.map((p) => p.toLowerCase()));
   const named = key === "plus" ? "+" : key === "space" ? " " : key;
-  const physical = /^[a-z0-9]$/.test(key) && event.code === (/\d/.test(key) ? `Digit${key}` : `Key${key.toUpperCase()}`);
+  // The physical key counts only where the character is no letter or digit (⌥ and ⇧ change it).
+  const physical = !/^[a-z0-9]$/i.test(event.key) && physicalKey(event.code) === key;
   return (
     (event.key.toLowerCase() === named || physical) &&
     (mods.has("ctrl") ? event.ctrlKey && !event.metaKey : (event.metaKey || event.ctrlKey) === mods.has("mod")) &&

@@ -55,6 +55,23 @@ describe("bindingFromEvent", () => {
     expect(bindingFromEvent(press("ArrowLeft", "ArrowLeft", { altKey: true }), "mac")).toBe("Alt+ArrowLeft");
   });
 
+  it("records punctuation by its physical key, so ⇧ and ⌥ do not change it", () => {
+    expect(bindingFromEvent(press("<", "Comma", { ctrlKey: true, shiftKey: true }), "linux")).toBe("Mod+Shift+,");
+    expect(bindingFromEvent(press("≤", "Comma", { metaKey: true, altKey: true }), "mac")).toBe("Mod+Alt+,");
+    const event = press("<", "Comma", { ctrlKey: true, shiftKey: true });
+    expect(matchesBinding(event, "Mod+Shift+,")).toBe(true);
+  });
+
+  it("records the letter on the key, not its position, on other layouts", () => {
+    expect(bindingFromEvent(press("b", "KeyN", { ctrlKey: true }), "windows")).toBe("Mod+B");
+  });
+
+  it("refuses the shortcuts of the native menu items", () => {
+    expect(bindingFromEvent(press("c", "KeyC", { metaKey: true }), "mac")).toBeNull();
+    expect(bindingFromEvent(press("q", "KeyQ", { metaKey: true }), "mac")).toBeNull();
+    expect(bindingFromEvent(press("v", "KeyV", { ctrlKey: true }), "linux")).toBeNull();
+  });
+
   it("refuses a modifier alone and a key without modifier, except function keys", () => {
     expect(bindingFromEvent(press("Shift", "ShiftLeft", { shiftKey: true }), "mac")).toBeNull();
     expect(bindingFromEvent(press("Control", "ControlLeft", { ctrlKey: true }), "windows")).toBeNull();

@@ -99,6 +99,15 @@ describe("ShortcutService", () => {
     expect(menu).toHaveBeenLastCalledWith({ one: "CmdOrCtrl+1" });
   });
 
+  it("takes the default back from the command that holds it on reset", () => {
+    shortcuts.assign(command("one"), "Mod+2");
+    expect(settings.shortcuts()).toEqual({ one: "Mod+2", two: "" });
+    shortcuts.reset(command("two"));
+    expect(settings.shortcuts()).toEqual({ one: "" });
+    expect(shortcuts.display("two")).not.toBe("");
+    expect(shortcuts.display("one")).toBe("");
+  });
+
   it("stores no override for the default shortcut", () => {
     shortcuts.assign(command("one"), "Mod+Shift+K");
     shortcuts.assign(command("one"), "mod+1");
