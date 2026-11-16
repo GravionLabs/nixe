@@ -134,7 +134,7 @@ describe("TabsService", () => {
   it("writes typed text before a split copies the note", async () => {
     await tabs.activeTab().doc.open("/v/a.md");
     const flush = vi.fn().mockResolvedValue(undefined);
-    tabs.activeTab().editor.handle = { flush } as never;
+    tabs.activeTab().editor.handle = { flush, topLine: () => 1 } as never;
     await tabs.splitRight();
     expect(flush).toHaveBeenCalled();
   });
