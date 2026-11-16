@@ -16,6 +16,35 @@ named `search`.
 | `nixe notes [--tag <tag>]… [--path <prefix>]` | Notes carrying every given tag (nested tags match) below the vault-relative path prefix, sorted by path. |
 | `nixe props <note>` | The typed frontmatter properties of the note. |
 
+## Health check
+
+`nixe check [--exclude <dir>]… [--json]` prints the vault health report, the same one the
+`Vault health` view shows (command palette: "Vault health"), and exits with `1` when the
+vault has broken links, so it can run in CI or a pre-commit hook.
+
+| Section | Lists |
+|---|---|
+| Broken links | Links, embeds and Markdown links that resolve to no file (missing or ambiguous), with note, line and the linking line. |
+| Orphan notes | Notes with no link to or from another note. Daily notes (`YYYY-MM-DD`) never count. |
+| Duplicate basenames | Notes sharing a name (case-insensitive), which makes `[[name]]` ambiguous. |
+| Unused attachments | Non-Markdown files that no note links or embeds. Hidden paths (`.something/`) are skipped. |
+
+`--exclude <dir>` (repeatable) leaves a vault-relative folder and everything below it out of
+every section, for example `templates` or `archive`. In the app the folders are set in the
+excluded-folders field of the view (setting `healthExclude`). The report is computed from the
+index with a few queries: under a second for 2000 notes.
+
+With `--json` the report is one object:
+
+```json
+{
+  "brokenLinks": [{ "source": "Index.md", "line": 8, "target": "Missing", "kind": "link", "context": "- [[Missing]] stays unresolved" }],
+  "orphans": [{ "path": "Frontmatter.md", "title": "Frontmatter" }],
+  "duplicates": [{ "name": "Twin", "paths": ["folder/Twin.md", "other/Twin.md"] }],
+  "unusedAttachments": []
+}
+```
+
 ## Capture
 
 `new` and `append` write to the vault. They print the absolute path of the note and need no
@@ -44,7 +73,7 @@ Before answering, the index (the one the app uses, below the app data directory)
 to date with an incremental scan, so the answer reflects the files on disk. On an indexed
 2000-note vault a subcommand answers in under 300 ms.
 
-Exit codes: `0` ok, `1` the query failed (unknown note, unreadable vault), `2` wrong arguments.
+Exit codes: `0` ok, `1` the query failed (unknown note, unreadable vault) or `check` found broken links, `2` wrong arguments.
 
 On Windows a release build is a GUI program and has no console of its own, so the output of a
 subcommand only shows when it is redirected or piped.

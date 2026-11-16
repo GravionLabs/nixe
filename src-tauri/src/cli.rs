@@ -17,6 +17,7 @@ const SUBCOMMANDS: &[&str] = &[
     "tags",
     "notes",
     "props",
+    "check",
     "new",
     "append",
     "mcp",
@@ -33,6 +34,7 @@ usage: nixe <path>|-                       open the viewer
        nixe tags [--vault <dir>] [--json]
        nixe notes [--tag <tag>]... [--path <prefix>] [--vault <dir>] [--json]
        nixe props <note> [--vault <dir>] [--json]
+       nixe check [--exclude <dir>]... [--vault <dir>] [--json]   exit 1 on broken links
        nixe new <title> [--folder <dir>] [--open] [--vault <dir>]
        nixe append <note> [text] [--vault <dir>]   text from stdin when omitted
        nixe append --inbox [text] [--vault <dir>]
@@ -124,6 +126,7 @@ struct Parsed {
     vault: Option<String>,
     json: bool,
     tags: Vec<String>,
+    exclude: Vec<String>,
     path: String,
     folder: Option<String>,
     open: bool,
@@ -152,6 +155,7 @@ fn parse(args: &[String]) -> Result<Parsed, CliError> {
             "--folder" => p.folder = Some(value(flag, inline, &mut it)?),
             "--vault" => p.vault = Some(value(flag, inline, &mut it)?),
             "--tag" => p.tags.push(value(flag, inline, &mut it)?),
+            "--exclude" => p.exclude.push(value(flag, inline, &mut it)?),
             "--path" => p.path = value(flag, inline, &mut it)?,
             _ if flag.starts_with("--") => {
                 return Err(CliError::Usage(format!("unknown option {flag}")))
@@ -210,6 +214,12 @@ pub fn execute_with(
             inbox: p.inbox,
         };
         return crate::cli_write::run(command, &request, &root, app_data, input, out);
+    }
+    if command == "check" {
+        if !p.positional.is_empty() {
+            return Err(CliError::Usage("`check` takes no arguments".into()));
+        }
+        return check(&p, cwd, app_data, out);
     }
     let needs_note = matches!(command, "backlinks" | "links" | "props");
     let needs_text = command == "search";
@@ -270,6 +280,51 @@ pub fn execute_with(
             })
         }
     }
+}
+
+/// `nixe check`: prints the health report; fails (exit 1) when a link is broken.
+fn check(p: &Parsed, cwd: &Path, app_data: &Path, out: &mut dyn Write) -> Result<(), CliError> {
+    let root = vault_root(p.vault.as_deref(), cwd)?;
+    let mut conn = index::open(&index::index_path(app_data, &root))?;
+    scan(&mut conn, &root, |_| {})?;
+    let report = index::health::report(&conn, &p.exclude)?;
+    let text = if p.json {
+        let mut s =
+            serde_json::to_string_pretty(&report).map_err(|e| CliError::Failed(e.to_string()))?;
+        s.push('\n');
+        s
+    } else {
+        health_text(&report)
+    };
+    out.write_all(text.as_bytes())
+        .map_err(|e| CliError::Failed(e.to_string()))?;
+    match report.broken_links.len() {
+        0 => Ok(()),
+        n => Err(CliError::Failed(format!("{n} broken link(s)"))),
+    }
+}
+
+fn health_text(r: &index::health::HealthReport) -> String {
+    let mut s = format!("Broken links ({})\n", r.broken_links.len());
+    for l in &r.broken_links {
+        s.push_str(&format!("  {}:{}  {}\n", l.source, l.line, l.context));
+    }
+    s.push_str(&format!("Orphan notes ({})\n", r.orphans.len()));
+    for n in &r.orphans {
+        s.push_str(&format!("  {}\n", n.path));
+    }
+    s.push_str(&format!("Duplicate basenames ({})\n", r.duplicates.len()));
+    for d in &r.duplicates {
+        s.push_str(&format!("  {}: {}\n", d.name, d.paths.join(", ")));
+    }
+    s.push_str(&format!(
+        "Unused attachments ({})\n",
+        r.unused_attachments.len()
+    ));
+    for a in &r.unused_attachments {
+        s.push_str(&format!("  {a}\n"));
+    }
+    s
 }
 
 fn display_value(v: &serde_json::Value) -> String {
