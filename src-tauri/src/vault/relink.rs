@@ -20,7 +20,8 @@ use super::resolve::{is_markdown_path, Resolver};
 use crate::write;
 
 /// The path form of new links, from `newLinkFormat` of `.obsidian/app.json`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum LinkFormat {
     /// The shortest path that still names the note (Obsidian's default).
     #[default]
@@ -810,6 +811,19 @@ mod tests {
             |p| texts.get(p).cloned(),
         );
         assert!(got.is_empty());
+    }
+
+    #[test]
+    fn the_link_format_serializes_in_lowercase() {
+        let names: Vec<String> = [
+            LinkFormat::Shortest,
+            LinkFormat::Relative,
+            LinkFormat::Absolute,
+        ]
+        .iter()
+        .map(|f| serde_json::to_string(f).unwrap())
+        .collect();
+        assert_eq!(names, [r#""shortest""#, r#""relative""#, r#""absolute""#]);
     }
 
     #[test]

@@ -4,14 +4,17 @@ import { EditorView } from "@codemirror/view";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { AutoSaver, ExternalChangeTracker, clampLine, toCrlf } from "../../core/editor/editor-core";
+import { blocksOf, headingsOf } from "../../core/editor/completion-core";
 import { EditorService } from "../../core/editor/editor.service";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
+import { fileLabel } from "../../core/switcher/fuzzy";
 import { SettingsService } from "../../core/settings/settings.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { CompletionData } from "./completion";
 import { editorBehavior, editorTheme } from "./editor-extensions";
 
 const BASE_FONT_PX = 16;
@@ -140,6 +143,7 @@ export class EditorComponent implements OnDestroy {
           onSave: () => void this.flush(),
           onBlur: () => void this.flush(),
           onWikilink: (value) => void this.openWikilink(value),
+          completion: this.completionData,
         }),
         this.theme.of(editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100)),
         EditorView.updateListener.of((update) => {
@@ -157,6 +161,37 @@ export class EditorComponent implements OnDestroy {
     this.editor.startLine.set(null);
     if (line !== null) this.scrollToLine(line);
     this.view.focus();
+  }
+
+  /** What `[[` and `#` completion reads: the index for notes and tags, the note text for headings. */
+  private readonly completionData: CompletionData = {
+    notes: async () => {
+      const notes = await backend.notes().catch(() => []);
+      if (notes.length) return notes;
+      return (this.workspace.vaultFiles() ?? [])
+        .filter((p) => /\.md$/iu.test(p))
+        .map((path) => ({ path, title: fileLabel(path), aliases: [] }));
+    },
+    currentPath: () => this.relativePath(this.doc.path()),
+    linkFormat: () => backend.linkFormat().catch(() => "shortest" as const),
+    headings: async (note, openText) => headingsOf(await this.textOf(note, openText)),
+    blocks: async (note, openText) => blocksOf(await this.textOf(note, openText)),
+    tags: () => backend.tags().catch(() => []),
+  };
+
+  private relativePath(path: string | null): string | null {
+    const root = this.workspace.vaultRoot();
+    return path && root && path.startsWith(root + "/") ? path.slice(root.length + 1) : null;
+  }
+
+  /** The text of the note a link target names; the open note (as typed) for an empty target. */
+  private async textOf(note: string, openText: string): Promise<string> {
+    if (!note) return openText;
+    const root = this.workspace.vaultRoot();
+    const files = this.workspace.vaultFiles();
+    const rel = root && files ? resolveWikilink(note, files) : null;
+    if (!root || !rel || !isMarkdownPath(rel)) return "";
+    return backend.readTextFile(joinPath(root, rel)).catch(() => "");
   }
 
   private async write(session: Session, text: string): Promise<void> {

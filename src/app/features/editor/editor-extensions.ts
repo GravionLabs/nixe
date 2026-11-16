@@ -12,11 +12,12 @@ import {
   keymap,
 } from "@codemirror/view";
 
+import { CompletionData, completionExtension } from "./completion";
 import { inlineTokens, nodeClass, tokenAt } from "../../core/editor/editor-core";
 
 const CODE_NODES = new Set(["FencedCode", "CodeBlock", "InlineCode", "CommentBlock", "HTMLBlock"]);
 
-function inCode(state: EditorState, pos: number): boolean {
+export function inCode(state: EditorState, pos: number): boolean {
   for (let node: { name: string; parent: unknown } | null = syntaxTree(state).resolveInner(pos, 1); node; ) {
     if (CODE_NODES.has(node.name)) return true;
     node = node.parent as typeof node;
@@ -99,6 +100,13 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
       ".cm-md-syntax": { opacity: "0.4" },
       ".cm-wikilink": { color: "var(--accent)", textDecoration: "underline" },
       ".cm-tag": { color: "var(--accent)" },
+      ".cm-tooltip": { backgroundColor: "var(--chrome)", color: "var(--fg)", border: "1px solid var(--muted)" },
+      ".cm-tooltip.cm-tooltip-autocomplete > ul > li": { padding: "2px 8px" },
+      ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": {
+        backgroundColor: "var(--accent)",
+        color: "var(--bg)",
+      },
+      ".cm-completionDetail": { opacity: "0.6", marginLeft: "0.8em", fontStyle: "normal" },
     },
     { dark },
   );
@@ -109,6 +117,8 @@ export interface EditorHooks {
   onBlur(): void;
   /** ⌘/Ctrl+click on a `[[wikilink]]`; `value` is the text between the brackets. */
   onWikilink(value: string): void;
+  /** Vault data for the `[[` and `#` completion; without it the editor does not complete. */
+  completion?: CompletionData;
 }
 
 /** Extensions that do not depend on the theme. */
@@ -131,6 +141,7 @@ export function editorBehavior(hooks: EditorHooks): Extension[] {
     drawSelection(),
     EditorView.lineWrapping,
     markdownStyling,
+    ...(hooks.completion ? [completionExtension(hooks.completion)] : []),
     EditorView.domEventHandlers({
       blur: () => {
         hooks.onBlur();

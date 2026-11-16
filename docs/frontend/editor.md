@@ -19,6 +19,19 @@
   until one is chosen. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
 - **Scroll**: the viewer's top block (`data-line`) becomes the editor's first line and back.
 
+## Autocomplete
+
+`features/editor/completion.ts` (sources) and `core/editor/completion-core.ts` (pure logic) add
+CodeMirror completion for links and tags; nothing is offered in code.
+
+- `[[` lists the notes of the vault, fuzzy over file names and aliases. Choosing an alias inserts
+  `[[Note|Alias]]`. `[[Note#` lists the headings of the note (`[[#` those of the open note) and
+  `[[Note#^` its block ids (`^id` at the end of a line); both are read from the note's text, so
+  unsaved edits of the open note count. The link is closed with `]]`.
+- The note part follows `newLinkFormat` of `.obsidian/app.json` (`shortest`, `relative`,
+  `absolute`; the `link_format` command reads it, the same reader the rename relinking uses).
+- `#` at a word start lists the vault's tags (the `tags` command) by frequency, filtered fuzzily.
+
 ## Creating, renaming and deleting notes
 
 `VaultOpsService` (`core/workspace/`) wraps the Rust commands `create_file`, `create_dir`,
