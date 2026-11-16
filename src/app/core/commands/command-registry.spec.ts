@@ -1,0 +1,125 @@
+// @vitest-environment jsdom
+import "@angular/compiler";
+import { TestBed } from "@angular/core/testing";
+import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { CommandRegistry, KeyInput, formatShortcut, matchesBinding } from "./command-registry";
+import { PaletteService } from "./palette.service";
+
+const key = (k: string, mods: Partial<KeyInput> = {}): KeyInput => ({
+  key: k,
+  metaKey: false,
+  ctrlKey: false,
+  shiftKey: false,
+  altKey: false,
+  ...mods,
+});
+
+beforeAll(() => TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting()));
+
+describe("matchesBinding / formatShortcut", () => {
+  it("matches Mod with meta or ctrl, exactly", () => {
+    expect(matchesBinding(key("p", { metaKey: true }), "Mod+P")).toBe(true);
+    expect(matchesBinding(key("P", { ctrlKey: true }), "Mod+P")).toBe(true);
+    expect(matchesBinding(key("p"), "Mod+P")).toBe(false);
+    expect(matchesBinding(key("p", { metaKey: true, shiftKey: true }), "Mod+P")).toBe(false);
+    expect(matchesBinding(key("ArrowLeft", { altKey: true }), "Alt+ArrowLeft")).toBe(true);
+  });
+
+  it("formats per platform", () => {
+    expect(formatShortcut("Mod+Shift+F", true)).toBe("⌘⇧F");
+    expect(formatShortcut("Mod+Shift+F", false)).toBe("Ctrl+Shift+F");
+  });
+});
+
+describe("CommandRegistry", () => {
+  let registry: CommandRegistry;
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    registry = TestBed.inject(CommandRegistry);
+  });
+
+  it("runs a registered command by id", () => {
+    const run = vi.fn();
+    registry.register({ id: "a", title: "A", run });
+    expect(registry.execute("a")).toBe(true);
+    expect(run).toHaveBeenCalledOnce();
+  });
+
+  it("ignores unknown ids", () => {
+    expect(registry.execute("nope")).toBe(false);
+  });
+
+  it("evaluates when on every call", () => {
+    let on = false;
+    const run = vi.fn();
+    registry.register({ id: "a", title: "A", when: () => on, run });
+    expect(registry.execute("a")).toBe(false);
+    expect(registry.available()).toEqual([]);
+    expect(run).not.toHaveBeenCalled();
+    on = true;
+    expect(registry.execute("a")).toBe(true);
+    expect(registry.available().map((c) => c.id)).toEqual(["a"]);
+  });
+
+  it("replaces by id and unregisters only its own registration", () => {
+    const first = registry.register({ id: "a", title: "One", run: () => {} });
+    registry.register({ id: "a", title: "Two", run: () => {} });
+    first();
+    expect(registry.get("a")?.title).toBe("Two");
+  });
+
+  it("finds a command by key binding", () => {
+    registry.register({ id: "p", title: "P", keys: ["Mod+P"], run: () => {} });
+    registry.register({ id: "q", title: "Q", shortcut: "Mod+Q", run: () => {} });
+    expect(registry.findByKey(key("p", { metaKey: true }))?.id).toBe("p");
+    expect(registry.findByKey(key("q", { metaKey: true }))).toBeUndefined();
+  });
+});
+
+describe("PaletteService", () => {
+  let registry: CommandRegistry;
+  let palette: PaletteService;
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    registry = TestBed.inject(CommandRegistry);
+    palette = TestBed.inject(PaletteService);
+    registry.register({ id: "toggle-sidebar", title: "Toggle sidebar", run: () => {} });
+    registry.register({ id: "zoom-in", title: "Zoom in", run: () => {} });
+    registry.register({ id: "hidden", title: "Zoom hidden", when: () => false, run: () => {} });
+  });
+
+  it("lists available commands alphabetically without a query", () => {
+    palette.open();
+    expect(palette.matches().map((c) => c.id)).toEqual(["toggle-sidebar", "zoom-in"]);
+  });
+
+  it("filters fuzzily by title and skips unavailable commands", () => {
+    palette.open();
+    palette.setQuery("zi");
+    expect(palette.matches().map((c) => c.id)).toEqual(["zoom-in"]);
+    palette.setQuery("tsb");
+    expect(palette.matches().map((c) => c.id)).toEqual(["toggle-sidebar"]);
+  });
+
+  it("runs the selected command and closes", () => {
+    const run = vi.fn();
+    registry.register({ id: "x", title: "Xylophone", run });
+    palette.open();
+    palette.setQuery("xylo");
+    palette.run(palette.current()!);
+    expect(run).toHaveBeenCalledOnce();
+    expect(palette.visible()).toBe(false);
+  });
+
+  it("wraps the selection", () => {
+    palette.open();
+    palette.move(-1);
+    expect(palette.selected()).toBe(1);
+    palette.move(1);
+    expect(palette.selected()).toBe(0);
+  });
+});

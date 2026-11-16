@@ -65,3 +65,12 @@ README possible: that code could move into its own package unchanged.
 
 See [state-management.md](state-management.md) for how these interact when the user
 clicks a link or expands a tree node.
+
+## Commands and the command palette
+
+Every action of the app is a `Command` (`id`, `title`, optional `shortcut`, optional `when`
+condition) in the `CommandRegistry` (`src/app/core/commands/`). `AppComponent` registers the
+built-in ones. The native menu only emits a command id (`menu` event), the webview key handler
+runs the commands that declare `keys`, and the palette (⌘/Ctrl+P) lists the commands whose
+`when` holds, ranked by fuzzy match on the title, with their shortcuts. Plugins will register
+into the same registry.

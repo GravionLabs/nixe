@@ -37,6 +37,7 @@
       <dl class="shortcuts">
         <dt>{{ mod }}N</dt><dd>New note</dd>
         <dt>{{ mod }}O</dt><dd>Quick switcher</dd>
+        <dt>{{ mod }}P</dt><dd>Command palette</dd>
         <dt>{{ mod }}⇧P</dt><dd>Open file</dd>
         <dt>{{ mod }}⇧O</dt><dd>Open folder</dd>
         <dt>{{ mod }}E</dt><dd>Edit / view the note</dd>
@@ -51,6 +52,10 @@
 
 @if (showSwitcher()) {
   <app-switcher (error)="showToast($event)" />
+}
+
+@if (palette.visible()) {
+  <app-palette />
 }
 
 @if (toast(); as message) {
