@@ -18,8 +18,6 @@ mod cli_write;
 pub mod mcp;
 #[cfg(desktop)]
 mod menu;
-// Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
-#[cfg(any(debug_assertions, mobile))]
 mod conflict;
 mod credentials;
 mod fileops;
