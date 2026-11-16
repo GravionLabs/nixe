@@ -72,4 +72,15 @@ describe("SettingsService storage", () => {
     expect(write).not.toHaveBeenCalled();
     expect(JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY)!).zoom).toBe(150);
   });
+
+  it("leaves a damaged settings file untouched", async () => {
+    read.mockResolvedValue("{broken");
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const settings = TestBed.inject(SettingsService);
+    await settings.load();
+    settings.zoom.set(140);
+    TestBed.tick();
+    await settings.flush();
+    expect(write).not.toHaveBeenCalled();
+  });
 });

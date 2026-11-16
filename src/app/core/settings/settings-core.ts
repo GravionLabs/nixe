@@ -110,20 +110,23 @@ export interface LoadedSettings {
   settings: StoredSettings;
   /** Where they came from: the file, the old `localStorage` entry (to be migrated) or nothing (defaults). */
   source: "file" | "legacy" | "defaults";
+  /** The file exists but is no JSON object; it must not be overwritten. */
+  damaged: boolean;
 }
 
 /**
  * The settings to start with. The settings file wins; without one (first start after the update)
  * the old `localStorage` entry is migrated; without that the defaults apply. A file that is no
- * JSON object counts as missing, so a damaged file does not stop the app from starting.
+ * JSON object does not stop the app from starting, but is flagged `damaged` and left untouched.
  */
 export function loadSettings(file: string | null, legacy: string | null): LoadedSettings {
   const isObject = (v: unknown) => v !== null && typeof v === "object" && !Array.isArray(v);
   const fromFile = parseJson(file);
-  if (isObject(fromFile)) return { settings: sanitizeSettings(fromFile), source: "file" };
+  if (isObject(fromFile)) return { settings: sanitizeSettings(fromFile), source: "file", damaged: false };
+  const damaged = file !== null;
   const fromLegacy = parseJson(legacy);
-  if (isObject(fromLegacy)) return { settings: sanitizeSettings(fromLegacy), source: "legacy" };
-  return { settings: sanitizeSettings(null), source: "defaults" };
+  if (isObject(fromLegacy)) return { settings: sanitizeSettings(fromLegacy), source: "legacy", damaged };
+  return { settings: sanitizeSettings(null), source: "defaults", damaged };
 }
 
 export function serializeSettings(settings: StoredSettings): string {

@@ -62,7 +62,9 @@ describe("loadSettings (migration from the localStorage SettingsService)", () =>
   });
 
   it("uses the defaults when there is nothing", () => {
-    expect(loadSettings(null, null)).toEqual({ settings: DEFAULT_SETTINGS, source: "defaults" });
+    expect(loadSettings(null, null)).toEqual({ settings: DEFAULT_SETTINGS, source: "defaults", damaged: false });
     expect(loadSettings("x", "y").source).toBe("defaults");
+    expect(loadSettings("{broken", legacy).damaged).toBe(true);
+    expect(loadSettings(null, legacy).damaged).toBe(false);
   });
 });

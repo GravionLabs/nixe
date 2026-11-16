@@ -166,8 +166,13 @@ export class SettingsService {
       console.warn("settings file unavailable, using local storage", err);
       return;
     }
-    const { settings, source } = loadSettings(file, readLegacy());
+    const { settings, source, damaged } = loadSettings(file, readLegacy());
     this.apply(settings);
+    if (damaged) {
+      // Keep the damaged file for the user to recover; settings go to local storage meanwhile.
+      console.warn("settings.json is damaged and was left untouched");
+      return;
+    }
     this.fileReady = true;
     if (source !== "file") this.persist(settings);
   }
