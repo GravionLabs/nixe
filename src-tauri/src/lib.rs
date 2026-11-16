@@ -189,6 +189,12 @@ fn new_note_location(state: State<'_, AppState>) -> Result<fileops::NewNoteLocat
     Ok(fileops::new_note_location(&vault_root_of(&state)?))
 }
 
+/// How links to notes are written, from `.obsidian/app.json` of the vault.
+#[tauri::command]
+fn link_format(state: State<'_, AppState>) -> Result<vault::relink::LinkFormat, String> {
+    Ok(vault::relink::link_format(&vault_root_of(&state)?))
+}
+
 /// False when the file holds bytes that are not UTF-8 (`read_text_file` would replace them).
 #[tauri::command]
 fn is_utf8_file(path: String) -> bool {
@@ -365,6 +371,7 @@ pub fn run() {
         relink_preview,
         trash_path,
         new_note_location,
+        link_format,
         is_utf8_file,
         is_file,
         is_dir,
@@ -405,6 +412,7 @@ pub fn run() {
         relink_preview,
         trash_path,
         new_note_location,
+        link_format,
         is_utf8_file,
         is_file,
         is_dir,

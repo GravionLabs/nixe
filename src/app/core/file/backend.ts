@@ -68,6 +68,16 @@ export interface NewNoteLocation {
   folder: string;
 }
 
+/** How a link to a note is written (`newLinkFormat` of `.obsidian/app.json`). */
+export interface LinkFormat {
+  format: "shortest" | "relative" | "absolute";
+}
+
+export interface TagCount {
+  tag: string;
+  count: number;
+}
+
 /** A note whose links a rename rewrites. */
 export interface RelinkChange {
   /** Vault-relative path of the note after the rename. */
@@ -100,6 +110,9 @@ export const backend = {
   trashPath: (path: string) => invoke<string>("trash_path", { path }),
   newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
+  linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
+  /** Every tag of the vault with the number of notes using it, most used first. */
+  tags: () => invoke<TagCount[]>("tags"),
   isUtf8File: (path: string) => invoke<boolean>("is_utf8_file", { path }),
   isFile: (path: string) => invoke<boolean>("is_file", { path }),
   isDir: (path: string) => invoke<boolean>("is_dir", { path }),

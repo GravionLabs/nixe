@@ -19,6 +19,7 @@
     "@angular/core": "^22.0.1",
     "@angular/forms": "^22.0.1",
     "@angular/platform-browser": "^22.0.1",
+    "@codemirror/autocomplete": "^6.20.4",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language": "^6.13.1",
