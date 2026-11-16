@@ -16,6 +16,21 @@ named `search`.
 | `nixe notes [--tag <tag>]… [--path <prefix>]` | Notes carrying every given tag (nested tags match) below the vault-relative path prefix, sorted by path. |
 | `nixe props <note>` | The typed frontmatter properties of the note. |
 
+## Capture
+
+`new` and `append` write to the vault. They print the absolute path of the note and need no
+index.
+
+| Command | Does |
+|---|---|
+| `nixe new <title> [--folder <dir>] [--open]` | Creates an empty note `<title>.md` and never replaces one (exit 1 when it exists). The folder is `--folder` (vault-relative, created if missing), else the new-note folder of `.obsidian/app.json`, else the vault root. `--open` then opens the note in the viewer. |
+| `nixe append <note> [text]` | Appends the text (the remaining arguments joined by a space, or stdin when there are none) on its own line(s). A missing note is created: `a/b` is a path in the vault, a bare name goes to `--folder` or the new-note folder. |
+| `nixe append --inbox [text]` | Appends to `Inbox.md` in the inbox folder: the new-note folder of the vault when it sets one, else `Inbox/`. |
+
+Writes replace the note atomically (a temp file renamed into place) and refuse paths outside
+the vault, including `..`, absolute paths and symlinks that lead out. A Nixe window that shows
+the note picks the change up through its file watcher.
+
 `<note>` is a vault-relative path (with or without `.md`) or a unique note name, resolved
 like a `[[wikilink]]`. A missing or ambiguous note is an error.
 
