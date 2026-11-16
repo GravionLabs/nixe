@@ -14,16 +14,16 @@ pub mod cli;
 mod cli_install;
 #[cfg(desktop)]
 mod cli_write;
-#[cfg(desktop)]
-pub mod mcp;
-#[cfg(desktop)]
-mod menu;
 mod conflict;
 mod credentials;
 mod fileops;
 mod git;
 mod gitsync;
 mod index;
+#[cfg(desktop)]
+pub mod mcp;
+#[cfg(desktop)]
+mod menu;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
 mod tree;
