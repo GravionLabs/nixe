@@ -11,6 +11,7 @@ import { SearchService } from "./core/index/search.service";
 import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
+import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { SearchComponent } from "./features/search/search.component";
@@ -35,6 +36,7 @@ export class AppComponent {
   protected readonly settings = inject(SettingsService);
   private readonly markdown = inject(MarkdownService);
   private readonly index = inject(IndexService);
+  private readonly ops = inject(VaultOpsService);
   protected readonly editor = inject(EditorService);
   private readonly viewer = viewChild(ViewerComponent);
   protected readonly search = inject(SearchService);
@@ -144,6 +146,7 @@ export class AppComponent {
 
   private onMenu(id: string): void {
     const actions: Record<string, () => unknown> = {
+      "new-note": () => this.newNote(),
       "quick-switcher": () => this.openSwitcher(),
       "toggle-editor": () => this.run(() => this.editor.toggle(this.viewer()?.topLine() ?? null)),
       "open-file": () => this.run(() => this.doc.openWithDialog()),
@@ -166,6 +169,15 @@ export class AppComponent {
     actions[id]?.();
   }
 
+  /** A new note in the new-note folder of the vault, opened in the editor. */
+  private newNote(): void {
+    if (this.workspace.vaultRoot() === null) return;
+    void this.run(async () => {
+      await this.ops.createNote();
+      if (!this.editor.editing()) await this.editor.toggle(null);
+    });
+  }
+
   private openSwitcher(): void {
     if (this.workspace.vaultRoot() !== null) void this.switcher.open();
   }
@@ -174,6 +186,11 @@ export class AppComponent {
   protected onKeydown(event: KeyboardEvent): void {
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {
       this.search.openWith();
+      event.preventDefault();
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "n") {
+      this.newNote();
       event.preventDefault();
       return;
     }

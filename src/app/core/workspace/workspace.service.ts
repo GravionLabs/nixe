@@ -30,6 +30,7 @@ export class WorkspaceService {
   /** Vault-relative files, held in memory for wikilink resolution. */
   readonly vaultFiles = signal<readonly string[] | null>(null);
   private readonly rootNodes = signal<TreeNode[]>([]);
+  private rootHasOrder = false;
 
   /** Flattened list of visible rows (expanded folders only). */
   readonly visible = computed(() => {
@@ -51,6 +52,7 @@ export class WorkspaceService {
     const nodes = await this.load(path, hasOrder, 0);
     const vaultRoot = toSlashes(await backend.findVaultRoot(path));
     const vaultFiles = await backend.listVaultFiles(vaultRoot);
+    this.rootHasOrder = hasOrder;
     this.vaultRoot.set(vaultRoot);
     this.vaultFiles.set(vaultFiles);
     this.root.set(path);
@@ -78,6 +80,39 @@ export class WorkspaceService {
     await this.openFolder(root, { openDefaultPage: false });
     const current = this.doc.path();
     if (current) await this.reveal(current);
+  }
+
+  /** Re-reads the tree and the file list after a file operation; expanded folders stay open. */
+  async reloadTree(): Promise<void> {
+    const root = this.root();
+    const vaultRoot = this.vaultRoot();
+    if (!root || !vaultRoot) return;
+    const open = new Set<string>();
+    const collect = (nodes: TreeNode[]) => {
+      for (const n of nodes) {
+        if (n.dirPath && n.expanded()) open.add(n.dirPath);
+        collect(n.children() ?? []);
+      }
+    };
+    collect(this.rootNodes());
+    const [nodes, files] = await Promise.all([
+      this.loadOpen(root, this.rootHasOrder, 0, open),
+      backend.listVaultFiles(vaultRoot),
+    ]);
+    this.rootNodes.set(nodes);
+    this.vaultFiles.set(files);
+  }
+
+  private async loadOpen(dir: string, hasOrder: boolean, depth: number, open: Set<string>): Promise<TreeNode[]> {
+    const nodes = await this.load(dir, hasOrder, depth);
+    await Promise.all(
+      nodes.map(async (node) => {
+        if (!node.dirPath || !open.has(node.dirPath)) return;
+        node.children.set(await this.loadOpen(node.dirPath, node.hasOrder, depth + 1, open).catch(() => []));
+        node.expanded.set(true);
+      }),
+    );
+    return nodes;
   }
 
   async toggle(node: TreeNode, expand = !node.expanded()): Promise<void> {

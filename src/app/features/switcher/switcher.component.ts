@@ -4,6 +4,7 @@ import { DocumentService } from "../../core/file/document.service";
 import { joinPath } from "../../core/markdown/paths";
 import { SwitcherMatch } from "../../core/switcher/fuzzy";
 import { SwitcherService } from "../../core/switcher/switcher.service";
+import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
 /** Quick switcher overlay: type a few letters, arrow keys to choose, Enter to open. */
@@ -16,6 +17,7 @@ export class SwitcherComponent {
   protected readonly switcher = inject(SwitcherService);
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly ops = inject(VaultOpsService);
 
   readonly error = output<string>();
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("input");
@@ -37,9 +39,9 @@ export class SwitcherComponent {
         this.switcher.move(-1);
         break;
       case "Enter": {
-        // Without a match nothing happens yet (creating a note comes with the editor).
         const match = this.switcher.current();
         if (match) void this.choose(match);
+        else void this.create();
         break;
       }
       case "Escape":
@@ -49,6 +51,18 @@ export class SwitcherComponent {
         return;
     }
     event.preventDefault();
+  }
+
+  /** Nothing matches: the query becomes a new note. */
+  protected async create(): Promise<void> {
+    const query = this.switcher.query();
+    if (!query.trim()) return;
+    this.switcher.close();
+    try {
+      await this.ops.createNoteForLink(query);
+    } catch (err) {
+      this.error.emit(String(err));
+    }
   }
 
   protected async choose(match: SwitcherMatch): Promise<void> {

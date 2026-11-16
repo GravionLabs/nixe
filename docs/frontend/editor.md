@@ -18,3 +18,18 @@
   when nothing is unsaved; otherwise a bar offers *Reload* or *Keep mine*, and saving is paused
   until one is chosen. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
 - **Scroll**: the viewer's top block (`data-line`) becomes the editor's first line and back.
+
+## Creating, renaming and deleting notes
+
+`VaultOpsService` (`core/workspace/`) wraps the Rust commands `create_file`, `create_dir`,
+`rename_path` and `trash_path`, which refuse any path outside the vault root.
+
+- **⌘/Ctrl+N** creates `Untitled.md` (`Untitled 1.md` … when taken) in the folder of
+  `.obsidian/app.json` (`newFileLocation` `folder` + `newFileFolderPath`, or `current` for the
+  folder of the open note), otherwise the vault root, and opens it in the editor.
+- A click on an **unresolved wikilink** creates its target by the same rule (a `folder/Name`
+  target is created at that path); the quick switcher creates a note from the query when
+  nothing matches.
+- The **sidebar context menu** (right click, F2 renames inline) offers New note, New folder,
+  Rename, Delete and Reveal in Finder/Explorer. Delete moves to `.trash/` of the vault.
+- Links are not rewritten when a note is renamed.
