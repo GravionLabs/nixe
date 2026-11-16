@@ -1,15 +1,14 @@
 //! Spike (#60): the whole sync cycle (clone, commit, pull --rebase, push) with libgit2,
 //! because iOS has no Git CLI. The token lives in the Keychain, never on disk.
 
+use std::cell::Cell;
 use std::path::Path;
 
+use crate::credentials::{self, KeyringStore, TokenStore};
 use git2::{
     build::RepoBuilder, Cred, FetchOptions, IndexAddOption, PushOptions, RebaseOptions,
     RemoteCallbacks, Repository, Signature,
 };
-
-const KEYCHAIN_SERVICE: &str = "dev.nixe.app.github";
-const KEYCHAIN_USER: &str = "token";
 
 const GITHUB_PREFIX: &str = "https://github.com/";
 
@@ -32,9 +31,28 @@ pub fn vault_path(app_data_dir: &Path) -> std::path::PathBuf {
     app_data_dir.join("vault")
 }
 
-fn callbacks(token: Option<&str>) -> RemoteCallbacks<'_> {
+/// The token of one remote operation and whether the server rejected it.
+pub struct Auth {
+    token: String,
+    rejected: Cell<bool>,
+}
+
+impl Auth {
+    pub fn new(token: String) -> Self {
+        Self {
+            token,
+            rejected: Cell::new(false),
+        }
+    }
+
+    pub fn rejected(&self) -> bool {
+        self.rejected.get()
+    }
+}
+
+fn callbacks(auth: Option<&Auth>) -> RemoteCallbacks<'_> {
     let mut cb = RemoteCallbacks::new();
-    if let Some(token) = token {
+    if let Some(auth) = auth {
         let mut offered = false;
         // GitHub accepts a personal access token as the password of any user name.
         cb.credentials(move |url, _, _| {
@@ -45,20 +63,19 @@ fn callbacks(token: Option<&str>) -> RemoteCallbacks<'_> {
             }
             // libgit2 asks again after a rejected credential: fail instead of looping.
             if offered {
-                return Err(git2::Error::from_str(
-                    "authentication failed (token rejected)",
-                ));
+                auth.rejected.set(true);
+                return Err(git2::Error::from_str("authentication failed"));
             }
             offered = true;
-            Cred::userpass_plaintext("x-access-token", token)
+            Cred::userpass_plaintext("x-access-token", &auth.token)
         });
     }
     cb
 }
 
-pub fn clone(url: &str, dest: &Path, token: Option<&str>) -> Result<(), git2::Error> {
+pub fn clone(url: &str, dest: &Path, auth: Option<&Auth>) -> Result<(), git2::Error> {
     let mut fo = FetchOptions::new();
-    fo.remote_callbacks(callbacks(token));
+    fo.remote_callbacks(callbacks(auth));
     RepoBuilder::new().fetch_options(fo).clone(url, dest)?;
     Ok(())
 }
@@ -87,11 +104,11 @@ fn branch_name(repo: &Repository) -> Result<String, git2::Error> {
 }
 
 /// `git pull --rebase`: fetch the branch and replay local commits on top of it.
-pub fn pull_rebase(dir: &Path, token: Option<&str>) -> Result<(), git2::Error> {
+pub fn pull_rebase(dir: &Path, auth: Option<&Auth>) -> Result<(), git2::Error> {
     let repo = Repository::open(dir)?;
     let branch = branch_name(&repo)?;
     let mut fo = FetchOptions::new();
-    fo.remote_callbacks(callbacks(token));
+    fo.remote_callbacks(callbacks(auth));
     repo.find_remote("origin")?
         .fetch(&[&branch], Some(&mut fo), None)?;
     let upstream = repo.reference_to_annotated_commit(&repo.find_reference("FETCH_HEAD")?)?;
@@ -113,61 +130,49 @@ pub fn pull_rebase(dir: &Path, token: Option<&str>) -> Result<(), git2::Error> {
     rebase.finish(None)
 }
 
-pub fn push(dir: &Path, token: Option<&str>) -> Result<(), git2::Error> {
+pub fn push(dir: &Path, auth: Option<&Auth>) -> Result<(), git2::Error> {
     let repo = Repository::open(dir)?;
     let branch = branch_name(&repo)?;
     let mut po = PushOptions::new();
-    po.remote_callbacks(callbacks(token));
+    po.remote_callbacks(callbacks(auth));
     let spec = format!("refs/heads/{branch}:refs/heads/{branch}");
     let mut remote = repo.find_remote("origin")?;
     remote.push(&[spec], Some(&mut po))
 }
 
-#[cfg(any(target_os = "ios", target_os = "macos"))]
-fn entry() -> Result<keyring::Entry, String> {
-    keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_USER).map_err(|e| e.to_string())
-}
-
-#[cfg(any(target_os = "ios", target_os = "macos"))]
-pub fn token_set(token: &str) -> Result<(), String> {
-    entry()?.set_password(token).map_err(|e| e.to_string())
-}
-
-#[cfg(any(target_os = "ios", target_os = "macos"))]
-pub fn token_get() -> Result<Option<String>, String> {
-    match entry()?.get_password() {
-        Ok(t) => Ok(Some(t)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(e.to_string()),
+/// Runs a remote operation with the token stored for the host of `url`.
+///
+/// A GitHub url without a stored token gives `auth-required:<host>` without touching the
+/// network; a token the server rejects gives `auth-failed:<host>`. The frontend asks for a
+/// (new) token on both. Other urls (a local path) need no token.
+pub fn with_auth<T>(
+    url: &str,
+    store: &dyn TokenStore,
+    op: impl FnOnce(Option<&Auth>) -> Result<T, git2::Error>,
+) -> Result<T, String> {
+    let host = match credentials::host_of(url) {
+        Some(host) if is_github_https(url) => host,
+        _ => return op(None).map_err(err),
+    };
+    let Some(token) = store.get(&host)? else {
+        return Err(credentials::auth_error(credentials::AUTH_REQUIRED, &host));
+    };
+    let auth = Auth::new(token);
+    match op(Some(&auth)) {
+        Ok(value) => Ok(value),
+        Err(_) if auth.rejected() => Err(credentials::auth_error(credentials::AUTH_FAILED, &host)),
+        Err(e) => Err(err(e)),
     }
 }
 
-#[cfg(not(any(target_os = "ios", target_os = "macos")))]
-pub fn token_set(_: &str) -> Result<(), String> {
-    Err("Keychain is only available on Apple platforms".into())
-}
-
-#[cfg(not(any(target_os = "ios", target_os = "macos")))]
-pub fn token_get() -> Result<Option<String>, String> {
-    Ok(None)
-}
-
-fn stored_token() -> Result<Option<String>, String> {
-    token_get()
+fn origin_url(dir: &Path) -> Result<String, String> {
+    let repo = Repository::open(dir).map_err(err)?;
+    let remote = repo.find_remote("origin").map_err(err)?;
+    Ok(remote.url().unwrap_or_default().to_owned())
 }
 
 fn err(e: git2::Error) -> String {
     e.message().to_owned()
-}
-
-#[tauri::command]
-pub fn git_token_set(token: String) -> Result<(), String> {
-    token_set(&token)
-}
-
-#[tauri::command]
-pub fn git_token_get() -> Result<bool, String> {
-    Ok(token_get()?.is_some())
 }
 
 fn vault_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
@@ -183,7 +188,6 @@ pub async fn git_clone(app: tauri::AppHandle, url: String) -> Result<u128, Strin
         return Err("only https://github.com/ urls without credentials are allowed".into());
     }
     let dest = vault_dir(&app)?;
-    let token = stored_token()?;
     tauri::async_runtime::spawn_blocking(move || {
         // Spike: a failed or earlier clone leaves the directory behind; start clean
         // so the clone can be repeated and timed.
@@ -192,7 +196,7 @@ pub async fn git_clone(app: tauri::AppHandle, url: String) -> Result<u128, Strin
             std::fs::remove_dir_all(dest_path).map_err(|e| e.to_string())?;
         }
         let start = std::time::Instant::now();
-        clone(&url, dest_path, token.as_deref()).map_err(err)?;
+        with_auth(&url, &KeyringStore, |auth| clone(&url, dest_path, auth))?;
         Ok(start.elapsed().as_millis())
     })
     .await
@@ -221,19 +225,23 @@ pub async fn git_commit(app: tauri::AppHandle, message: String) -> Result<bool, 
 #[tauri::command]
 pub async fn git_pull_rebase(app: tauri::AppHandle) -> Result<(), String> {
     let dir = vault_dir(&app)?;
-    let token = stored_token()?;
-    tauri::async_runtime::spawn_blocking(move || pull_rebase(&dir, token.as_deref()).map_err(err))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        with_auth(&origin_url(&dir)?, &KeyringStore, |auth| {
+            pull_rebase(&dir, auth)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub async fn git_push(app: tauri::AppHandle) -> Result<(), String> {
     let dir = vault_dir(&app)?;
-    let token = stored_token()?;
-    tauri::async_runtime::spawn_blocking(move || push(&dir, token.as_deref()).map_err(err))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        with_auth(&origin_url(&dir)?, &KeyringStore, |auth| push(&dir, auth))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]
@@ -333,6 +341,56 @@ mod tests {
         commit_all(&b, "b").unwrap();
         assert!(pull_rebase(&b, None).is_err());
         assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "from b");
+    }
+
+    #[test]
+    fn github_remote_without_token_asks_for_one_and_skips_the_operation() {
+        let store = credentials::MemoryStore::default();
+        let mut ran = false;
+        let result = with_auth("https://github.com/a/b.git", &store, |_| {
+            ran = true;
+            Ok(())
+        });
+        assert_eq!(result, Err("auth-required:github.com".to_owned()));
+        assert!(!ran);
+    }
+
+    #[test]
+    fn stored_token_is_handed_to_the_operation() {
+        let store = credentials::MemoryStore::default();
+        store.set("github.com", "secret").unwrap();
+        let seen = with_auth("https://github.com/a/b.git", &store, |auth| {
+            Ok(auth.map(|a| a.token.clone()))
+        });
+        assert_eq!(seen, Ok(Some("secret".to_owned())));
+    }
+
+    #[test]
+    fn rejected_token_asks_again_without_leaking_it() {
+        let store = credentials::MemoryStore::default();
+        store.set("github.com", "secret").unwrap();
+        let result: Result<(), String> = with_auth("https://github.com/a/b.git", &store, |auth| {
+            auth.unwrap().rejected.set(true);
+            Err(git2::Error::from_str("authentication failed"))
+        });
+        assert_eq!(result, Err("auth-failed:github.com".to_owned()));
+    }
+
+    #[test]
+    fn other_failures_keep_their_message() {
+        let store = credentials::MemoryStore::default();
+        store.set("github.com", "secret").unwrap();
+        let result: Result<(), String> = with_auth("https://github.com/a/b.git", &store, |_| {
+            Err(git2::Error::from_str("network down"))
+        });
+        assert_eq!(result, Err("network down".to_owned()));
+    }
+
+    #[test]
+    fn local_remote_needs_no_token() {
+        let store = credentials::MemoryStore::default();
+        let result = with_auth("file:///tmp/x", &store, |auth| Ok(auth.is_none()));
+        assert_eq!(result, Ok(true));
     }
 
     #[test]

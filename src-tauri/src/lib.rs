@@ -19,6 +19,7 @@ pub mod mcp;
 #[cfg(desktop)]
 mod menu;
 // Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
+mod credentials;
 mod fileops;
 mod git;
 #[cfg(any(debug_assertions, mobile))]
@@ -433,8 +434,9 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
-        gitsync::git_token_set,
-        gitsync::git_token_get,
+        credentials::git_token_status,
+        credentials::git_token_set,
+        credentials::git_token_delete,
         gitsync::git_clone,
         gitsync::git_spike_edit,
         gitsync::git_commit,
@@ -476,7 +478,10 @@ pub fn run() {
         index::commands::vault_health,
         watch_file,
         git_vault_status,
-        git_vault_commit
+        git_vault_commit,
+        credentials::git_token_status,
+        credentials::git_token_set,
+        credentials::git_token_delete
     ]);
 
     let app = builder

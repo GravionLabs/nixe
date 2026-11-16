@@ -47,4 +47,20 @@
     </details>
     <button type="submit" class="primary" [disabled]="git.committing() || status.changes.length === 0">Commit all</button>
   </form>
+
+  <section aria-label="Access token" class="token">
+    <h2>Access token</h2>
+    @if (git.tokenPrompt(); as prompt) {
+      <p class="status" role="alert">
+        {{ prompt.reason === "failed" ? "GitHub rejected the token. Enter a new one." : "Enter a personal access token to reach GitHub." }}
+        <button type="button" (click)="git.cancelTokenPrompt()">Cancel</button>
+      </p>
+    }
+    <p class="status">{{ git.tokenStored() ? "A token is stored in the system keychain." : "No token stored." }}</p>
+    <input #token type="password" autocomplete="off" aria-label="Personal access token" placeholder="Personal access token" />
+    <button type="button" (click)="saveToken(token)">{{ git.tokenStored() ? "Replace token" : "Save token" }}</button>
+    @if (git.tokenStored()) {
+      <button type="button" (click)="deleteToken()">Delete token</button>
+    }
+  </section>
 }

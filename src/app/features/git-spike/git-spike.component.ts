@@ -61,12 +61,12 @@ export class GitSpikeComponent {
   }
 
   protected async setToken(input: HTMLInputElement): Promise<void> {
-    await invoke("git_token_set", { token: input.value });
+    await invoke("git_token_set", { host: "github.com", token: input.value });
     input.value = "";
   }
 
   protected async hasToken(): Promise<boolean> {
-    return invoke<boolean>("git_token_get");
+    return invoke<boolean>("git_token_status", { host: "github.com" });
   }
 
   protected async clone(url: string): Promise<string> {
