@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 
-import { GitStatus, backend } from "../file/backend";
+import { GitStatus, SyncReport, backend } from "../file/backend";
 import { IndexService } from "../index/index.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
@@ -13,6 +13,21 @@ const AUTH_ERROR = /^auth-(required|failed):/;
 /** The backend wants a token: none is stored (`required`) or the server refused it (`failed`). */
 export interface TokenPrompt {
   reason: "required" | "failed";
+}
+
+export interface SyncState {
+  phase: "idle" | "syncing" | "done" | "error";
+  message: string;
+}
+
+/** A readable line for what a sync did. */
+export function describeSync(report: SyncReport): string {
+  const parts = [
+    report.committed ? "committed" : "",
+    report.pulled ? "pulled" : "",
+    report.pushed ? "pushed" : "",
+  ].filter(Boolean);
+  return parts.length ? `Synced (${parts.join(", ")})` : "Already in sync";
 }
 
 /** Git state of the vault. `status` stays null for a vault without a repository: no Git UI then. */
@@ -29,6 +44,8 @@ export class GitService {
   readonly tokenStored = signal(false);
   /** Set while a remote operation waits for a token. */
   readonly tokenPrompt = signal<TokenPrompt | null>(null);
+  /** Progress and result of the last sync, for the status bar. */
+  readonly syncState = signal<SyncState>({ phase: "idle", message: "" });
   private request = 0;
   private promptResult: ((token: string | null) => void) | null = null;
 
@@ -140,6 +157,32 @@ export class GitService {
       );
     } finally {
       this.committing.set(false);
+      await this.refresh();
+    }
+  }
+
+  /**
+   * Brings the vault in line with the remote: commits open changes, rebases onto the remote
+   * branch and pushes. Progress and result are in `syncState`; never throws. The backend
+   * leaves the repository clean on every failure. The index and the open note follow the
+   * pulled files through the watcher.
+   */
+  async sync(): Promise<void> {
+    if (!this.available() || this.syncState().phase === "syncing") return;
+    this.syncState.set({ phase: "syncing", message: "Syncing…" });
+    try {
+      const report = await this.runRemote(() =>
+        backend.gitVaultSync(
+          this.settings.gitAuthorName().trim() || null,
+          this.settings.gitAuthorEmail().trim() || null,
+        ),
+      );
+      this.syncState.set({ phase: "done", message: describeSync(report) });
+    } catch (err) {
+      const text = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");
+      const message = AUTH_ERROR.test(text) ? "Sync failed: GitHub needs a valid access token" : `Sync failed: ${text}`;
+      this.syncState.set({ phase: "error", message });
+    } finally {
       await this.refresh();
     }
   }

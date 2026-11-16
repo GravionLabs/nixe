@@ -18,6 +18,19 @@ import { GitService } from "../../core/git/git.service";
         <span class="changes">{{ status.changes.length }} changed</span>
         <span class="sync">↑{{ status.ahead }} ↓{{ status.behind }}</span>
       </button>
+      <button
+        type="button"
+        class="sync-button"
+        aria-label="Sync with the remote"
+        title="Commit, pull with rebase and push"
+        [disabled]="git.syncState().phase === 'syncing'"
+        (click)="git.sync()"
+      >
+        ⟳ Sync
+      </button>
+      @if (git.syncState().message; as message) {
+        <span class="result" role="status" [class.error]="git.syncState().phase === 'error'">{{ message }}</span>
+      }
     }
   `,
   styles: `
@@ -43,7 +56,19 @@ import { GitService } from "../../core/git/git.service";
       cursor: pointer;
     }
 
-    button:hover {
+    .result.error {
+      color: var(--error-fg);
+    }
+
+    .result {
+      margin-left: 8px;
+    }
+
+    button:disabled {
+      cursor: progress;
+    }
+
+    button:hover:not(:disabled) {
       background: var(--hover);
     }
   `,

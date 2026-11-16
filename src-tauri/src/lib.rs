@@ -170,6 +170,26 @@ async fn git_vault_commit(
     .map_err(|e| e.to_string())?
 }
 
+/// Sync: commits open changes, rebases onto the remote branch and pushes (#75).
+/// A missing or rejected token gives `auth-required:<host>` / `auth-failed:<host>`.
+#[tauri::command]
+async fn git_vault_sync(
+    state: State<'_, AppState>,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<gitsync::SyncReport, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        gitsync::sync_vault(&root, fallback.as_ref(), &credentials::KeyringStore)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Creates an empty file inside the vault; refuses to overwrite and paths outside the root.
 #[tauri::command]
 fn create_file(state: State<'_, AppState>, path: String) -> Result<(), String> {
@@ -434,6 +454,7 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
         credentials::git_token_delete,
@@ -479,6 +500,7 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
         credentials::git_token_delete
