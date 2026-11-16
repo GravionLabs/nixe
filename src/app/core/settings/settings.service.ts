@@ -12,6 +12,7 @@ interface StoredSettings {
   backlinks: boolean;
   lastFolder: string | null;
   zoom: number;
+  healthExclude: string[];
 }
 
 const DEFAULTS: StoredSettings = {
@@ -22,6 +23,7 @@ const DEFAULTS: StoredSettings = {
   backlinks: false,
   lastFolder: null,
   zoom: 100,
+  healthExclude: [],
 };
 
 export const ZOOM_MIN = 50;
@@ -52,6 +54,11 @@ export class SettingsService {
   /** Document zoom, as a percentage (100 = actual size). */
   readonly zoom = signal<number>(this.stored.zoom);
 
+  /** Vault-relative folders (templates, archive) the vault health report leaves out. */
+  readonly healthExclude = signal<string[]>(
+    Array.isArray(this.stored.healthExclude) ? this.stored.healthExclude : [],
+  );
+
   private readonly systemDark = signal(false);
   readonly dark = computed(
     () => this.themeMode() === "dark" || (this.themeMode() === "system" && this.systemDark()),
@@ -75,6 +82,7 @@ export class SettingsService {
         backlinks: this.backlinksVisible(),
         lastFolder: this.lastFolder(),
         zoom: this.zoom(),
+        healthExclude: this.healthExclude(),
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));

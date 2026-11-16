@@ -14,6 +14,9 @@
   @if (showSearch()) {
     <app-search (error)="showToast($event)" />
   }
+  @if (showHealth()) {
+    <app-health (error)="showToast($event)" />
+  }
   @if (doc.path()) {
     @if (editor.editing()) {
       @defer (on immediate) {

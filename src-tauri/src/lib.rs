@@ -398,6 +398,7 @@ pub fn run() {
         index::commands::backlinks,
         index::commands::tags,
         index::commands::search_notes,
+        index::commands::vault_health,
         watch_file,
         gitsync::git_token_set,
         gitsync::git_token_get,
@@ -439,6 +440,7 @@ pub fn run() {
         index::commands::backlinks,
         index::commands::tags,
         index::commands::search_notes,
+        index::commands::vault_health,
         watch_file
     ]);
 

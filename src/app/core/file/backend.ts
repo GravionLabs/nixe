@@ -54,6 +54,30 @@ export interface SearchHit {
   snippets: SearchSnippet[];
 }
 
+export interface BrokenLink {
+  /** Vault-relative path of the note containing the link. */
+  source: string;
+  /** 1-based line of the link. */
+  line: number;
+  target: string;
+  kind: "link" | "embed" | "markdown";
+  /** The trimmed text of that line. */
+  context: string;
+}
+
+export interface DuplicateGroup {
+  name: string;
+  paths: string[];
+}
+
+export interface HealthReport {
+  brokenLinks: BrokenLink[];
+  orphans: { path: string; title: string }[];
+  duplicates: DuplicateGroup[];
+  /** Vault-relative paths. */
+  unusedAttachments: string[];
+}
+
 export interface NoteSummary {
   /** Vault-relative path. */
   path: string;
@@ -128,6 +152,8 @@ export const backend = {
   /** Metadata of one indexed note (vault-relative path); null when it is not indexed. */
   noteMeta: (path: string) => invoke<NoteRecord | null>("note_meta", { path }),
   searchNotes: (query: string) => invoke<SearchHit[]>("search_notes", { query }),
+  /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
+  vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
 };
 

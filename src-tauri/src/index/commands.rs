@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::watch::{apply_changes, known_files, map_events};
 
+use super::health::{self, HealthReport};
 use super::read::{self, IndexStatus};
 use super::search;
 use super::{index_path, open, scan, Backlink, NoteRecord, NoteSummary, SearchHit, TagCount};
@@ -215,6 +216,14 @@ pub fn tags(state: State<'_, IndexState>) -> Result<Vec<TagCount>, String> {
 #[tauri::command]
 pub fn search_notes(state: State<'_, IndexState>, query: String) -> Result<Vec<SearchHit>, String> {
     search::search(&state.conn()?, &query).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn vault_health(
+    state: State<'_, IndexState>,
+    exclude: Vec<String>,
+) -> Result<HealthReport, String> {
+    health::report(&state.conn()?, &exclude).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
