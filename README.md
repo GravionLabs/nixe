@@ -34,6 +34,24 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
 - Open via menu/dialog, drag & drop, command line (`nixe README.md`, `nixe ./docs`), or file association
 - **Command line**: on macOS, *Nixe → Install Command Line Tool…* links `nixe` into `/opt/homebrew/bin`, `/usr/local/bin` or `~/.local/bin` (first writable). Then `nixe README.md`, `nixe ./docs`, or pipe content with `git show HEAD:README.md | nixe -`. Piped content is shown as a temporary file, so relative links inside it don't resolve. Installing into `/usr/local/bin` asks for the administrator password if needed.
 
+## Verify the download
+
+Each release has a `SHA256SUMS` file next to the installers. Download it into the same folder as the installer, then compare:
+
+```bash
+# macOS
+shasum -a 256 -c SHA256SUMS --ignore-missing
+# Linux
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+```powershell
+# Windows: compare with the line for your installer in SHA256SUMS
+Get-FileHash .\Nixe_<version>_x64-setup.exe -Algorithm SHA256
+```
+
+`--ignore-missing` skips the installers for other platforms that you did not download.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |
