@@ -23,8 +23,6 @@ jobs:
         uses: GravionLabs/ci/versioning/determine-version@main
         with:
           gitversion-config-file: GitVersion.yml
-          # No rc/beta builds: the MSI bundler rejects non-numeric pre-release identifiers.
-          channel: stable
 
   test:
     runs-on: ubuntu-24.04
@@ -99,18 +97,14 @@ jobs:
           node -e "
             const fs = require('fs');
             const version = process.env.VERSION;
-            // The MSI bundler accepts only a numeric pre-release identifier up to 65535, so on Windows
-            // 1.0.7-beta004 is built as 1.0.7-4 and 1.1.0-PullRequest134.23 as 1.1.0-23. The release tag and the other platforms keep the full version.
-            const bundleVersion = process.platform === 'win32' ? version.replace(/-.*?0*(\d+)\$/, '-\$1') : version;
-            const versions = { 'package.json': version, 'src-tauri/tauri.conf.json': bundleVersion };
-            for (const file of Object.keys(versions)) {
+            for (const file of ['package.json', 'src-tauri/tauri.conf.json']) {
               const json = JSON.parse(fs.readFileSync(file, 'utf8'));
-              json.version = versions[file];
+              json.version = version;
               fs.writeFileSync(file, JSON.stringify(json, null, 2) + '\n');
             }
             const cargoPath = 'src-tauri/Cargo.toml';
             const cargo = fs.readFileSync(cargoPath, 'utf8');
-            fs.writeFileSync(cargoPath, cargo.replace(/^version = \".*\"/m, \`version = \"\${bundleVersion}\"\`));
+            fs.writeFileSync(cargoPath, cargo.replace(/^version = \".*\"/m, \`version = \"\${version}\"\`));
           "
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -162,7 +156,9 @@ jobs:
           tagName: ${{ env.PUBLISH == 'true' && format('v{0}', env.VERSION) || '' }}
           releaseName: ${{ env.PUBLISH == 'true' && format('Nixe v{0}', env.VERSION) || '' }}
           releaseDraft: true
-          args: ${{ matrix.args }}
+          # The MSI bundler rejects pre-release versions (1.1.0-rc021), so a pre-release builds
+          # the Windows installer as NSIS only; stable versions keep every bundle target.
+          args: ${{ matrix.args }}${{ matrix.platform == 'windows-latest' && contains(env.VERSION, '-') && ' --bundles nsis' || '' }}
       - name: Verify signature and notarization
         if: env.SIGN_MACOS == 'true'
         shell: bash
