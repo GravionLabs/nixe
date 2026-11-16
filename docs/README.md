@@ -14,6 +14,7 @@ links and Mermaid rendering all at once.
 - [architecture.md](architecture.md) — process boundary, IPC, startup sequence
 - [cli.md](cli.md) — querying the vault from the terminal
 - [mcp.md](mcp.md) — the read-only MCP server for agents
+- [updater.md](updater.md) — auto update, signing and key handling
 - [roadmap.md](roadmap.md) — milestones M000 to M008 of the vault app
 - [adr/](adr/) — architecture decisions
 - [backend/README.md](backend/README.md) — the Rust core (`src-tauri/`)

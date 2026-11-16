@@ -407,6 +407,14 @@ pub fn run() {
         .manage(AppState::default())
         .manage(index::commands::IndexState::default());
 
+    // The updater checks only when the user asks (frontend `check()`); nothing runs at startup.
+    #[cfg(desktop)]
+    {
+        builder = builder
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_process::init());
+    }
+
     #[cfg(desktop)]
     {
         builder = builder.menu(menu::build).on_menu_event(|app, event| {

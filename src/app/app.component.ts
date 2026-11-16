@@ -16,6 +16,7 @@ import { HealthService } from "./core/index/health.service";
 import { SearchService } from "./core/index/search.service";
 import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
+import { UpdateService } from "./core/updater/update.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
@@ -33,11 +34,12 @@ import { EditorComponent } from "./features/editor/editor.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
 import { ToolbarComponent } from "./features/toolbar/toolbar.component";
+import { UpdateComponent } from "./features/update/update.component";
 import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, UpdateComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -56,6 +58,7 @@ export class AppComponent {
   protected readonly git = inject(GitService);
   protected readonly cloneVault = inject(CloneService);
   private readonly autoSync = inject(AutoSyncService);
+  protected readonly updater = inject(UpdateService);
   protected readonly switcher = inject(SwitcherService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
@@ -118,6 +121,7 @@ export class AppComponent {
     try {
       await listen(OPEN_FILE_EVENT, () => this.openPending());
       await listen<string>(FILE_CHANGED_EVENT, (e) => this.doc.onExternalChange(e.payload));
+      await this.updater.init();
       await this.index.init();
       await this.autoSync.listenWindow();
       await listen<string>(MENU_EVENT, (e) => this.commands.execute(e.payload));
@@ -179,6 +183,7 @@ export class AppComponent {
       { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.viewer()?.topLine() ?? null)) },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },
+      { id: "check-updates", title: "Check for updates…", run: () => this.updater.check() },
       { id: "clone-vault", title: "Clone vault…", run: () => this.cloneVault.open() },
       {
         id: "reload",

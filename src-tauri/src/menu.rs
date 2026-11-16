@@ -7,6 +7,8 @@ use tauri::{AppHandle, Emitter, Runtime};
 pub const MENU_EVENT: &str = "menu";
 /// Handled natively (macOS only), never forwarded to the frontend.
 pub const INSTALL_CLI_ID: &str = "install-cli";
+/// Forwarded to the frontend, which runs the update check and shows the result.
+pub const CHECK_UPDATES_ID: &str = "check-updates";
 
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let item = |id: &str, label: &str, accelerator: Option<&str>| {
@@ -89,6 +91,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             .about(None)
             .separator()
             .item(&item(INSTALL_CLI_ID, "Install Command Line Tool…", None)?)
+            .item(&item(CHECK_UPDATES_ID, "Check for Updates…", None)?)
             .separator()
             .services()
             .separator()
@@ -101,6 +104,12 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         menu = menu.item(&app_menu);
     }
     menu = menu.item(&file.build()?).item(&edit).item(&view);
+    if !cfg!(target_os = "macos") {
+        let help = SubmenuBuilder::new(app, "Help")
+            .item(&item(CHECK_UPDATES_ID, "Check for Updates…", None)?)
+            .build()?;
+        menu = menu.item(&help);
+    }
     if cfg!(target_os = "macos") {
         let window = SubmenuBuilder::new(app, "Window")
             .minimize()

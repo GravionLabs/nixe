@@ -73,6 +73,10 @@
   <app-clone />
 }
 
+@if (updater.visible()) {
+  <app-update />
+}
+
 @if (palette.visible()) {
   <app-palette />
 }
