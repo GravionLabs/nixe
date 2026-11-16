@@ -85,6 +85,10 @@
   <app-palette />
 }
 
+@if (recent.visible()) {
+  <app-recent />
+}
+
 @if (toast(); as message) {
   <div class="toast" role="status">{{ message }}</div>
 }
