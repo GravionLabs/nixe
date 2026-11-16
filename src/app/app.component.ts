@@ -22,6 +22,7 @@ import { SwitcherService } from "./core/switcher/switcher.service";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
+import { OutlineComponent } from "./features/outline/outline.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
 import { TemplatesComponent } from "./features/templates/templates.component";
@@ -40,7 +41,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -89,6 +90,8 @@ export class AppComponent {
   protected readonly showBacklinks = computed(
     () => this.workspace.vaultRoot() !== null && this.doc.path() !== null && this.settings.backlinksVisible(),
   );
+
+  protected readonly showOutline = computed(() => this.doc.path() !== null && this.settings.outlineVisible());
 
   protected readonly showSearch = computed(() => this.workspace.vaultRoot() !== null && this.search.visible());
 
@@ -212,6 +215,7 @@ export class AppComponent {
       { id: "git-changes", title: "Git changes", when: () => this.git.available(), run: () => this.git.open() },
       { id: "git-sync", title: "Sync with the remote", shortcut: "Mod+Shift+S", keys: ["Mod+Shift+S"], when: () => this.git.available(), run: () => this.git.sync() },
       { id: "toggle-backlinks", title: "Toggle backlinks panel", shortcut: "Mod+Shift+B", when: inVault, run: () => this.settings.backlinksVisible.update((v) => !v) },
+      { id: "toggle-outline", title: "Toggle outline panel", shortcut: "Mod+Shift+L", when: noteOpen, run: () => this.settings.outlineVisible.update((v) => !v) },
       { id: "toggle-math", title: "Toggle LaTeX math", run: () => this.settings.math.update((v) => !v) },
       { id: "cycle-theme", title: "Cycle theme (system, light, dark)", run: () => this.settings.cycleTheme() },
       { id: "zoom-in", title: "Zoom in", shortcut: "Mod+=", run: () => this.settings.zoomIn() },

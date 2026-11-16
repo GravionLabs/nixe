@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { AutoSaver, ExternalChangeTracker, clampLine, toCrlf } from "../../core/editor/editor-core";
 import { blocksOf, headingsOf } from "../../core/editor/completion-core";
+import { OutlineService } from "../../core/outline/outline.service";
 import { EditorService } from "../../core/editor/editor.service";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
@@ -53,6 +54,7 @@ export class EditorComponent implements OnDestroy {
   private readonly ops = inject(VaultOpsService);
   private readonly settings = inject(SettingsService);
   private readonly editor = inject(EditorService);
+  private readonly outline = inject(OutlineService);
   private readonly host = viewChild.required<ElementRef<HTMLElement>>("host");
 
   /** The disk text that conflicts with unsaved changes; null when there is no conflict. */
@@ -68,6 +70,7 @@ export class EditorComponent implements OnDestroy {
   constructor() {
     this.editor.handle = {
       topLine: () => this.topLine(),
+      scrollToLine: (line) => this.scrollToLine(line),
       flush: () => this.flush(),
       blocked: () => this.conflict() !== null,
       insertTemplate: (template) => this.insertTemplate(template),
@@ -97,6 +100,8 @@ export class EditorComponent implements OnDestroy {
     this.unlistenClose?.();
     void this.settle();
     this.editor.handle = null;
+    this.outline.editorText.set(null);
+    this.outline.topLine.set(null);
     this.editor.blocked.set(false);
     this.doc.editorHook = null;
     this.view?.destroy();
@@ -155,8 +160,12 @@ export class EditorComponent implements OnDestroy {
         this.theme.of(editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100)),
         EditorView.domEventHandlers({
           paste: (event) => this.onPaste(event),
+          scroll: () => this.outline.topLine.set(this.topLine()),
         }),
         EditorView.updateListener.of((update) => {
+          if (update.docChanged && this.session === session) {
+            this.outline.editorText.set(update.state.doc.toString());
+          }
           if (update.docChanged && !this.loading && this.session === session) {
             session.saver.change(update.state.doc.toString());
           }
@@ -166,10 +175,12 @@ export class EditorComponent implements OnDestroy {
     if (this.view) this.view.setState(state);
     else this.view = new EditorView({ state, parent: host });
     this.loading = false;
+    this.outline.editorText.set(text);
 
     const line = this.editor.startLine();
     this.editor.startLine.set(null);
     if (line !== null) this.scrollToLine(line);
+    this.outline.topLine.set(this.topLine());
     this.view.focus();
   }
 
@@ -305,6 +316,7 @@ export class EditorComponent implements OnDestroy {
     if (!view) return;
     const pos = view.state.doc.line(clampLine(line, view.state.doc.lines)).from;
     view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "start" }) });
+    this.outline.topLine.set(this.topLine());
   }
 
   /** The watcher reported a change of the note; `diskText` is what is on disk now. */

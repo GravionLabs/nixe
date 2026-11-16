@@ -7,6 +7,8 @@ import { backend } from "../file/backend";
 export interface EditorHandle {
   /** 1-based first visible line. */
   topLine(): number;
+  /** Moves the editor to a 1-based line. */
+  scrollToLine(line: number): void;
   /** Writes pending changes at once. */
   flush(): Promise<void>;
   /** True while an external change waits for the user's choice (reload or keep mine). */

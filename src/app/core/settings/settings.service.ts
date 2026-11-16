@@ -12,6 +12,7 @@ interface StoredSettings {
   sidebar: boolean;
   sidebarWidth: number;
   backlinks: boolean;
+  outline: boolean;
   lastFolder: string | null;
   zoom: number;
   healthExclude: string[];
@@ -33,6 +34,7 @@ const DEFAULTS: StoredSettings = {
   sidebar: true,
   sidebarWidth: 260,
   backlinks: false,
+  outline: false,
   lastFolder: null,
   zoom: 100,
   healthExclude: [],
@@ -71,6 +73,8 @@ export class SettingsService {
   readonly sidebarWidth = signal<number>(this.stored.sidebarWidth);
   /** Right-hand backlinks and outgoing links panel. */
   readonly backlinksVisible = signal<boolean>(this.stored.backlinks);
+  /** Right-hand outline panel (the headings of the open note). */
+  readonly outlineVisible = signal<boolean>(this.stored.outline === true);
   /** Folder reopened on the next start. */
   readonly lastFolder = signal<string | null>(this.stored.lastFolder);
   /** Document zoom, as a percentage (100 = actual size). */
@@ -126,6 +130,7 @@ export class SettingsService {
         sidebar: this.sidebarVisible(),
         sidebarWidth: this.sidebarWidth(),
         backlinks: this.backlinksVisible(),
+        outline: this.outlineVisible(),
         lastFolder: this.lastFolder(),
         zoom: this.zoom(),
         healthExclude: this.healthExclude(),
