@@ -112,6 +112,12 @@ export class EditorComponent implements OnDestroy {
       if (!current) this.session = null;
       return;
     }
+    if (!(await backend.isUtf8File(current))) {
+      this.session = null;
+      this.error.emit("This note is not valid UTF-8; editing it would damage it.");
+      this.editor.editing.set(false);
+      return;
+    }
     const text = this.doc.content();
     const session: Session = {
       path: current,
@@ -171,7 +177,7 @@ export class EditorComponent implements OnDestroy {
     const session = this.session;
     const pending = session?.saver.pendingText ?? null;
     if (!session || this.conflict() === null || pending === null) return this.flush();
-    const copy = session.path.replace(/(\.[^./]+)?$/, " (unsaved copy).md");
+    const copy = session.path.replace(/(\.[^./]+)?$/, ` (unsaved copy ${new Date().toISOString().replace(/[:.]/g, "-")}).md`);
     try {
       await backend.writeTextFile(copy, session.crlf ? toCrlf(pending) : pending);
       session.saver.discard();
@@ -207,7 +213,7 @@ export class EditorComponent implements OnDestroy {
       case "ignore":
         return;
       case "reload":
-        this.replaceText(session, diskText);
+        void this.reloadIfUtf8(session, diskText);
         return;
       case "conflict":
         session.saver.hold(true);
@@ -215,10 +221,26 @@ export class EditorComponent implements OnDestroy {
     }
   }
 
-  protected reloadFromDisk(): void {
+  /** Loading lossy text would let the next save destroy the original bytes. */
+  private async reloadIfUtf8(session: Session, text: string): Promise<boolean> {
+    if (await backend.isUtf8File(session.path)) {
+      if (this.session === session) this.replaceText(session, text);
+      return true;
+    }
+    this.error.emit("The note is no longer valid UTF-8; editing stopped.");
+    session.saver.discard();
+    this.editor.editing.set(false);
+    return false;
+  }
+
+  protected async reloadFromDisk(): Promise<void> {
     const session = this.session;
     const disk = this.conflict();
     if (!session || disk === null) return;
+    if (!(await backend.isUtf8File(session.path))) {
+      this.error.emit("The note on disk is not valid UTF-8; keep yours or fix the file first.");
+      return;
+    }
     session.saver.discard();
     this.replaceText(session, disk);
     this.conflict.set(null);
