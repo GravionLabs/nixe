@@ -57,7 +57,20 @@ README possible: that code could move into its own package unchanged.
 | `DocumentService` | `path`, `content`, `wikiRoot`, back/forward `history` | The single displayed document. |
 | `WorkspaceService` | `root`, the lazily-loaded tree (`visible` computed) | The opened folder's sidebar tree. |
 | `MarkdownService` | render cache (one `MarkdownIt` instance per math on/off) | Pure `render()`, see [markdown-pipeline.md](markdown-pipeline.md). |
-| `SettingsService` | theme, math toggle, sidebar width/visibility, last folder | Persisted to `localStorage`. |
+| `IndexService` | vault index `status`, a `revision` counter bumped on `vault-changed` | Listens to the `index-status` and `vault-changed` events. |
+| `BacklinksService` | backlinks and outgoing links of the open note | Feeds the right-hand `BacklinksComponent` panel (View → Toggle Backlinks Panel, ⌘⇧B). Backlinks carry the linking line; clicking one opens the note scrolled to it. Unresolved outgoing links are marked. |
+| `SearchService` | vault-wide full-text search | Feeds the left-hand `SearchComponent` panel (View → Search Vault, ⌘⇧F / Ctrl+⇧+F). Results are grouped by note with highlighted snippets; clicking a snippet opens the note at its line. Operators: `tag:#name` (also nested tags), `path:folder/`, `"exact phrase"`; other words match as prefixes. Clicking a `#tag` in a note or the properties panel opens the search with `tag:#name`. The Rust side is `index/search.rs` (command `search_notes`). |
+| `SwitcherService` | quick switcher state | Opened with ⌘/Ctrl+O (File → Quick Switcher; Open file moved to ⌘/Ctrl+⇧+P). Notes come from the index (`notes` command, with aliases), falling back to the vault file list. Matching is pure TypeScript in `core/switcher/fuzzy.ts` over file names and aliases; recently opened notes win ties and lead with an empty query. Enter with no match does nothing yet. |
+| `SettingsService` | theme, math toggle, sidebar width/visibility, backlinks panel visibility, last folder | Persisted to `localStorage`. |
 
 See [state-management.md](state-management.md) for how these interact when the user
 clicks a link or expands a tree node.
+
+## Commands and the command palette
+
+Every action of the app is a `Command` (`id`, `title`, optional `shortcut`, optional `when`
+condition) in the `CommandRegistry` (`src/app/core/commands/`). `AppComponent` registers the
+built-in ones. The native menu only emits a command id (`menu` event), the webview key handler
+runs the commands that declare `keys`, and the palette (⌘/Ctrl+P) lists the commands whose
+`when` holds, ranked by fuzzy match on the title, with their shortcuts. Plugins will register
+into the same registry.

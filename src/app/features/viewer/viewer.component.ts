@@ -12,12 +12,18 @@ import {
 } from "@angular/core";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
+import { viewerTopLine } from "../../core/editor/editor-core";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
 import { slugify } from "../../core/markdown/markdown-renderer";
+import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
-import { isMarkdownPath } from "../../core/markdown/paths";
+import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
+import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
+import { SearchService } from "../../core/index/search.service";
+import { VaultOpsService } from "../../core/workspace/vault-ops.service";
+import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { SettingsService } from "../../core/settings/settings.service";
 
 const DIALOG_ZOOM_MIN = 0.25;
@@ -69,7 +75,11 @@ export class ViewerComponent {
   readonly notify = output<string>();
 
   private readonly doc = inject(DocumentService);
+  private readonly workspace = inject(WorkspaceService);
+  private readonly ops = inject(VaultOpsService);
+  private readonly search = inject(SearchService);
   protected readonly settings = inject(SettingsService);
+  private readonly markdown = inject(MarkdownService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly content = viewChild.required<ElementRef<HTMLElement>>("content");
   /** Always mounted (visibility toggled via CSS), so it's available as soon as a diagram is clicked. */
@@ -97,10 +107,46 @@ export class ViewerComponent {
           this.host.nativeElement.scrollTop = 0;
         }
         this.applyPendingAnchor(false);
+        this.applyPendingLine(false);
         // Diagrams change the layout, so the anchor is applied again afterwards.
-        void this.mermaid.render(el, dark).then(() => this.applyPendingAnchor(true));
+        // Embedded notes are loaded first so diagrams inside them render too.
+        void this.markdown
+          .expandEmbeds(el, {
+            filePath: path,
+            wikiRoot: this.doc.wikiRoot(),
+            math: this.settings.math(),
+            vaultFiles: this.workspace.vaultFiles(),
+            vaultRoot: this.workspace.vaultRoot(),
+          })
+          .catch(() => undefined)
+          .then(() => this.mermaid.render(el, dark))
+          .then(() => {
+            this.applyPendingAnchor(true);
+            this.applyPendingLine(true);
+          });
       });
     });
+
+    // Opening a line of the note that is already shown renders nothing new, so scroll here.
+    effect(() => {
+      const line = this.doc.pendingLine();
+      if (line === null) return;
+      untracked(() => {
+        if (this.renderedPath === this.doc.path() && this.scrollToLine(line)) this.doc.pendingLine.set(null);
+      });
+    });
+  }
+
+  /** 1-based source line at the top of the visible area; null when no block carries one. */
+  topLine(): number | null {
+    const top = this.host.nativeElement.getBoundingClientRect().top;
+    const blocks = Array.from(this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]")).map(
+      (el) => {
+        const rect = el.getBoundingClientRect();
+        return { line: Number(el.dataset["line"]), top: rect.top - top, bottom: rect.bottom - top };
+      },
+    );
+    return viewerTopLine(blocks, 0);
   }
 
   /** Ctrl/Cmd + wheel always zooms the whole document. */
@@ -182,9 +228,28 @@ export class ViewerComponent {
       return;
     }
 
+    const calloutTitle = target.closest<HTMLElement>(".callout-title");
+    const callout = calloutTitle?.parentElement;
+    if (calloutTitle && callout?.classList.contains("is-collapsible") && !target.closest("a")) {
+      const collapsed = callout.classList.toggle("is-collapsed");
+      calloutTitle.setAttribute("aria-expanded", String(!collapsed));
+      return;
+    }
+
     const link = target.closest("a");
     if (!link) return;
     event.preventDefault();
+    if (link.classList.contains("tag")) {
+      const name = link.getAttribute("data-tag") ?? link.textContent?.replace(/^#/, "") ?? "";
+      if (name) this.search.openWith(`tag:#${name}`);
+      return;
+    }
+
+    const wikiTarget = link.classList.contains("wikilink") ? link.getAttribute("data-target") : null;
+    if (wikiTarget !== null) {
+      await this.openWikilink(wikiTarget);
+      return;
+    }
 
     const href = classifyHref(link.getAttribute("href"));
     switch (href.kind) {
@@ -217,11 +282,55 @@ export class ViewerComponent {
     }
   }
 
+  /** Resolved links open the note (history included); unresolved ones create the note. */
+  private async openWikilink(target: string): Promise<void> {
+    const { note, heading } = parseWikilinkTarget(target);
+    if (!note) {
+      if (heading) this.scrollToAnchor(heading);
+      return;
+    }
+    const root = this.workspace.vaultRoot();
+    const files = this.workspace.vaultFiles();
+    const resolved = root && files ? resolveWikilink(target, files) : null;
+    if (!root || !files) return;
+    if (!resolved) {
+      await this.ops.createNoteForLink(target).catch((err) => this.notify.emit(String(err)));
+      return;
+    }
+    const path = joinPath(root, resolved);
+    if (!isMarkdownPath(path)) {
+      await openPath(path);
+      return;
+    }
+    await this.doc.open(path, { anchor: heading }).catch((err) => this.notify.emit(String(err)));
+  }
+
   /** `done`: the layout is final (diagrams rendered), so the anchor is consumed. */
   private applyPendingAnchor(done: boolean): void {
     const anchor = this.doc.pendingAnchor();
     if (anchor === null) return;
     if (this.scrollToAnchor(anchor) && done) this.doc.pendingAnchor.set(null);
+  }
+
+  /** `done`: the layout is final, so the line is consumed. */
+  private applyPendingLine(done: boolean): void {
+    const line = this.doc.pendingLine();
+    if (line === null) return;
+    if (this.scrollToLine(line) && done) this.doc.pendingLine.set(null);
+  }
+
+  /** Scrolls to the last top-level block that starts at or before the 1-based source `line`. */
+  private scrollToLine(line: number): boolean {
+    const blocks = this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]");
+    let best: HTMLElement | null = null;
+    for (const block of Array.from(blocks)) {
+      if (Number(block.dataset["line"]) <= line - 1) best = block;
+      else break;
+    }
+    best ??= blocks[0] ?? null;
+    if (!best) return false;
+    best.scrollIntoView({ block: "start" });
+    return true;
   }
 
   /** Accepts exact ids as well as un-slugified heading text (ADO: "#My-Heading"). */

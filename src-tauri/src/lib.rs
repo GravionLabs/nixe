@@ -13,11 +13,15 @@ mod cli_install;
 #[cfg(desktop)]
 mod menu;
 // Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
+mod fileops;
 #[cfg(any(debug_assertions, mobile))]
 mod gitsync;
+mod index;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
 mod tree;
+mod vault;
+mod write;
 
 /// Event telling the frontend that a file or folder is waiting in `take_pending_file`.
 const OPEN_FILE_EVENT: &str = "open-file-requested";
@@ -29,6 +33,10 @@ struct AppState {
     /// File or folder requested via CLI argument, OS file association or a second instance.
     pending_file: Mutex<Option<String>>,
     watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
+    /// Vault root last returned by `find_vault_root`; notes below it may be written.
+    vault_root: Mutex<Option<PathBuf>>,
+    /// Note last passed to `watch_file` (the open one); it and its siblings may be written.
+    open_file: Mutex<Option<PathBuf>>,
 }
 
 /// Paths are handed to the frontend with forward slashes on every platform.
@@ -100,6 +108,99 @@ fn read_text_file(path: String) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
+/// Atomically writes a note. The backend decides what may be written: a Markdown file below the
+/// vault root, or one in the folder of the open note. The caller cannot name the root.
+#[tauri::command]
+fn write_text_file(
+    state: State<'_, AppState>,
+    path: String,
+    content: String,
+) -> Result<(), String> {
+    let vault = state.vault_root.lock().unwrap().clone();
+    let open = state.open_file.lock().unwrap().clone();
+    let root = write::write_root(vault.as_deref(), open.as_deref(), Path::new(&path))?;
+    write::write_text_file(&root, Path::new(&path), &content)
+}
+
+/// The vault root the file operations are confined to.
+fn vault_root_of(state: &State<'_, AppState>) -> Result<PathBuf, String> {
+    state
+        .vault_root
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or_else(|| "no vault is open".to_string())
+}
+
+/// Creates an empty file inside the vault; refuses to overwrite and paths outside the root.
+#[tauri::command]
+fn create_file(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    fileops::create_file(&vault_root_of(&state)?, Path::new(&path))
+}
+
+/// Creates a folder (and its missing parents) inside the vault.
+#[tauri::command]
+fn create_dir(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    fileops::create_dir(&vault_root_of(&state)?, Path::new(&path))
+}
+
+/// Renames or moves a file or folder inside the vault and rewrites the links to it in the notes
+/// that contain them (one batch). Returns the notes that were rewritten.
+#[tauri::command]
+fn rename_path(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    from: String,
+    to: String,
+) -> Result<Vec<vault::relink::Change>, String> {
+    vault::relink::rename_with_links(
+        &vault_root_of(&state)?,
+        Path::new(&from),
+        Path::new(&to),
+        |targets| index.referrers(targets),
+    )
+}
+
+/// The notes whose links a rename of `from` to `to` would rewrite; changes nothing.
+#[tauri::command]
+fn relink_preview(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    from: String,
+    to: String,
+) -> Result<Vec<vault::relink::Change>, String> {
+    Ok(vault::relink::preview(
+        &vault_root_of(&state)?,
+        Path::new(&from),
+        Path::new(&to),
+        |targets| index.referrers(targets),
+    ))
+}
+
+/// Moves a file or folder to `.trash/` in the vault; returns its new path.
+#[tauri::command]
+fn trash_path(state: State<'_, AppState>, path: String) -> Result<String, String> {
+    fileops::trash_path(&vault_root_of(&state)?, Path::new(&path)).map(|p| path_to_string(&p))
+}
+
+/// Where a new note goes, from `.obsidian/app.json` of the vault.
+#[tauri::command]
+fn new_note_location(state: State<'_, AppState>) -> Result<fileops::NewNoteLocation, String> {
+    Ok(fileops::new_note_location(&vault_root_of(&state)?))
+}
+
+/// How links to notes are written, from `.obsidian/app.json` of the vault.
+#[tauri::command]
+fn link_format(state: State<'_, AppState>) -> Result<vault::relink::LinkFormat, String> {
+    Ok(vault::relink::link_format(&vault_root_of(&state)?))
+}
+
+/// False when the file holds bytes that are not UTF-8 (`read_text_file` would replace them).
+#[tauri::command]
+fn is_utf8_file(path: String) -> bool {
+    std::fs::read(&path).is_ok_and(|bytes| std::str::from_utf8(&bytes).is_ok())
+}
+
 #[tauri::command]
 fn is_file(path: String) -> bool {
     Path::new(&path).is_file()
@@ -122,7 +223,10 @@ fn list_dir(path: String) -> Result<Vec<tree::DirEntry>, String> {
 /// the search. Without any markers the file's own directory is used.
 #[tauri::command]
 fn find_wiki_root(path: String) -> String {
-    let file_dir = Path::new(&path).parent().map(Path::to_path_buf).unwrap_or_default();
+    let file_dir = Path::new(&path)
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_default();
     let mut last_order_dir: Option<PathBuf> = None;
 
     for dir in file_dir.ancestors() {
@@ -139,27 +243,53 @@ fn find_wiki_root(path: String) -> String {
     path_to_string(last_order_dir.as_deref().unwrap_or(&file_dir))
 }
 
+/// Vault root for an opened file or folder: the topmost ancestor containing `.obsidian/`,
+/// else the opened folder. Read-only.
+#[tauri::command]
+fn find_vault_root(state: State<'_, AppState>, path: String) -> String {
+    let root = vault::find_vault_root(Path::new(&path));
+    *state.vault_root.lock().unwrap() = dunce::canonicalize(&root).ok();
+    path_to_string(&root)
+}
+
+/// All files below the vault root (relative, forward slashes), see `vault::list_vault_files`.
+#[tauri::command]
+fn list_vault_files(root: String) -> Vec<String> {
+    vault::list_vault_files(Path::new(&root))
+}
+
 /// Watches a single file. The parent directory is watched (non-recursively) so
 /// that editors saving via "write temp file + rename" are detected as well.
 #[tauri::command]
 fn watch_file(app: AppHandle, state: State<'_, AppState>, path: String) -> Result<(), String> {
     let target = PathBuf::from(&path);
-    let dir = target.parent().ok_or("file has no parent directory")?.to_path_buf();
+    let dir = target
+        .parent()
+        .ok_or("file has no parent directory")?
+        .to_path_buf();
     let file_name = target.file_name().map(|n| n.to_os_string());
 
-    let mut debouncer = new_debouncer(Duration::from_millis(250), move |res: DebounceEventResult| {
-        if let Ok(events) = res {
-            if events.iter().any(|e| e.path.file_name().map(|n| n.to_os_string()) == file_name) {
-                let _ = app.emit(FILE_CHANGED_EVENT, &path);
+    let mut debouncer = new_debouncer(
+        Duration::from_millis(250),
+        move |res: DebounceEventResult| {
+            if let Ok(events) = res {
+                if events
+                    .iter()
+                    .any(|e| e.path.file_name().map(|n| n.to_os_string()) == file_name)
+                {
+                    let _ = app.emit(FILE_CHANGED_EVENT, &path);
+                }
             }
-        }
-    })
+        },
+    )
     .map_err(|e| e.to_string())?;
 
     debouncer
         .watcher()
         .watch(&dir, RecursiveMode::NonRecursive)
         .map_err(|e| e.to_string())?;
+
+    *state.open_file.lock().unwrap() = dunce::canonicalize(&target).ok();
 
     // Replacing the old debouncer drops (and stops) the previous watch.
     *state.watcher.lock().unwrap() = Some(debouncer);
@@ -191,7 +321,8 @@ pub fn run() {
     builder = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(AppState::default());
+        .manage(AppState::default())
+        .manage(index::commands::IndexState::default());
 
     #[cfg(desktop)]
     {
@@ -204,56 +335,98 @@ pub fn run() {
         });
     }
 
-    let builder = builder
-        .setup(|app| {
-            let cwd = std::env::current_dir().unwrap_or_default();
-            let args: Vec<String> = std::env::args().collect();
-            if let Some(path) = path_from_args(&args, &cwd) {
-                *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
-            }
-            #[cfg(mobile)]
-            if app.state::<AppState>().pending_file.lock().unwrap().is_none() {
-                if let Ok(dir) = app.path().app_cache_dir() {
-                    if let Ok(path) = write_bundled_fixture(&dir) {
-                        *app.state::<AppState>().pending_file.lock().unwrap() = Some(path_to_string(&path));
-                    }
+    let builder = builder.setup(|app| {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let args: Vec<String> = std::env::args().collect();
+        if let Some(path) = path_from_args(&args, &cwd) {
+            *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
+        }
+        #[cfg(mobile)]
+        if app
+            .state::<AppState>()
+            .pending_file
+            .lock()
+            .unwrap()
+            .is_none()
+        {
+            if let Ok(dir) = app.path().app_cache_dir() {
+                if let Ok(path) = write_bundled_fixture(&dir) {
+                    *app.state::<AppState>().pending_file.lock().unwrap() =
+                        Some(path_to_string(&path));
                 }
             }
-            Ok(())
-        });
+        }
+        Ok(())
+    });
 
     // Spike commands (#58 to #60) are reachable only in debug and mobile builds.
     #[cfg(any(debug_assertions, mobile))]
-    let builder = builder        .invoke_handler(tauri::generate_handler![
-            take_pending_file,
-            read_text_file,
-            is_file,
-            is_dir,
-            list_dir,
-            find_wiki_root,
-            watch_file,
-            gitsync::git_token_set,
-            gitsync::git_token_get,
-            gitsync::git_clone,
-            gitsync::git_spike_edit,
-            gitsync::git_commit,
-            gitsync::git_pull_rebase,
-            gitsync::git_push,
-            notes::notes_list,
-            notes::notes_read,
-            notes::notes_write,
-            notes::spike_external_path,
-            notes::spike_external_read,
-            notes::spike_external_write
-        ]);
-    #[cfg(not(any(debug_assertions, mobile)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         take_pending_file,
         read_text_file,
+        write_text_file,
+        create_file,
+        create_dir,
+        rename_path,
+        relink_preview,
+        trash_path,
+        new_note_location,
+        link_format,
+        is_utf8_file,
         is_file,
         is_dir,
         list_dir,
         find_wiki_root,
+        find_vault_root,
+        list_vault_files,
+        index::commands::index_start,
+        index::commands::index_status,
+        index::commands::notes,
+        index::commands::note_meta,
+        index::commands::backlinks,
+        index::commands::tags,
+        index::commands::search_notes,
+        watch_file,
+        gitsync::git_token_set,
+        gitsync::git_token_get,
+        gitsync::git_clone,
+        gitsync::git_spike_edit,
+        gitsync::git_commit,
+        gitsync::git_pull_rebase,
+        gitsync::git_push,
+        notes::notes_list,
+        notes::notes_read,
+        notes::notes_write,
+        notes::spike_external_path,
+        notes::spike_external_read,
+        notes::spike_external_write
+    ]);
+    #[cfg(not(any(debug_assertions, mobile)))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        take_pending_file,
+        read_text_file,
+        write_text_file,
+        create_file,
+        create_dir,
+        rename_path,
+        relink_preview,
+        trash_path,
+        new_note_location,
+        link_format,
+        is_utf8_file,
+        is_file,
+        is_dir,
+        list_dir,
+        find_wiki_root,
+        find_vault_root,
+        list_vault_files,
+        index::commands::index_start,
+        index::commands::index_status,
+        index::commands::notes,
+        index::commands::note_meta,
+        index::commands::backlinks,
+        index::commands::tags,
+        index::commands::search_notes,
         watch_file
     ]);
 
@@ -292,7 +465,10 @@ mod tests {
         fs::write(root.join("wiki/.order"), "").unwrap();
         fs::write(sub.join(".order"), "").unwrap();
         let file = sub.join("Overview.md");
-        assert_eq!(find_wiki_root(path_to_string(&file)), path_to_string(&root.join("wiki")));
+        assert_eq!(
+            find_wiki_root(path_to_string(&file)),
+            path_to_string(&root.join("wiki"))
+        );
     }
 
     #[test]
@@ -309,8 +485,16 @@ mod tests {
     fn cli_args_resolve_relative_files() {
         let root = temp_dir("args");
         fs::write(root.join("README.md"), "# hi").unwrap();
-        let args = vec!["nixe".into(), "--verbose".into(), "missing.md".into(), "README.md".into()];
-        assert_eq!(path_from_args(&args, &root), Some(path_to_string(&root.join("README.md"))));
+        let args = vec![
+            "nixe".into(),
+            "--verbose".into(),
+            "missing.md".into(),
+            "README.md".into(),
+        ];
+        assert_eq!(
+            path_from_args(&args, &root),
+            Some(path_to_string(&root.join("README.md")))
+        );
         let args = vec!["nixe".into(), ".".into()];
         assert_eq!(path_from_args(&args, &root), Some(path_to_string(&root)));
     }
@@ -321,7 +505,10 @@ mod tests {
         let expected = stdin_file_path();
         fs::create_dir_all(expected.parent().unwrap()).unwrap();
         fs::write(&expected, "# piped").unwrap();
-        assert_eq!(path_from_args(&args, Path::new("/")), Some(path_to_string(&expected)));
+        assert_eq!(
+            path_from_args(&args, Path::new("/")),
+            Some(path_to_string(&expected))
+        );
     }
 
     #[test]

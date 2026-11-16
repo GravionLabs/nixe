@@ -17,6 +17,8 @@ export class DocumentService {
   readonly content = signal("");
   /** Heading to scroll to once the next document is rendered. */
   readonly pendingAnchor = signal<string | null>(null);
+  /** 1-based source line to scroll to once the next document is rendered. */
+  readonly pendingLine = signal<number | null>(null);
 
   readonly fileName = computed(() => {
     const p = this.path();
@@ -30,9 +32,9 @@ export class DocumentService {
 
   async open(
     path: string,
-    options: { anchor?: string | null; addToHistory?: boolean } = {},
+    options: { anchor?: string | null; line?: number | null; addToHistory?: boolean } = {},
   ): Promise<void> {
-    const { anchor = null, addToHistory = true } = options;
+    const { anchor = null, line = null, addToHistory = true } = options;
     path = toSlashes(path);
 
     const [text, wikiRoot] = await Promise.all([
@@ -43,6 +45,7 @@ export class DocumentService {
     this.path.set(path);
     this.content.set(text);
     this.pendingAnchor.set(anchor);
+    this.pendingLine.set(line);
     await backend.watchFile(path);
 
     if (addToHistory && this.history()[this.historyIndex()] !== path) {
@@ -52,9 +55,30 @@ export class DocumentService {
     }
   }
 
+  /** Shows no note (the open one was deleted). */
+  close(): void {
+    this.path.set(null);
+    this.wikiRoot.set(null);
+    this.content.set("");
+    this.pendingAnchor.set(null);
+    this.pendingLine.set(null);
+  }
+
   async openWithDialog(): Promise<void> {
     const selected = await open({ multiple: false, directory: false, filters: [MARKDOWN_FILTER] });
     if (typeof selected === "string") await this.open(selected);
+  }
+
+  /**
+   * Set while the editor is open: external changes go to it instead of `content`, so the
+   * editor can ask before it replaces unsaved text.
+   */
+  editorHook: ((path: string, diskText: string) => void) | null = null;
+
+  /** Writes `text` and, when it is still the open note, makes it the content. */
+  async write(path: string, text: string): Promise<void> {
+    await backend.writeTextFile(path, text);
+    if (this.path() === path) this.content.set(text);
   }
 
   async reload(): Promise<void> {
@@ -74,7 +98,9 @@ export class DocumentService {
   async onExternalChange(path: string): Promise<void> {
     if (toSlashes(path) !== this.path()) return;
     try {
-      this.content.set(await backend.readTextFile(path));
+      const text = await backend.readTextFile(path);
+      if (this.editorHook) this.editorHook(toSlashes(path), text);
+      else this.content.set(text);
     } catch {
       // file is being replaced – the next event will pick it up
     }

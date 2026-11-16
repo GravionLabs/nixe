@@ -1,0 +1,27 @@
+<div class="backdrop" (click)="palette.close()" role="presentation"></div>
+<div class="dialog" role="dialog" aria-label="Command palette">
+  <input
+    #input
+    type="text"
+    placeholder="Run a command…"
+    aria-label="Find a command by title"
+    role="combobox"
+    aria-expanded="true"
+    aria-controls="palette-list"
+    [value]="palette.query()"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"
+  />
+  <ul id="palette-list" role="listbox">
+    @for (command of palette.matches(); track command.id; let i = $index) {
+      <li role="option" [attr.aria-selected]="i === palette.selected()" [class.selected]="i === palette.selected()">
+        <button type="button" tabindex="-1" (click)="palette.run(command)">
+          <span class="name">{{ command.title }}</span>
+          <span class="shortcut">{{ shortcut(command) }}</span>
+        </button>
+      </li>
+    } @empty {
+      <li class="empty">No matching command</li>
+    }
+  </ul>
+</div>

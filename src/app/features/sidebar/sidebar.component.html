@@ -5,7 +5,7 @@
   </button>
 </header>
 
-<nav class="tree" role="tree" aria-label="Files">
+<nav class="tree" role="tree" aria-label="Files" (contextmenu)="openMenu($event, null)">
   @for (node of workspace.visible(); track node.dirPath ?? node.filePath) {
     <div
       class="row"
@@ -16,7 +16,9 @@
       [style.padding-left.px]="8 + node.depth * 14"
       [title]="node.filePath ?? node.dirPath ?? ''"
       (click)="select(node)"
-      (keydown.enter)="select(node)"
+      (contextmenu)="openMenu($event, node)"
+      (keydown.enter)="renaming() === path(node) || select(node)"
+      (keydown.f2)="beginRename(node)"
       (keydown.arrowright)="node.dirPath && workspace.toggle(node, true)"
       (keydown.arrowleft)="node.dirPath && workspace.toggle(node, false)"
     >
@@ -32,7 +34,22 @@
       } @else {
         <svg class="kind" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
       }
-      <span class="label">{{ node.name }}</span>
+      @if (renaming() === path(node)) {
+        <input
+          #renameInput
+          class="rename"
+          type="text"
+          aria-label="New name"
+          [value]="basename(path(node))"
+          (click)="$event.stopPropagation()"
+          (keydown)="$event.stopPropagation()"
+          (keydown.enter)="commitRename(node, renameInput)"
+          (keydown.escape)="cancelRename()"
+          (blur)="commitRename(node, renameInput)"
+        />
+      } @else {
+        <span class="label">{{ node.name }}</span>
+      }
     </div>
   } @empty {
     <p class="empty">No Markdown files found.</p>
@@ -40,3 +57,16 @@
 </nav>
 
 <div class="resizer" (pointerdown)="startResize($event)" title="Resize"></div>
+
+@if (menu(); as m) {
+  <div class="menu-backdrop" (click)="closeMenu()" (contextmenu)="$event.preventDefault(); closeMenu()" role="presentation"></div>
+  <ul class="menu" role="menu" [style.left.px]="m.x" [style.top.px]="m.y" (keydown.escape)="closeMenu()">
+    <li role="none"><button type="button" role="menuitem" (click)="newNote()">New note</button></li>
+    <li role="none"><button type="button" role="menuitem" (click)="newFolder()">New folder</button></li>
+    @if (m.node) {
+      <li role="none"><button type="button" role="menuitem" (click)="startRename()">Rename</button></li>
+      <li role="none"><button type="button" role="menuitem" (click)="trash()">Delete</button></li>
+    }
+    <li role="none"><button type="button" role="menuitem" (click)="reveal()">{{ revealLabel }}</button></li>
+  </ul>
+}

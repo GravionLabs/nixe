@@ -1,0 +1,86 @@
+{
+  "aliases": [],
+  "blocks": [],
+  "headings": [
+    {
+      "level": 1,
+      "text": "Embeds"
+    }
+  ],
+  "links": [
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": "Second heading",
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": "block1",
+      "embed": true,
+      "heading": null,
+      "target": "Note"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "image.svg"
+    },
+    {
+      "alias": "100",
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "image.svg"
+    },
+    {
+      "alias": "100x60",
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "image.svg"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "doc.pdf"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "Loop A"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "L1"
+    },
+    {
+      "alias": null,
+      "block": null,
+      "embed": true,
+      "heading": null,
+      "target": "Nope"
+    }
+  ],
+  "markdownLinks": [],
+  "properties": [],
+  "tags": [],
+  "warnings": []
+}

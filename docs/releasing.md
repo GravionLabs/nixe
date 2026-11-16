@@ -4,6 +4,10 @@
 without secrets, and nothing is published. Only a push to `main` signs and notarizes the macOS bundles (aarch64 and
 x86_64) and creates and publishes the release.
 
+After all builds, the `checksums` job downloads the draft release assets, writes `SHA256SUMS` over the binaries (not
+`*.sig`, `latest.json`) with `scripts/release-checksums.sh`, checks it and uploads it. `publish-release` waits for it.
+There is no build provenance attestation: the repository is private.
+
 ## macOS signing and notarization
 
 Only the `build` job of a push to `main` gets the Apple secrets. Tauri signs with the hardened runtime, notarizes

@@ -1,0 +1,36 @@
+<div class="backdrop" (click)="switcher.close()" (keydown.escape)="switcher.close()" role="presentation"></div>
+<div class="dialog" role="dialog" aria-label="Quick switcher">
+  <input
+    #input
+    type="text"
+    placeholder="Open note…"
+    aria-label="Find a note by name or alias"
+    role="combobox"
+    aria-expanded="true"
+    aria-controls="switcher-list"
+    [value]="switcher.query()"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"
+  />
+  <ul id="switcher-list" role="listbox">
+    @for (match of switcher.matches(); track match.entry.path; let i = $index) {
+      <li role="option" [attr.aria-selected]="i === switcher.selected()" [class.selected]="i === switcher.selected()">
+        <button type="button" tabindex="-1" (click)="choose(match)" [title]="match.entry.path">
+          <span class="name">{{ match.label }}</span>
+          @if (match.isAlias) {
+            <span class="alias">alias of {{ match.entry.title }}</span>
+          }
+          <span class="path">{{ match.entry.path }}</span>
+        </button>
+      </li>
+    } @empty {
+      <li class="empty">
+        @if (switcher.query().trim()) {
+          <button type="button" (click)="create()">Create “{{ switcher.query().trim() }}” (Enter)</button>
+        } @else {
+          No notes
+        }
+      </li>
+    }
+  </ul>
+</div>

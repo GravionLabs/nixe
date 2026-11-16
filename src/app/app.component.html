@@ -11,8 +11,20 @@
   @if (showSidebar()) {
     <app-sidebar (error)="showToast($event)" />
   }
+  @if (showSearch()) {
+    <app-search (error)="showToast($event)" />
+  }
   @if (doc.path()) {
-    <app-viewer class="pane" [html]="html()" [dark]="settings.dark()" (notify)="showToast($event)" />
+    @if (editor.editing()) {
+      @defer (on immediate) {
+        <app-editor class="pane" (error)="showToast($event)" />
+      }
+    } @else {
+      <app-viewer class="pane" [html]="html()" [dark]="settings.dark()" (notify)="showToast($event)" />
+    }
+    @if (showBacklinks()) {
+      <app-backlinks (error)="showToast($event)" />
+    }
   } @else {
     <section class="welcome">
       <h1>Nixe</h1>
@@ -23,14 +35,28 @@
       </div>
       <p class="hint">or drop a file or folder onto the window</p>
       <dl class="shortcuts">
-        <dt>{{ mod }}O</dt><dd>Open file</dd>
+        <dt>{{ mod }}N</dt><dd>New note</dd>
+        <dt>{{ mod }}O</dt><dd>Quick switcher</dd>
+        <dt>{{ mod }}P</dt><dd>Command palette</dd>
+        <dt>{{ mod }}⇧P</dt><dd>Open file</dd>
         <dt>{{ mod }}⇧O</dt><dd>Open folder</dd>
+        <dt>{{ mod }}E</dt><dd>Edit / view the note</dd>
         <dt>{{ mod }}B</dt><dd>Toggle sidebar</dd>
+        <dt>{{ mod }}⇧B</dt><dd>Toggle backlinks</dd>
+        <dt>{{ mod }}⇧F</dt><dd>Search the vault</dd>
         <dt>{{ mod }}[ / ]</dt><dd>Back / forward</dd>
       </dl>
     </section>
   }
 </main>
+
+@if (showSwitcher()) {
+  <app-switcher (error)="showToast($event)" />
+}
+
+@if (palette.visible()) {
+  <app-palette />
+}
 
 @if (toast(); as message) {
   <div class="toast" role="status">{{ message }}</div>

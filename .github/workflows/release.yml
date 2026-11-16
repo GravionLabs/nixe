@@ -3,7 +3,9 @@ name: Build & Release
 on:
   push:
     branches: [main]
+  # only the release pull request builds the installer matrix; other pull requests run ci.yml
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -154,7 +156,9 @@ jobs:
           tagName: ${{ env.PUBLISH == 'true' && format('v{0}', env.VERSION) || '' }}
           releaseName: ${{ env.PUBLISH == 'true' && format('Nixe v{0}', env.VERSION) || '' }}
           releaseDraft: true
-          args: ${{ matrix.args }}
+          # The MSI bundler rejects pre-release versions (1.1.0-rc021), so a pre-release builds
+          # the Windows installer as NSIS only; stable versions keep every bundle target.
+          args: ${{ matrix.args }}${{ matrix.platform == 'windows-latest' && contains(env.VERSION, '-') && ' --bundles nsis' || '' }}
       - name: Verify signature and notarization
         if: env.SIGN_MACOS == 'true'
         shell: bash
@@ -175,8 +179,27 @@ jobs:
         shell: bash
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"
 
-  publish-release:
+  checksums:
     needs: [determine-version, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write, check and upload SHA256SUMS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="v${{ needs.determine-version.outputs.semver }}"
+          mkdir "$RUNNER_TEMP/assets"
+          gh release download "$tag" --repo "${{ github.repository }}" --dir "$RUNNER_TEMP/assets"
+          bash scripts/release-checksums.sh "$RUNNER_TEMP/assets"
+          gh release upload "$tag" "$RUNNER_TEMP/assets/SHA256SUMS" --repo "${{ github.repository }}" --clobber
+
+  publish-release:
+    needs: [determine-version, build, checksums]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

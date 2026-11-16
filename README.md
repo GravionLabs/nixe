@@ -2,6 +2,8 @@
 
 Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 2](https://tauri.app) and Angular.
 
+**Goal ([Epic #44](https://github.com/GravionLabs/nixe/issues/44)):** Nixe grows into an Obsidian-compatible vault app that can also edit and sync with Git, on desktop and iOS. It works on the same plain `.md` files as Obsidian, so both apps can use one vault. Nixe writes only the notes you edit and the Git metadata; its index and caches live in the app data directory, never in the vault. Today Nixe is the viewer described below; see the [roadmap](docs/roadmap.md) for what is planned.
+
 ## Features
 
 - **Markdown** (CommonMark + GFM): tables, task lists, footnotes, syntax highlighting
@@ -26,17 +28,36 @@ Cross-platform Markdown viewer for macOS, Windows, and Linux. Built with [Tauri 
   - `[[_TOC_]]`
   - The wiki root is the topmost folder with a `.order` file, otherwise the Git root.
 - **Open folder**: a file tree of Markdown files on the left. It loads lazily, its width is adjustable, and it expands to the active file as you navigate. In ADO wikis the `.order` sequence is used, `Page.md` and the folder `Page/` appear as a single node, and names are decoded (`Data-Flow.md` → "Data Flow"). The last opened folder is restored on startup.
-- **Native menu**: File (Open file, Open folder, Reload), Edit, View
+- **Native menu**: File (Quick switcher, Open file, Open folder, Reload), Edit, View
 - **Live reload** when the file changes on disk
 - **Light/dark**: follows the system or can be set manually
 - Open via menu/dialog, drag & drop, command line (`nixe README.md`, `nixe ./docs`), or file association
 - **Command line**: on macOS, *Nixe → Install Command Line Tool…* links `nixe` into `/opt/homebrew/bin`, `/usr/local/bin` or `~/.local/bin` (first writable). Then `nixe README.md`, `nixe ./docs`, or pipe content with `git show HEAD:README.md | nixe -`. Piped content is shown as a temporary file, so relative links inside it don't resolve. Installing into `/usr/local/bin` asks for the administrator password if needed.
 
+## Verify the download
+
+Each release has a `SHA256SUMS` file next to the installers. Download it into the same folder as the installer, then compare:
+
+```bash
+# macOS
+shasum -a 256 -c SHA256SUMS --ignore-missing
+# Linux
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+```powershell
+# Windows: compare with the line for your installer in SHA256SUMS
+Get-FileHash .\Nixe_<version>_x64-setup.exe -Algorithm SHA256
+```
+
+`--ignore-missing` skips the installers for other platforms that you did not download.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |
 |---|---|
-| ⌘/Ctrl + O | Open file |
+| ⌘/Ctrl + O | Quick switcher: fuzzy search over note names and aliases, recent notes first (↑/↓, Enter, Esc) |
+| ⌘/Ctrl + ⇧ + P | Open file |
 | ⌘/Ctrl + ⇧ + O | Open folder |
 | ⌘/Ctrl + R | Reload |
 | ⌘/Ctrl + B | Toggle sidebar |

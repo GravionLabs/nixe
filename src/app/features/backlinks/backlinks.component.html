@@ -1,0 +1,56 @@
+<header>Links</header>
+
+@switch (links.state()) {
+  @case ("loading") {
+    <p class="status" role="status">Indexing the vault…</p>
+  }
+  @case ("error") {
+    <p class="status" role="alert">The vault index is not available.</p>
+  }
+  @case ("ready") {
+    <section aria-label="Backlinks">
+      <h2>Backlinks <span class="count">{{ links.backlinks().length }}</span></h2>
+      @if (links.backlinks().length === 0) {
+        <p class="status">No backlinks</p>
+      } @else {
+        <ul>
+          @for (link of links.backlinks(); track $index) {
+            <li>
+              <button type="button" (click)="openBacklink(link)" [title]="link.source + ':' + link.line">
+                <span class="name">{{ link.source }}</span>
+                <span class="context">{{ link.context }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section aria-label="Outgoing links">
+      <h2>
+        Outgoing links <span class="count">{{ links.outgoing().length }}</span>
+      </h2>
+      @if (links.outgoing().length === 0) {
+        <p class="status">No outgoing links</p>
+      } @else {
+        <ul>
+          @for (link of links.outgoing(); track $index) {
+            <li>
+              <button
+                type="button"
+                [class.unresolved]="!link.resolved"
+                [disabled]="!link.resolved"
+                (click)="openOutgoing(link)"
+              >
+                <span class="name">{{ link.label }}</span>
+                @if (!link.resolved) {
+                  <span class="badge">unresolved</span>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+}

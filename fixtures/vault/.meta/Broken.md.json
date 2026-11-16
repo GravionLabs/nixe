@@ -1,0 +1,25 @@
+{
+  "aliases": [],
+  "blocks": [],
+  "headings": [
+    {
+      "level": 1,
+      "text": "Broken"
+    }
+  ],
+  "links": [
+    {
+      "alias": null,
+      "block": null,
+      "embed": false,
+      "heading": null,
+      "target": "Note"
+    }
+  ],
+  "markdownLinks": [],
+  "properties": [],
+  "tags": [],
+  "warnings": [
+    "invalid-frontmatter"
+  ]
+}

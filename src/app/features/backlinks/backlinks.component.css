@@ -1,0 +1,95 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 280px;
+  min-width: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--chrome);
+  color: var(--fg);
+  font-size: 13px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+h2 {
+  margin: 12px 12px 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.count {
+  margin-left: 4px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status {
+  margin: 4px 12px;
+  color: var(--muted);
+}
+
+button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+button:disabled {
+  cursor: default;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.unresolved .name {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.badge {
+  align-self: flex-start;
+  font-size: 11px;
+  color: var(--muted);
+}

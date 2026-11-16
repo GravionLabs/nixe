@@ -18,8 +18,23 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     };
 
     let mut file = SubmenuBuilder::new(app, "File")
-        .item(&item("open-file", "Open File…", Some("CmdOrCtrl+O"))?)
-        .item(&item("open-folder", "Open Folder…", Some("CmdOrCtrl+Shift+O"))?)
+        .item(&item("new-note", "New Note", Some("CmdOrCtrl+N"))?)
+        .item(&item(
+            "quick-switcher",
+            "Quick Switcher…",
+            Some("CmdOrCtrl+O"),
+        )?)
+        .item(&item(
+            "command-palette",
+            "Command Palette…",
+            Some("CmdOrCtrl+P"),
+        )?)
+        .item(&item("open-file", "Open File…", Some("CmdOrCtrl+Shift+P"))?)
+        .item(&item(
+            "open-folder",
+            "Open Folder…",
+            Some("CmdOrCtrl+Shift+O"),
+        )?)
         .separator()
         .item(&item("reload", "Reload", Some("CmdOrCtrl+R"))?)
         .separator()
@@ -28,15 +43,37 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         file = file.quit();
     }
 
-    let edit = SubmenuBuilder::new(app, "Edit").copy().select_all().build()?;
+    let edit = SubmenuBuilder::new(app, "Edit")
+        .copy()
+        .select_all()
+        .build()?;
 
     let view = SubmenuBuilder::new(app, "View")
         .item(&item("back", "Back", Some("CmdOrCtrl+["))?)
         .item(&item("forward", "Forward", Some("CmdOrCtrl+]"))?)
         .separator()
-        .item(&item("toggle-sidebar", "Toggle Sidebar", Some("CmdOrCtrl+B"))?)
+        .item(&item(
+            "toggle-sidebar",
+            "Toggle Sidebar",
+            Some("CmdOrCtrl+B"),
+        )?)
+        .item(&item(
+            "toggle-backlinks",
+            "Toggle Backlinks Panel",
+            Some("CmdOrCtrl+Shift+B"),
+        )?)
+        .item(&item(
+            "toggle-editor",
+            "Toggle Editor",
+            Some("CmdOrCtrl+E"),
+        )?)
+        .item(&item("search", "Search Vault", Some("CmdOrCtrl+Shift+F"))?)
         .item(&item("toggle-math", "Toggle LaTeX Math", None)?)
-        .item(&item("cycle-theme", "Cycle Theme (System/Light/Dark)", None)?)
+        .item(&item(
+            "cycle-theme",
+            "Cycle Theme (System/Light/Dark)",
+            None,
+        )?)
         .separator()
         .item(&item("zoom-in", "Zoom In", Some("CmdOrCtrl+="))?)
         .item(&item("zoom-out", "Zoom Out", Some("CmdOrCtrl+-"))?)
@@ -64,7 +101,10 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     }
     menu = menu.item(&file.build()?).item(&edit).item(&view);
     if cfg!(target_os = "macos") {
-        let window = SubmenuBuilder::new(app, "Window").minimize().maximize().build()?;
+        let window = SubmenuBuilder::new(app, "Window")
+            .minimize()
+            .maximize()
+            .build()?;
         menu = menu.item(&window);
     }
     menu.build()
