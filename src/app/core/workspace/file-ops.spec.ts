@@ -21,6 +21,12 @@ describe("noteFromLinkTarget", () => {
     expect(noteFromLinkTarget("Foo.md")).toEqual({ folder: "", name: "Foo.md" });
   });
 
+  it("ignores a heading or block part", () => {
+    expect(noteFromLinkTarget("Foo#Bar")).toEqual({ folder: "", name: "Foo.md" });
+    expect(noteFromLinkTarget("a/Foo#^abc")).toEqual({ folder: "a", name: "Foo.md" });
+    expect(noteFromLinkTarget("#Heading")).toBeNull();
+  });
+
   it("drops invalid characters and path escapes", () => {
     expect(noteFromLinkTarget("../../etc/Foo?")).toEqual({ folder: "etc", name: "Foo.md" });
     expect(noteFromLinkTarget("Foo|bar")).toEqual({ folder: "", name: "Foobar.md" });

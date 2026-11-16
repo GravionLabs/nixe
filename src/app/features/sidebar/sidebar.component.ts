@@ -107,7 +107,7 @@ export class SidebarComponent {
       if (!dir) return;
       if (node?.dirPath) await this.workspace.toggle(node, true);
       const path = await this.ops.createNote(dir);
-      this.renaming.set(path);
+      this.startRenaming(path);
     });
   }
 
@@ -118,7 +118,7 @@ export class SidebarComponent {
       const dir = this.targetDir(node);
       if (!dir) return;
       if (node?.dirPath) await this.workspace.toggle(node, true);
-      this.renaming.set(await this.ops.createFolder(dir));
+      this.startRenaming(await this.ops.createFolder(dir));
     });
   }
 
@@ -129,8 +129,12 @@ export class SidebarComponent {
   }
 
   protected beginRename(node: TreeNode): void {
+    this.startRenaming(this.path(node));
+  }
+
+  private startRenaming(path: string): void {
     this.renameDone = false;
-    this.renaming.set(this.path(node));
+    this.renaming.set(path);
   }
 
   protected async commitRename(node: TreeNode, input: HTMLInputElement): Promise<void> {

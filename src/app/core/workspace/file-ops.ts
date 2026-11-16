@@ -15,7 +15,8 @@ export function uniqueName(taken: Iterable<string>, stem: string, ext: string): 
  * Characters that are invalid in file names are dropped; null when nothing is left.
  */
 export function noteFromLinkTarget(target: string): { folder: string; name: string } | null {
-  const parts = target
+  const hash = target.indexOf("#");
+  const parts = (hash >= 0 ? target.slice(0, hash) : target)
     .replace(/\\/g, "/")
     .split("/")
     .map((p) => p.replace(INVALID_NAME_CHARS, "").trim())
