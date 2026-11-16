@@ -20,6 +20,16 @@ The toolbar button shows `editing()` as `active`/`aria-pressed` and is disabled 
   until one is chosen. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
 - **Scroll**: the viewer's top block (`data-line`) becomes the editor's first line and back.
 
+## Find and replace
+
+- **Editor**: ⌘/Ctrl+F opens the `@codemirror/search` bar at the top (next, previous, match count,
+  case, regex, whole word); ⌘/Ctrl+⌥+F opens it with the replace field, *replace* and *replace all*.
+  Escape closes the bar and returns the focus to the text. The bar uses the app's CSS variables.
+- **Reading view**: ⌘/Ctrl+F (the `find` command) opens a bar in `ViewerComponent` that wraps the
+  matches of the rendered note in `<mark class="find-hit">` and scrolls to the current one
+  (Enter / Shift+Enter, ↑ / ↓). Diagrams are skipped; a match never crosses a block. The pure
+  matcher is `core/find/find-core.ts`. Escape closes the bar and removes the highlights.
+
 ## Autocomplete
 
 `features/editor/completion.ts` (sources) and `core/editor/completion-core.ts` (pure logic) add
