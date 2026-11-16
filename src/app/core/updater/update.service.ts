@@ -69,6 +69,8 @@ export class UpdateService {
     try {
       // Windows quits the app when the installer starts, so the text is saved first.
       await this.editor.handle?.flush();
+      // `flush` swallows a failed write and writes nothing while a conflict is open.
+      if (this.editor.handle?.dirty()) throw new Error("the open note could not be saved");
       await update.downloadAndInstall((event) => {
         if (event.event === "Started") this.total.set(event.data.contentLength ?? null);
         else if (event.event === "Progress") this.received.update((n) => n + event.data.chunkLength);

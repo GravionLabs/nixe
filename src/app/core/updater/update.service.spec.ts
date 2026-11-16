@@ -20,7 +20,7 @@ function fakeUpdate(version: string, download = vi.fn().mockResolvedValue(undefi
 }
 
 describe("UpdateService", () => {
-  const editor = { handle: { flush: vi.fn() } as { flush: ReturnType<typeof vi.fn> } | null };
+  const editor = { handle: { flush: vi.fn(), dirty: vi.fn() } as { flush: ReturnType<typeof vi.fn>; dirty: ReturnType<typeof vi.fn> } | null };
   let updater: UpdateService;
 
   beforeAll(() => {
@@ -29,7 +29,7 @@ describe("UpdateService", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    editor.handle = { flush: vi.fn().mockResolvedValue(undefined) };
+    editor.handle = { flush: vi.fn().mockResolvedValue(undefined), dirty: vi.fn().mockReturnValue(false) };
     vi.mocked(getVersion).mockResolvedValue("1.0.0");
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [{ provide: EditorService, useValue: editor }] });
@@ -111,5 +111,16 @@ describe("UpdateService", () => {
     await updater.install();
     expect(download).not.toHaveBeenCalled();
     expect(updater.error()).toBe("Update failed: disk full");
+  });
+
+  it("does not install while the note is still unsaved", async () => {
+    editor.handle!.dirty.mockReturnValue(true);
+    const download = vi.fn();
+    vi.mocked(check).mockResolvedValue(fakeUpdate("1.1.0", download) as never);
+    await updater.check();
+    await updater.install();
+    expect(download).not.toHaveBeenCalled();
+    expect(updater.error()).toBe("Update failed: the open note could not be saved");
+    expect(updater.update()?.version).toBe("1.1.0");
   });
 });

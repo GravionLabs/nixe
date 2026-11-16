@@ -67,6 +67,7 @@ export class EditorComponent implements OnDestroy {
     this.editor.handle = {
       topLine: () => this.topLine(),
       flush: () => this.flush(),
+      dirty: () => this.session?.saver.dirty ?? false,
       blocked: () => this.conflict() !== null,
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
