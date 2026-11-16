@@ -16,6 +16,7 @@ import { HealthService } from "./core/index/health.service";
 import { SearchService } from "./core/index/search.service";
 import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
+import { DailyService } from "./core/daily/daily.service";
 import { TemplateService } from "./core/templates/template.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
@@ -60,6 +61,7 @@ export class AppComponent {
   private readonly autoSync = inject(AutoSyncService);
   protected readonly switcher = inject(SwitcherService);
   protected readonly templates = inject(TemplateService);
+  private readonly daily = inject(DailyService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
 
@@ -179,6 +181,9 @@ export class AppComponent {
       { id: "command-palette", title: "Command palette", shortcut: "Mod+P", keys: ["Mod+P"], run: () => this.palette.open() },
       { id: "new-note", title: "New note", shortcut: "Mod+N", keys: ["Mod+N"], when: inVault, run: () => this.newNote() },
       { id: "quick-switcher", title: "Quick switcher", shortcut: "Mod+O", keys: ["Mod+O"], when: inVault, run: () => this.switcher.open() },
+      { id: "daily-note", title: "Open today's daily note", shortcut: "Mod+Shift+D", keys: ["Mod+Shift+D"], when: inVault, run: () => this.run(() => this.daily.openToday()) },
+      { id: "daily-previous", title: "Open previous daily note", when: inVault, run: () => this.run(() => this.daily.previous()) },
+      { id: "daily-next", title: "Open next daily note", when: inVault, run: () => this.run(() => this.daily.next()) },
       { id: "insert-template", title: "Insert template", when: () => noteOpen() && this.editor.editing(), run: () => this.run(() => this.templates.open()) },
       { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.viewer()?.topLine() ?? null)) },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },

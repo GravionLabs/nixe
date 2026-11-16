@@ -97,6 +97,13 @@ export interface LinkFormat {
   format: "shortest" | "relative" | "absolute";
 }
 
+/** `.obsidian/daily-notes.json`; a key it does not set is null. */
+export interface DailyNotesConfig {
+  folder: string | null;
+  format: string | null;
+  template: string | null;
+}
+
 export interface TagCount {
   tag: string;
   count: number;
@@ -164,6 +171,8 @@ export const backend = {
   newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),
   /** The template folder of `.obsidian/templates.json` (vault-relative); null when it names none. */
   templateFolder: () => invoke<string | null>("template_folder"),
+  /** The Daily notes settings of `.obsidian/daily-notes.json`. */
+  dailyNotesConfig: () => invoke<DailyNotesConfig>("daily_notes_config"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
   /** Every tag of the vault with the number of notes using it, most used first. */

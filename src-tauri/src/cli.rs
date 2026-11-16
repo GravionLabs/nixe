@@ -20,6 +20,7 @@ const SUBCOMMANDS: &[&str] = &[
     "check",
     "new",
     "append",
+    "daily",
     "mcp",
 ];
 
@@ -38,6 +39,7 @@ usage: nixe <path>|-                       open the viewer
        nixe new <title> [--folder <dir>] [--open] [--vault <dir>]
        nixe append <note> [text] [--vault <dir>]   text from stdin when omitted
        nixe append --inbox [text] [--vault <dir>]
+       nixe daily [--append <text>] [--vault <dir>]   open today's daily note, or append to it
        nixe mcp [--vault <dir>]                   MCP server over stdio (read-only)";
 
 /// Runs the subcommand named by the process arguments. `None` when they name none (the viewer
@@ -131,6 +133,7 @@ struct Parsed {
     folder: Option<String>,
     open: bool,
     inbox: bool,
+    append: Option<String>,
     positional: Vec<String>,
 }
 
@@ -152,6 +155,7 @@ fn parse(args: &[String]) -> Result<Parsed, CliError> {
             "--json" => p.json = true,
             "--open" => p.open = true,
             "--inbox" => p.inbox = true,
+            "--append" => p.append = Some(value(flag, inline, &mut it)?),
             "--folder" => p.folder = Some(value(flag, inline, &mut it)?),
             "--vault" => p.vault = Some(value(flag, inline, &mut it)?),
             "--tag" => p.tags.push(value(flag, inline, &mut it)?),
@@ -214,6 +218,18 @@ pub fn execute_with(
             inbox: p.inbox,
         };
         return crate::cli_write::run(command, &request, &root, app_data, input, out);
+    }
+    if command == "daily" {
+        if !p.positional.is_empty() {
+            return Err(CliError::Usage("`daily` takes no arguments".into()));
+        }
+        let root = vault_root(p.vault.as_deref(), cwd)?;
+        return crate::daily::run(
+            &root,
+            p.append.as_deref(),
+            chrono::Local::now().fixed_offset(),
+            out,
+        );
     }
     if command == "check" {
         if !p.positional.is_empty() {

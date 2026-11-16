@@ -62,6 +62,35 @@ pub fn template_folder(root: &Path) -> Option<String> {
     (!folder.is_empty()).then_some(folder)
 }
 
+/// The Daily notes plugin settings from `.obsidian/daily-notes.json`; a key that is missing, empty
+/// or not a string is `None`. Folder and template are vault-relative with forward slashes.
+#[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct DailyNotesConfig {
+    pub folder: Option<String>,
+    pub format: Option<String>,
+    pub template: Option<String>,
+}
+
+pub fn daily_notes_config(root: &Path) -> DailyNotesConfig {
+    let Some(json) = fs::read_to_string(root.join(".obsidian").join("daily-notes.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+    else {
+        return DailyNotesConfig::default();
+    };
+    let text = |key: &str| json.get(key).and_then(|v| v.as_str()).map(str::trim);
+    let path = |key: &str| {
+        text(key)
+            .map(|v| v.replace('\\', "/").trim_matches('/').to_string())
+            .filter(|v| !v.is_empty())
+    };
+    DailyNotesConfig {
+        folder: path("folder"),
+        format: text("format").filter(|v| !v.is_empty()).map(str::to_string),
+        template: path("template"),
+    }
+}
+
 fn canonical_root(root: &Path) -> Result<PathBuf, String> {
     dunce::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))
 }
@@ -244,6 +273,31 @@ mod tests {
         assert_eq!(new_note_location(&root).location, "root");
         fs::write(&app, r#"{"newFileLocation":"current"}"#).unwrap();
         assert_eq!(new_note_location(&root).location, "current");
+    }
+
+    #[test]
+    fn daily_notes_config_comes_from_daily_notes_json() {
+        let root = tmp("daily");
+        assert_eq!(daily_notes_config(&root), DailyNotesConfig::default());
+        fs::create_dir_all(root.join(".obsidian")).unwrap();
+        let file = root.join(".obsidian/daily-notes.json");
+        fs::write(&file, "not json").unwrap();
+        assert_eq!(daily_notes_config(&root), DailyNotesConfig::default());
+        fs::write(&file, r#"{"folder":"","format":"","template":5}"#).unwrap();
+        assert_eq!(daily_notes_config(&root), DailyNotesConfig::default());
+        fs::write(
+            &file,
+            r#"{"folder":"/Journal\\Days/","format":"YYYY/MM/YYYY-MM-DD","template":"Templates/Daily"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            daily_notes_config(&root),
+            DailyNotesConfig {
+                folder: Some("Journal/Days".into()),
+                format: Some("YYYY/MM/YYYY-MM-DD".into()),
+                template: Some("Templates/Daily".into()),
+            }
+        );
     }
 
     #[test]

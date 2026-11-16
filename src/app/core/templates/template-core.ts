@@ -74,13 +74,13 @@ const TOKENS: Record<string, (d: Date) => string> = {
   x: (d) => String(d.getTime()),
 };
 
-const FORMAT_RE = new RegExp(
+/** Source of the pattern that finds a `[literal]` (group 1) or a Moment token in a format. */
+export const FORMAT_SOURCE =
   "\\[([^\\]]*)\\]|" +
-    Object.keys(TOKENS)
-      .sort((a, b) => b.length - a.length)
-      .join("|"),
-  "g",
-);
+  Object.keys(TOKENS)
+    .sort((a, b) => b.length - a.length)
+    .join("|");
+const FORMAT_RE = new RegExp(FORMAT_SOURCE, "g");
 
 /** Formats a date with Moment.js tokens (English); text in `[brackets]` stays as it is. */
 export function formatMoment(date: Date, format: string): string {
