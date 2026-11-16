@@ -112,3 +112,21 @@ is watched for external changes; the watcher event goes to every tab showing tha
 - Restoring: the tabs, their history, mode, scroll line, the split and the divider are stored in the
   vault state (`VaultState.layout`, `core/tabs/layout.ts`) and opened again by `WorkspaceService.openFolder`;
   notes that are gone are left out.
+
+## Settings
+
+`⌘/Ctrl+,` (command `open-settings`, also in the native menu) opens the settings page.
+
+- **Storage.** App settings are one JSON file, `settings.json` in the app config directory
+  (`read_app_settings` / `write_app_settings`, written atomically). `SettingsService.load()` runs
+  before the app starts (`provideAppInitializer`). Without a file, the old `localStorage` entry
+  (`nixe.settings`) is migrated into it (`loadSettings` in `settings-core.ts`); if the file cannot be
+  read, the settings stay in `localStorage` and the file is never overwritten. Every key is
+  sanitized, so a missing or wrong-typed key falls back to its default.
+- **Sections.** `SettingsRegistry.register()` adds a section (`id`, `title`, `order`, `items()`); the
+  built-in ones (General, Editor, Files and links, Appearance, Git, Shortcuts) are in
+  `builtin-sections.ts`. Features and plugins register theirs the same way.
+- **Obsidian settings** (new-note folder, attachment folder, link format, templates, daily notes) are
+  read from `.obsidian/` by `obsidian_settings` and shown read-only with their source file.
+- **Apply at once.** Items read and write the `SettingsService` signals, so changes need no restart.
+  The search field filters items by label, description, keywords and section title.

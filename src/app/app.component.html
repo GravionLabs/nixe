@@ -83,6 +83,10 @@
   <app-recent />
 }
 
+@if (settingsPage.visible()) {
+  <app-settings />
+}
+
 <app-link-preview />
 
 @if (toast(); as message) {

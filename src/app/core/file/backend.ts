@@ -104,6 +104,16 @@ export interface DailyNotesConfig {
   template: string | null;
 }
 
+/** A setting that Obsidian also has, read from the vault. */
+export interface ObsidianSetting {
+  id: string;
+  label: string;
+  /** The value in effect; null when the file does not set it. */
+  value: string | null;
+  /** The file it comes from, vault-relative. */
+  source: string;
+}
+
 export interface TagCount {
   tag: string;
   count: number;
@@ -174,6 +184,11 @@ export const backend = {
   /** The Daily notes settings of `.obsidian/daily-notes.json`. */
   dailyNotesConfig: () => invoke<DailyNotesConfig>("daily_notes_config"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
+  /** The app settings file (`settings.json` in the app config directory); null before the first save. */
+  readAppSettings: () => invoke<string | null>("read_app_settings"),
+  writeAppSettings: (content: string) => invoke<void>("write_app_settings", { content }),
+  /** The Obsidian settings of the open vault with the file each one comes from. */
+  obsidianSettings: () => invoke<ObsidianSetting[]>("obsidian_settings"),
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
   /** Saves pasted bytes into the attachment folder of `note`; returns the vault-relative path. */
   saveAttachment: (note: string, name: string, bytes: number[]) =>

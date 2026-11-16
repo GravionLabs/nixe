@@ -45,7 +45,10 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         .item(&item("close-tab", "Close Tab", Some("CmdOrCtrl+W"))?)
         .item(&item("split-right", "Split Tab to the Right", None)?);
     if !cfg!(target_os = "macos") {
-        file = file.quit();
+        file = file
+            .separator()
+            .item(&item("open-settings", "Settings…", Some("CmdOrCtrl+,"))?)
+            .quit();
     }
 
     let edit = SubmenuBuilder::new(app, "Edit")
@@ -96,6 +99,8 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     if cfg!(target_os = "macos") {
         let app_menu = SubmenuBuilder::new(app, "Nixe")
             .about(None)
+            .separator()
+            .item(&item("open-settings", "Settings…", Some("CmdOrCtrl+,"))?)
             .separator()
             .item(&item(INSTALL_CLI_ID, "Install Command Line Tool…", None)?)
             .separator()
