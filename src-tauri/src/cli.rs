@@ -10,7 +10,15 @@ use serde::Serialize;
 use crate::index::{self, read, scan, search};
 use crate::vault::{find_vault_root, resolve::resolve_link};
 
-const SUBCOMMANDS: &[&str] = &["search", "backlinks", "links", "tags", "notes", "props"];
+const SUBCOMMANDS: &[&str] = &[
+    "search",
+    "backlinks",
+    "links",
+    "tags",
+    "notes",
+    "props",
+    "mcp",
+];
 
 /// Matches `identifier` of `tauri.conf.json`: the app data directory holds the index.
 const APP_IDENTIFIER: &str = "dev.nixe.app";
@@ -22,7 +30,8 @@ usage: nixe <path>|-                       open the viewer
        nixe links <note> [--vault <dir>] [--json]
        nixe tags [--vault <dir>] [--json]
        nixe notes [--tag <tag>]... [--path <prefix>] [--vault <dir>] [--json]
-       nixe props <note> [--vault <dir>] [--json]";
+       nixe props <note> [--vault <dir>] [--json]
+       nixe mcp [--vault <dir>]                   MCP server over stdio (read-only)";
 
 /// Runs the subcommand named by the process arguments. `None` when they name none (the viewer
 /// starts); otherwise the exit code, after the answer went to stdout and errors to stderr.
@@ -36,6 +45,19 @@ pub fn try_run() -> Option<i32> {
         eprintln!("nixe: cannot locate the application data directory");
         return Some(1);
     };
+    if args[0] == "mcp" {
+        return Some(match crate::mcp::run(&args[1..], &cwd, &data) {
+            Ok(()) => 0,
+            Err(CliError::Usage(msg)) => {
+                eprintln!("nixe: {msg}\n{USAGE}");
+                2
+            }
+            Err(CliError::Failed(msg)) => {
+                eprintln!("nixe: {msg}");
+                1
+            }
+        });
+    }
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
     let code = match execute(&args, &cwd, &data, &mut out) {
@@ -130,7 +152,7 @@ fn parse(args: &[String]) -> Result<Parsed, CliError> {
 }
 
 /// The vault: `--vault`, else the vault containing `cwd`.
-fn vault_root(vault: Option<&str>, cwd: &Path) -> Result<PathBuf, CliError> {
+pub(crate) fn vault_root(vault: Option<&str>, cwd: &Path) -> Result<PathBuf, CliError> {
     match vault {
         Some(v) => {
             let dir = dunce::canonicalize(cwd.join(v))
@@ -247,7 +269,7 @@ fn emit<T: Serialize>(
 
 /// The indexed path for `name`: a vault-relative path, with or without `.md`, or a unique
 /// note name (the same rules as a wikilink).
-fn note_path(conn: &rusqlite::Connection, name: &str) -> Result<String, CliError> {
+pub(crate) fn note_path(conn: &rusqlite::Connection, name: &str) -> Result<String, CliError> {
     let paths: Vec<String> = read::notes(conn)?.into_iter().map(|n| n.path).collect();
     resolve_link(name.trim_start_matches("./"), &paths)
         .ok_or_else(|| CliError::Failed(format!("{name}: no such note, or the name is ambiguous")))

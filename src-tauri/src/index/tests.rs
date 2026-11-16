@@ -647,3 +647,29 @@ mod searching {
         }
     }
 }
+
+#[test]
+fn notes_by_property_matches_scalars_and_list_members() {
+    let (root, mut conn) = setup("by-property");
+    write(
+        &root,
+        "a.md",
+        "---\nstatus: Done\nlist: [x, y]\nn: 3\n---\n",
+    );
+    write(&root, "b.md", "---\nstatus: open\n---\n");
+    write(&root, "c.md", "no frontmatter\n");
+    run(&mut conn, &root);
+    let paths = |key: &str, value: Option<&str>| -> Vec<String> {
+        read::notes_by_property(&conn, key, value)
+            .unwrap()
+            .into_iter()
+            .map(|m| m.path)
+            .collect()
+    };
+    assert_eq!(paths("status", None), ["a.md", "b.md"]);
+    assert_eq!(paths("STATUS", Some("done")), ["a.md"]);
+    assert_eq!(paths("list", Some("y")), ["a.md"]);
+    assert_eq!(paths("n", Some("3")), ["a.md"]);
+    assert!(paths("list", Some("z")).is_empty());
+    assert!(paths("missing", None).is_empty());
+}
