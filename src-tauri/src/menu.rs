@@ -64,6 +64,11 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             Some("CmdOrCtrl+Shift+B"),
         )?)
         .item(&item(
+            "toggle-outline",
+            "Toggle Outline Panel",
+            Some("CmdOrCtrl+Shift+L"),
+        )?)
+        .item(&item(
             "toggle-editor",
             "Toggle Editor",
             Some("CmdOrCtrl+E"),

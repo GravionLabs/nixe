@@ -21,6 +21,7 @@ import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
+import { OutlineService } from "../../core/outline/outline.service";
 import { PropertiesComponent } from "../properties/properties.component";
 import { SearchService } from "../../core/index/search.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
@@ -70,6 +71,7 @@ const DIALOG_ZOOM_STEP = 1.1;
   `,
   styleUrl: "./viewer.component.css",
   imports: [PropertiesComponent],
+  host: { "(scroll)": "trackScroll()" },
 })
 export class ViewerComponent {
   /** Sanitized HTML (see MarkdownService). */
@@ -78,6 +80,7 @@ export class ViewerComponent {
   readonly notify = output<string>();
 
   private readonly doc = inject(DocumentService);
+  private readonly outline = inject(OutlineService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
   private readonly search = inject(SearchService);
@@ -111,6 +114,7 @@ export class ViewerComponent {
         }
         this.applyPendingAnchor(false);
         this.applyPendingLine(false);
+        this.trackScroll();
         // Diagrams change the layout, so the anchor is applied again afterwards.
         // Embedded notes are loaded first so diagrams inside them render too.
         void this.markdown
@@ -126,6 +130,7 @@ export class ViewerComponent {
           .then(() => {
             this.applyPendingAnchor(true);
             this.applyPendingLine(true);
+            this.trackScroll();
           });
       });
     });
@@ -150,6 +155,11 @@ export class ViewerComponent {
       },
     );
     return viewerTopLine(blocks, 0);
+  }
+
+  /** Tells the outline which line is at the top. */
+  protected trackScroll(): void {
+    this.outline.topLine.set(this.topLine());
   }
 
   /** Ctrl/Cmd + wheel always zooms the whole document. */
