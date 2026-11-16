@@ -128,9 +128,12 @@ export class AppComponent {
       await listen<string>(MENU_EVENT, (e) => this.commands.execute(e.payload));
 
       await getCurrentWebview().onDragDropEvent((event) => {
-        if (event.payload.type === "drop" && event.payload.paths[0]) {
-          void this.openPath(event.payload.paths[0]);
-        }
+        if (event.payload.type !== "drop") return;
+        const paths = event.payload.paths;
+        if (!paths[0]) return;
+        const handle = this.editor.editing() ? this.editor.handle : null;
+        if (handle) void this.run(() => handle.attachPaths(paths));
+        else void this.openPath(paths[0]);
       });
     } catch (err) {
       console.warn("desktop integration unavailable", err);

@@ -175,6 +175,11 @@ export const backend = {
   dailyNotesConfig: () => invoke<DailyNotesConfig>("daily_notes_config"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
+  /** Saves pasted bytes into the attachment folder of `note`; returns the vault-relative path. */
+  saveAttachment: (note: string, name: string, bytes: number[]) =>
+    invoke<string>("save_attachment", { note, name, bytes }),
+  /** Brings a dropped file into the vault (copied unless it is inside); returns the vault-relative path. */
+  importAttachment: (note: string, source: string) => invoke<string>("import_attachment", { note, source }),
   /** Every tag of the vault with the number of notes using it, most used first. */
   tags: () => invoke<TagCount[]>("tags"),
   isUtf8File: (path: string) => invoke<boolean>("is_utf8_file", { path }),

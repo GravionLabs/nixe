@@ -71,3 +71,12 @@ The command `Insert template` (open in the editor) lists the Markdown files in t
 - **Format:** Moment tokens as in templates. A `/` nests folders: `YYYY/MM/YYYY-MM-DD` gives `2026/03/2026-03-02.md`, and the folders are created. Previous and next read year, month and day (`YYYY YY MM M MMMM MMM DD D Do`) back from the paths; a format without them has no previous or next note.
 - **Template:** expanded as in `Insert template` (`{{title}}` is the note name); the whole template, frontmatter included, becomes the new note. A missing template is an error and creates nothing.
 
+
+## Attachments
+
+Pasting an image or dropping a file into the editor copies it into the vault and inserts `![[name]]` at the cursor. Code: `attachments.rs` (commands `save_attachment`, `import_attachment`), `core/editor/attachment-core.ts`.
+
+- **Folder:** `attachmentFolderPath` of `.obsidian/app.json`: missing, empty or `/` is the vault root; `./` is the folder of the open note; `./sub` a subfolder of it; any other value a fixed vault folder. The folder is created when missing; a path that leads out of the vault is refused.
+- **Names:** a pasted image is `Pasted image YYYYMMDDHHmmss.png` (the extension follows the image type); a pasted or dropped file keeps its name. A taken name gets a number (`name 1.png`), nothing is overwritten.
+- **Links:** the link holds the file name, or the vault-relative path when another file of the vault has the same name.
+- **Dropped files inside the vault** are not copied; only the link is inserted. Dropping while the editor is closed still opens the file or folder.
