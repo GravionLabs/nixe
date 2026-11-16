@@ -13,7 +13,7 @@ import { GitStatus, backend } from "../file/backend";
 import { IndexService } from "../index/index.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { GitService } from "./git.service";
+import { GitService, describeSync } from "./git.service";
 
 const status: GitStatus = {
   branch: "main",
@@ -112,7 +112,7 @@ describe("GitService", () => {
       let seen = "";
       const sync = vi.spyOn(backend, "gitVaultSync").mockImplementation(() => {
         seen = git.syncState().phase;
-        return Promise.resolve({ committed: true, pulled: true, pushed: true });
+        return Promise.resolve({ committed: true, pulled: true, pushed: true, conflicts: [] });
       });
       await git.sync();
       expect(seen).toBe("syncing");
@@ -121,7 +121,7 @@ describe("GitService", () => {
     });
 
     it("says when nothing had to be done", async () => {
-      vi.spyOn(backend, "gitVaultSync").mockResolvedValue({ committed: false, pulled: false, pushed: false });
+      vi.spyOn(backend, "gitVaultSync").mockResolvedValue({ committed: false, pulled: false, pushed: false, conflicts: [] });
       await git.sync();
       expect(git.syncState().message).toBe("Already in sync");
     });
@@ -139,7 +139,7 @@ describe("GitService", () => {
       const sync = vi
         .spyOn(backend, "gitVaultSync")
         .mockRejectedValueOnce("auth-required:github.com")
-        .mockResolvedValue({ committed: false, pulled: true, pushed: false });
+        .mockResolvedValue({ committed: false, pulled: true, pushed: false, conflicts: [] });
       const run = git.sync();
       await vi.waitFor(() => expect(git.tokenPrompt()).not.toBeNull());
       await git.saveToken("ghp_x");
@@ -161,7 +161,7 @@ describe("GitService", () => {
     it("ignores a second sync while one runs and does nothing without a repository", async () => {
       let finish!: () => void;
       const sync = vi.spyOn(backend, "gitVaultSync").mockReturnValue(
-        new Promise((resolve) => (finish = () => resolve({ committed: false, pulled: false, pushed: false }))),
+        new Promise((resolve) => (finish = () => resolve({ committed: false, pulled: false, pushed: false, conflicts: [] }))),
       );
       const first = git.sync();
       await git.sync();
@@ -248,5 +248,14 @@ describe("GitService", () => {
       await expect(run).rejects.toBe("auth-required:github.com");
       expect(git.tokenPrompt()).toBeNull();
     });
+  });
+});
+
+describe("describeSync", () => {
+  it("names the notes that kept both versions", () => {
+    const report = { committed: false, pulled: true, pushed: true, conflicts: ["a.md"] };
+    expect(describeSync(report)).toBe("Synced (pulled, pushed); 1 note changed on both sides, both versions kept");
+    expect(describeSync({ ...report, conflicts: ["a.md", "b.md"] })).toContain("2 notes changed");
+    expect(describeSync({ ...report, conflicts: [] })).toBe("Synced (pulled, pushed)");
   });
 });

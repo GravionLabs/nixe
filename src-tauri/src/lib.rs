@@ -14,17 +14,16 @@ pub mod cli;
 mod cli_install;
 #[cfg(desktop)]
 mod cli_write;
+mod conflict;
+mod credentials;
+mod fileops;
+mod git;
+mod gitsync;
+mod index;
 #[cfg(desktop)]
 pub mod mcp;
 #[cfg(desktop)]
 mod menu;
-// Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
-mod credentials;
-mod fileops;
-mod git;
-#[cfg(any(debug_assertions, mobile))]
-mod gitsync;
-mod index;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
 mod tree;
@@ -188,6 +187,23 @@ async fn git_vault_sync(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// The conflict pair a note belongs to (as the original or the copy); `None` for other notes.
+#[tauri::command]
+fn conflict_pair(path: String) -> Option<conflict::Pair> {
+    conflict::find_pair(Path::new(&path))
+}
+
+/// Keeps the text of this note or of the other half of its conflict pair: the original gets the
+/// chosen text and the copy moves to `.trash/`. Returns the path of the original.
+#[tauri::command]
+fn resolve_conflict(
+    state: State<'_, AppState>,
+    path: String,
+    keep: conflict::Keep,
+) -> Result<String, String> {
+    conflict::resolve(&vault_root_of(&state)?, Path::new(&path), keep).map(|p| path_to_string(&p))
 }
 
 /// Creates an empty file inside the vault; refuses to overwrite and paths outside the root.
@@ -434,6 +450,8 @@ pub fn run() {
         rename_path,
         relink_preview,
         trash_path,
+        conflict_pair,
+        resolve_conflict,
         new_note_location,
         link_format,
         is_utf8_file,
@@ -480,6 +498,8 @@ pub fn run() {
         rename_path,
         relink_preview,
         trash_path,
+        conflict_pair,
+        resolve_conflict,
         new_note_location,
         link_format,
         is_utf8_file,

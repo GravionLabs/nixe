@@ -127,6 +127,14 @@ export interface SyncReport {
   committed: boolean;
   pulled: boolean;
   pushed: boolean;
+  /** Vault-relative notes that both sides changed; each kept both versions. */
+  conflicts: string[];
+}
+
+/** A note changed on two sides: the original holds the remote text, the copy the local text. */
+export interface ConflictPair {
+  original: string;
+  copy: string;
 }
 
 export interface GitStatus {
@@ -185,11 +193,19 @@ export const backend = {
     invoke<string>("git_vault_commit", { message, name, email }),
   /**
    * Sync: commits open changes, fetches, rebases the local commits onto the remote branch and
-   * pushes. A rebase that hits a conflict is aborted and rejects. A missing or rejected token
+   * pushes. A conflict never stops it: the remote text stays in the note and the local text goes
+   * to `Note (conflict <date> <device>).md` (see `SyncReport.conflicts`). A missing or rejected token
    * rejects with `auth-required:<host>` / `auth-failed:<host>`.
    */
   gitVaultSync: (name: string | null, email: string | null) =>
     invoke<SyncReport>("git_vault_sync", { name, email }),
+  /** The conflict pair a note belongs to (as the original or the copy); null for other notes. */
+  conflictPair: (path: string) => invoke<ConflictPair | null>("conflict_pair", { path }),
+  /**
+   * Keeps the text of this note (`this`) or of the other half of the pair (`other`): the original
+   * gets that text and the copy moves to `.trash/`. Returns the path of the original.
+   */
+  resolveConflict: (path: string, keep: "this" | "other") => invoke<string>("resolve_conflict", { path, keep }),
   /** Whether an access token is stored in the OS keychain for the remote host. The token is never returned. */
   gitTokenStatus: (host: string) => invoke<boolean>("git_token_status", { host }),
   /** Stores or replaces the token of a remote host in the OS keychain. */

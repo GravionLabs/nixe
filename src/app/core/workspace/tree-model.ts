@@ -64,3 +64,30 @@ export function defaultPage(items: TreeItem[]): string | null {
   }
   return items.find((i) => i.filePath)?.filePath ?? null;
 }
+
+const COPY_RE = /^(.+) \(conflict \d{4}-\d{2}-\d{2} [^)]+\)(\.[^./\\]*)?$/;
+
+/** The name of the original when `name` is a sync conflict copy (`Note (conflict 2026-11-16 mac).md`). */
+export function conflictOriginal(name: string): string | null {
+  const m = COPY_RE.exec(name);
+  return m ? m[1] + (m[2] ?? "") : null;
+}
+
+/**
+ * Paths to mark as in conflict: every copy among `paths` and the original next to it. The original
+ * is marked only when it is listed too.
+ */
+export function conflictPaths(paths: readonly string[]): Set<string> {
+  const all = new Set(paths);
+  const marked = new Set<string>();
+  for (const path of paths) {
+    const slash = path.lastIndexOf("/");
+    const original = conflictOriginal(path.slice(slash + 1));
+    if (original === null) continue;
+    const originalPath = path.slice(0, slash + 1) + original;
+    if (!all.has(originalPath)) continue;
+    marked.add(path);
+    marked.add(originalPath);
+  }
+  return marked;
+}

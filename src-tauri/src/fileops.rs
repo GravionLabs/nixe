@@ -60,7 +60,7 @@ fn plain_name(path: &Path) -> Result<&std::ffi::OsStr, String> {
 
 /// The canonical form of `path` (which need not exist) when it lies strictly below `root`.
 /// The existing part is canonicalized, so symlinks are resolved before the check; `..` is refused.
-fn confined(root: &Path, path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn confined(root: &Path, path: &Path) -> Result<PathBuf, String> {
     let root = canonical_root(root)?;
     if path.components().any(|c| c == Component::ParentDir) {
         return Err(format!("outside the vault: {}", path.display()));
