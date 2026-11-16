@@ -20,6 +20,7 @@ pub mod mcp;
 mod menu;
 // Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
 mod fileops;
+mod git;
 #[cfg(any(debug_assertions, mobile))]
 mod gitsync;
 mod index;
@@ -136,6 +137,36 @@ fn vault_root_of(state: &State<'_, AppState>) -> Result<PathBuf, String> {
         .unwrap()
         .clone()
         .ok_or_else(|| "no vault is open".to_string())
+}
+
+/// Git state of the vault; `None` when the vault is no Git repository.
+#[tauri::command]
+async fn git_vault_status(state: State<'_, AppState>) -> Result<Option<git::GitStatus>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::vault_status(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Stages every change of the vault and commits; returns the commit id.
+/// The author comes from the Git config, else from `name` and `email` (the settings).
+#[tauri::command]
+async fn git_vault_commit(
+    state: State<'_, AppState>,
+    message: Option<String>,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<String, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        git::vault_commit(&root, message.as_deref(), fallback.as_ref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Creates an empty file inside the vault; refuses to overwrite and paths outside the root.
@@ -400,6 +431,8 @@ pub fn run() {
         index::commands::search_notes,
         index::commands::vault_health,
         watch_file,
+        git_vault_status,
+        git_vault_commit,
         gitsync::git_token_set,
         gitsync::git_token_get,
         gitsync::git_clone,
@@ -441,7 +474,9 @@ pub fn run() {
         index::commands::tags,
         index::commands::search_notes,
         index::commands::vault_health,
-        watch_file
+        watch_file,
+        git_vault_status,
+        git_vault_commit
     ]);
 
     let app = builder
