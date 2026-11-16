@@ -215,6 +215,55 @@ pub fn referrers(conn: &Connection, paths: &[String]) -> rusqlite::Result<Vec<St
     Ok(out.into_iter().collect())
 }
 
+/// A note holding a property, with that property's typed value.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PropertyMatch {
+    pub path: String,
+    pub title: String,
+    pub value: Value,
+}
+
+/// True when `value` equals `wanted` (case-insensitive, compared as text) or, for a list,
+/// contains it.
+fn value_matches(value: &Value, wanted: &str) -> bool {
+    let wanted = wanted.to_lowercase();
+    match value {
+        Value::Array(items) => items.iter().any(|v| value_matches(v, &wanted)),
+        Value::String(s) => s.to_lowercase() == wanted,
+        Value::Null => false,
+        other => other.to_string().to_lowercase() == wanted,
+    }
+}
+
+/// Notes with the frontmatter property `key` (case-insensitive), sorted by path. With `value`,
+/// only those whose value equals it or, for a list property, contains it.
+pub fn notes_by_property(
+    conn: &Connection,
+    key: &str,
+    value: Option<&str>,
+) -> rusqlite::Result<Vec<PropertyMatch>> {
+    let mut stmt = conn.prepare(
+        "SELECT n.path, n.title, p.value FROM properties p JOIN notes n ON n.id = p.note_id
+         WHERE lower(p.key) = lower(?1) ORDER BY n.path, p.rowid",
+    )?;
+    let rows = stmt.query_map([key], |r| {
+        let raw: String = r.get(2)?;
+        Ok(PropertyMatch {
+            path: r.get(0)?,
+            title: r.get(1)?,
+            value: serde_json::from_str(&raw).unwrap_or(Value::Null),
+        })
+    })?;
+    let mut out = Vec::new();
+    for row in rows {
+        let row = row?;
+        if value.is_none_or(|w| value_matches(&row.value, w)) {
+            out.push(row);
+        }
+    }
+    Ok(out)
+}
+
 /// Every tag with the number of notes using it, most used first.
 pub fn tags(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
     let mut stmt = conn.prepare(
@@ -224,6 +273,50 @@ pub fn tags(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
         Ok(TagCount {
             tag: r.get(0)?,
             count: r.get::<_, i64>(1)? as usize,
+        })
+    })?;
+    rows.collect()
+}
+
+/// Notes carrying every tag in `tags` (a tag also matches its nested tags, case-insensitive)
+/// below the vault-relative prefix `path` (empty: everywhere), sorted by path.
+pub fn notes_filtered(
+    conn: &Connection,
+    tags: &[String],
+    path: &str,
+) -> rusqlite::Result<Vec<NoteSummary>> {
+    fn like(s: &str) -> String {
+        s.replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+    }
+    let mut sql = String::from("SELECT n.path, n.title, n.aliases FROM notes n WHERE 1 = 1");
+    let mut args: Vec<String> = Vec::new();
+    for tag in tags {
+        let tag = tag
+            .trim_start_matches('#')
+            .trim_end_matches('/')
+            .to_lowercase();
+        sql.push_str(
+            " AND EXISTS (SELECT 1 FROM tags t WHERE t.note_id = n.id \
+             AND (lower(t.tag) = ? OR lower(t.tag) LIKE ? ESCAPE '\\'))",
+        );
+        args.push(tag.clone());
+        args.push(format!("{}/%", like(&tag)));
+    }
+    let prefix = path.trim_start_matches("./").trim_start_matches('/');
+    if !prefix.is_empty() {
+        sql.push_str(" AND n.path LIKE ? ESCAPE '\\'");
+        args.push(format!("{}%", like(prefix)));
+    }
+    sql.push_str(" ORDER BY n.path");
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(args), |r| {
+        let aliases: String = r.get(2)?;
+        Ok(NoteSummary {
+            path: r.get(0)?,
+            title: r.get(1)?,
+            aliases: serde_json::from_str(&aliases).unwrap_or_default(),
         })
     })?;
     rows.collect()

@@ -9,6 +9,7 @@ import { Command, CommandRegistry } from "./core/commands/command-registry";
 import { PaletteService } from "./core/commands/palette.service";
 import { DocumentService } from "./core/file/document.service";
 import { IndexService } from "./core/index/index.service";
+import { HealthService } from "./core/index/health.service";
 import { SearchService } from "./core/index/search.service";
 import { MarkdownService } from "./core/markdown/markdown.service";
 import { SettingsService } from "./core/settings/settings.service";
@@ -20,6 +21,7 @@ import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
 import { SwitcherComponent } from "./features/switcher/switcher.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
+import { HealthComponent } from "./features/health/health.component";
 import { EditorComponent } from "./features/editor/editor.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
@@ -28,7 +30,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [BacklinksComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [BacklinksComponent, HealthComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -43,6 +45,7 @@ export class AppComponent {
   protected readonly editor = inject(EditorService);
   private readonly viewer = viewChild(ViewerComponent);
   protected readonly search = inject(SearchService);
+  protected readonly health = inject(HealthService);
   protected readonly switcher = inject(SwitcherService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
@@ -71,6 +74,8 @@ export class AppComponent {
   );
 
   protected readonly showSearch = computed(() => this.workspace.vaultRoot() !== null && this.search.visible());
+
+  protected readonly showHealth = computed(() => this.workspace.vaultRoot() !== null && this.health.visible());
 
   protected readonly showSwitcher = computed(() => this.workspace.vaultRoot() !== null && this.switcher.visible());
 
@@ -175,6 +180,7 @@ export class AppComponent {
       { id: "forward", title: "Forward", shortcut: "Mod+]", keys: ["Alt+ArrowRight"], run: () => this.run(() => this.doc.forward()) },
       { id: "toggle-sidebar", title: "Toggle sidebar", shortcut: "Mod+B", run: () => this.settings.sidebarVisible.update((v) => !v) },
       { id: "search", title: "Search vault", shortcut: "Mod+Shift+F", keys: ["Mod+Shift+F"], when: inVault, run: () => this.search.openWith() },
+      { id: "vault-health", title: "Vault health", when: inVault, run: () => this.health.open() },
       { id: "toggle-backlinks", title: "Toggle backlinks panel", shortcut: "Mod+Shift+B", when: inVault, run: () => this.settings.backlinksVisible.update((v) => !v) },
       { id: "toggle-math", title: "Toggle LaTeX math", run: () => this.settings.math.update((v) => !v) },
       { id: "cycle-theme", title: "Cycle theme (system, light, dark)", run: () => this.settings.cycleTheme() },

@@ -8,8 +8,14 @@ use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+#[cfg(desktop)]
+pub mod cli;
 #[cfg(target_os = "macos")]
 mod cli_install;
+#[cfg(desktop)]
+mod cli_write;
+#[cfg(desktop)]
+pub mod mcp;
 #[cfg(desktop)]
 mod menu;
 // Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
@@ -298,6 +304,12 @@ fn watch_file(app: AppHandle, state: State<'_, AppState>, path: String) -> Resul
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // `nixe search …` and friends answer on the terminal and never start the window.
+    #[cfg(desktop)]
+    if let Some(code) = cli::try_run() {
+        std::process::exit(code);
+    }
+
     // Must happen before the single-instance plugin hands control to a running instance.
     #[cfg(desktop)]
     capture_stdin(&std::env::args().collect::<Vec<_>>());
@@ -386,6 +398,7 @@ pub fn run() {
         index::commands::backlinks,
         index::commands::tags,
         index::commands::search_notes,
+        index::commands::vault_health,
         watch_file,
         gitsync::git_token_set,
         gitsync::git_token_get,
@@ -427,6 +440,7 @@ pub fn run() {
         index::commands::backlinks,
         index::commands::tags,
         index::commands::search_notes,
+        index::commands::vault_health,
         watch_file
     ]);
 

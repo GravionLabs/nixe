@@ -19,6 +19,8 @@ export class EditorService {
   private readonly doc = inject(DocumentService);
 
   readonly editing = signal(false);
+  /** True while an external change blocks closing the editor; mirrors the open editor's conflict. */
+  readonly blocked = signal(false);
   /** 1-based line the editor scrolls to when it opens. */
   readonly startLine = signal<number | null>(null);
   handle: EditorHandle | null = null;

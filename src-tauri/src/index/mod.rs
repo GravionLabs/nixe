@@ -3,7 +3,8 @@
 //! vault when missing or when `SCHEMA_VERSION` changes, and nothing is ever written into the vault.
 
 pub mod commands;
-mod read;
+pub mod health;
+pub mod read;
 mod scan;
 pub mod search;
 pub mod watch;

@@ -1,6 +1,7 @@
 # Editor
 
-⌘/Ctrl+E (View → Toggle Editor) swaps the viewer for a CodeMirror 6 editor of the open note.
+The *Edit* toggle in the toolbar, ⌘/Ctrl+E and View → Toggle Editor all run the `toggle-editor` command and swap the viewer for a CodeMirror 6 editor of the open note.
+The toolbar button shows `editing()` as `active`/`aria-pressed` and is disabled without an open note or while `EditorService.blocked()` (unresolved external change) holds the editor open.
 `EditorComponent` is rendered inside `@defer`, so the CodeMirror chunk loads on first use.
 
 - **Logic**: `core/editor/editor-core.ts` has no framework imports: `AutoSaver` (debounce),
