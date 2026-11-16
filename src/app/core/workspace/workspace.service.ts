@@ -44,7 +44,10 @@ export class WorkspaceService {
       // The tabs and the split are part of the state: changing them stores it again.
       this.tabs.panes();
       this.tabs.focusedId();
-      if (root && note && note.startsWith(root + "/")) untracked(() => this.rememberState(root, note));
+      // Closing every note stores the empty layout too, so the old tabs do not come back.
+      if (root && !this.opening && (note === null || note.startsWith(root + "/"))) {
+        untracked(() => this.rememberState(root, note));
+      }
     });
     window.addEventListener("pagehide", () => {
       const root = this.root();
@@ -65,7 +68,19 @@ export class WorkspaceService {
     return rows;
   });
 
+  /** True while a folder is being opened: the state stored for it must not be overwritten yet. */
+  private opening = false;
+
   async openFolder(path: string, options: { openDefaultPage?: boolean } = {}): Promise<void> {
+    this.opening = true;
+    try {
+      await this.openFolderNow(path, options);
+    } finally {
+      this.opening = false;
+    }
+  }
+
+  private async openFolderNow(path: string, options: { openDefaultPage?: boolean }): Promise<void> {
     const { openDefaultPage = true } = options;
     path = toSlashes(path);
     const previous = this.root();
@@ -138,7 +153,7 @@ export class WorkspaceService {
       sidebar: this.settings.sidebarVisible(),
       backlinks: this.settings.backlinksVisible(),
       outline: this.settings.outlineVisible(),
-      ...(layoutHasNote(layout) ? { layout } : {}),
+      layout,
     });
   }
 

@@ -131,6 +131,14 @@ describe("TabsService", () => {
     expect(first.doc.pendingLine()).toBe(42);
   });
 
+  it("writes typed text before a split copies the note", async () => {
+    await tabs.activeTab().doc.open("/v/a.md");
+    const flush = vi.fn().mockResolvedValue(undefined);
+    tabs.activeTab().editor.handle = { flush } as never;
+    await tabs.splitRight();
+    expect(flush).toHaveBeenCalled();
+  });
+
   describe("split", () => {
     it("shows a copy of the tab to the right and focuses it", async () => {
       const left = tabs.activeTab();

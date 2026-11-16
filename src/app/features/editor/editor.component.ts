@@ -350,9 +350,9 @@ export class EditorComponent implements OnDestroy {
     if (saved) {
       session.tracker.willWrite(text);
       session.tracker.written(text);
-      return;
     }
-    const range = changedRange(view.state.doc.toString(), text);
+    // Also for a save: the view may still lack what the other tab typed before it was opened.
+    const range = changedRange(view.state.doc.toString(), text.replace(/\r\n/g, "\n"));
     if (!range) return;
     this.loading = true;
     view.dispatch({ changes: range });

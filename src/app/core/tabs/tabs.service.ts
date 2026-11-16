@@ -220,6 +220,8 @@ export class TabsService {
    */
   async splitRight(): Promise<void> {
     const source = this.activeTab();
+    // Typed text reaches the disk first, so the copy starts from it.
+    await source.editor.handle?.flush();
     const copy = this.createTab();
     const path = source.doc.path();
     if (path) {

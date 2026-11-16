@@ -49,7 +49,11 @@ export class WorkspaceComponent {
 
   protected addTab(pane: Pane): void {
     this.tabs.focusPane(pane.id);
-    this.tabs.newTab();
+    try {
+      this.tabs.newTab();
+    } catch (err) {
+      this.tabs.notice.set(String(err));
+    }
   }
 
   protected startDrag(event: PointerEvent): void {
