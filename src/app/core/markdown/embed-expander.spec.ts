@@ -54,4 +54,12 @@ describe("expandEmbeds", () => {
     expect((await run("Nope")).textContent).toContain("Note not found");
     expect((await run("Note#Zzz")).textContent).toContain("Section not found");
   });
+
+  it("records the file and line offset of an embedded section for its checkboxes", async () => {
+    const el = (await run("Note#Second")).querySelector<HTMLElement>(".embed-body")!;
+    expect(el.dataset["sourcePath"]).toBe("/v/Note.md");
+    expect(el.dataset["lineOffset"]).toBe("4");
+    const whole = (await run("Note")).querySelector<HTMLElement>(".embed-body")!;
+    expect(whole.dataset["lineOffset"]).toBe("0");
+  });
 });

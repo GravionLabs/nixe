@@ -94,3 +94,12 @@ describe("headings & extras", () => {
     expect(plain.render("$E=mc^2$")).toContain("$E=mc^2$");
   });
 });
+
+describe("task list items", () => {
+  it("carry their source line, nested ones too", () => {
+    const html = render("Intro\n\n- [ ] a\n  - [x] b\n- plain\n");
+    expect(html).toContain('<li class="task-list-item" data-line="2">');
+    expect(html).toContain('<li class="task-list-item" data-line="3">');
+    expect(html).not.toMatch(/<li data-line/);
+  });
+});

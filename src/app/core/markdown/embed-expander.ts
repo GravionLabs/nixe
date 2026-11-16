@@ -1,5 +1,6 @@
 import { MAX_EMBED_DEPTH, extractBlock, extractHeadingSection } from "./embed";
 import { splitFrontmatter } from "./frontmatter";
+import { partLineOffset } from "./task-toggle";
 import { joinPath } from "./paths";
 import { parseWikilinkTarget, resolveWikilink } from "./wikilink-resolver";
 
@@ -62,6 +63,12 @@ export async function expandEmbeds(root: ParentNode, deps: EmbedDeps, stack: rea
     const body = el.querySelector(":scope > .embed-body");
     if (!body) continue;
     body.innerHTML = deps.render(part, abs); // sanitized by the caller's render
+    // Where the checkboxes of this embed live: the file and the line its first rendered line has in it.
+    const offset = partLineOffset(splitFrontmatter(text).body, part);
+    if (offset !== null) {
+      (body as HTMLElement).dataset["sourcePath"] = abs;
+      (body as HTMLElement).dataset["lineOffset"] = String(offset);
+    }
     await expandEmbeds(body, deps, [...stack, resolved]);
   }
 }
