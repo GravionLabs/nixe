@@ -188,6 +188,7 @@ export class AppComponent {
       { id: "search", title: "Search vault", shortcut: "Mod+Shift+F", keys: ["Mod+Shift+F"], when: inVault, run: () => this.search.openWith() },
       { id: "vault-health", title: "Vault health", when: inVault, run: () => this.health.open() },
       { id: "git-changes", title: "Git changes", when: () => this.git.available(), run: () => this.git.open() },
+      { id: "git-sync", title: "Sync with the remote", shortcut: "Mod+Shift+S", keys: ["Mod+Shift+S"], when: () => this.git.available(), run: () => this.git.sync() },
       { id: "toggle-backlinks", title: "Toggle backlinks panel", shortcut: "Mod+Shift+B", when: inVault, run: () => this.settings.backlinksVisible.update((v) => !v) },
       { id: "toggle-math", title: "Toggle LaTeX math", run: () => this.settings.math.update((v) => !v) },
       { id: "cycle-theme", title: "Cycle theme (system, light, dark)", run: () => this.settings.cycleTheme() },

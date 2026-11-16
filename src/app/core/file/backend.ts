@@ -122,6 +122,13 @@ export interface GitChange {
   kind: "added" | "modified" | "deleted";
 }
 
+/** What one sync did. */
+export interface SyncReport {
+  committed: boolean;
+  pulled: boolean;
+  pushed: boolean;
+}
+
 export interface GitStatus {
   /** Null on a detached HEAD. */
   branch: string | null;
@@ -176,6 +183,13 @@ export const backend = {
    */
   gitVaultCommit: (message: string | null, name: string | null, email: string | null) =>
     invoke<string>("git_vault_commit", { message, name, email }),
+  /**
+   * Sync: commits open changes, fetches, rebases the local commits onto the remote branch and
+   * pushes. A rebase that hits a conflict is aborted and rejects. A missing or rejected token
+   * rejects with `auth-required:<host>` / `auth-failed:<host>`.
+   */
+  gitVaultSync: (name: string | null, email: string | null) =>
+    invoke<SyncReport>("git_vault_sync", { name, email }),
   /** Whether an access token is stored in the OS keychain for the remote host. The token is never returned. */
   gitTokenStatus: (host: string) => invoke<boolean>("git_token_status", { host }),
   /** Stores or replaces the token of a remote host in the OS keychain. */

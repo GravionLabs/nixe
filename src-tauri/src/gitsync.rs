@@ -103,8 +103,19 @@ fn branch_name(repo: &Repository) -> Result<String, git2::Error> {
     head.shorthand().map(str::to_owned)
 }
 
+/// What `pull_rebase` did to the local branch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Pulled {
+    UpToDate,
+    FastForward,
+    Rebased,
+}
+
 /// `git pull --rebase`: fetch the branch and replay local commits on top of it.
-pub fn pull_rebase(dir: &Path, auth: Option<&Auth>) -> Result<(), git2::Error> {
+///
+/// The working tree must be clean (commit first). A rebase that fails or stops on a conflict
+/// is aborted, so the branch and the working tree are left as they were.
+pub fn pull_rebase(dir: &Path, auth: Option<&Auth>) -> Result<Pulled, git2::Error> {
     let repo = Repository::open(dir)?;
     let branch = branch_name(&repo)?;
     let mut fo = FetchOptions::new();
@@ -112,23 +123,42 @@ pub fn pull_rebase(dir: &Path, auth: Option<&Auth>) -> Result<(), git2::Error> {
     repo.find_remote("origin")?
         .fetch(&[&branch], Some(&mut fo), None)?;
     let upstream = repo.reference_to_annotated_commit(&repo.find_reference("FETCH_HEAD")?)?;
+    let (analysis, _) = repo.merge_analysis(&[&upstream])?;
+    if analysis.is_up_to_date() {
+        return Ok(Pulled::UpToDate);
+    }
+    if analysis.is_fast_forward() {
+        let mut head = repo.head()?;
+        head.set_target(upstream.id(), "sync: fast-forward")?;
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+        return Ok(Pulled::FastForward);
+    }
     let head = repo.reference_to_annotated_commit(&repo.head()?)?;
     let mut opts = RebaseOptions::new();
     let mut rebase = repo.rebase(Some(&head), Some(&upstream), None, Some(&mut opts))?;
     let sig = repo
         .signature()
         .or_else(|_| Signature::now("Nixe", "nixe@localhost"))?;
-    while let Some(op) = rebase.next() {
-        op?;
-        // A conflicting step stays unresolved: abort so the vault is left untouched.
-        if repo.index()?.has_conflicts() {
-            rebase.abort()?;
-            return Err(git2::Error::from_str("rebase conflict, aborted"));
+    let replay = (|| -> Result<(), git2::Error> {
+        while let Some(op) = rebase.next() {
+            op?;
+            // A conflicting step stays unresolved: abort so the vault is left untouched.
+            if repo.index()?.has_conflicts() {
+                return Err(git2::Error::from_str(CONFLICT));
+            }
+            rebase.commit(None, &sig, None)?;
         }
-        rebase.commit(None, &sig, None)?;
+        rebase.finish(None)
+    })();
+    if let Err(e) = replay {
+        rebase.abort()?;
+        return Err(e);
     }
-    rebase.finish(None)
+    Ok(Pulled::Rebased)
 }
+
+/// Message of the error of a rebase that stopped on a conflict.
+pub const CONFLICT: &str = "sync stopped: your notes and the remote changed the same lines. Nothing was changed; resolve the conflict with Git";
 
 pub fn push(dir: &Path, auth: Option<&Auth>) -> Result<(), git2::Error> {
     let repo = Repository::open(dir)?;
@@ -182,6 +212,41 @@ fn vault_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     ))
 }
 
+/// What one `Sync` did.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+pub struct SyncReport {
+    /// Open changes were committed first.
+    pub committed: bool,
+    /// Commits of the remote were brought in.
+    pub pulled: bool,
+    /// Local commits were published.
+    pub pushed: bool,
+}
+
+/// Commits open changes, fetches, rebases local commits onto the remote branch and pushes.
+/// Every step that fails leaves the repository clean (a rebase is aborted).
+pub fn sync_vault(
+    dir: &Path,
+    fallback: Option<&crate::git::Identity>,
+    store: &dyn TokenStore,
+) -> Result<SyncReport, String> {
+    use crate::git::{Git2Backend, GitBackend};
+    let backend = Git2Backend::open(dir).ok_or("the vault is not a Git repository")?;
+    let mut report = SyncReport::default();
+    if !backend.status()?.changes.is_empty() {
+        backend.commit(None, fallback)?;
+        report.committed = true;
+    }
+    let url = origin_url(dir).map_err(|_| "the repository has no remote named origin")?;
+    let pulled = with_auth(&url, store, |auth| pull_rebase(dir, auth))?;
+    report.pulled = pulled != Pulled::UpToDate;
+    if backend.status()?.ahead > 0 {
+        with_auth(&url, store, |auth| push(dir, auth))?;
+        report.pushed = true;
+    }
+    Ok(report)
+}
+
 #[tauri::command]
 pub async fn git_clone(app: tauri::AppHandle, url: String) -> Result<u128, String> {
     if !is_github_https(&url) {
@@ -227,7 +292,7 @@ pub async fn git_pull_rebase(app: tauri::AppHandle) -> Result<(), String> {
     let dir = vault_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || {
         with_auth(&origin_url(&dir)?, &KeyringStore, |auth| {
-            pull_rebase(&dir, auth)
+            pull_rebase(&dir, auth).map(|_| ())
         })
     })
     .await
@@ -341,6 +406,128 @@ mod tests {
         commit_all(&b, "b").unwrap();
         assert!(pull_rebase(&b, None).is_err());
         assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "from b");
+    }
+
+    fn ident() -> crate::git::Identity {
+        crate::git::Identity {
+            name: "T".into(),
+            email: "t@t".into(),
+        }
+    }
+
+    /// Two clones of one remote, `a` and `b`.
+    fn pair(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+        let (_bare, url) = remote(name);
+        let a = tmp(&format!("{name}-a")).join("v");
+        let b = tmp(&format!("{name}-b")).join("v");
+        clone(&url, &a, None).unwrap();
+        clone(&url, &b, None).unwrap();
+        (a, b)
+    }
+
+    fn clean(dir: &Path) -> bool {
+        let repo = Repository::open(dir).unwrap();
+        repo.state() == git2::RepositoryState::Clean
+            && repo
+                .statuses(None)
+                .unwrap()
+                .iter()
+                .all(|s| s.status().is_empty())
+    }
+
+    #[test]
+    fn pull_rebase_fast_forwards_and_reports_up_to_date() {
+        let (a, b) = pair("ff");
+        assert_eq!(pull_rebase(&b, None).unwrap(), Pulled::UpToDate);
+        fs::write(a.join("x.md"), "x").unwrap();
+        commit_all(&a, "add x").unwrap();
+        push(&a, None).unwrap();
+        assert_eq!(pull_rebase(&b, None).unwrap(), Pulled::FastForward);
+        assert_eq!(fs::read_to_string(b.join("x.md")).unwrap(), "x");
+        assert!(clean(&b));
+    }
+
+    #[test]
+    fn pull_rebase_reports_a_rebase_and_a_conflict_leaves_a_clean_repository() {
+        let (a, b) = pair("diverged");
+        fs::write(a.join("x.md"), "x").unwrap();
+        commit_all(&a, "add x").unwrap();
+        push(&a, None).unwrap();
+        fs::write(b.join("y.md"), "y").unwrap();
+        commit_all(&b, "add y").unwrap();
+        assert_eq!(pull_rebase(&b, None).unwrap(), Pulled::Rebased);
+
+        let (a, b) = pair("conflict2");
+        fs::write(a.join("a.md"), "from a").unwrap();
+        commit_all(&a, "a").unwrap();
+        push(&a, None).unwrap();
+        fs::write(b.join("a.md"), "from b").unwrap();
+        commit_all(&b, "b").unwrap();
+        let before = Repository::open(&b).unwrap().head().unwrap().target();
+        let err = pull_rebase(&b, None).unwrap_err();
+        assert_eq!(err.message(), CONFLICT);
+        assert_eq!(
+            Repository::open(&b).unwrap().head().unwrap().target(),
+            before
+        );
+        assert!(clean(&b));
+    }
+
+    #[test]
+    fn sync_commits_pulls_and_pushes() {
+        let (a, b) = pair("sync");
+        let store = credentials::MemoryStore::default();
+        fs::write(a.join("x.md"), "x").unwrap();
+        commit_all(&a, "add x").unwrap();
+        push(&a, None).unwrap();
+        fs::write(b.join("y.md"), "y").unwrap();
+        let report = sync_vault(&b, Some(&ident()), &store).unwrap();
+        assert_eq!(
+            report,
+            SyncReport {
+                committed: true,
+                pulled: true,
+                pushed: true
+            }
+        );
+        assert!(b.join("x.md").exists() && b.join("y.md").exists());
+        assert!(clean(&b));
+        // The other side now fast-forwards to the pushed commit.
+        assert_eq!(pull_rebase(&a, None).unwrap(), Pulled::FastForward);
+        assert!(a.join("y.md").exists());
+        assert_eq!(
+            sync_vault(&b, Some(&ident()), &store).unwrap(),
+            SyncReport::default()
+        );
+    }
+
+    #[test]
+    fn sync_with_a_conflict_fails_readably_and_stays_clean() {
+        let (a, b) = pair("sync-conflict");
+        let store = credentials::MemoryStore::default();
+        fs::write(a.join("a.md"), "from a").unwrap();
+        commit_all(&a, "a").unwrap();
+        push(&a, None).unwrap();
+        fs::write(b.join("a.md"), "from b").unwrap();
+        let err = sync_vault(&b, Some(&ident()), &store).unwrap_err();
+        assert_eq!(err, CONFLICT);
+        assert!(clean(&b));
+        assert_eq!(fs::read_to_string(b.join("a.md")).unwrap(), "from b");
+    }
+
+    #[test]
+    fn sync_reports_a_missing_repository_and_an_unreachable_remote() {
+        let store = credentials::MemoryStore::default();
+        let plain = tmp("sync-plain");
+        assert!(sync_vault(&plain, None, &store).is_err());
+        let (_a, b) = pair("sync-gone");
+        let repo = Repository::open(&b).unwrap();
+        repo.remote_set_url("origin", "file:///nonexistent/repo.git")
+            .unwrap();
+        fs::write(b.join("z.md"), "z").unwrap();
+        assert!(sync_vault(&b, Some(&ident()), &store).is_err());
+        // The note is committed locally, nothing is left half done.
+        assert!(clean(&b));
     }
 
     #[test]

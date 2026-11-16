@@ -101,6 +101,80 @@ describe("GitService", () => {
     expect(git.committing()).toBe(false);
   });
 
+  describe("sync", () => {
+    beforeEach(async () => {
+      await git.refresh();
+    });
+
+    it("syncs with the author of the settings and reports the result", async () => {
+      name.set(" Ann ");
+      email.set("ann@example.com");
+      let seen = "";
+      const sync = vi.spyOn(backend, "gitVaultSync").mockImplementation(() => {
+        seen = git.syncState().phase;
+        return Promise.resolve({ committed: true, pulled: true, pushed: true });
+      });
+      await git.sync();
+      expect(seen).toBe("syncing");
+      expect(sync).toHaveBeenCalledWith("Ann", "ann@example.com");
+      expect(git.syncState()).toEqual({ phase: "done", message: "Synced (committed, pulled, pushed)" });
+    });
+
+    it("says when nothing had to be done", async () => {
+      vi.spyOn(backend, "gitVaultSync").mockResolvedValue({ committed: false, pulled: false, pushed: false });
+      await git.sync();
+      expect(git.syncState().message).toBe("Already in sync");
+    });
+
+    it("shows a failure and reads the status again", async () => {
+      vi.spyOn(backend, "gitVaultSync").mockRejectedValue("sync stopped: conflict");
+      const calls = vi.mocked(backend.gitVaultStatus).mock.calls.length;
+      await git.sync();
+      expect(git.syncState()).toEqual({ phase: "error", message: "Sync failed: sync stopped: conflict" });
+      expect(vi.mocked(backend.gitVaultStatus).mock.calls.length).toBeGreaterThan(calls);
+    });
+
+    it("asks for a token and syncs again with it", async () => {
+      vi.spyOn(backend, "gitTokenSet").mockResolvedValue();
+      const sync = vi
+        .spyOn(backend, "gitVaultSync")
+        .mockRejectedValueOnce("auth-required:github.com")
+        .mockResolvedValue({ committed: false, pulled: true, pushed: false });
+      const run = git.sync();
+      await vi.waitFor(() => expect(git.tokenPrompt()).not.toBeNull());
+      await git.saveToken("ghp_x");
+      await run;
+      expect(sync).toHaveBeenCalledTimes(2);
+      expect(git.syncState().message).toBe("Synced (pulled)");
+    });
+
+    it("explains a cancelled token prompt", async () => {
+      vi.spyOn(backend, "gitVaultSync").mockRejectedValue("auth-failed:github.com");
+      const run = git.sync();
+      await vi.waitFor(() => expect(git.tokenPrompt()).not.toBeNull());
+      git.cancelTokenPrompt();
+      await run;
+      expect(git.syncState().phase).toBe("error");
+      expect(git.syncState().message).toContain("access token");
+    });
+
+    it("ignores a second sync while one runs and does nothing without a repository", async () => {
+      let finish!: () => void;
+      const sync = vi.spyOn(backend, "gitVaultSync").mockReturnValue(
+        new Promise((resolve) => (finish = () => resolve({ committed: false, pulled: false, pushed: false }))),
+      );
+      const first = git.sync();
+      await git.sync();
+      finish();
+      await first;
+      expect(sync).toHaveBeenCalledTimes(1);
+      vaultRoot.set(null);
+      await git.refresh();
+      await git.sync();
+      expect(sync).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("access token", () => {
     beforeEach(() => {
       vi.spyOn(backend, "gitTokenStatus").mockResolvedValue(false);
