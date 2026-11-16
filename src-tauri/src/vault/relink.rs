@@ -202,7 +202,7 @@ fn mask(line: &str, in_comment: &mut bool) -> String {
                 }
                 None => i += n,
             }
-        } else if line[i..].starts_with("%%") {
+        } else if bytes[i..].starts_with(b"%%") {
             *in_comment = true;
             bytes[i..i + 2].fill(b' ');
             i += 2;
@@ -696,6 +696,17 @@ mod tests {
         let got = shortest(&v, "Old.md", "New.md", text);
         let expect = "---\nrelated: \"[[Old]]\"\n---\n`[[Old]]` and [[New]]\n```\n[[Old]]\n```\n%% [[Old]] %%\n%%\n[[Old]]\n%%\n``a `[[Old]]` b``\n[[New]]\n";
         assert_eq!(got, expect);
+    }
+
+    #[test]
+    fn non_ascii_text_around_links_is_kept() {
+        let got = shortest(
+            &["a.md", "Old.md"],
+            "Old.md",
+            "New.md",
+            "café 日本 😀 [[Old]] `é` %% ü %% [[Old|ä]]",
+        );
+        assert_eq!(got, "café 日本 😀 [[New]] `é` %% ü %% [[New|ä]]");
     }
 
     #[test]
