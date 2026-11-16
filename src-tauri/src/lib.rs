@@ -8,6 +8,8 @@ use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+#[cfg(desktop)]
+pub mod cli;
 #[cfg(target_os = "macos")]
 mod cli_install;
 #[cfg(desktop)]
@@ -298,6 +300,12 @@ fn watch_file(app: AppHandle, state: State<'_, AppState>, path: String) -> Resul
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // `nixe search …` and friends answer on the terminal and never start the window.
+    #[cfg(desktop)]
+    if let Some(code) = cli::try_run() {
+        std::process::exit(code);
+    }
+
     // Must happen before the single-instance plugin hands control to a running instance.
     #[cfg(desktop)]
     capture_stdin(&std::env::args().collect::<Vec<_>>());

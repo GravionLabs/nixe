@@ -228,3 +228,47 @@ pub fn tags(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
     })?;
     rows.collect()
 }
+
+/// Notes carrying every tag in `tags` (a tag also matches its nested tags, case-insensitive)
+/// below the vault-relative prefix `path` (empty: everywhere), sorted by path.
+pub fn notes_filtered(
+    conn: &Connection,
+    tags: &[String],
+    path: &str,
+) -> rusqlite::Result<Vec<NoteSummary>> {
+    fn like(s: &str) -> String {
+        s.replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+    }
+    let mut sql = String::from("SELECT n.path, n.title, n.aliases FROM notes n WHERE 1 = 1");
+    let mut args: Vec<String> = Vec::new();
+    for tag in tags {
+        let tag = tag
+            .trim_start_matches('#')
+            .trim_end_matches('/')
+            .to_lowercase();
+        sql.push_str(
+            " AND EXISTS (SELECT 1 FROM tags t WHERE t.note_id = n.id \
+             AND (lower(t.tag) = ? OR lower(t.tag) LIKE ? ESCAPE '\\'))",
+        );
+        args.push(tag.clone());
+        args.push(format!("{}/%", like(&tag)));
+    }
+    let prefix = path.trim_start_matches("./").trim_start_matches('/');
+    if !prefix.is_empty() {
+        sql.push_str(" AND n.path LIKE ? ESCAPE '\\'");
+        args.push(format!("{}%", like(prefix)));
+    }
+    sql.push_str(" ORDER BY n.path");
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(args), |r| {
+        let aliases: String = r.get(2)?;
+        Ok(NoteSummary {
+            path: r.get(0)?,
+            title: r.get(1)?,
+            aliases: serde_json::from_str(&aliases).unwrap_or_default(),
+        })
+    })?;
+    rows.collect()
+}
