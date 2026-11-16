@@ -51,6 +51,16 @@ function proseFlags(lines: string[]): boolean[] {
 
 /** The section under `heading` (heading line included), up to the next heading of the same or a higher level. */
 export function extractHeadingSection(text: string, heading: string): string | null {
+  return headingSectionAt(text, heading)?.text ?? null;
+}
+
+/** A shown part of a note and the 0-based line of the note it starts on. */
+export interface NotePart {
+  text: string;
+  start: number;
+}
+
+export function headingSectionAt(text: string, heading: string): NotePart | null {
   const lines = splitFrontmatter(text).body.split(/\r?\n/);
   const prose = proseFlags(lines);
   const wanted = heading.trim().toLowerCase();
@@ -65,14 +75,18 @@ export function extractHeadingSection(text: string, heading: string): string | n
         level = m[1].length;
       }
     } else if (m[1].length <= level) {
-      return lines.slice(start, i).join("\n").trimEnd();
+      return { text: lines.slice(start, i).join("\n").trimEnd(), start };
     }
   }
-  return start < 0 ? null : lines.slice(start).join("\n").trimEnd();
+  return start < 0 ? null : { text: lines.slice(start).join("\n").trimEnd(), start };
 }
 
 /** The paragraph (or list item) that ends with `^id`, without the marker. */
 export function extractBlock(text: string, id: string): string | null {
+  return blockAt(text, id)?.text ?? null;
+}
+
+export function blockAt(text: string, id: string): NotePart | null {
   const lines = splitFrontmatter(text).body.split(/\r?\n/);
   const prose = proseFlags(lines);
   const marker = new RegExp(`\\s\\^${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`);
@@ -85,15 +99,15 @@ export function extractBlock(text: string, id: string): string | null {
       while (s >= 0 && lines[s].trim() === "") s--;
       let b = s;
       while (b > 0 && lines[b - 1].trim() !== "" && !HEADING_RE.test(lines[b - 1])) b--;
-      return s < 0 ? null : lines.slice(b, s + 1).join("\n");
+      return s < 0 ? null : { text: lines.slice(b, s + 1).join("\n"), start: b };
     }
     if (!marker.test(lines[i])) continue;
-    if (/^\s*([-*+]|\d+[.)])\s/.test(lines[i])) return lines[i].replace(marker, "");
+    if (/^\s*([-*+]|\d+[.)])\s/.test(lines[i])) return { text: lines[i].replace(marker, ""), start: i };
     let start = i;
     while (start > 0 && lines[start - 1].trim() !== "" && !HEADING_RE.test(lines[start - 1])) start--;
     const block = lines.slice(start, i + 1);
     block[block.length - 1] = lines[i].replace(marker, "");
-    return block.join("\n");
+    return { text: block.join("\n"), start };
   }
   return null;
 }

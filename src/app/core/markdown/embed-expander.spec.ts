@@ -10,6 +10,7 @@ const notes: Record<string, string> = {
   "L2.md": "![[L3]]",
   "L3.md": "![[L4]]",
   "L4.md": "deep",
+  "Dup.md": "- [ ] milk\n\n- [ ] milk ^b1\n",
 };
 const embed = (t: string) =>
   `<div class="embed" data-embed="${t}"><div class="embed-title"></div><div class="embed-body"></div></div>`;
@@ -19,6 +20,12 @@ const deps: EmbedDeps = {
   read: async (p) => notes[p.slice(3)],
   // trivial renderer: nested embeds survive as placeholders
   render: (text) => text.replace(/!\[\[(.+?)\]\]/g, (_, t) => embed(t)).replace(/\n/g, " "),
+};
+const runDup = async () => {
+  const root = document.createElement("div");
+  root.innerHTML = embed("Dup#^b1");
+  await expandEmbeds(root, deps, ["Doc.md"]);
+  return root;
 };
 const run = async (target: string, current = "Doc.md") => {
   const root = document.createElement("div");
@@ -61,5 +68,7 @@ describe("expandEmbeds", () => {
     expect(el.dataset["lineOffset"]).toBe("4");
     const whole = (await run("Note")).querySelector<HTMLElement>(".embed-body")!;
     expect(whole.dataset["lineOffset"]).toBe("0");
+    const dup = (await runDup()).querySelector<HTMLElement>(".embed-body")!;
+    expect(dup.dataset["lineOffset"]).toBe("2");
   });
 });

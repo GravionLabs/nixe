@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { partLineOffset, setTaskState } from "./task-toggle";
+import { setTaskState, taskShape } from "./task-toggle";
 
 describe("setTaskState", () => {
   it("ticks and unticks the task on the line", () => {
@@ -35,16 +35,9 @@ describe("setTaskState", () => {
   });
 });
 
-describe("partLineOffset", () => {
-  const text = "\n\n# A\n\nintro\n\n## B\n\n- [ ] x\n- [ ] y ^id\n";
-  it("finds where a heading section starts", () => {
-    expect(partLineOffset(text, "## B\n\n- [ ] x\n- [ ] y ^id")).toBe(6);
-  });
-  it("finds a block whose marker was removed from the last line", () => {
-    expect(partLineOffset(text, "- [ ] y")).toBe(9);
-  });
-  it("is 0 for a whole body and null when absent", () => {
-    expect(partLineOffset(text, text)).toBe(0);
-    expect(partLineOffset(text, "nope")).toBeNull();
+describe("taskShape", () => {
+  it("is the same for ticked and unticked lines and differs for other text", () => {
+    expect(taskShape("- [x] a\r")).toBe(taskShape("- [ ] a"));
+    expect(taskShape("- [ ] a")).not.toBe(taskShape("- [ ] b"));
   });
 });

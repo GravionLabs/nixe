@@ -22,7 +22,7 @@ import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
-import { setTaskState } from "../../core/markdown/task-toggle";
+import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
 import { OutlineService } from "../../core/outline/outline.service";
 import { PropertiesComponent } from "../properties/properties.component";
 import { SearchService } from "../../core/index/search.service";
@@ -133,6 +133,8 @@ export class ViewerComponent {
   private renderedPath: string | null = null;
   /** Text this viewer just saved from a checkbox: its DOM is already right, so that render is skipped. */
   private toggledText: string | null = null;
+  /** Toggles run one after the other, so a quick second click builds on the saved first one. */
+  private toggleQueue: Promise<void> = Promise.resolve();
 
   protected readonly dialogOpen = signal(false);
   protected readonly dialogZoom = signal(1);
@@ -423,7 +425,9 @@ export class ViewerComponent {
     }
 
     if (target instanceof HTMLInputElement && target.classList.contains("task-list-item-checkbox")) {
-      await this.toggleTask(event, target);
+      const run = this.toggleQueue.then(() => this.toggleTask(event, target));
+      this.toggleQueue = run.catch(() => undefined);
+      await run;
       return;
     }
 
@@ -506,7 +510,9 @@ export class ViewerComponent {
     try {
       const text = isOpenNote ? this.doc.content() : await backend.readTextFile(path);
       const next = setTaskState(text, line, checked);
-      if (next === null) {
+      const rendered = item.dataset["srcLine"];
+      const stale = embed && rendered !== undefined && taskShape(text.split("\n")[line] ?? "") !== rendered;
+      if (next === null || stale) {
         // Not a `[ ]`/`[x]` line any more (the file changed): leave the file alone.
         box.checked = !checked;
         return;
