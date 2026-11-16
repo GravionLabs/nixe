@@ -97,14 +97,18 @@ jobs:
           node -e "
             const fs = require('fs');
             const version = process.env.VERSION;
-            for (const file of ['package.json', 'src-tauri/tauri.conf.json']) {
+            // The MSI bundler accepts only a numeric pre-release identifier up to 65535, so on Windows
+            // 1.0.7-beta004 is built as 1.0.7-4. The release tag and the other platforms keep the full version.
+            const bundleVersion = process.platform === 'win32' ? version.replace(/-[A-Za-z]+0*(\d+)\$/, '-\$1') : version;
+            const versions = { 'package.json': version, 'src-tauri/tauri.conf.json': bundleVersion };
+            for (const file of Object.keys(versions)) {
               const json = JSON.parse(fs.readFileSync(file, 'utf8'));
-              json.version = version;
+              json.version = versions[file];
               fs.writeFileSync(file, JSON.stringify(json, null, 2) + '\n');
             }
             const cargoPath = 'src-tauri/Cargo.toml';
             const cargo = fs.readFileSync(cargoPath, 'utf8');
-            fs.writeFileSync(cargoPath, cargo.replace(/^version = \".*\"/m, \`version = \"\${version}\"\`));
+            fs.writeFileSync(cargoPath, cargo.replace(/^version = \".*\"/m, \`version = \"\${bundleVersion}\"\`));
           "
       - uses: dtolnay/rust-toolchain@stable
         with:
