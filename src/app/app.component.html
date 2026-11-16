@@ -17,6 +17,9 @@
   @if (showHealth()) {
     <app-health (error)="showToast($event)" />
   }
+  @if (showGit()) {
+    <app-git (error)="showToast($event)" (committed)="showToast('Committed')" />
+  }
   @if (doc.path()) {
     @if (editor.editing()) {
       @defer (on immediate) {
@@ -52,6 +55,10 @@
     </section>
   }
 </main>
+
+@if (git.available()) {
+  <app-status-bar />
+}
 
 @if (showSwitcher()) {
   <app-switcher (error)="showToast($event)" />

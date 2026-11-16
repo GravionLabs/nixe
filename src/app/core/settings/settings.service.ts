@@ -13,6 +13,8 @@ interface StoredSettings {
   lastFolder: string | null;
   zoom: number;
   healthExclude: string[];
+  gitAuthorName: string;
+  gitAuthorEmail: string;
 }
 
 const DEFAULTS: StoredSettings = {
@@ -24,6 +26,8 @@ const DEFAULTS: StoredSettings = {
   lastFolder: null,
   zoom: 100,
   healthExclude: [],
+  gitAuthorName: "",
+  gitAuthorEmail: "",
 };
 
 export const ZOOM_MIN = 50;
@@ -59,6 +63,14 @@ export class SettingsService {
     Array.isArray(this.stored.healthExclude) ? this.stored.healthExclude : [],
   );
 
+  /** Commit author used when the Git config of the vault has none. */
+  readonly gitAuthorName = signal<string>(
+    typeof this.stored.gitAuthorName === "string" ? this.stored.gitAuthorName : "",
+  );
+  readonly gitAuthorEmail = signal<string>(
+    typeof this.stored.gitAuthorEmail === "string" ? this.stored.gitAuthorEmail : "",
+  );
+
   private readonly systemDark = signal(false);
   readonly dark = computed(
     () => this.themeMode() === "dark" || (this.themeMode() === "system" && this.systemDark()),
@@ -83,6 +95,8 @@ export class SettingsService {
         lastFolder: this.lastFolder(),
         zoom: this.zoom(),
         healthExclude: this.healthExclude(),
+        gitAuthorName: this.gitAuthorName(),
+        gitAuthorEmail: this.gitAuthorEmail(),
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));

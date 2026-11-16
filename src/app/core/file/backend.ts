@@ -116,6 +116,20 @@ export interface NoteRecord {
   links: IndexedLink[];
 }
 
+export interface GitChange {
+  /** Vault-relative path. */
+  path: string;
+  kind: "added" | "modified" | "deleted";
+}
+
+export interface GitStatus {
+  /** Null on a detached HEAD. */
+  branch: string | null;
+  changes: GitChange[];
+  ahead: number;
+  behind: number;
+}
+
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
@@ -154,6 +168,14 @@ export const backend = {
   searchNotes: (query: string) => invoke<SearchHit[]>("search_notes", { query }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
+  /** Git state of the vault; null when the vault is not a Git repository. */
+  gitVaultStatus: () => invoke<GitStatus | null>("git_vault_status"),
+  /**
+   * Stages everything and commits; returns the commit id. An empty `message` gives
+   * `vault backup: <timestamp>`; `name` and `email` are used when the Git config has no author.
+   */
+  gitVaultCommit: (message: string | null, name: string | null, email: string | null) =>
+    invoke<string>("git_vault_commit", { message, name, email }),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
 };
 

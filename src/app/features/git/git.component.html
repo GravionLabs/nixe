@@ -1,0 +1,50 @@
+<header>
+  <span>Git</span>
+  <button type="button" class="close" aria-label="Close Git" (click)="git.close()">×</button>
+</header>
+
+@if (git.status(); as status) {
+  <p class="branch">
+    {{ status.branch ?? "detached HEAD" }}
+    @if (status.ahead || status.behind) {
+      <span class="detail">↑{{ status.ahead }} ↓{{ status.behind }}</span>
+    }
+  </p>
+
+  <section aria-label="Changes">
+    <h2>Changes <span class="count">{{ status.changes.length }}</span></h2>
+    @for (change of status.changes; track change.path) {
+      <button type="button" [disabled]="change.kind === 'deleted'" (click)="open(change.path)" [title]="change.path">
+        <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
+        <span class="name">{{ change.path }}</span>
+      </button>
+    } @empty {
+      <p class="status">No changes</p>
+    }
+  </section>
+
+  <form (submit)="commit($event, message.value)">
+    <label>
+      Commit message
+      <input #message type="text" placeholder="vault backup: <timestamp>" />
+    </label>
+    <details>
+      <summary>Author (used when the Git config has none)</summary>
+      <input
+        type="text"
+        aria-label="Author name"
+        placeholder="Name"
+        [value]="settings.gitAuthorName()"
+        (change)="settings.gitAuthorName.set($any($event.target).value)"
+      />
+      <input
+        type="email"
+        aria-label="Author email"
+        placeholder="Email"
+        [value]="settings.gitAuthorEmail()"
+        (change)="settings.gitAuthorEmail.set($any($event.target).value)"
+      />
+    </details>
+    <button type="submit" class="primary" [disabled]="git.committing() || status.changes.length === 0">Commit all</button>
+  </form>
+}
