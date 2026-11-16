@@ -24,6 +24,11 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             "Quick Switcher…",
             Some("CmdOrCtrl+O"),
         )?)
+        .item(&item(
+            "command-palette",
+            "Command Palette…",
+            Some("CmdOrCtrl+P"),
+        )?)
         .item(&item("open-file", "Open File…", Some("CmdOrCtrl+Shift+P"))?)
         .item(&item(
             "open-folder",
