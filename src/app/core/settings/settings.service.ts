@@ -1,6 +1,15 @@
 import { Injectable, computed, effect, signal } from "@angular/core";
 
 import { clampMinutes } from "../git/auto-sync";
+import {
+  VaultState,
+  VaultStates,
+  addRecent,
+  pruneStates,
+  removeRecent,
+  sanitizeRecent,
+  sanitizeStates,
+} from "../workspace/recent-vaults";
 
 export type ThemeMode = "system" | "light" | "dark";
 
@@ -14,6 +23,8 @@ interface StoredSettings {
   backlinks: boolean;
   outline: boolean;
   lastFolder: string | null;
+  recentVaults: string[];
+  vaultStates: VaultStates;
   zoom: number;
   healthExclude: string[];
   templateFolder: string;
@@ -36,6 +47,8 @@ const DEFAULTS: StoredSettings = {
   backlinks: false,
   outline: false,
   lastFolder: null,
+  recentVaults: [],
+  vaultStates: {},
   zoom: 100,
   healthExclude: [],
   templateFolder: "",
@@ -77,6 +90,10 @@ export class SettingsService {
   readonly outlineVisible = signal<boolean>(this.stored.outline === true);
   /** Folder reopened on the next start. */
   readonly lastFolder = signal<string | null>(this.stored.lastFolder);
+  /** The last vaults opened, newest first. */
+  readonly recentVaults = signal<string[]>(sanitizeRecent(this.stored.recentVaults));
+  /** Last open note and panel layout of each recent vault, by folder. */
+  readonly vaultStates = signal<VaultStates>(sanitizeStates(this.stored.vaultStates));
   /** Document zoom, as a percentage (100 = actual size). */
   readonly zoom = signal<number>(this.stored.zoom);
 
@@ -132,6 +149,8 @@ export class SettingsService {
         backlinks: this.backlinksVisible(),
         outline: this.outlineVisible(),
         lastFolder: this.lastFolder(),
+        recentVaults: this.recentVaults(),
+        vaultStates: this.vaultStates(),
         zoom: this.zoom(),
         healthExclude: this.healthExclude(),
         templateFolder: this.templateFolder(),
@@ -151,6 +170,23 @@ export class SettingsService {
         // storage unavailable – settings just aren't persisted
       }
     });
+  }
+
+  /** Puts a vault at the top of the recent list. */
+  noteVaultOpened(path: string): void {
+    this.recentVaults.update((list) => addRecent(list, path));
+    this.vaultStates.update((states) => pruneStates(states, this.recentVaults()));
+  }
+
+  forgetVault(path: string): void {
+    this.recentVaults.update((list) => removeRecent(list, path));
+    this.vaultStates.update((states) => pruneStates(states, this.recentVaults()));
+    if (this.lastFolder() === path) this.lastFolder.set(null);
+  }
+
+  rememberVaultState(path: string, state: VaultState): void {
+    if (!this.recentVaults().includes(path)) return;
+    this.vaultStates.update((states) => ({ ...states, [path]: state }));
   }
 
   cycleTheme(): void {

@@ -78,3 +78,13 @@ sidebar width/visibility, last opened folder — restored on the next launch via
 `AppComponent.initDesktopIntegration`). `DocumentService` and `WorkspaceService` are
 pure in-memory state: closing and reopening the app re-derives the tree and the
 default page from disk rather than restoring exact scroll/expand state.
+
+### Recent vaults
+
+`SettingsService.recentVaults` holds the last five opened folders, newest first, and
+`vaultStates` the open note and the sidebar, backlinks and outline visibility of each of them
+(`core/workspace/recent-vaults.ts`). `WorkspaceService.openFolder` saves the state of the vault it
+leaves and restores that of the vault it opens (a vault opened for the first time keeps the current
+panels and shows its default page). `File → Open Recent…` and the command `open-recent` show the
+picker (`RecentPickerService`); a vault whose folder no longer exists is removed from the list and a
+message tells so, also at startup.

@@ -35,6 +35,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             "Open Folder…",
             Some("CmdOrCtrl+Shift+O"),
         )?)
+        .item(&item("open-recent", "Open Recent…", None)?)
         .item(&item("clone-vault", "Clone Vault…", None)?)
         .separator()
         .item(&item("reload", "Reload", Some("CmdOrCtrl+R"))?)

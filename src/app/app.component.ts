@@ -19,10 +19,12 @@ import { SettingsService } from "./core/settings/settings.service";
 import { DailyService } from "./core/daily/daily.service";
 import { TemplateService } from "./core/templates/template.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
+import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { OutlineComponent } from "./features/outline/outline.component";
+import { RecentComponent } from "./features/recent/recent.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
 import { TemplatesComponent } from "./features/templates/templates.component";
@@ -41,7 +43,7 @@ import { ViewerComponent } from "./features/viewer/viewer.component";
 
 @Component({
   selector: "app-root",
-  imports: [OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
+  imports: [OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, EditorComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, ViewerComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -65,6 +67,7 @@ export class AppComponent {
   private readonly daily = inject(DailyService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
+  protected readonly recent = inject(RecentPickerService);
 
   protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
   protected readonly gitSpike = isDevMode();
@@ -118,6 +121,15 @@ export class AppComponent {
       if (path) void this.workspace.reveal(path);
     });
 
+    effect(() => {
+      const notice = this.recent.notice();
+      if (notice === null) return;
+      untracked(() => {
+        this.showToast(notice);
+        this.recent.notice.set(null);
+      });
+    });
+
     this.registerCommands();
     void this.initDesktopIntegration();
   }
@@ -148,7 +160,11 @@ export class AppComponent {
     // otherwise the last opened folder is restored.
     if (!(await this.openPending())) {
       const last = this.settings.lastFolder();
-      if (last && (await backend.isDir(last))) await this.run(() => this.workspace.openFolder(last));
+      if (last) {
+        await this.run(async () => {
+          if (!(await this.workspace.openRecent(last))) this.recent.notice.set(missingMessage([last]));
+        });
+      }
     }
   }
 
@@ -196,6 +212,7 @@ export class AppComponent {
       { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.viewer()?.topLine() ?? null)) },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },
+      { id: "open-recent", title: "Open recent vault…", run: () => this.run(() => this.recent.open()) },
       { id: "clone-vault", title: "Clone vault…", run: () => this.cloneVault.open() },
       {
         id: "reload",

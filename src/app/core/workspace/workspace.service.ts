@@ -1,4 +1,4 @@
-import { Injectable, WritableSignal, computed, inject, signal } from "@angular/core";
+import { Injectable, WritableSignal, computed, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { backend } from "../file/backend";
@@ -32,6 +32,20 @@ export class WorkspaceService {
   private readonly rootNodes = signal<TreeNode[]>([]);
   private rootHasOrder = false;
 
+  constructor() {
+    // The open note is remembered per vault; a note outside the opened folder (or one that is still
+    // the previous vault's while the switch runs) is not.
+    effect(() => {
+      const note = this.doc.path();
+      const root = this.root();
+      if (root && note && note.startsWith(root + "/")) untracked(() => this.rememberState(root, note));
+    });
+    window.addEventListener("pagehide", () => {
+      const root = this.root();
+      if (root) this.rememberState(root, this.noteIn(root));
+    });
+  }
+
   /** Flattened list of visible rows (expanded folders only). */
   readonly visible = computed(() => {
     const rows: TreeNode[] = [];
@@ -48,6 +62,9 @@ export class WorkspaceService {
   async openFolder(path: string, options: { openDefaultPage?: boolean } = {}): Promise<void> {
     const { openDefaultPage = true } = options;
     path = toSlashes(path);
+    const previous = this.root();
+    if (previous && previous !== path) this.rememberState(previous, this.noteIn(previous));
+    const switching = previous !== path;
     const hasOrder = await backend.isFile(joinPath(path, ".order"));
     const nodes = await this.load(path, hasOrder, 0);
     const vaultRoot = toSlashes(await backend.findVaultRoot(path));
@@ -58,15 +75,58 @@ export class WorkspaceService {
     this.root.set(path);
     this.rootNodes.set(nodes);
     this.settings.lastFolder.set(path);
-    this.settings.sidebarVisible.set(true);
+    const state = switching ? this.settings.vaultStates()[path] : undefined;
+    this.settings.noteVaultOpened(path);
+    this.settings.sidebarVisible.set(state?.sidebar ?? true);
+    if (state) {
+      this.settings.backlinksVisible.set(state.backlinks);
+      this.settings.outlineVisible.set(state.outline);
+    }
 
     if (openDefaultPage) {
-      const page = defaultPage(nodes);
+      const remembered = state?.note && (await backend.isFile(state.note)) ? state.note : null;
+      const page = remembered ?? defaultPage(nodes);
       if (page) await this.doc.open(page);
     }
     // After the first note is shown, so the scan never delays rendering. A failed index is not
     // fatal: the viewer works without it.
     backend.indexStart(vaultRoot).catch(() => undefined);
+  }
+
+  /**
+   * Opens a vault of the recent list. A folder that no longer exists is removed from the list and
+   * false is returned.
+   */
+  async openRecent(path: string): Promise<boolean> {
+    if (!(await backend.isDir(path))) {
+      this.settings.forgetVault(path);
+      return false;
+    }
+    await this.openFolder(path);
+    return true;
+  }
+
+  /** Removes the recent vaults whose folder is gone; returns them. */
+  async pruneMissingRecent(): Promise<string[]> {
+    const list = this.settings.recentVaults();
+    const present = await Promise.all(list.map((p) => backend.isDir(p).catch(() => true)));
+    const missing = list.filter((_, i) => !present[i]);
+    for (const path of missing) this.settings.forgetVault(path);
+    return missing;
+  }
+
+  private noteIn(root: string): string | null {
+    const note = this.doc.path();
+    return note && note.startsWith(root + "/") ? note : null;
+  }
+
+  private rememberState(root: string, note: string | null): void {
+    this.settings.rememberVaultState(root, {
+      note,
+      sidebar: this.settings.sidebarVisible(),
+      backlinks: this.settings.backlinksVisible(),
+      outline: this.settings.outlineVisible(),
+    });
   }
 
   async openFolderWithDialog(): Promise<void> {
