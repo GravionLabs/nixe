@@ -53,6 +53,22 @@ This is the same classification (`classifyHref` in `link-resolver.ts`) used for 
 clicks, so an image path and a link path follow identical rules (see
 [state-management.md](state-management.md) for the click side).
 
+## Link preview on hover
+
+Hovering a resolved `[[wikilink]]` shows a popover with the rendered target (the section of
+`Note#Heading`, the block of `Note#^id`, or the whole note). It works in the reading view, the
+editor (on the `[[…]]` text) and the backlinks panel (every row). `LinkPreviewService` reads the
+note, picks the part with `notePart` (shared with embeds), renders it with the same
+`MarkdownService` pipeline and `LinkPreviewComponent` shows it, expanding embeds and diagrams.
+
+- Setting `linkPreview`: `modifier` (default, only with ⌘/Ctrl held) or `always`; toggle it with the
+  command "Link preview: always on hover / only with ⌘/Ctrl held".
+- The popover opens after a short delay, closes shortly after the pointer leaves the link and the
+  popover, and on Esc. It is scrollable, its links open notes (⌘/Ctrl: new tab) and a mouse press on
+  it never moves the focus.
+- Rendered HTML is cached per note and part until the text of the note (or the vault file list)
+  changes; the note is read on each hover to check that.
+
 ## Mermaid: two dialects in, one renderer out
 
 Both a plain ```` ```mermaid ```` fence and the Azure DevOps wiki's

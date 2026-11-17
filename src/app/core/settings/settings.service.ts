@@ -1,60 +1,41 @@
 import { Injectable, computed, effect, signal } from "@angular/core";
 
-import { clampMinutes } from "../git/auto-sync";
+import { backend } from "../file/backend";
+import { LinkPreviewMode } from "../preview/preview-core";
+import {
+  VaultState,
+  VaultStates,
+  addRecent,
+  pruneStates,
+  removeRecent,
+} from "../workspace/recent-vaults";
+import {
+  LEGACY_STORAGE_KEY,
+  StoredSettings,
+  ThemeMode,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  loadSettings,
+  sanitizeSettings,
+  serializeSettings,
+} from "./settings-core";
 
-export type ThemeMode = "system" | "light" | "dark";
+export { ZOOM_MAX, ZOOM_MIN };
+export type { ThemeMode };
 
-const STORAGE_KEY = "nixe.settings";
-
-interface StoredSettings {
-  theme: ThemeMode;
-  math: boolean;
-  sidebar: boolean;
-  sidebarWidth: number;
-  backlinks: boolean;
-  lastFolder: string | null;
-  zoom: number;
-  healthExclude: string[];
-  gitAuthorName: string;
-  gitAuthorEmail: string;
-  autoSync: boolean;
-  autoSyncMinutes: number;
-  autoSyncOnFocus: boolean;
-  autoSyncOnQuit: boolean;
-}
-
-const DEFAULTS: StoredSettings = {
-  theme: "system",
-  math: true,
-  sidebar: true,
-  sidebarWidth: 260,
-  backlinks: false,
-  lastFolder: null,
-  zoom: 100,
-  healthExclude: [],
-  gitAuthorName: "",
-  gitAuthorEmail: "",
-  autoSync: false,
-  autoSyncMinutes: 10,
-  autoSyncOnFocus: false,
-  autoSyncOnQuit: false,
-};
-
-export const ZOOM_MIN = 50;
-export const ZOOM_MAX = 300;
 const ZOOM_STEP = 10;
 
-function loadSettings(): StoredSettings {
+function readLegacy(): string | null {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") };
+    return localStorage.getItem(LEGACY_STORAGE_KEY);
   } catch {
-    return DEFAULTS;
+    return null;
   }
 }
 
 @Injectable({ providedIn: "root" })
 export class SettingsService {
-  private readonly stored = loadSettings();
+  private readonly stored: StoredSettings = loadSettings(null, readLegacy()).settings;
 
   readonly themeMode = signal<ThemeMode>(this.stored.theme);
   /** LaTeX rendering via KaTeX. */
@@ -63,29 +44,42 @@ export class SettingsService {
   readonly sidebarWidth = signal<number>(this.stored.sidebarWidth);
   /** Right-hand backlinks and outgoing links panel. */
   readonly backlinksVisible = signal<boolean>(this.stored.backlinks);
+  /** Right-hand outline panel (the headings of the open note). */
+  readonly outlineVisible = signal<boolean>(this.stored.outline);
+  /** Hover preview of links: with ⌘/Ctrl held, or always. */
+  readonly linkPreview = signal<LinkPreviewMode>(this.stored.linkPreview);
   /** Folder reopened on the next start. */
   readonly lastFolder = signal<string | null>(this.stored.lastFolder);
+  /** The last vaults opened, newest first. */
+  readonly recentVaults = signal<string[]>(this.stored.recentVaults);
+  /** Last open note and panel layout of each recent vault, by folder. */
+  readonly vaultStates = signal<VaultStates>(this.stored.vaultStates);
   /** Document zoom, as a percentage (100 = actual size). */
   readonly zoom = signal<number>(this.stored.zoom);
 
   /** Vault-relative folders (templates, archive) the vault health report leaves out. */
-  readonly healthExclude = signal<string[]>(
-    Array.isArray(this.stored.healthExclude) ? this.stored.healthExclude : [],
-  );
+  readonly healthExclude = signal<string[]>(this.stored.healthExclude);
+
+  /** Vault-relative template folder, used when `.obsidian/templates.json` names none. */
+  readonly templateFolder = signal<string>(this.stored.templateFolder);
+
+  /** Daily notes: used for each key `.obsidian/daily-notes.json` does not set. Empty is the default. */
+  readonly dailyFolder = signal<string>(this.stored.dailyFolder);
+  readonly dailyFormat = signal<string>(this.stored.dailyFormat);
+  readonly dailyTemplate = signal<string>(this.stored.dailyTemplate);
 
   /** Commit author used when the Git config of the vault has none. */
-  readonly gitAuthorName = signal<string>(
-    typeof this.stored.gitAuthorName === "string" ? this.stored.gitAuthorName : "",
-  );
-  readonly gitAuthorEmail = signal<string>(
-    typeof this.stored.gitAuthorEmail === "string" ? this.stored.gitAuthorEmail : "",
-  );
+  readonly gitAuthorName = signal<string>(this.stored.gitAuthorName);
+  readonly gitAuthorEmail = signal<string>(this.stored.gitAuthorEmail);
 
   /** Automatic sync of the vault; everything is off by default. */
-  readonly autoSync = signal<boolean>(this.stored.autoSync === true);
-  readonly autoSyncMinutes = signal<number>(clampMinutes(Number(this.stored.autoSyncMinutes)));
-  readonly autoSyncOnFocus = signal<boolean>(this.stored.autoSyncOnFocus === true);
-  readonly autoSyncOnQuit = signal<boolean>(this.stored.autoSyncOnQuit === true);
+  readonly autoSync = signal<boolean>(this.stored.autoSync);
+  readonly autoSyncMinutes = signal<number>(this.stored.autoSyncMinutes);
+  readonly autoSyncOnFocus = signal<boolean>(this.stored.autoSyncOnFocus);
+  readonly autoSyncOnQuit = signal<boolean>(this.stored.autoSyncOnQuit);
+
+  /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
+  readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
   private readonly systemDark = signal(false);
   readonly dark = computed(
@@ -101,29 +95,136 @@ export class SettingsService {
       document.documentElement.dataset["theme"] = this.dark() ? "dark" : "light";
     });
 
-    effect(() => {
-      const settings: StoredSettings = {
-        theme: this.themeMode(),
-        math: this.math(),
-        sidebar: this.sidebarVisible(),
-        sidebarWidth: this.sidebarWidth(),
-        backlinks: this.backlinksVisible(),
-        lastFolder: this.lastFolder(),
-        zoom: this.zoom(),
-        healthExclude: this.healthExclude(),
-        gitAuthorName: this.gitAuthorName(),
-        gitAuthorEmail: this.gitAuthorEmail(),
-        autoSync: this.autoSync(),
-        autoSyncMinutes: this.autoSyncMinutes(),
-        autoSyncOnFocus: this.autoSyncOnFocus(),
-        autoSyncOnQuit: this.autoSyncOnQuit(),
-      };
+    effect(() => this.persist(this.snapshot()));
+  }
+
+  /** Every setting as it is stored. */
+  private snapshot(): StoredSettings {
+    return {
+      theme: this.themeMode(),
+      math: this.math(),
+      sidebar: this.sidebarVisible(),
+      sidebarWidth: this.sidebarWidth(),
+      backlinks: this.backlinksVisible(),
+      outline: this.outlineVisible(),
+      linkPreview: this.linkPreview(),
+      lastFolder: this.lastFolder(),
+      recentVaults: this.recentVaults(),
+      vaultStates: this.vaultStates(),
+      zoom: this.zoom(),
+      healthExclude: this.healthExclude(),
+      templateFolder: this.templateFolder(),
+      dailyFolder: this.dailyFolder(),
+      dailyFormat: this.dailyFormat(),
+      dailyTemplate: this.dailyTemplate(),
+      gitAuthorName: this.gitAuthorName(),
+      gitAuthorEmail: this.gitAuthorEmail(),
+      autoSync: this.autoSync(),
+      autoSyncMinutes: this.autoSyncMinutes(),
+      autoSyncOnFocus: this.autoSyncOnFocus(),
+      autoSyncOnQuit: this.autoSyncOnQuit(),
+      shortcuts: this.shortcuts(),
+    };
+  }
+
+  /** Puts loaded settings into the signals; they apply at once, without a restart. */
+  private apply(s: StoredSettings): void {
+    this.themeMode.set(s.theme);
+    this.math.set(s.math);
+    this.sidebarVisible.set(s.sidebar);
+    this.sidebarWidth.set(s.sidebarWidth);
+    this.backlinksVisible.set(s.backlinks);
+    this.outlineVisible.set(s.outline);
+    this.linkPreview.set(s.linkPreview);
+    this.lastFolder.set(s.lastFolder);
+    this.recentVaults.set(s.recentVaults);
+    this.vaultStates.set(s.vaultStates);
+    this.zoom.set(s.zoom);
+    this.healthExclude.set(s.healthExclude);
+    this.templateFolder.set(s.templateFolder);
+    this.dailyFolder.set(s.dailyFolder);
+    this.dailyFormat.set(s.dailyFormat);
+    this.dailyTemplate.set(s.dailyTemplate);
+    this.gitAuthorName.set(s.gitAuthorName);
+    this.gitAuthorEmail.set(s.gitAuthorEmail);
+    this.autoSync.set(s.autoSync);
+    this.autoSyncMinutes.set(s.autoSyncMinutes);
+    this.autoSyncOnFocus.set(s.autoSyncOnFocus);
+    this.autoSyncOnQuit.set(s.autoSyncOnQuit);
+    this.shortcuts.set(s.shortcuts);
+  }
+
+  /** True once the settings file is known to be readable; only then it is written. */
+  private fileReady = false;
+  private writing: Promise<void> = Promise.resolve();
+
+  /**
+   * Reads the settings file of the app config directory (called before the app starts). Without
+   * one, the old `localStorage` entry is migrated into it. When the file cannot be read the
+   * settings stay in `localStorage`, so a failure never overwrites the file.
+   */
+  async load(): Promise<void> {
+    let file: string | null;
+    try {
+      file = await backend.readAppSettings();
+    } catch (err) {
+      console.warn("settings file unavailable, using local storage", err);
+      return;
+    }
+    const { settings, source, damaged } = loadSettings(file, readLegacy());
+    this.apply(settings);
+    if (damaged) {
+      // Keep the damaged file for the user to recover; settings go to local storage meanwhile.
+      console.warn("settings.json is damaged and was left untouched");
+      return;
+    }
+    this.fileReady = true;
+    if (source !== "file") this.persist(settings);
+  }
+
+  private persist(settings: StoredSettings): void {
+    if (!this.fileReady) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(settings));
       } catch {
         // storage unavailable – settings just aren't persisted
       }
-    });
+      return;
+    }
+    const content = serializeSettings(sanitizeSettings(settings));
+    // Writes run one after the other, so the last change is the one that stays.
+    this.writing = this.writing
+      .then(() => backend.writeAppSettings(content))
+      .then(() => {
+        try {
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+        } catch {
+          // ignore
+        }
+      })
+      .catch((err) => console.warn("settings not saved", err));
+  }
+
+  /** Resolves when the writes started so far are done. */
+  flush(): Promise<void> {
+    return this.writing;
+  }
+
+  /** Puts a vault at the top of the recent list. */
+  noteVaultOpened(path: string): void {
+    this.recentVaults.update((list) => addRecent(list, path));
+    this.vaultStates.update((states) => pruneStates(states, this.recentVaults()));
+  }
+
+  forgetVault(path: string): void {
+    this.recentVaults.update((list) => removeRecent(list, path));
+    this.vaultStates.update((states) => pruneStates(states, this.recentVaults()));
+    if (this.lastFolder() === path) this.lastFolder.set(null);
+  }
+
+  rememberVaultState(path: string, state: VaultState): void {
+    if (!this.recentVaults().includes(path)) return;
+    this.vaultStates.update((states) => ({ ...states, [path]: state }));
   }
 
   cycleTheme(): void {

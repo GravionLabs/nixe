@@ -7,12 +7,18 @@ import { backend } from "../file/backend";
 export interface EditorHandle {
   /** 1-based first visible line. */
   topLine(): number;
+  /** Moves the editor to a 1-based line. */
+  scrollToLine(line: number): void;
   /** Writes pending changes at once. */
   flush(): Promise<void>;
   /** True while changed text is not written (a failed or held save). */
   dirty(): boolean;
   /** True while an external change waits for the user's choice (reload or keep mine). */
   blocked(): boolean;
+  /** Inserts an expanded template at the cursor and merges its frontmatter into the note's. */
+  insertTemplate(template: string): void;
+  /** Brings dropped files into the vault and inserts `![[name]]` links at the cursor. */
+  attachPaths(paths: string[]): Promise<void>;
 }
 
 /** Switches between the viewer and the editor of the open note. */

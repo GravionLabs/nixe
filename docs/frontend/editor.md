@@ -20,6 +20,16 @@ The toolbar button shows `editing()` as `active`/`aria-pressed` and is disabled 
   until one is chosen. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
 - **Scroll**: the viewer's top block (`data-line`) becomes the editor's first line and back.
 
+## Find and replace
+
+- **Editor**: ⌘/Ctrl+F opens the `@codemirror/search` bar at the top (next, previous, match count,
+  case, regex, whole word); ⌘/Ctrl+⌥+F opens it with the replace field, *replace* and *replace all*.
+  Escape closes the bar and returns the focus to the text. The bar uses the app's CSS variables.
+- **Reading view**: ⌘/Ctrl+F (the `find` command) opens a bar in `ViewerComponent` that wraps the
+  matches of the rendered note in `<mark class="find-hit">` and scrolls to the current one
+  (Enter / Shift+Enter, ↑ / ↓). Diagrams are skipped; a match never crosses a block. The pure
+  matcher is `core/find/find-core.ts`. Escape closes the bar and removes the highlights.
+
 ## Autocomplete
 
 `features/editor/completion.ts` (sources) and `core/editor/completion-core.ts` (pure logic) add
@@ -54,3 +64,29 @@ CodeMirror completion for links and tags; nothing is offered in code.
   files from the index, renames, and writes all of them at once, so the watcher reports one batch.
   Links in the frontmatter, code spans, fenced code and `%%comments%%` are left alone, and a
   `relative` link is written as Obsidian does but the index only resolves it by name for now.
+
+## Templates
+
+The command `Insert template` (open in the editor) lists the Markdown files in the template folder and inserts the chosen one at the cursor.
+
+- **Folder:** `folder` of `.obsidian/templates.json` (`template_folder`), else the setting `templateFolder`.
+- **Variables** (`core/templates/template-core.ts`): `{{title}}` (note name), `{{date}}`, `{{time}}`, `{{date:FORMAT}}` and `{{time:FORMAT}}`. `FORMAT` uses Moment tokens in English (`YYYY MM DD Do dddd HH hh mm ss A Q W Z X …`, text in `[brackets]` stays). Without a format: `YYYY-MM-DD` and `HH:mm`; `dateFormat` and `timeFormat` of `templates.json` are not read. Other `{{…}}` text stays.
+- **Frontmatter:** the template's frontmatter is merged into the note's, not inserted in the body. The note keeps its own values; empty ones and missing properties come from the template; lists are joined without duplicates. A note with invalid frontmatter is refused.
+
+## Daily notes
+
+`Open today's daily note` (`Mod+Shift+D`) opens the note of today and creates it first when it does not exist; `Open previous daily note` and `Open next daily note` open the nearest existing daily note before or after the open one (before or after today when the open note is none). Code: `core/daily/`.
+
+- **Settings:** `folder`, `format` and `template` of `.obsidian/daily-notes.json` (`daily_notes_config`); a key it does not set comes from the settings `dailyFolder`, `dailyFormat` and `dailyTemplate`. Default: the vault root and `YYYY-MM-DD`.
+- **Format:** Moment tokens as in templates. A `/` nests folders: `YYYY/MM/YYYY-MM-DD` gives `2026/03/2026-03-02.md`, and the folders are created. Previous and next read year, month and day (`YYYY YY MM M MMMM MMM DD D Do`) back from the paths; a format without them has no previous or next note.
+- **Template:** expanded as in `Insert template` (`{{title}}` is the note name); the whole template, frontmatter included, becomes the new note. A missing template is an error and creates nothing.
+
+
+## Attachments
+
+Pasting an image or dropping a file into the editor copies it into the vault and inserts `![[name]]` at the cursor. Code: `attachments.rs` (commands `save_attachment`, `import_attachment`), `core/editor/attachment-core.ts`.
+
+- **Folder:** `attachmentFolderPath` of `.obsidian/app.json`: missing, empty or `/` is the vault root; `./` is the folder of the open note; `./sub` a subfolder of it; any other value a fixed vault folder. The folder is created when missing; a path that leads out of the vault is refused.
+- **Names:** a pasted image is `Pasted image YYYYMMDDHHmmss.png` (the extension follows the image type); a pasted or dropped file keeps its name. A taken name gets a number (`name 1.png`), nothing is overwritten.
+- **Links:** the link holds the file name, or the vault-relative path when another file of the vault has the same name.
+- **Dropped files inside the vault** are not copied; only the link is inserted. Dropping while the editor is closed still opens the file or folder.

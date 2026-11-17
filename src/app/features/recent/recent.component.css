@@ -1,0 +1,67 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.3);
+}
+
+.dialog {
+  position: relative;
+  width: min(560px, 90vw);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--chrome);
+  color: var(--fg);
+  font-size: 13px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
+  overflow: hidden;
+}
+
+ul {
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  outline: none;
+}
+
+li button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+li.selected button,
+li button:hover {
+  background: var(--border);
+}
+
+.path {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 6px 14px;
+  color: var(--muted);
+}

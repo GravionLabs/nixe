@@ -3,11 +3,16 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { AutoSaver, ExternalChangeTracker, clampLine, toCrlf } from "../../core/editor/editor-core";
+import { AutoSaver, ExternalChangeTracker, changedRange, clampLine, toCrlf } from "../../core/editor/editor-core";
 import { blocksOf, headingsOf } from "../../core/editor/completion-core";
+import { LinkPreviewService } from "../../core/preview/link-preview.service";
+import { targetOf } from "../../core/preview/preview-core";
+import { OutlineService } from "../../core/outline/outline.service";
 import { EditorService } from "../../core/editor/editor.service";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
+import { embedFor, pastedImageName } from "../../core/editor/attachment-core";
+import { insertTemplate } from "../../core/templates/template-core";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { fileLabel } from "../../core/switcher/fuzzy";
@@ -49,8 +54,10 @@ export class EditorComponent implements OnDestroy {
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
+  private readonly preview = inject(LinkPreviewService);
   private readonly settings = inject(SettingsService);
   private readonly editor = inject(EditorService);
+  private readonly outline = inject(OutlineService);
   private readonly host = viewChild.required<ElementRef<HTMLElement>>("host");
 
   /** The disk text that conflicts with unsaved changes; null when there is no conflict. */
@@ -66,11 +73,15 @@ export class EditorComponent implements OnDestroy {
   constructor() {
     this.editor.handle = {
       topLine: () => this.topLine(),
+      scrollToLine: (line) => this.scrollToLine(line),
       flush: () => this.flush(),
       dirty: () => this.session?.saver.dirty ?? false,
       blocked: () => this.conflict() !== null,
+      insertTemplate: (template) => this.insertTemplate(template),
+      attachPaths: (paths) => this.attachPaths(paths),
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
+    this.doc.remoteHook = (text, saved) => this.onRemote(text, saved);
 
     effect(() => this.editor.blocked.set(this.conflict() !== null));
 
@@ -94,8 +105,11 @@ export class EditorComponent implements OnDestroy {
     this.unlistenClose?.();
     void this.settle();
     this.editor.handle = null;
+    this.outline.editorText.set(null);
+    this.outline.topLine.set(null);
     this.editor.blocked.set(false);
     this.doc.editorHook = null;
+    this.doc.remoteHook = null;
     this.view?.destroy();
   }
 
@@ -147,12 +161,23 @@ export class EditorComponent implements OnDestroy {
           onSave: () => void this.flush(),
           onBlur: () => void this.flush(),
           onWikilink: (value) => void this.openWikilink(value),
+          onWikilinkHover: (hover) =>
+            hover ? this.preview.hover(targetOf(hover.value), hover.anchor, hover.modifier) : this.preview.leave(),
           completion: this.completionData,
         }),
         this.theme.of(editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100)),
+        EditorView.domEventHandlers({
+          paste: (event) => this.onPaste(event),
+          scroll: () => this.outline.topLine.set(this.topLine()),
+        }),
         EditorView.updateListener.of((update) => {
+          if (update.docChanged && this.session === session) {
+            this.outline.editorText.set(update.state.doc.toString());
+          }
           if (update.docChanged && !this.loading && this.session === session) {
-            session.saver.change(update.state.doc.toString());
+            const text = update.state.doc.toString();
+            session.saver.change(text);
+            this.doc.typed(session.path, text);
           }
         }),
       ],
@@ -160,10 +185,12 @@ export class EditorComponent implements OnDestroy {
     if (this.view) this.view.setState(state);
     else this.view = new EditorView({ state, parent: host });
     this.loading = false;
+    this.outline.editorText.set(text);
 
     const line = this.editor.startLine();
     this.editor.startLine.set(null);
     if (line !== null) this.scrollToLine(line);
+    this.outline.topLine.set(this.topLine());
     this.view.focus();
   }
 
@@ -228,6 +255,61 @@ export class EditorComponent implements OnDestroy {
     }
   }
 
+  private insertTemplate(template: string): void {
+    const view = this.view;
+    if (!view) throw new Error("Open the editor first.");
+    const { changes, cursor } = insertTemplate(view.state.doc.toString(), view.state.selection.main.head, template);
+    view.dispatch({ changes, selection: { anchor: cursor }, scrollIntoView: true, userEvent: "input.paste" });
+    view.focus();
+  }
+
+  /** A pasted image (or file) is copied into the vault; plain text pastes as usual. */
+  private onPaste(event: ClipboardEvent): boolean {
+    const files = Array.from(event.clipboardData?.files ?? []);
+    if (files.length === 0 || !this.session) return false;
+    event.preventDefault();
+    void this.attachFiles(files).catch((err) => this.error.emit(`Attaching failed: ${String(err)}`));
+    return true;
+  }
+
+  private async attachFiles(files: File[]): Promise<void> {
+    const note = this.session?.path;
+    if (!note) return;
+    const saved: string[] = [];
+    for (const file of files) {
+      const name = file.type.startsWith("image/") && (!file.name || /^image\.\w+$/iu.test(file.name))
+        ? pastedImageName(new Date(), file.type)
+        : file.name || pastedImageName(new Date(), file.type);
+      const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
+      saved.push(await backend.saveAttachment(note, name, bytes));
+    }
+    await this.insertEmbeds(saved);
+  }
+
+  private async attachPaths(paths: string[]): Promise<void> {
+    const note = this.session?.path;
+    if (!note) return;
+    const saved: string[] = [];
+    for (const source of paths) saved.push(await backend.importAttachment(note, source));
+    await this.insertEmbeds(saved);
+  }
+
+  private async insertEmbeds(relativePaths: string[]): Promise<void> {
+    const view = this.view;
+    if (!view) return;
+    await this.workspace.reloadTree().catch(() => undefined);
+    const files = this.workspace.vaultFiles() ?? [];
+    const text = relativePaths.map((p) => embedFor(p, files)).join("\n");
+    const { from, to } = view.state.selection.main;
+    view.dispatch({
+      changes: { from, to, insert: text },
+      selection: { anchor: from + text.length },
+      scrollIntoView: true,
+      userEvent: "input.paste",
+    });
+    view.focus();
+  }
+
   private flush(): Promise<void> {
     return this.session?.saver.flush() ?? Promise.resolve();
   }
@@ -244,6 +326,7 @@ export class EditorComponent implements OnDestroy {
     if (!view) return;
     const pos = view.state.doc.line(clampLine(line, view.state.doc.lines)).from;
     view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "start" }) });
+    this.outline.topLine.set(this.topLine());
   }
 
   /** The watcher reported a change of the note; `diskText` is what is on disk now. */
@@ -260,6 +343,26 @@ export class EditorComponent implements OnDestroy {
         session.saver.hold(true);
         this.conflict.set(diskText);
     }
+  }
+
+  /**
+   * Another tab shows the same note: its typing is taken over as a change that is not saved again
+   * (the tab that typed saves it); its save is an own write, not an external change.
+   */
+  private onRemote(text: string, saved: boolean): void {
+    const session = this.session;
+    const view = this.view;
+    if (!session || !view) return;
+    if (saved) {
+      session.tracker.willWrite(text);
+      session.tracker.written(text);
+    }
+    // Also for a save: the view may still lack what the other tab typed before it was opened.
+    const range = changedRange(view.state.doc.toString(), text.replace(/\r\n/g, "\n"));
+    if (!range) return;
+    this.loading = true;
+    view.dispatch({ changes: range });
+    this.loading = false;
   }
 
   /** Loading lossy text would let the next save destroy the original bytes. */

@@ -24,13 +24,10 @@
   @if (showGit()) {
     <app-git (error)="showToast($event)" (committed)="showToast('Committed')" />
   }
-  @if (doc.path()) {
-    @if (editor.editing()) {
-      @defer (on immediate) {
-        <app-editor class="pane" (error)="showToast($event)" />
-      }
-    } @else {
-      <app-viewer class="pane" [html]="html()" [dark]="settings.dark()" (notify)="showToast($event)" />
+  @if (tabs.showWorkspace()) {
+    <app-workspace class="pane" />
+    @if (showOutline()) {
+      <app-outline />
     }
     @if (showBacklinks()) {
       <app-backlinks (error)="showToast($event)" />
@@ -54,6 +51,7 @@
         <dt>{{ mod }}E</dt><dd>Edit / view the note</dd>
         <dt>{{ mod }}B</dt><dd>Toggle sidebar</dd>
         <dt>{{ mod }}⇧B</dt><dd>Toggle backlinks</dd>
+        <dt>{{ mod }}⇧L</dt><dd>Toggle outline</dd>
         <dt>{{ mod }}⇧F</dt><dd>Search the vault</dd>
         <dt>{{ mod }}[ / ]</dt><dd>Back / forward</dd>
       </dl>
@@ -69,6 +67,10 @@
   <app-switcher (error)="showToast($event)" />
 }
 
+@if (templates.visible()) {
+  <app-templates (error)="showToast($event)" />
+}
+
 @if (cloneVault.visible()) {
   <app-clone />
 }
@@ -80,6 +82,16 @@
 @if (palette.visible()) {
   <app-palette />
 }
+
+@if (recent.visible()) {
+  <app-recent />
+}
+
+@if (settingsPage.visible()) {
+  <app-settings />
+}
+
+<app-link-preview />
 
 @if (toast(); as message) {
   <div class="toast" role="status">{{ message }}</div>

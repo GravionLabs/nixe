@@ -8,6 +8,7 @@ use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+mod attachments;
 #[cfg(desktop)]
 pub mod cli;
 #[cfg(target_os = "macos")]
@@ -16,6 +17,7 @@ mod cli_install;
 mod cli_write;
 mod conflict;
 mod credentials;
+mod daily;
 mod fileops;
 mod git;
 mod gitclone;
@@ -27,6 +29,7 @@ pub mod mcp;
 mod menu;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
+mod settings;
 mod tree;
 mod vault;
 mod write;
@@ -266,10 +269,83 @@ fn new_note_location(state: State<'_, AppState>) -> Result<fileops::NewNoteLocat
     Ok(fileops::new_note_location(&vault_root_of(&state)?))
 }
 
+/// The template folder from `.obsidian/templates.json` of the vault; `None` when it names none.
+#[tauri::command]
+fn template_folder(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    Ok(fileops::template_folder(&vault_root_of(&state)?))
+}
+
+/// The Daily notes settings from `.obsidian/daily-notes.json` of the vault.
+#[tauri::command]
+fn daily_notes_config(state: State<'_, AppState>) -> Result<fileops::DailyNotesConfig, String> {
+    Ok(fileops::daily_notes_config(&vault_root_of(&state)?))
+}
+
+/// Saves pasted bytes as `name` in the attachment folder of `note`; returns the vault-relative path.
+#[tauri::command]
+fn save_attachment(
+    state: State<'_, AppState>,
+    note: String,
+    name: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    attachments::save_bytes(&vault_root_of(&state)?, Path::new(&note), &name, &bytes)
+}
+
+/// Brings a dropped file into the vault (copied into the attachment folder of `note` unless it
+/// already lies in the vault); returns the vault-relative path.
+#[tauri::command]
+fn import_attachment(
+    state: State<'_, AppState>,
+    note: String,
+    source: String,
+) -> Result<String, String> {
+    attachments::import_file(
+        &vault_root_of(&state)?,
+        Path::new(&note),
+        Path::new(&source),
+    )
+}
+
 /// How links to notes are written, from `.obsidian/app.json` of the vault.
 #[tauri::command]
 fn link_format(state: State<'_, AppState>) -> Result<vault::relink::LinkFormat, String> {
     Ok(vault::relink::link_format(&vault_root_of(&state)?))
+}
+
+/// The app settings file of the app config directory; `None` when there is none yet.
+#[tauri::command]
+fn read_app_settings(app: AppHandle) -> Result<Option<String>, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    settings::read_settings(&dir)
+}
+
+/// Replaces the app settings file of the app config directory.
+#[tauri::command]
+fn write_app_settings(app: AppHandle, content: String) -> Result<(), String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    settings::write_settings(&dir, &content)
+}
+
+/// Shows the user's shortcuts in the native menu: the accelerator per menu item id, `null` for none.
+#[tauri::command]
+fn set_menu_shortcuts(
+    app: AppHandle,
+    shortcuts: std::collections::HashMap<String, Option<String>>,
+) -> usize {
+    #[cfg(desktop)]
+    return menu::apply_shortcuts(&app, &menu::clean_shortcuts(shortcuts));
+    #[cfg(not(desktop))]
+    {
+        let _ = (app, shortcuts);
+        0
+    }
+}
+
+/// The Obsidian settings of the open vault, with the file each one comes from.
+#[tauri::command]
+fn obsidian_settings(state: State<'_, AppState>) -> Result<Vec<settings::ObsidianSetting>, String> {
+    Ok(settings::obsidian_settings(&vault_root_of(&state)?))
 }
 
 /// False when the file holds bytes that are not UTF-8 (`read_text_file` would replace them).
@@ -464,7 +540,15 @@ pub fn run() {
         conflict_pair,
         resolve_conflict,
         new_note_location,
+        template_folder,
+        daily_notes_config,
         link_format,
+        read_app_settings,
+        write_app_settings,
+        set_menu_shortcuts,
+        obsidian_settings,
+        save_attachment,
+        import_attachment,
         is_utf8_file,
         is_file,
         is_dir,
@@ -514,7 +598,15 @@ pub fn run() {
         conflict_pair,
         resolve_conflict,
         new_note_location,
+        template_folder,
+        daily_notes_config,
         link_format,
+        read_app_settings,
+        write_app_settings,
+        set_menu_shortcuts,
+        obsidian_settings,
+        save_attachment,
+        import_attachment,
         is_utf8_file,
         is_file,
         is_dir,

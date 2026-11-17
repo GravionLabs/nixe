@@ -97,6 +97,23 @@ export interface LinkFormat {
   format: "shortest" | "relative" | "absolute";
 }
 
+/** `.obsidian/daily-notes.json`; a key it does not set is null. */
+export interface DailyNotesConfig {
+  folder: string | null;
+  format: string | null;
+  template: string | null;
+}
+
+/** A setting that Obsidian also has, read from the vault. */
+export interface ObsidianSetting {
+  id: string;
+  label: string;
+  /** The value in effect; null when the file does not set it. */
+  value: string | null;
+  /** The file it comes from, vault-relative. */
+  source: string;
+}
+
 export interface TagCount {
   tag: string;
   count: number;
@@ -162,8 +179,24 @@ export const backend = {
   /** Moves a file or folder to `.trash/` of the vault; returns the new path. */
   trashPath: (path: string) => invoke<string>("trash_path", { path }),
   newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),
+  /** The template folder of `.obsidian/templates.json` (vault-relative); null when it names none. */
+  templateFolder: () => invoke<string | null>("template_folder"),
+  /** The Daily notes settings of `.obsidian/daily-notes.json`. */
+  dailyNotesConfig: () => invoke<DailyNotesConfig>("daily_notes_config"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
+  /** The app settings file (`settings.json` in the app config directory); null before the first save. */
+  readAppSettings: () => invoke<string | null>("read_app_settings"),
+  writeAppSettings: (content: string) => invoke<void>("write_app_settings", { content }),
+  /** Shows shortcuts in the native menu: accelerator per menu item id, null for none. */
+  setMenuShortcuts: (shortcuts: Record<string, string | null>) => invoke<number>("set_menu_shortcuts", { shortcuts }),
+  /** The Obsidian settings of the open vault with the file each one comes from. */
+  obsidianSettings: () => invoke<ObsidianSetting[]>("obsidian_settings"),
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
+  /** Saves pasted bytes into the attachment folder of `note`; returns the vault-relative path. */
+  saveAttachment: (note: string, name: string, bytes: number[]) =>
+    invoke<string>("save_attachment", { note, name, bytes }),
+  /** Brings a dropped file into the vault (copied unless it is inside); returns the vault-relative path. */
+  importAttachment: (note: string, source: string) => invoke<string>("import_attachment", { note, source }),
   /** Every tag of the vault with the number of notes using it, most used first. */
   tags: () => invoke<TagCount[]>("tags"),
   isUtf8File: (path: string) => invoke<boolean>("is_utf8_file", { path }),

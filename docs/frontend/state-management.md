@@ -78,3 +78,55 @@ sidebar width/visibility, last opened folder — restored on the next launch via
 `AppComponent.initDesktopIntegration`). `DocumentService` and `WorkspaceService` are
 pure in-memory state: closing and reopening the app re-derives the tree and the
 default page from disk rather than restoring exact scroll/expand state.
+
+### Recent vaults
+
+`SettingsService.recentVaults` holds the last five opened folders, newest first, and
+`vaultStates` the open note and the sidebar, backlinks and outline visibility of each of them
+(`core/workspace/recent-vaults.ts`). `WorkspaceService.openFolder` saves the state of the vault it
+leaves and restores that of the vault it opens (a vault opened for the first time keeps the current
+panels and shows its default page). `File → Open Recent…` and the command `open-recent` show the
+picker (`RecentPickerService`); a vault whose folder no longer exists is removed from the list and a
+message tells so, also at startup.
+
+### Tabs and split view
+
+`TabsService` (`core/tabs/`) holds one or two panes (the second one to the right), each with tabs. A
+tab has its own injector with its own `DocumentService`, `EditorService` and `OutlineService`, so
+its back/forward history, scroll position and mode (viewer or editor) belong to the tab. `PaneComponent`
+is created with that injector (`WorkspaceComponent` uses `ngComponentOutlet`), so the viewer and the
+editor inside need no knowledge of tabs.
+
+The app-wide `DocumentService`, `EditorService` and `OutlineService` (`ACTIVE_TAB_PROVIDERS` in
+`app.config.ts`) are stand-ins that forward to the shown tab of the focused pane. Everything outside
+the panes (backlinks, outline, commands, the toolbar, the vault operations) therefore follows the
+focus without change. A click or focus inside a pane focuses it. Only the note of the focused pane
+is watched for external changes; the watcher event goes to every tab showing that note.
+
+- Commands: `new-tab` (⌘/Ctrl+T), `close-tab` (⌘/Ctrl+W; closes the window when only an empty tab is
+  left), `next-tab` / `previous-tab` (⌃Tab, ⌃⇧Tab), `split-right`, `unsplit`, `focus-other-pane`.
+  ⌘/Ctrl+click on a link, a tree entry or a backlink opens the note in a new tab.
+- The same note in two panes: typing in an editor is passed to the other tabs on that note
+  (`DocumentService.typed` → `remote`), an editor there applies it as a change that is not saved
+  again; a save marks the write as the pane's own so the watcher does not report a conflict.
+- Restoring: the tabs, their history, mode, scroll line, the split and the divider are stored in the
+  vault state (`VaultState.layout`, `core/tabs/layout.ts`) and opened again by `WorkspaceService.openFolder`;
+  notes that are gone are left out.
+
+## Settings
+
+`⌘/Ctrl+,` (command `open-settings`, also in the native menu) opens the settings page.
+
+- **Storage.** App settings are one JSON file, `settings.json` in the app config directory
+  (`read_app_settings` / `write_app_settings`, written atomically). `SettingsService.load()` runs
+  before the app starts (`provideAppInitializer`). Without a file, the old `localStorage` entry
+  (`nixe.settings`) is migrated into it (`loadSettings` in `settings-core.ts`); if the file cannot be
+  read, the settings stay in `localStorage` and the file is never overwritten. Every key is
+  sanitized, so a missing or wrong-typed key falls back to its default.
+- **Sections.** `SettingsRegistry.register()` adds a section (`id`, `title`, `order`, `items()`); the
+  built-in ones (General, Editor, Files and links, Appearance, Git, Shortcuts) are in
+  `builtin-sections.ts`. Features and plugins register theirs the same way.
+- **Obsidian settings** (new-note folder, attachment folder, link format, templates, daily notes) are
+  read from `.obsidian/` by `obsidian_settings` and shown read-only with their source file.
+- **Apply at once.** Items read and write the `SettingsService` signals, so changes need no restart.
+  The search field filters items by label, description, keywords and section title.

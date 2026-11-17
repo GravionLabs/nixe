@@ -13,6 +13,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 import { Backlink } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { BacklinksService, BacklinksState, OutgoingLink } from "../../core/index/backlinks.service";
+import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { BacklinksComponent } from "./backlinks.component";
 
@@ -36,6 +37,7 @@ const out = (label: string, resolved: string | null): OutgoingLink => ({
 function render(state: BacklinksState, backlinks: Backlink[], outgoing: OutgoingLink[]) {
   const open = vi.fn().mockResolvedValue(undefined);
   const refresh = vi.fn();
+  const preview = { hover: vi.fn(), leave: vi.fn() };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -50,6 +52,7 @@ function render(state: BacklinksState, backlinks: Backlink[], outgoing: Outgoing
         },
       },
       { provide: DocumentService, useValue: { open } },
+      { provide: LinkPreviewService, useValue: preview },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
     ],
   });
@@ -62,7 +65,7 @@ function render(state: BacklinksState, backlinks: Backlink[], outgoing: Outgoing
   });
   const fixture = TestBed.createComponent(BacklinksComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, open, refresh };
+  return { el: fixture.nativeElement as HTMLElement, open, refresh, preview };
 }
 
 describe("BacklinksComponent", () => {
@@ -80,6 +83,17 @@ describe("BacklinksComponent", () => {
     expect(buttons[2].textContent).toContain("unresolved");
     buttons[0].click();
     expect(open).toHaveBeenCalledWith("/vault/B.md", { line: 7, anchor: null });
+  });
+
+  it("previews the note of a row on hover and closes on leave", () => {
+    const { el, preview } = render("ready", [back], [out("C", "C.md"), out("Gone", null)]);
+    const buttons = el.querySelectorAll("button");
+    buttons[0].dispatchEvent(new MouseEvent("mousemove", { bubbles: true, metaKey: true }));
+    expect(preview.hover).toHaveBeenLastCalledWith("B.md", expect.anything(), true);
+    buttons[1].dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    expect(preview.hover).toHaveBeenLastCalledWith("C.md", expect.anything(), false);
+    buttons[1].dispatchEvent(new MouseEvent("mouseleave"));
+    expect(preview.leave).toHaveBeenCalled();
   });
 
   it("says so when there are no links", () => {

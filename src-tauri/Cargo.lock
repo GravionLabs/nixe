@@ -2630,6 +2630,7 @@ dependencies = [
 name = "nixe"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "dunce",
  "git2",
  "ignore",
