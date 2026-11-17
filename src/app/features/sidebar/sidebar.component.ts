@@ -1,9 +1,11 @@
-import { Component, ElementRef, effect, inject, output, signal, viewChild } from "@angular/core";
+import { Component, ElementRef, computed, effect, inject, output, signal, viewChild } from "@angular/core";
 
 import { DocumentService } from "../../core/file/document.service";
 import { basename } from "../../core/markdown/paths";
 import { SettingsService } from "../../core/settings/settings.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
+import { conflictPaths } from "../../core/workspace/tree-model";
 import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
 
 const MIN_WIDTH = 160;
@@ -27,8 +29,13 @@ export class SidebarComponent {
   protected readonly doc = inject(DocumentService);
   protected readonly settings = inject(SettingsService);
   private readonly ops = inject(VaultOpsService);
+  private readonly tabs = inject(TabsService);
   readonly error = output<string>();
 
+  /** Files of a sync conflict: the copies and the originals next to them. */
+  protected readonly conflicted = computed(() =>
+    conflictPaths(this.workspace.visible().flatMap((n) => (n.filePath ? [n.filePath] : []))),
+  );
   protected readonly menu = signal<MenuState | null>(null);
   /** Path of the entry whose name is being edited. */
   protected readonly renaming = signal<string | null>(null);
@@ -55,10 +62,11 @@ export class SidebarComponent {
     return (node.filePath ?? node.dirPath) as string;
   }
 
-  protected async select(node: TreeNode): Promise<void> {
+  protected async select(node: TreeNode, event?: MouseEvent): Promise<void> {
     try {
       if (node.filePath) {
-        await this.doc.open(node.filePath);
+        if (event && (event.metaKey || event.ctrlKey)) await this.tabs.openInNewTab(node.filePath);
+        else await this.doc.open(node.filePath);
         if (node.dirPath && !node.expanded()) await this.workspace.toggle(node, true);
       } else {
         await this.workspace.toggle(node);

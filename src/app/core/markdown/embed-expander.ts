@@ -1,7 +1,8 @@
-import { MAX_EMBED_DEPTH, extractBlock, extractHeadingSection } from "./embed";
+import { MAX_EMBED_DEPTH, notePart } from "./embed";
 import { splitFrontmatter } from "./frontmatter";
 import { joinPath } from "./paths";
-import { parseWikilinkTarget, resolveWikilink } from "./wikilink-resolver";
+import { taskShape } from "./task-toggle";
+import { resolveWikilink } from "./wikilink-resolver";
 
 export interface EmbedDeps {
   vaultRoot: string;
@@ -51,17 +52,26 @@ export async function expandEmbeds(root: ParentNode, deps: EmbedDeps, stack: rea
       placeholder(el, `Cannot read ${resolved}: ${String(err)}`);
       continue;
     }
-    const { heading, block } = parseWikilinkTarget(target);
-    let part: string | null = splitFrontmatter(text).body;
-    if (heading) part = extractHeadingSection(text, heading);
-    else if (block) part = extractBlock(text, block);
-    if (part === null) {
+    const found = notePart(text, target);
+    if (found === null) {
       placeholder(el, `Section not found: ${target}`);
       continue;
     }
+    const part = found.text;
+    const offset = found.start;
     const body = el.querySelector(":scope > .embed-body");
     if (!body) continue;
     body.innerHTML = deps.render(part, abs); // sanitized by the caller's render
+    // Where the checkboxes of this embed live: the file, the line its first rendered line has in it,
+    // and the source of each task line, so a click can tell that the file changed since.
+    const target$ = body as HTMLElement;
+    target$.dataset["sourcePath"] = abs;
+    target$.dataset["lineOffset"] = String(offset);
+    const fileLines = splitFrontmatter(text).body.split("\n");
+    for (const li of Array.from(body.querySelectorAll<HTMLElement>("li[data-line]"))) {
+      if (li.closest(".embed-body") !== body) continue;
+      li.dataset["srcLine"] = taskShape(fileLines[offset + Number(li.dataset["line"])] ?? "");
+    }
     await expandEmbeds(body, deps, [...stack, resolved]);
   }
 }

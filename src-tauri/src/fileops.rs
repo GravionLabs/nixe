@@ -48,7 +48,50 @@ pub fn new_note_location(root: &Path) -> NewNoteLocation {
     }
 }
 
-fn canonical_root(root: &Path) -> Result<PathBuf, String> {
+/// The template folder of the Templates plugin, from `.obsidian/templates.json` (`folder`);
+/// vault-relative with forward slashes. `None` when the file or the key is missing, invalid or empty.
+pub fn template_folder(root: &Path) -> Option<String> {
+    let text = fs::read_to_string(root.join(".obsidian").join("templates.json")).ok()?;
+    let json = serde_json::from_str::<serde_json::Value>(&text).ok()?;
+    let folder = json
+        .get("folder")?
+        .as_str()?
+        .replace('\\', "/")
+        .trim_matches('/')
+        .to_string();
+    (!folder.is_empty()).then_some(folder)
+}
+
+/// The Daily notes plugin settings from `.obsidian/daily-notes.json`; a key that is missing, empty
+/// or not a string is `None`. Folder and template are vault-relative with forward slashes.
+#[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct DailyNotesConfig {
+    pub folder: Option<String>,
+    pub format: Option<String>,
+    pub template: Option<String>,
+}
+
+pub fn daily_notes_config(root: &Path) -> DailyNotesConfig {
+    let Some(json) = fs::read_to_string(root.join(".obsidian").join("daily-notes.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+    else {
+        return DailyNotesConfig::default();
+    };
+    let text = |key: &str| json.get(key).and_then(|v| v.as_str()).map(str::trim);
+    let path = |key: &str| {
+        text(key)
+            .map(|v| v.replace('\\', "/").trim_matches('/').to_string())
+            .filter(|v| !v.is_empty())
+    };
+    DailyNotesConfig {
+        folder: path("folder"),
+        format: text("format").filter(|v| !v.is_empty()).map(str::to_string),
+        template: path("template"),
+    }
+}
+
+pub(crate) fn canonical_root(root: &Path) -> Result<PathBuf, String> {
     dunce::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))
 }
 
@@ -60,7 +103,7 @@ fn plain_name(path: &Path) -> Result<&std::ffi::OsStr, String> {
 
 /// The canonical form of `path` (which need not exist) when it lies strictly below `root`.
 /// The existing part is canonicalized, so symlinks are resolved before the check; `..` is refused.
-fn confined(root: &Path, path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn confined(root: &Path, path: &Path) -> Result<PathBuf, String> {
     let root = canonical_root(root)?;
     if path.components().any(|c| c == Component::ParentDir) {
         return Err(format!("outside the vault: {}", path.display()));
@@ -99,7 +142,7 @@ fn confined_entry(root: &Path, path: &Path) -> Result<PathBuf, String> {
     Ok(entry)
 }
 
-fn confined_or_root(root: &Path, path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn confined_or_root(root: &Path, path: &Path) -> Result<PathBuf, String> {
     let canon_root = canonical_root(root)?;
     match dunce::canonicalize(path) {
         Ok(p) if p == canon_root => Ok(p),
@@ -230,6 +273,51 @@ mod tests {
         assert_eq!(new_note_location(&root).location, "root");
         fs::write(&app, r#"{"newFileLocation":"current"}"#).unwrap();
         assert_eq!(new_note_location(&root).location, "current");
+    }
+
+    #[test]
+    fn daily_notes_config_comes_from_daily_notes_json() {
+        let root = tmp("daily");
+        assert_eq!(daily_notes_config(&root), DailyNotesConfig::default());
+        fs::create_dir_all(root.join(".obsidian")).unwrap();
+        let file = root.join(".obsidian/daily-notes.json");
+        fs::write(&file, "not json").unwrap();
+        assert_eq!(daily_notes_config(&root), DailyNotesConfig::default());
+        fs::write(&file, r#"{"folder":"","format":"","template":5}"#).unwrap();
+        assert_eq!(daily_notes_config(&root), DailyNotesConfig::default());
+        fs::write(
+            &file,
+            r#"{"folder":"/Journal\\Days/","format":"YYYY/MM/YYYY-MM-DD","template":"Templates/Daily"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            daily_notes_config(&root),
+            DailyNotesConfig {
+                folder: Some("Journal/Days".into()),
+                format: Some("YYYY/MM/YYYY-MM-DD".into()),
+                template: Some("Templates/Daily".into()),
+            }
+        );
+    }
+
+    #[test]
+    fn template_folder_comes_from_templates_json() {
+        let root = tmp("tpl");
+        assert_eq!(template_folder(&root), None);
+        fs::create_dir_all(root.join(".obsidian")).unwrap();
+        let file = root.join(".obsidian/templates.json");
+        fs::write(&file, "not json").unwrap();
+        assert_eq!(template_folder(&root), None);
+        fs::write(&file, r#"{"dateFormat":"YYYY"}"#).unwrap();
+        assert_eq!(template_folder(&root), None);
+        fs::write(&file, r#"{"folder":""}"#).unwrap();
+        assert_eq!(template_folder(&root), None);
+        fs::write(
+            &file,
+            r#"{"folder":"/Meta\\Templates/","dateFormat":"YYYY"}"#,
+        )
+        .unwrap();
+        assert_eq!(template_folder(&root).as_deref(), Some("Meta/Templates"));
     }
 
     #[test]

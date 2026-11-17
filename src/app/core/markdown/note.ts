@@ -6,6 +6,8 @@ import { frontmatterTags, renderPropertiesHtml, toProperties, type Property } fr
 export interface RenderedNote {
   /** Properties panel (and warning) followed by the body; NOT sanitized. */
   html: string;
+  /** The rendered body alone (no properties panel); NOT sanitized. */
+  body: string;
   properties: Property[];
   /** Frontmatter and inline tags, unique, without the leading `#`. */
   tags: string[];
@@ -29,6 +31,7 @@ export function renderNote(
   const tags = [...new Set([...frontmatterTags(fm.data), ...(env.tags ?? [])])];
   return {
     html: renderPropertiesHtml(properties, fm.error) + body,
+    body,
     properties,
     tags,
     frontmatterError: fm.error,

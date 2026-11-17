@@ -1,0 +1,125 @@
+:host {
+  display: block;
+}
+
+.properties-panel {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--chrome);
+  font-size: 14px;
+}
+
+.prop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.prop-key {
+  flex: 0 0 140px;
+  min-width: 0;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.prop-value {
+  flex: 1;
+  min-width: 0;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select {
+  box-sizing: border-box;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+}
+
+.prop-value input[type="text"],
+.prop-value input[type="number"],
+.prop-value input[type="date"] {
+  width: 100%;
+}
+
+input:hover,
+input:focus,
+select {
+  border-color: var(--border);
+  background: var(--bg);
+}
+
+.chip-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.property-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgb(14 124 134 / 0.14);
+  color: var(--accent);
+}
+
+.property-chip button,
+.prop-remove {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.prop-remove {
+  visibility: hidden;
+}
+
+.prop:hover .prop-remove,
+.prop-remove:focus-visible {
+  visibility: visible;
+}
+
+.chip-field {
+  flex: 1;
+  min-width: 80px;
+}
+
+.prop-add {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.prop-add:hover {
+  color: var(--accent);
+}
+
+.prop-new {
+  margin-top: 4px;
+}
+
+.frontmatter-warning {
+  padding: 8px 12px;
+  border: 1px solid var(--error-border);
+  border-radius: 6px;
+  background: var(--error-bg);
+  color: var(--error-fg);
+  font-size: 13px;
+  white-space: pre-wrap;
+}

@@ -35,6 +35,10 @@ Cross-platform Markdown viewer and editor for macOS, Windows, and Linux. Built w
 - Open via menu/dialog, drag & drop, command line (`nixe README.md`, `nixe ./docs`), or file association
 - **Command line**: on macOS, *Nixe → Install Command Line Tool…* links `nixe` into `/opt/homebrew/bin`, `/usr/local/bin` or `~/.local/bin` (first writable). Then `nixe README.md`, `nixe ./docs`, or pipe content with `git show HEAD:README.md | nixe -`. Piped content is shown as a temporary file, so relative links inside it don't resolve. Installing into `/usr/local/bin` asks for the administrator password if needed.
 
+## Updates
+
+Nixe updates itself from the latest GitHub release, only when you ask: *Nixe → Check for Updates…* (macOS), *Help → Check for Updates…* or the version button in the toolbar. See [docs/updater.md](docs/updater.md).
+
 ## Verify the download
 
 Each release has a `SHA256SUMS` file next to the installers. Download it into the same folder as the installer, then compare:

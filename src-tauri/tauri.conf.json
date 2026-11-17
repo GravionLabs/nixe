@@ -41,6 +41,12 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY3Mzc5QjM4MDhDRDFCNjMKUldSakc4MElPSnMzOTZFNkEremxiV3MzK0hEdTFHbWlyeXlmbXdYODZPeHdMaExvRzhMaU90T1MK",
+      "endpoints": ["https://github.com/GravionLabs/nixe/releases/latest/download/latest.json"]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

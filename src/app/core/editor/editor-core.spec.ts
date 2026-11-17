@@ -5,6 +5,7 @@ import {
   ExternalChangeTracker,
   OWN_WRITE_WINDOW_MS,
   SAVE_IDLE_MS,
+  changedRange,
   clampLine,
   inlineTokens,
   nodeClass,
@@ -258,5 +259,32 @@ describe("nodeClass", () => {
     expect(nodeClass("InlineCode")).toBe("cm-md-code");
     expect(nodeClass("EmphasisMark")).toBe("cm-md-syntax");
     expect(nodeClass("Paragraph")).toBeNull();
+  });
+});
+
+describe("changedRange", () => {
+  const apply = (from: string, to: string) => {
+    const r = changedRange(from, to);
+    return r ? from.slice(0, r.from) + r.insert + from.slice(r.to) : from;
+  };
+
+  it("is null for equal texts", () => {
+    expect(changedRange("same", "same")).toBeNull();
+  });
+
+  it("replaces only the middle", () => {
+    expect(changedRange("hello world", "hello brave world")).toEqual({ from: 6, to: 6, insert: "brave " });
+    expect(changedRange("abcd", "ad")).toEqual({ from: 1, to: 3, insert: "" });
+  });
+
+  it("turns one text into the other", () => {
+    for (const [a, b] of [["", "x"], ["x", ""], ["aaa", "aa"], ["aa", "aaa"], ["abc", "xyz"], ["a\nb", "a\nc\nb"]]) {
+      expect(apply(a, b)).toBe(b);
+    }
+  });
+
+  it("does not split a surrogate pair", () => {
+    const r = changedRange("a😀b", "a😁b")!;
+    expect(r).toEqual({ from: 1, to: 3, insert: "😁" });
   });
 });

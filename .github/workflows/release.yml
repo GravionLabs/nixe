@@ -114,6 +114,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Require the updater signing key
+        if: env.PUBLISH == 'true'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] || { echo "::error::Secret TAURI_SIGNING_PRIVATE_KEY is not set; refusing to publish without signed update packages"; exit 1; }
       - name: Require the Apple signing secrets
         if: env.SIGN_MACOS == 'true'
         shell: bash
@@ -187,13 +194,17 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the update packages (updater key pair, docs/updater.md); only a publish gets the key.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.PUBLISH == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.PUBLISH == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         with:
           # Only builds from main upload to the draft release created by the release job; PRs and other
           # branches just build, to validate the matrix. publish-release publishes it once all four are done.
           releaseId: ${{ env.PUBLISH == 'true' && needs.release.outputs.release-id || '' }}
           # The MSI bundler rejects pre-release versions (1.1.0-rc021), so a pre-release builds
           # the Windows installer as NSIS only; stable versions keep every bundle target.
-          args: ${{ matrix.args }}${{ matrix.platform == 'windows-latest' && contains(env.VERSION, '-') && ' --bundles nsis' || '' }}
+          # createUpdaterArtifacts is set only by the release config, so local builds and PR builds need no key.
+          args: ${{ matrix.args }}${{ env.PUBLISH == 'true' && ' --config src-tauri/tauri.release.conf.json' || '' }}${{ matrix.platform == 'windows-latest' && contains(env.VERSION, '-') && ' --bundles nsis' || '' }}
       - name: Verify signature and notarization
         if: env.SIGN_MACOS == 'true'
         shell: bash

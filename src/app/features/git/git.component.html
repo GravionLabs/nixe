@@ -1,0 +1,109 @@
+<header>
+  <span>Git</span>
+  <button type="button" class="close" aria-label="Close Git" (click)="git.close()">×</button>
+</header>
+
+@if (git.status(); as status) {
+  <p class="branch">
+    {{ status.branch ?? "detached HEAD" }}
+    @if (status.ahead || status.behind) {
+      <span class="detail">↑{{ status.ahead }} ↓{{ status.behind }}</span>
+    }
+  </p>
+
+  <section aria-label="Changes">
+    <h2>Changes <span class="count">{{ status.changes.length }}</span></h2>
+    @for (change of status.changes; track change.path) {
+      <button type="button" [disabled]="change.kind === 'deleted'" (click)="open(change.path)" [title]="change.path">
+        <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
+        <span class="name">{{ change.path }}</span>
+      </button>
+    } @empty {
+      <p class="status">No changes</p>
+    }
+  </section>
+
+  <form (submit)="commit($event, message.value)">
+    <label>
+      Commit message
+      <input #message type="text" placeholder="vault backup: <timestamp>" />
+    </label>
+    <details>
+      <summary>Author (used when the Git config has none)</summary>
+      <input
+        type="text"
+        aria-label="Author name"
+        placeholder="Name"
+        [value]="settings.gitAuthorName()"
+        (change)="settings.gitAuthorName.set($any($event.target).value)"
+      />
+      <input
+        type="email"
+        aria-label="Author email"
+        placeholder="Email"
+        [value]="settings.gitAuthorEmail()"
+        (change)="settings.gitAuthorEmail.set($any($event.target).value)"
+      />
+    </details>
+    <button type="submit" class="primary" [disabled]="git.committing() || status.changes.length === 0">Commit all</button>
+  </form>
+
+  <section aria-label="Automatic sync" class="auto-sync">
+    <h2>Automatic sync</h2>
+    <label>
+      <input
+        type="checkbox"
+        [checked]="settings.autoSync()"
+        (change)="settings.autoSync.set($any($event.target).checked)"
+      />
+      Sync automatically
+    </label>
+    @if (settings.autoSync()) {
+      <label>
+        Every
+        <input
+          type="number"
+          min="1"
+          max="1440"
+          aria-label="Sync interval in minutes"
+          [value]="settings.autoSyncMinutes()"
+          (change)="setMinutes($any($event.target))"
+        />
+        minutes
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          [checked]="settings.autoSyncOnFocus()"
+          (change)="settings.autoSyncOnFocus.set($any($event.target).checked)"
+        />
+        Sync when the app gets focus
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          [checked]="settings.autoSyncOnQuit()"
+          (change)="settings.autoSyncOnQuit.set($any($event.target).checked)"
+        />
+        Sync when the app quits
+      </label>
+      <p class="status">Waits until you have stopped typing for a few seconds.</p>
+    }
+  </section>
+
+  <section aria-label="Access token" class="token">
+    <h2>Access token</h2>
+    @if (git.tokenPrompt(); as prompt) {
+      <p class="status" role="alert">
+        {{ prompt.reason === "failed" ? "GitHub rejected the token. Enter a new one." : "Enter a personal access token to reach GitHub." }}
+        <button type="button" (click)="git.cancelTokenPrompt()">Cancel</button>
+      </p>
+    }
+    <p class="status">{{ git.tokenStored() ? "A token is stored in the system keychain." : "No token stored." }}</p>
+    <input #token type="password" autocomplete="off" aria-label="Personal access token" placeholder="Personal access token" />
+    <button type="button" (click)="saveToken(token)">{{ git.tokenStored() ? "Replace token" : "Save token" }}</button>
+    @if (git.tokenStored()) {
+      <button type="button" (click)="deleteToken()">Delete token</button>
+    }
+  </section>
+}

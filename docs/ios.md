@@ -22,7 +22,7 @@ Spike (#58): Nixe on an iPhone. The viewer shows the bundled `fixtures/ios.md` (
 ## Which parts exist in which build
 
 - The dev panels "Git spike" and "Editor spike (CodeMirror)" are loaded with `@defer` and only when `isDevMode()` is true. A production frontend build (`pnpm build`, also inside `tauri build` and `tauri ios build`) contains their code, including CodeMirror, in a lazy chunk that is emitted in the build but never requested outside dev mode; the initial bundle does not include CodeMirror. The panels therefore show only with `pnpm tauri dev` and `pnpm tauri ios dev`.
-- The Rust spike commands (`spike_external_*`, `git_spike_edit`, `git_clone`, `git_commit`, `git_pull_rebase`, `git_push`, `git_token_set`, `git_token_get`, `notes_*`) and their modules `gitsync` and `notes` exist only under `cfg(any(debug_assertions, mobile))`: debug builds on every platform and all iOS builds (including release). A desktop release build registers only the viewer commands. Check with `cargo check --release --manifest-path src-tauri/Cargo.toml`.
+- The Rust spike commands (`spike_external_*`, `git_spike_edit`, `git_clone`, `git_commit`, `git_pull_rebase`, `git_push`, `notes_*`) and their modules `gitsync` and `notes` exist only under `cfg(any(debug_assertions, mobile))`: debug builds on every platform and all iOS builds (including release). A desktop release build registers only the viewer commands. Check with `cargo check --release --manifest-path src-tauri/Cargo.toml`.
 
 ## Desktop-only code
 

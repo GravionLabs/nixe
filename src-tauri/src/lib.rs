@@ -8,23 +8,28 @@ use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+mod attachments;
 #[cfg(desktop)]
 pub mod cli;
 #[cfg(target_os = "macos")]
 mod cli_install;
 #[cfg(desktop)]
 mod cli_write;
+mod conflict;
+mod credentials;
+mod daily;
+mod fileops;
+mod git;
+mod gitclone;
+mod gitsync;
+mod index;
 #[cfg(desktop)]
 pub mod mcp;
 #[cfg(desktop)]
 mod menu;
-// Spike code (#58 to #60): its commands exist only in debug and mobile builds, never in a desktop release.
-mod fileops;
-#[cfg(any(debug_assertions, mobile))]
-mod gitsync;
-mod index;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
+mod settings;
 mod tree;
 mod vault;
 mod write;
@@ -43,6 +48,8 @@ struct AppState {
     vault_root: Mutex<Option<PathBuf>>,
     /// Note last passed to `watch_file` (the open one); it and its siblings may be written.
     open_file: Mutex<Option<PathBuf>>,
+    /// Set by `git_clone_cancel`; stops the running clone (#78).
+    clone_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// Paths are handed to the frontend with forward slashes on every platform.
@@ -138,6 +145,73 @@ fn vault_root_of(state: &State<'_, AppState>) -> Result<PathBuf, String> {
         .ok_or_else(|| "no vault is open".to_string())
 }
 
+/// Git state of the vault; `None` when the vault is no Git repository.
+#[tauri::command]
+async fn git_vault_status(state: State<'_, AppState>) -> Result<Option<git::GitStatus>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::vault_status(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Stages every change of the vault and commits; returns the commit id.
+/// The author comes from the Git config, else from `name` and `email` (the settings).
+#[tauri::command]
+async fn git_vault_commit(
+    state: State<'_, AppState>,
+    message: Option<String>,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<String, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        git::vault_commit(&root, message.as_deref(), fallback.as_ref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Sync: commits open changes, rebases onto the remote branch and pushes (#75).
+/// A missing or rejected token gives `auth-required:<host>` / `auth-failed:<host>`.
+#[tauri::command]
+async fn git_vault_sync(
+    state: State<'_, AppState>,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<gitsync::SyncReport, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        gitsync::sync_vault(&root, fallback.as_ref(), &credentials::KeyringStore)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The conflict pair a note belongs to (as the original or the copy); `None` for other notes.
+#[tauri::command]
+fn conflict_pair(path: String) -> Option<conflict::Pair> {
+    conflict::find_pair(Path::new(&path))
+}
+
+/// Keeps the text of this note or of the other half of its conflict pair: the original gets the
+/// chosen text and the copy moves to `.trash/`. Returns the path of the original.
+#[tauri::command]
+fn resolve_conflict(
+    state: State<'_, AppState>,
+    path: String,
+    keep: conflict::Keep,
+) -> Result<String, String> {
+    conflict::resolve(&vault_root_of(&state)?, Path::new(&path), keep).map(|p| path_to_string(&p))
+}
+
 /// Creates an empty file inside the vault; refuses to overwrite and paths outside the root.
 #[tauri::command]
 fn create_file(state: State<'_, AppState>, path: String) -> Result<(), String> {
@@ -195,10 +269,83 @@ fn new_note_location(state: State<'_, AppState>) -> Result<fileops::NewNoteLocat
     Ok(fileops::new_note_location(&vault_root_of(&state)?))
 }
 
+/// The template folder from `.obsidian/templates.json` of the vault; `None` when it names none.
+#[tauri::command]
+fn template_folder(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    Ok(fileops::template_folder(&vault_root_of(&state)?))
+}
+
+/// The Daily notes settings from `.obsidian/daily-notes.json` of the vault.
+#[tauri::command]
+fn daily_notes_config(state: State<'_, AppState>) -> Result<fileops::DailyNotesConfig, String> {
+    Ok(fileops::daily_notes_config(&vault_root_of(&state)?))
+}
+
+/// Saves pasted bytes as `name` in the attachment folder of `note`; returns the vault-relative path.
+#[tauri::command]
+fn save_attachment(
+    state: State<'_, AppState>,
+    note: String,
+    name: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    attachments::save_bytes(&vault_root_of(&state)?, Path::new(&note), &name, &bytes)
+}
+
+/// Brings a dropped file into the vault (copied into the attachment folder of `note` unless it
+/// already lies in the vault); returns the vault-relative path.
+#[tauri::command]
+fn import_attachment(
+    state: State<'_, AppState>,
+    note: String,
+    source: String,
+) -> Result<String, String> {
+    attachments::import_file(
+        &vault_root_of(&state)?,
+        Path::new(&note),
+        Path::new(&source),
+    )
+}
+
 /// How links to notes are written, from `.obsidian/app.json` of the vault.
 #[tauri::command]
 fn link_format(state: State<'_, AppState>) -> Result<vault::relink::LinkFormat, String> {
     Ok(vault::relink::link_format(&vault_root_of(&state)?))
+}
+
+/// The app settings file of the app config directory; `None` when there is none yet.
+#[tauri::command]
+fn read_app_settings(app: AppHandle) -> Result<Option<String>, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    settings::read_settings(&dir)
+}
+
+/// Replaces the app settings file of the app config directory.
+#[tauri::command]
+fn write_app_settings(app: AppHandle, content: String) -> Result<(), String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    settings::write_settings(&dir, &content)
+}
+
+/// Shows the user's shortcuts in the native menu: the accelerator per menu item id, `null` for none.
+#[tauri::command]
+fn set_menu_shortcuts(
+    app: AppHandle,
+    shortcuts: std::collections::HashMap<String, Option<String>>,
+) -> usize {
+    #[cfg(desktop)]
+    return menu::apply_shortcuts(&app, &menu::clean_shortcuts(shortcuts));
+    #[cfg(not(desktop))]
+    {
+        let _ = (app, shortcuts);
+        0
+    }
+}
+
+/// The Obsidian settings of the open vault, with the file each one comes from.
+#[tauri::command]
+fn obsidian_settings(state: State<'_, AppState>) -> Result<Vec<settings::ObsidianSetting>, String> {
+    Ok(settings::obsidian_settings(&vault_root_of(&state)?))
 }
 
 /// False when the file holds bytes that are not UTF-8 (`read_text_file` would replace them).
@@ -336,6 +483,14 @@ pub fn run() {
         .manage(AppState::default())
         .manage(index::commands::IndexState::default());
 
+    // The updater checks only when the user asks (frontend `check()`); nothing runs at startup.
+    #[cfg(desktop)]
+    {
+        builder = builder
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_process::init());
+    }
+
     #[cfg(desktop)]
     {
         builder = builder.menu(menu::build).on_menu_event(|app, event| {
@@ -382,8 +537,18 @@ pub fn run() {
         rename_path,
         relink_preview,
         trash_path,
+        conflict_pair,
+        resolve_conflict,
         new_note_location,
+        template_folder,
+        daily_notes_config,
         link_format,
+        read_app_settings,
+        write_app_settings,
+        set_menu_shortcuts,
+        obsidian_settings,
+        save_attachment,
+        import_attachment,
         is_utf8_file,
         is_file,
         is_dir,
@@ -400,8 +565,14 @@ pub fn run() {
         index::commands::search_notes,
         index::commands::vault_health,
         watch_file,
-        gitsync::git_token_set,
-        gitsync::git_token_get,
+        git_vault_status,
+        git_vault_commit,
+        git_vault_sync,
+        credentials::git_token_status,
+        credentials::git_token_set,
+        credentials::git_token_delete,
+        gitclone::git_clone_vault,
+        gitclone::git_clone_cancel,
         gitsync::git_clone,
         gitsync::git_spike_edit,
         gitsync::git_commit,
@@ -424,8 +595,18 @@ pub fn run() {
         rename_path,
         relink_preview,
         trash_path,
+        conflict_pair,
+        resolve_conflict,
         new_note_location,
+        template_folder,
+        daily_notes_config,
         link_format,
+        read_app_settings,
+        write_app_settings,
+        set_menu_shortcuts,
+        obsidian_settings,
+        save_attachment,
+        import_attachment,
         is_utf8_file,
         is_file,
         is_dir,
@@ -441,7 +622,15 @@ pub fn run() {
         index::commands::tags,
         index::commands::search_notes,
         index::commands::vault_health,
-        watch_file
+        watch_file,
+        git_vault_status,
+        git_vault_commit,
+        git_vault_sync,
+        credentials::git_token_status,
+        credentials::git_token_set,
+        credentials::git_token_delete,
+        gitclone::git_clone_vault,
+        gitclone::git_clone_cancel
     ]);
 
     let app = builder

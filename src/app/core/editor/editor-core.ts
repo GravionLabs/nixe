@@ -165,6 +165,30 @@ export function viewerTopLine(blocks: readonly LineBlock[], viewportTop: number)
   return block.line + 1;
 }
 
+/**
+ * The smallest single replacement that turns `from` into `to`: common start and end are kept, so
+ * a cursor outside the change stays where it is. Null when the texts are equal.
+ */
+export function changedRange(from: string, to: string): { from: number; to: number; insert: string } | null {
+  if (from === to) return null;
+  const max = Math.min(from.length, to.length);
+  let start = 0;
+  while (start < max && from[start] === to[start]) start++;
+  if (start > 0 && isHighSurrogate(from.charCodeAt(start - 1))) start--;
+  let end = 0;
+  while (end < max - start && from[from.length - 1 - end] === to[to.length - 1 - end]) end++;
+  if (end > 0 && isLowSurrogate(from.charCodeAt(from.length - end))) end--;
+  return { from: start, to: from.length - end, insert: to.slice(start, to.length - end) };
+}
+
+function isLowSurrogate(code: number): boolean {
+  return code >= 0xdc00 && code <= 0xdfff;
+}
+
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff;
+}
+
 /** The 1-based line clamped into the document. */
 export function clampLine(line: number, lineCount: number): number {
   return Math.min(Math.max(1, Math.floor(line)), Math.max(1, lineCount));

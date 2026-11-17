@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DirEntry } from "../file/backend";
-import { buildTreeItems, defaultPage, wikiDisplayName } from "./tree-model";
+import { buildTreeItems, conflictOriginal, conflictPaths, defaultPage, wikiDisplayName } from "./tree-model";
 
 const dir = (name: string, hasOrder = false): DirEntry => ({ name, path: `/w/${name}`, isDir: true, hasOrder });
 const file = (name: string): DirEntry => ({ name, path: `/w/${name}`, isDir: false, hasOrder: false });
@@ -33,5 +33,32 @@ describe("defaultPage", () => {
     expect(defaultPage(buildTreeItems([file("a.md"), file("Home.md")], true))).toBe("/w/Home.md");
     expect(defaultPage(buildTreeItems([dir("x"), file("b.md")], false))).toBe("/w/b.md");
     expect(defaultPage([])).toBeNull();
+  });
+});
+
+describe("conflict copies", () => {
+  it("finds the original of a copy", () => {
+    expect(conflictOriginal("Note (conflict 2026-11-16 mac).md")).toBe("Note.md");
+    expect(conflictOriginal("p (conflict 2026-11-16 my pc).png")).toBe("p.png");
+    expect(conflictOriginal("README (conflict 2026-11-16 mac)")).toBe("README");
+    expect(conflictOriginal("Note.md")).toBeNull();
+    expect(conflictOriginal("Note (conflict).md")).toBeNull();
+  });
+
+  it("marks a copy and the original next to it", () => {
+    const marked = conflictPaths([
+      "/w/a.md",
+      "/w/a (conflict 2026-11-16 mac).md",
+      "/w/b.md",
+      "/w/d/c.md",
+      "/w/d/c (conflict 2026-11-16 mac).md",
+      "/w/e (conflict 2026-11-16 mac).md",
+    ]);
+    expect([...marked].sort()).toEqual([
+      "/w/a (conflict 2026-11-16 mac).md",
+      "/w/a.md",
+      "/w/d/c (conflict 2026-11-16 mac).md",
+      "/w/d/c.md",
+    ]);
   });
 });

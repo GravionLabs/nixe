@@ -4,6 +4,7 @@ import { CommandRegistry } from "../../core/commands/command-registry";
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
 import { SettingsService, ZOOM_MAX, ZOOM_MIN } from "../../core/settings/settings.service";
+import { UpdateService } from "../../core/updater/update.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
 const MOD = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
@@ -18,6 +19,7 @@ export class ToolbarComponent {
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
   protected readonly editor = inject(EditorService);
+  protected readonly updater = inject(UpdateService);
   private readonly commands = inject(CommandRegistry);
   protected readonly mod = MOD;
   protected readonly zoomMin = ZOOM_MIN;

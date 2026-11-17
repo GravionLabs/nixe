@@ -14,11 +14,13 @@ import { CommandRegistry } from "../../core/commands/command-registry";
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
 import { SettingsService } from "../../core/settings/settings.service";
+import { UpdateService } from "../../core/updater/update.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { ToolbarComponent } from "./toolbar.component";
 
 function render(opts: { path: string | null; editing: boolean; blocked?: boolean }) {
   const execute = vi.fn().mockReturnValue(true);
+  const check = vi.fn();
   const editing = signal(opts.editing);
   const blocked = signal(opts.blocked ?? false);
   TestBed.resetTestingModule();
@@ -31,6 +33,7 @@ function render(opts: { path: string | null; editing: boolean; blocked?: boolean
         useValue: { path: signal(opts.path), fileName: signal(""), canGoBack: signal(false), canGoForward: signal(false) },
       },
       { provide: WorkspaceService, useValue: { root: signal(null) } },
+      { provide: UpdateService, useValue: { version: signal("1.2.3"), busy: signal(false), check } },
       {
         provide: SettingsService,
         useValue: { zoom: signal(100), math: signal(true), sidebarVisible: signal(true), themeMode: signal("system") },
@@ -48,7 +51,7 @@ function render(opts: { path: string | null; editing: boolean; blocked?: boolean
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
   const button = [...el.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Edit")!;
-  return { fixture, button, execute, editing, blocked };
+  return { fixture, button, execute, editing, blocked, check, el };
 }
 
 describe("ToolbarComponent edit toggle", () => {
@@ -73,5 +76,14 @@ describe("ToolbarComponent edit toggle", () => {
     expect(render({ path: null, editing: false }).button.disabled).toBe(true);
     expect(render({ path: "/n.md", editing: true, blocked: true }).button.disabled).toBe(true);
     expect(render({ path: "/n.md", editing: true }).button.disabled).toBe(false);
+  });
+});
+
+describe("ToolbarComponent version control", () => {
+  it("shows the running version and checks for updates on click", () => {
+    const { el, check } = render({ path: null, editing: false });
+    const version = [...el.querySelectorAll("button")].find((b) => b.textContent?.trim() === "v1.2.3")!;
+    version.click();
+    expect(check).toHaveBeenCalled();
   });
 });

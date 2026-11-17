@@ -1,0 +1,126 @@
+<div class="backdrop" (click)="page.close()" role="presentation"></div>
+<div class="dialog" role="dialog" aria-label="Settings">
+  <nav aria-label="Settings sections">
+    @for (section of page.sections(); track section.id) {
+      <button
+        type="button"
+        [class.active]="!page.query().trim() && section.id === page.selectedId()"
+        (click)="page.select(section.id)"
+      >
+        {{ section.title }}
+      </button>
+    }
+  </nav>
+  <div class="content">
+    <input
+      #search
+      type="search"
+      class="search"
+      placeholder="Search settings…"
+      aria-label="Search settings"
+      [value]="page.query()"
+      (input)="page.query.set(value($event))"
+    />
+    @for (section of page.listed(); track section.id) {
+      <section>
+        <h2>{{ section.title }}</h2>
+        @for (item of section.items; track item.id) {
+          <div class="row">
+            <div class="label">
+              <label [attr.for]="'setting-' + item.id">{{ item.label }}</label>
+              @if (item.description) {
+                <p class="description">{{ item.description }}</p>
+              }
+            </div>
+            <div class="control">
+              @switch (item.kind) {
+                @case ("toggle") {
+                  <input
+                    type="checkbox"
+                    [id]="'setting-' + item.id"
+                    [checked]="item.get()"
+                    (change)="item.set(checked($event))"
+                  />
+                }
+                @case ("select") {
+                  <select [id]="'setting-' + item.id" (change)="item.set(value($event))">
+                    @for (option of item.options; track option.value) {
+                      <option [value]="option.value" [selected]="option.value === item.get()">{{ option.label }}</option>
+                    }
+                  </select>
+                }
+                @case ("text") {
+                  <input
+                    type="text"
+                    [id]="'setting-' + item.id"
+                    [value]="item.get()"
+                    [placeholder]="item.placeholder ?? ''"
+                    (change)="item.set(value($event))"
+                  />
+                }
+                @case ("number") {
+                  <input
+                    type="number"
+                    [id]="'setting-' + item.id"
+                    [min]="item.min"
+                    [max]="item.max"
+                    [value]="item.get()"
+                    (change)="setNumber(item, $event)"
+                  />
+                }
+                @case ("shortcut") {
+                  @let command = commands.get(item.commandId);
+                  @if (command) {
+                    @let pending = shortcuts.pending();
+                    @if (shortcuts.recordingId() === item.commandId) {
+                      <button
+                        type="button"
+                        class="key recording"
+                        [id]="'setting-' + item.id"
+                        (keydown)="onShortcutKey($event)"
+                        (blur)="shortcuts.cancel()"
+                        #recorder
+                      >
+                        Press the new shortcut…
+                      </button>
+                      <span class="hint">Esc cancels</span>
+                    } @else if (pending && pending.id === item.commandId) {
+                      <span class="key" [id]="'setting-' + item.id">{{ shortcuts.formatBinding(pending.binding) }}</span>
+                      @if (pending.conflicts.length) {
+                        <span class="conflict" role="alert">Also used by {{ pending.conflicts.join(", ") }}; saving removes it there.</span>
+                      }
+                      <span class="actions">
+                        <button type="button" (click)="shortcuts.savePending()">Save</button>
+                        <button type="button" (click)="shortcuts.cancel()">Cancel</button>
+                      </span>
+                    } @else {
+                      <button type="button" class="key" [id]="'setting-' + item.id" (click)="shortcuts.startRecording(item.commandId)">
+                        {{ shortcuts.display(item.commandId) || "Not set" }}
+                      </button>
+                      <span class="actions">
+                        @if (shortcuts.display(item.commandId)) {
+                          <button type="button" (click)="shortcuts.assign(command, '')">Remove</button>
+                        }
+                        @if (!shortcuts.isDefault(command)) {
+                          <button type="button" (click)="shortcuts.reset(command)">Reset</button>
+                        }
+                      </span>
+                    }
+                  }
+                }
+                @case ("readonly") {
+                  <span class="readonly" [id]="'setting-' + item.id">{{ item.value() }}</span>
+                  @if (item.source) {
+                    <span class="source">{{ item.source() }}</span>
+                  }
+                }
+              }
+            </div>
+          </div>
+        }
+      </section>
+    } @empty {
+      <p class="empty">No matching setting</p>
+    }
+  </div>
+</div>

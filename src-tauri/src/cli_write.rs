@@ -157,17 +157,22 @@ fn append(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(CliError::Failed(format!("{}: {e}", target.display()))),
     };
-    let mut content = existing;
-    if !content.is_empty() && !content.ends_with('\n') {
-        content.push('\n');
-    }
-    content.push_str(&text);
-    if !content.ends_with('\n') {
-        content.push('\n');
-    }
+    let content = appended(existing, &text);
     let write_root = write::write_root(Some(root), None, &target).map_err(failed)?;
     write::write_text_file(&write_root, &target, &content).map_err(failed)?;
     Ok(target)
+}
+
+/// `existing` with `text` on its own line(s) at the end.
+pub(crate) fn appended(mut content: String, text: &str) -> String {
+    if !content.is_empty() && !content.ends_with('\n') {
+        content.push('\n');
+    }
+    content.push_str(text);
+    if !content.ends_with('\n') {
+        content.push('\n');
+    }
+    content
 }
 
 /// The absolute path of `note`: the note it names (a vault-relative path with or without `.md`,
@@ -223,7 +228,7 @@ fn existing_or_new(
 }
 
 /// Opens the note in the viewer: the same executable, started detached with the path.
-fn open_in_viewer(path: &Path) -> Result<(), CliError> {
+pub(crate) fn open_in_viewer(path: &Path) -> Result<(), CliError> {
     let exe = std::env::current_exe().map_err(failed)?;
     std::process::Command::new(exe)
         .arg(path)

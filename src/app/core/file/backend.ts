@@ -97,6 +97,23 @@ export interface LinkFormat {
   format: "shortest" | "relative" | "absolute";
 }
 
+/** `.obsidian/daily-notes.json`; a key it does not set is null. */
+export interface DailyNotesConfig {
+  folder: string | null;
+  format: string | null;
+  template: string | null;
+}
+
+/** A setting that Obsidian also has, read from the vault. */
+export interface ObsidianSetting {
+  id: string;
+  label: string;
+  /** The value in effect; null when the file does not set it. */
+  value: string | null;
+  /** The file it comes from, vault-relative. */
+  source: string;
+}
+
 export interface TagCount {
   tag: string;
   count: number;
@@ -116,6 +133,35 @@ export interface NoteRecord {
   links: IndexedLink[];
 }
 
+export interface GitChange {
+  /** Vault-relative path. */
+  path: string;
+  kind: "added" | "modified" | "deleted";
+}
+
+/** What one sync did. */
+export interface SyncReport {
+  committed: boolean;
+  pulled: boolean;
+  pushed: boolean;
+  /** Vault-relative notes that both sides changed; each kept both versions. */
+  conflicts: string[];
+}
+
+/** A note changed on two sides: the original holds the remote text, the copy the local text. */
+export interface ConflictPair {
+  original: string;
+  copy: string;
+}
+
+export interface GitStatus {
+  /** Null on a detached HEAD. */
+  branch: string | null;
+  changes: GitChange[];
+  ahead: number;
+  behind: number;
+}
+
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
@@ -133,8 +179,24 @@ export const backend = {
   /** Moves a file or folder to `.trash/` of the vault; returns the new path. */
   trashPath: (path: string) => invoke<string>("trash_path", { path }),
   newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),
+  /** The template folder of `.obsidian/templates.json` (vault-relative); null when it names none. */
+  templateFolder: () => invoke<string | null>("template_folder"),
+  /** The Daily notes settings of `.obsidian/daily-notes.json`. */
+  dailyNotesConfig: () => invoke<DailyNotesConfig>("daily_notes_config"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
+  /** The app settings file (`settings.json` in the app config directory); null before the first save. */
+  readAppSettings: () => invoke<string | null>("read_app_settings"),
+  writeAppSettings: (content: string) => invoke<void>("write_app_settings", { content }),
+  /** Shows shortcuts in the native menu: accelerator per menu item id, null for none. */
+  setMenuShortcuts: (shortcuts: Record<string, string | null>) => invoke<number>("set_menu_shortcuts", { shortcuts }),
+  /** The Obsidian settings of the open vault with the file each one comes from. */
+  obsidianSettings: () => invoke<ObsidianSetting[]>("obsidian_settings"),
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
+  /** Saves pasted bytes into the attachment folder of `note`; returns the vault-relative path. */
+  saveAttachment: (note: string, name: string, bytes: number[]) =>
+    invoke<string>("save_attachment", { note, name, bytes }),
+  /** Brings a dropped file into the vault (copied unless it is inside); returns the vault-relative path. */
+  importAttachment: (note: string, source: string) => invoke<string>("import_attachment", { note, source }),
   /** Every tag of the vault with the number of notes using it, most used first. */
   tags: () => invoke<TagCount[]>("tags"),
   isUtf8File: (path: string) => invoke<boolean>("is_utf8_file", { path }),
@@ -154,6 +216,42 @@ export const backend = {
   searchNotes: (query: string) => invoke<SearchHit[]>("search_notes", { query }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
+  /** Git state of the vault; null when the vault is not a Git repository. */
+  gitVaultStatus: () => invoke<GitStatus | null>("git_vault_status"),
+  /**
+   * Stages everything and commits; returns the commit id. An empty `message` gives
+   * `vault backup: <timestamp>`; `name` and `email` are used when the Git config has no author.
+   */
+  gitVaultCommit: (message: string | null, name: string | null, email: string | null) =>
+    invoke<string>("git_vault_commit", { message, name, email }),
+  /**
+   * Sync: commits open changes, fetches, rebases the local commits onto the remote branch and
+   * pushes. A conflict never stops it: the remote text stays in the note and the local text goes
+   * to `Note (conflict <date> <device>).md` (see `SyncReport.conflicts`). A missing or rejected token
+   * rejects with `auth-required:<host>` / `auth-failed:<host>`.
+   */
+  gitVaultSync: (name: string | null, email: string | null) =>
+    invoke<SyncReport>("git_vault_sync", { name, email }),
+  /** The conflict pair a note belongs to (as the original or the copy); null for other notes. */
+  conflictPair: (path: string) => invoke<ConflictPair | null>("conflict_pair", { path }),
+  /**
+   * Keeps the text of this note (`this`) or of the other half of the pair (`other`): the original
+   * gets that text and the copy moves to `.trash/`. Returns the path of the original.
+   */
+  resolveConflict: (path: string, keep: "this" | "other") => invoke<string>("resolve_conflict", { path, keep }),
+  /** Whether an access token is stored in the OS keychain for the remote host. The token is never returned. */
+  gitTokenStatus: (host: string) => invoke<boolean>("git_token_status", { host }),
+  /** Stores or replaces the token of a remote host in the OS keychain. */
+  gitTokenSet: (host: string, token: string) => invoke<void>("git_token_set", { host, token }),
+  gitTokenDelete: (host: string) => invoke<void>("git_token_delete", { host }),
+  /**
+   * Clones a GitHub HTTPS url into `<parent>/<repository name>` and returns that folder. Progress comes
+   * as `CLONE_PROGRESS_EVENT`. A failed or cancelled clone removes the folder it created. A missing or
+   * rejected token rejects with `auth-required:<host>` / `auth-failed:<host>`, a cancel with `cancelled`.
+   */
+  gitCloneVault: (url: string, parent: string) => invoke<string>("git_clone_vault", { url, parent }),
+  /** Stops the running clone. */
+  gitCloneCancel: () => invoke<void>("git_clone_cancel"),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
 };
 
@@ -173,3 +271,11 @@ export interface VaultChange {
   from?: string;
 }
 export const MENU_EVENT = "menu";
+/** Emitted with a `CloneProgress` while a vault is cloned. */
+export const CLONE_PROGRESS_EVENT = "git-clone-progress";
+export interface CloneProgress {
+  received: number;
+  total: number;
+}
+/** Error text of a clone the user cancelled. */
+export const CLONE_CANCELLED = "cancelled";

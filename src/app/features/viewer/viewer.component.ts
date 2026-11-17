@@ -13,7 +13,8 @@ import {
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { viewerTopLine } from "../../core/editor/editor-core";
-import { backend } from "../../core/file/backend";
+import { TextPart, findInParts, stepIndex } from "../../core/find/find-core";
+import { STDIN_FILE_SUFFIX, backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
 import { slugify } from "../../core/markdown/markdown-renderer";
@@ -21,6 +22,11 @@ import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
+import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
+import { LinkPreviewService } from "../../core/preview/link-preview.service";
+import { OutlineService } from "../../core/outline/outline.service";
+import { TabsService } from "../../core/tabs/tabs.service";
+import { PropertiesComponent } from "../properties/properties.component";
 import { SearchService } from "../../core/index/search.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -33,12 +39,51 @@ const DIALOG_ZOOM_STEP = 1.1;
 @Component({
   selector: "app-viewer",
   template: `
+    @if (findOpen()) {
+      <div class="find-bar" role="search" (keydown)="onFindKeydown($event)">
+        <input
+          #findInput
+          type="text"
+          class="find-input"
+          placeholder="Find"
+          aria-label="Find in note"
+          [value]="findQuery()"
+          (input)="setFindQuery($any($event.target).value)"
+        />
+        <span class="find-count" aria-live="polite">{{ findStatus() }}</span>
+        <button type="button" (click)="findStep(-1)" title="Previous match" aria-label="Previous match">↑</button>
+        <button type="button" (click)="findStep(1)" title="Next match" aria-label="Next match">↓</button>
+        <button
+          type="button"
+          [class.active]="findCase()"
+          [attr.aria-pressed]="findCase()"
+          (click)="toggleFindOption('case')"
+          title="Match case"
+        >
+          Aa
+        </button>
+        <button
+          type="button"
+          [class.active]="findRegex()"
+          [attr.aria-pressed]="findRegex()"
+          (click)="toggleFindOption('regex')"
+          title="Regular expression"
+        >
+          .*
+        </button>
+        <button type="button" (click)="closeFind()" title="Close" aria-label="Close find bar">✕</button>
+      </div>
+    }
+    <app-properties class="properties-host" [style.zoom.%]="settings.zoom()" (error)="notify.emit($event)" />
     <article
       #content
       class="markdown-body"
+      tabindex="-1"
       [style.zoom.%]="settings.zoom()"
       (click)="onClick($event)"
       (wheel)="onWheel($event)"
+      (mousemove)="onHover($event)"
+      (mouseleave)="preview.leave()"
     ></article>
 
     <div
@@ -67,6 +112,8 @@ const DIALOG_ZOOM_STEP = 1.1;
     </div>
   `,
   styleUrl: "./viewer.component.css",
+  imports: [PropertiesComponent],
+  host: { "(scroll)": "trackScroll()" },
 })
 export class ViewerComponent {
   /** Sanitized HTML (see MarkdownService). */
@@ -75,6 +122,9 @@ export class ViewerComponent {
   readonly notify = output<string>();
 
   private readonly doc = inject(DocumentService);
+  private readonly outline = inject(OutlineService);
+  protected readonly preview = inject(LinkPreviewService);
+  private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
   private readonly search = inject(SearchService);
@@ -84,12 +134,31 @@ export class ViewerComponent {
   private readonly content = viewChild.required<ElementRef<HTMLElement>>("content");
   /** Always mounted (visibility toggled via CSS), so it's available as soon as a diagram is clicked. */
   private readonly dialogContent = viewChild<ElementRef<HTMLElement>>("dialogContent");
+  private readonly findInput = viewChild<ElementRef<HTMLInputElement>>("findInput");
   private readonly mermaid = new MermaidRenderer();
   private renderedPath: string | null = null;
+  /** Text this viewer just saved from a checkbox: its DOM is already right, so that render is skipped. */
+  private toggledText: string | null = null;
+  /** Toggles run one after the other, so a quick second click builds on the saved first one. */
+  private toggleQueue: Promise<void> = Promise.resolve();
 
   protected readonly dialogOpen = signal(false);
   protected readonly dialogZoom = signal(1);
   protected readonly dialogZoomPercent = computed(() => Math.round(this.dialogZoom() * 100));
+  protected readonly findOpen = signal(false);
+  protected readonly findQuery = signal("");
+  protected readonly findCase = signal(false);
+  protected readonly findRegex = signal(false);
+  private readonly findError = signal<string | null>(null);
+  private readonly findCount = signal(0);
+  private readonly findCurrent = signal(-1);
+  protected readonly findStatus = computed(() => {
+    if (this.findError()) return "Invalid";
+    if (!this.findQuery()) return "";
+    return this.findCount() === 0 ? "No matches" : `${this.findCurrent() + 1} / ${this.findCount()}`;
+  });
+  private findMarks: HTMLElement[][] = [];
+
   /** The dialog's diagram, in its own SVG user units (from its viewBox) at zoom 1. */
   private dialogNaturalSize: { width: number; height: number } | null = null;
 
@@ -99,6 +168,9 @@ export class ViewerComponent {
       const html = this.html();
       const dark = this.dark();
       untracked(() => {
+        const skip = this.toggledText !== null && this.toggledText === this.doc.content();
+        this.toggledText = null;
+        if (skip) return;
         el.innerHTML = html; // already sanitized with DOMPurify
         // A newly opened document starts at the top (external reloads keep the position).
         const path = this.doc.path();
@@ -106,8 +178,12 @@ export class ViewerComponent {
           this.renderedPath = path;
           this.host.nativeElement.scrollTop = 0;
         }
+        this.findMarks = [];
+        this.enableTasks();
         this.applyPendingAnchor(false);
         this.applyPendingLine(false);
+        this.trackScroll();
+        this.refreshFind(false);
         // Diagrams change the layout, so the anchor is applied again afterwards.
         // Embedded notes are loaded first so diagrams inside them render too.
         void this.markdown
@@ -121,8 +197,11 @@ export class ViewerComponent {
           .catch(() => undefined)
           .then(() => this.mermaid.render(el, dark))
           .then(() => {
+            this.enableTasks();
             this.applyPendingAnchor(true);
             this.applyPendingLine(true);
+            this.trackScroll();
+            this.refreshFind(false);
           });
       });
     });
@@ -137,6 +216,124 @@ export class ViewerComponent {
     });
   }
 
+  /** Opens the find bar (⌘/Ctrl+F), or focuses it when it is open. */
+  openFind(): void {
+    this.findOpen.set(true);
+    setTimeout(() => {
+      const input = this.findInput()?.nativeElement;
+      input?.focus();
+      input?.select();
+    });
+    this.refreshFind(true);
+  }
+
+  protected closeFind(): void {
+    this.findOpen.set(false);
+    this.clearFind();
+    this.content().nativeElement.focus({ preventScroll: true });
+  }
+
+  protected onFindKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeFind();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      this.findStep(event.shiftKey ? -1 : 1);
+    }
+  }
+
+  protected setFindQuery(query: string): void {
+    this.findQuery.set(query);
+    this.refreshFind(true);
+  }
+
+  protected toggleFindOption(option: "case" | "regex"): void {
+    (option === "case" ? this.findCase : this.findRegex).update((v) => !v);
+    this.refreshFind(true);
+  }
+
+  protected findStep(step: 1 | -1): void {
+    const next = stepIndex(this.findCurrent(), step, this.findMarks.length);
+    this.activateMatch(next);
+  }
+
+  /** Removes the highlights and puts the text back together. */
+  private clearFind(): void {
+    const el = this.content().nativeElement;
+    for (const mark of Array.from(el.querySelectorAll("mark.find-hit"))) {
+      const parent = mark.parentNode;
+      mark.replaceWith(document.createTextNode(mark.textContent ?? ""));
+      parent?.normalize();
+    }
+    this.findMarks = [];
+    this.findCount.set(0);
+    this.findCurrent.set(-1);
+    this.findError.set(null);
+  }
+
+  /** Highlights the matches of the query in the rendered note; `jump` selects and scrolls to the first. */
+  private refreshFind(jump: boolean): void {
+    if (!this.findOpen()) return;
+    const previous = this.findCurrent();
+    this.clearFind();
+    const query = this.findQuery();
+    if (!query) return;
+    const nodes = this.textNodes();
+    const parts: TextPart[] = nodes.map((n) => ({ text: n.data, group: blockId(n, this.content().nativeElement) }));
+    const result = findInParts(parts, query, { caseSensitive: this.findCase(), regex: this.findRegex() });
+    if (typeof result === "string") {
+      this.findError.set(result);
+      return;
+    }
+    // Wrap from the end of each node so earlier offsets stay valid.
+    const marks: HTMLElement[][] = result.matches.map(() => []);
+    const byNode = new Map<number, typeof result.segments>();
+    for (const seg of result.segments) byNode.set(seg.part, [...(byNode.get(seg.part) ?? []), seg]);
+    for (const [index, segs] of byNode) {
+      const node = nodes[index]!;
+      for (const seg of [...segs].sort((a, b) => b.from - a.from)) {
+        const range = document.createRange();
+        range.setStart(node, seg.from);
+        range.setEnd(node, seg.to);
+        const mark = document.createElement("mark");
+        mark.className = "find-hit";
+        range.surroundContents(mark);
+        marks[seg.match]!.unshift(mark);
+      }
+    }
+    for (const group of marks) {
+      group.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    }
+    this.findMarks = marks;
+    this.findCount.set(marks.length);
+    if (marks.length) this.activateMatch(jump ? 0 : Math.min(Math.max(previous, 0), marks.length - 1), jump);
+  }
+
+  private activateMatch(index: number, scroll = true): void {
+    for (const mark of this.findMarks.flat()) mark.classList.remove("find-active");
+    this.findCurrent.set(index);
+    const marks = this.findMarks[index];
+    if (!marks?.length) return;
+    for (const mark of marks) mark.classList.add("find-active");
+    if (scroll) marks[0]!.scrollIntoView({ block: "center" });
+  }
+
+  /** Text of the note as rendered; diagrams and scripts are skipped. */
+  private textNodes(): Text[] {
+    const root = this.content().nativeElement;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) =>
+        node.parentElement?.closest("svg, script, style, .mermaid-diagram") || !(node as Text).data
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT,
+    });
+    const nodes: Text[] = [];
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n as Text);
+    return nodes;
+  }
+
   /** 1-based source line at the top of the visible area; null when no block carries one. */
   topLine(): number | null {
     const top = this.host.nativeElement.getBoundingClientRect().top;
@@ -147,6 +344,22 @@ export class ViewerComponent {
       },
     );
     return viewerTopLine(blocks, 0);
+  }
+
+  /** Tells the outline which line is at the top. */
+  protected trackScroll(): void {
+    this.outline.topLine.set(this.topLine());
+  }
+
+  /** A resolved wikilink under the pointer gets a preview (see LinkPreviewService). */
+  protected onHover(event: MouseEvent): void {
+    const link = (event.target as Element).closest?.("a.wikilink:not(.unresolved)");
+    const target = link?.getAttribute("data-target");
+    if (!link || !target) {
+      this.preview.leave();
+      return;
+    }
+    this.preview.hover(target, link.getBoundingClientRect(), event.metaKey || event.ctrlKey);
   }
 
   /** Ctrl/Cmd + wheel always zooms the whole document. */
@@ -228,6 +441,13 @@ export class ViewerComponent {
       return;
     }
 
+    if (target instanceof HTMLInputElement && target.classList.contains("task-list-item-checkbox")) {
+      const run = this.toggleQueue.then(() => this.toggleTask(event, target));
+      this.toggleQueue = run.catch(() => undefined);
+      await run;
+      return;
+    }
+
     const calloutTitle = target.closest<HTMLElement>(".callout-title");
     const callout = calloutTitle?.parentElement;
     if (calloutTitle && callout?.classList.contains("is-collapsible") && !target.closest("a")) {
@@ -247,7 +467,7 @@ export class ViewerComponent {
 
     const wikiTarget = link.classList.contains("wikilink") ? link.getAttribute("data-target") : null;
     if (wikiTarget !== null) {
-      await this.openWikilink(wikiTarget);
+      await this.openWikilink(wikiTarget, event.metaKey || event.ctrlKey);
       return;
     }
 
@@ -273,7 +493,7 @@ export class ViewerComponent {
         if (!resolved) {
           this.notify.emit(`File not found: ${href.path}`);
         } else if (isMarkdownPath(resolved)) {
-          await this.doc.open(resolved, { anchor: href.anchor }).catch((err) => this.notify.emit(String(err)));
+          await this.openNote(resolved, { anchor: href.anchor }, event.metaKey || event.ctrlKey);
         } else {
           await openPath(resolved);
         }
@@ -282,8 +502,59 @@ export class ViewerComponent {
     }
   }
 
+  /** Checkboxes are rendered disabled; here they are enabled where a source line is known to write to. */
+  private enableTasks(): void {
+    const piped = this.doc.path()?.endsWith(STDIN_FILE_SUFFIX) ?? false;
+    for (const box of Array.from(this.content().nativeElement.querySelectorAll<HTMLInputElement>("input.task-list-item-checkbox"))) {
+      const embed = box.closest<HTMLElement>(".embed-body");
+      const known = embed ? !!embed.dataset["sourcePath"] : !piped && !!this.doc.path();
+      box.disabled = !known || !box.closest("[data-line]");
+    }
+  }
+
+  /** Writes the ticked or unticked task to the file of the item (the open note or an embedded one). */
+  private async toggleTask(event: Event, box: HTMLInputElement): Promise<void> {
+    const item = box.closest<HTMLElement>("li[data-line]");
+    const embed = box.closest<HTMLElement>(".embed-body");
+    const path = embed ? embed.dataset["sourcePath"] : this.doc.path();
+    if (!item || !path || (!embed && path.endsWith(STDIN_FILE_SUFFIX))) {
+      event.preventDefault();
+      return;
+    }
+    const line = Number(item.dataset["line"]) + Number(embed?.dataset["lineOffset"] ?? 0);
+    const checked = box.checked; // the browser has already flipped it
+    const isOpenNote = path === this.doc.path();
+    try {
+      const text = isOpenNote ? this.doc.content() : await backend.readTextFile(path);
+      const next = setTaskState(text, line, checked);
+      const rendered = item.dataset["srcLine"];
+      const stale = embed && rendered !== undefined && taskShape(text.split("\n")[line] ?? "") !== rendered;
+      if (next === null || stale) {
+        // Not a `[ ]`/`[x]` line any more (the file changed): leave the file alone.
+        box.checked = !checked;
+        return;
+      }
+      if (isOpenNote) this.toggledText = next;
+      await this.doc.write(path, next);
+    } catch (err) {
+      this.toggledText = null;
+      box.checked = !checked;
+      this.notify.emit(String(err));
+    }
+  }
+
   /** Resolved links open the note (history included); unresolved ones create the note. */
-  private async openWikilink(target: string): Promise<void> {
+  /** Opens a note in this tab, or in a new one (⌘/Ctrl+click). */
+  private async openNote(path: string, options: { anchor?: string | null }, newTab: boolean): Promise<void> {
+    try {
+      if (newTab) await this.tabs.openInNewTab(path, options);
+      else await this.doc.open(path, options);
+    } catch (err) {
+      this.notify.emit(String(err));
+    }
+  }
+
+  private async openWikilink(target: string, newTab = false): Promise<void> {
     const { note, heading } = parseWikilinkTarget(target);
     if (!note) {
       if (heading) this.scrollToAnchor(heading);
@@ -302,7 +573,7 @@ export class ViewerComponent {
       await openPath(path);
       return;
     }
-    await this.doc.open(path, { anchor: heading }).catch((err) => this.notify.emit(String(err)));
+    await this.openNote(path, { anchor: heading }, newTab);
   }
 
   /** `done`: the layout is final (diagrams rendered), so the anchor is consumed. */
@@ -346,4 +617,16 @@ export class ViewerComponent {
     }
     return false;
   }
+}
+
+const BLOCKS = "p, li, h1, h2, h3, h4, h5, h6, pre, td, th, blockquote, div, dt, dd, summary";
+const blockIds = new WeakMap<Element, number>();
+let nextBlockId = 0;
+
+/** A number that is the same for all text nodes of the nearest block element. */
+function blockId(node: Node, root: HTMLElement): number {
+  const block = node.parentElement?.closest(BLOCKS) ?? root;
+  let id = blockIds.get(block);
+  if (id === undefined) blockIds.set(block, (id = nextBlockId++));
+  return id;
 }

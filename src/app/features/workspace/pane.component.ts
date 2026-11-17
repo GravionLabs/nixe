@@ -1,0 +1,83 @@
+import { Component, OnDestroy, computed, effect, inject, viewChild } from "@angular/core";
+
+import { EditorService } from "../../core/editor/editor.service";
+import { DocumentService } from "../../core/file/document.service";
+import { MarkdownService } from "../../core/markdown/markdown.service";
+import { SettingsService } from "../../core/settings/settings.service";
+import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
+import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { EditorComponent } from "../editor/editor.component";
+import { ViewerComponent } from "../viewer/viewer.component";
+
+/**
+ * The shown tab of a pane. It is created with the tab's injector, so the viewer and the editor
+ * inside get the tab's own document and editor state.
+ */
+@Component({
+  selector: "app-pane",
+  imports: [EditorComponent, ViewerComponent],
+  template: `
+    @if (doc.path()) {
+      @if (editor.editing()) {
+        @defer (on immediate) {
+          <app-editor class="note" (error)="tabs.notice.set($event)" />
+        }
+      } @else {
+        <app-viewer class="note" [html]="html()" [dark]="settings.dark()" (notify)="tabs.notice.set($event)" />
+      }
+    } @else {
+      <p class="empty">Empty tab. Pick a note in the sidebar or press {{ mod }}O.</p>
+    }
+  `,
+  styles: `
+    :host {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+    }
+    .note {
+      flex: 1;
+      min-width: 0;
+    }
+    .empty {
+      margin: auto;
+      color: var(--muted);
+    }
+  `,
+})
+export class PaneComponent implements OnDestroy {
+  protected readonly doc = inject(DocumentService);
+  protected readonly editor = inject(EditorService);
+  protected readonly settings = inject(SettingsService);
+  protected readonly tabs = inject(TabsService);
+  private readonly markdown = inject(MarkdownService);
+  private readonly workspace = inject(WorkspaceService);
+  private readonly tab = inject(CURRENT_TAB);
+  private readonly viewer = viewChild(ViewerComponent);
+
+  protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
+
+  /** The note's body; its properties are shown (and edited) by the viewer's properties panel. */
+  protected readonly html = computed(
+    () =>
+      this.markdown.renderNote(this.doc.content(), {
+        filePath: this.doc.path(),
+        wikiRoot: this.doc.wikiRoot(),
+        math: this.settings.math(),
+        vaultFiles: this.workspace.vaultFiles(),
+        vaultRoot: this.workspace.vaultRoot(),
+      }).body,
+  );
+
+  constructor() {
+    effect(() => {
+      const viewer = this.viewer();
+      this.tab.viewer = viewer ? { topLine: () => viewer.topLine(), openFind: () => viewer.openFind() } : null;
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.tab.viewer = null;
+  }
+}

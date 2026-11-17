@@ -1,0 +1,201 @@
+import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
+
+import { GitStatus, SyncReport, backend } from "../file/backend";
+import { IndexService } from "../index/index.service";
+import { SettingsService } from "../settings/settings.service";
+import { WorkspaceService } from "../workspace/workspace.service";
+
+/** Remotes are GitHub over HTTPS; the token is keyed by this host. */
+export const GIT_HOST = "github.com";
+
+const AUTH_ERROR = /^auth-(required|failed):/;
+
+/** The backend wants a token: none is stored (`required`) or the server refused it (`failed`). */
+export interface TokenPrompt {
+  reason: "required" | "failed";
+}
+
+export interface SyncState {
+  phase: "idle" | "syncing" | "done" | "error";
+  message: string;
+}
+
+/** A readable line for what a sync did. */
+export function describeSync(report: SyncReport): string {
+  const parts = [
+    report.committed ? "committed" : "",
+    report.pulled ? "pulled" : "",
+    report.pushed ? "pushed" : "",
+  ].filter(Boolean);
+  const n = report.conflicts?.length ?? 0;
+  const text = parts.length ? `Synced (${parts.join(", ")})` : "Already in sync";
+  return n > 0 ? `${text}; ${n} ${n === 1 ? "note" : "notes"} changed on both sides, both versions kept` : text;
+}
+
+/** Git state of the vault. `status` stays null for a vault without a repository: no Git UI then. */
+@Injectable({ providedIn: "root" })
+export class GitService {
+  private readonly workspace = inject(WorkspaceService);
+  private readonly index = inject(IndexService);
+  private readonly settings = inject(SettingsService);
+
+  readonly visible = signal(false);
+  readonly status = signal<GitStatus | null>(null);
+  readonly committing = signal(false);
+  /** Whether a token is stored for `GIT_HOST`. The token itself is never read into the frontend. */
+  readonly tokenStored = signal(false);
+  /** Set while a remote operation waits for a token. */
+  readonly tokenPrompt = signal<TokenPrompt | null>(null);
+  /** Progress and result of the last sync, for the status bar. */
+  readonly syncState = signal<SyncState>({ phase: "idle", message: "" });
+  private request = 0;
+  /** The last sync error that was shown; an automatic sync does not show it again. */
+  private lastError: string | null = null;
+  private promptResult: ((token: string | null) => void) | null = null;
+
+  /** True when the vault is a Git repository. */
+  readonly available = computed(() => this.workspace.vaultRoot() !== null && this.status() !== null);
+
+  constructor() {
+    // The vault changed on disk (or another vault was opened): read the state again.
+    effect(() => {
+      this.workspace.vaultRoot();
+      this.index.revision();
+      untracked(() => void this.refresh());
+    });
+    void this.refreshToken();
+  }
+
+  async refreshToken(): Promise<void> {
+    try {
+      this.tokenStored.set(await backend.gitTokenStatus(GIT_HOST));
+    } catch {
+      this.tokenStored.set(false);
+    }
+  }
+
+  /** Stores or replaces the token. Answers a waiting prompt. */
+  async saveToken(token: string): Promise<void> {
+    const value = token.trim();
+    if (!value) throw new Error("the token is empty");
+    await backend.gitTokenSet(GIT_HOST, value);
+    this.tokenStored.set(true);
+    this.answerPrompt(value);
+  }
+
+  async deleteToken(): Promise<void> {
+    await backend.gitTokenDelete(GIT_HOST);
+    this.tokenStored.set(false);
+  }
+
+  /** Dismisses the prompt; the waiting operation fails with its original error. */
+  cancelTokenPrompt(): void {
+    this.answerPrompt(null);
+  }
+
+  private answerPrompt(token: string | null): void {
+    const answer = this.promptResult;
+    this.promptResult = null;
+    this.tokenPrompt.set(null);
+    answer?.(token);
+  }
+
+  /**
+   * Runs a remote operation. When the backend reports a missing or rejected token, asks for
+   * one and runs the operation again with it (asks again if that one is rejected too).
+   */
+  async runRemote<T>(operation: () => Promise<T>): Promise<T> {
+    for (;;) {
+      try {
+        return await operation();
+      } catch (err) {
+        const message = String(err instanceof Error ? err.message : err);
+        const match = AUTH_ERROR.exec(message.replace(/^Error: /, ""));
+        if (!match) throw err;
+        this.cancelTokenPrompt();
+        this.tokenPrompt.set({ reason: match[1] === "failed" ? "failed" : "required" });
+        const token = await new Promise<string | null>((resolve) => (this.promptResult = resolve));
+        if (token === null) throw err;
+      }
+    }
+  }
+
+  open(): void {
+    if (this.available()) this.visible.set(true);
+  }
+
+  close(): void {
+    this.visible.set(false);
+  }
+
+  /** A newer call wins over an older one still running. */
+  async refresh(): Promise<void> {
+    const request = ++this.request;
+    if (this.workspace.vaultRoot() === null) {
+      this.status.set(null);
+      this.visible.set(false);
+      return;
+    }
+    let status: GitStatus | null;
+    try {
+      status = await backend.gitVaultStatus();
+    } catch {
+      status = null;
+    }
+    if (request !== this.request) return;
+    this.status.set(status);
+    if (status === null) this.visible.set(false);
+  }
+
+  /**
+   * Commits all changes. An empty message gives the default of the backend.
+   * Throws the error message of the backend (for example "nothing to commit").
+   */
+  async commit(message: string): Promise<void> {
+    this.committing.set(true);
+    try {
+      await backend.gitVaultCommit(
+        message.trim() || null,
+        this.settings.gitAuthorName().trim() || null,
+        this.settings.gitAuthorEmail().trim() || null,
+      );
+    } finally {
+      this.committing.set(false);
+      await this.refresh();
+    }
+  }
+
+  /**
+   * Brings the vault in line with the remote: commits open changes, rebases onto the remote
+   * branch and pushes. Progress and result are in `syncState`; never throws. The backend
+   * leaves the repository clean on every failure. The index and the open note follow the
+   * pulled files through the watcher.
+   *
+   * An automatic sync (`auto`) never asks for a token and shows an error only when it differs
+   * from the one already shown, so a failing remote does not repeat on every interval.
+   */
+  async sync(options: { auto?: boolean } = {}): Promise<void> {
+    if (!this.available() || this.syncState().phase === "syncing") return;
+    const auto = options.auto === true;
+    const before = this.syncState();
+    this.syncState.set({ phase: "syncing", message: "Syncing…" });
+    const call = () =>
+      backend.gitVaultSync(
+        this.settings.gitAuthorName().trim() || null,
+        this.settings.gitAuthorEmail().trim() || null,
+      );
+    try {
+      const report = await (auto ? call() : this.runRemote(call));
+      this.lastError = null;
+      this.syncState.set({ phase: "done", message: describeSync(report) });
+    } catch (err) {
+      const text = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");
+      const message = AUTH_ERROR.test(text) ? "Sync failed: GitHub needs a valid access token" : `Sync failed: ${text}`;
+      if (auto && message === this.lastError) this.syncState.set(before);
+      else this.syncState.set({ phase: "error", message });
+      this.lastError = message;
+    } finally {
+      await this.refresh();
+    }
+  }
+}
