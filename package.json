@@ -30,7 +30,7 @@
     "@tauri-apps/plugin-dialog": "^2.7.3",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2.4.0",
-    "@tauri-apps/plugin-updater": "^2.14.1",
+    "@tauri-apps/plugin-updater": "~2.13.0",
     "@vscode/markdown-it-katex": "^1.1.2",
     "dompurify": "^3.4.16",
     "github-markdown-css": "^5.9.0",
