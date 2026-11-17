@@ -8,6 +8,9 @@ After all builds, the `checksums` job downloads the draft release assets, writes
 `*.sig`, `latest.json`) with `scripts/release-checksums.sh`, checks it and uploads it. `publish-release` waits for it.
 There is no build provenance attestation: the repository is private.
 
+The release build also signs the update packages and uploads `latest.json` for the in-app updater; see
+[updater.md](updater.md).
+
 ## macOS signing and notarization
 
 Only the `build` job of a push to `main` gets the Apple secrets. Tauri signs with the hardened runtime, notarizes

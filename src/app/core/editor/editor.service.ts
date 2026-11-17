@@ -11,6 +11,8 @@ export interface EditorHandle {
   scrollToLine(line: number): void;
   /** Writes pending changes at once. */
   flush(): Promise<void>;
+  /** True while changed text is not written (a failed or held save). */
+  dirty(): boolean;
   /** True while an external change waits for the user's choice (reload or keep mine). */
   blocked(): boolean;
   /** Inserts an expanded template at the cursor and merges its frontmatter into the note's. */

@@ -75,6 +75,7 @@ export class EditorComponent implements OnDestroy {
       topLine: () => this.topLine(),
       scrollToLine: (line) => this.scrollToLine(line),
       flush: () => this.flush(),
+      dirty: () => this.session?.saver.dirty ?? false,
       blocked: () => this.conflict() !== null,
       insertTemplate: (template) => this.insertTemplate(template),
       attachPaths: (paths) => this.attachPaths(paths),

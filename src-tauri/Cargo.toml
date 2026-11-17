@@ -37,7 +37,9 @@ rmcp = { version = "3.10", default-features = false, features = ["client", "tran
 tokio = { version = "1", features = ["rt", "macros", "process"] }
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-process = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"
 
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }

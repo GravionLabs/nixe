@@ -17,6 +17,7 @@ import { HealthService } from "./core/index/health.service";
 import { SearchService } from "./core/index/search.service";
 import { SettingsPageService } from "./core/settings/settings-page.service";
 import { SettingsService } from "./core/settings/settings.service";
+import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
 import { TemplateService } from "./core/templates/template.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
@@ -41,12 +42,13 @@ import { HealthComponent } from "./features/health/health.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
 import { ToolbarComponent } from "./features/toolbar/toolbar.component";
+import { UpdateComponent } from "./features/update/update.component";
 import { WorkspaceComponent } from "./features/workspace/workspace.component";
 import { TabsService } from "./core/tabs/tabs.service";
 
 @Component({
   selector: "app-root",
-  imports: [LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SettingsComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
+  imports: [LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SettingsComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, UpdateComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -64,6 +66,7 @@ export class AppComponent {
   protected readonly git = inject(GitService);
   protected readonly cloneVault = inject(CloneService);
   private readonly autoSync = inject(AutoSyncService);
+  protected readonly updater = inject(UpdateService);
   protected readonly switcher = inject(SwitcherService);
   protected readonly templates = inject(TemplateService);
   private readonly daily = inject(DailyService);
@@ -142,6 +145,7 @@ export class AppComponent {
     try {
       await listen(OPEN_FILE_EVENT, () => this.openPending());
       await listen<string>(FILE_CHANGED_EVENT, (e) => this.tabs.onExternalChange(e.payload));
+      await this.updater.init();
       await this.index.init();
       await this.autoSync.listenWindow();
       await listen<string>(MENU_EVENT, (e) => this.commands.execute(e.payload));
@@ -223,6 +227,7 @@ export class AppComponent {
       { id: "open-settings", title: "Open settings", shortcut: "Mod+,", keys: ["Mod+,"], run: () => this.run(() => this.settingsPage.open()) },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },
+      { id: "check-updates", title: "Check for updates…", run: () => this.updater.check() },
       { id: "open-recent", title: "Open recent vault…", run: () => this.run(() => this.recent.open()) },
       { id: "clone-vault", title: "Clone vault…", run: () => this.cloneVault.open() },
       {
