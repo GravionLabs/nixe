@@ -16,5 +16,5 @@ jobs:
     permissions:
       contents: read
       issues: read
-      pull-requests: read
+      pull-requests: write # the retarget job of ci pr-checks v1.14 (ci#232)
     uses: GravionLabs/ci/.github/workflows/pr-checks.yml@v1
