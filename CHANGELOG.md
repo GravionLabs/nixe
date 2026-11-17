@@ -5,10 +5,45 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.0] — 2026-11-17
+
+### Bug Fixes
+- **git**: Keep both versions on a conflict and mark the note (#76) (#173)
+- **ci**: Grant pull-requests: write to the pr-checks job (#191) (#192)
+- **updater**: Set the updater public key (#168) (#190)
+- **updater**: Align the npm plugin with the crate version (#194) (#195)
+
+
+### Features
+- **git**: Show the vault's Git status and commit with a message (#73) (#169)
+- **git**: Store the HTTPS token in the OS keychain (#74) (#171)
+- **git**: Pull with rebase and push with a sync command (#75) (#172)
+- **git**: Keep both versions on a conflict and mark the note (#76) (#173)
+- **git**: Auto-commit and auto-sync on an interval and on focus (#77) (#174)
+- **git**: Clone a vault from a URL (#78) (#175)
+- **templates**: Insert templates with {{date}}, {{time}} and {{title}} (#79) (#177)
+- **daily-notes**: Open today's daily note (#80) (#178)
+- **editor**: Paste and drop attachments into the attachment folder (#81) (#179)
+- **properties**: Edit properties in the properties panel (#82) (#180)
+- **outline**: Outline panel of the open note (#83) (#181)
+- **vault**: Open, switch and remember vaults (#84) (#182)
+- **editor**: Find and replace in the note (#95) (#183)
+- **viewer**: Toggle task checkboxes in the reading view (#96) (#184)
+- **workspace**: Tabs and split view (#97) (#185)
+- **viewer**: Preview a note when hovering a link (#98) (#186)
+- **settings**: Settings page (#99) (#187)
+- **settings**: Customizable keyboard shortcuts (#100) (#188)
+- **updater**: Auto-update via tauri-plugin-updater (#168) (#176)
+
+
 ## [1.2.0] — 2026-11-16
 
 ### Bug Fixes
 - **ci**: Add release notes to the GitHub release (#167) (#159)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.2.0 [skip ci]
 
 
 ### Features
