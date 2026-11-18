@@ -1,49 +1,15 @@
 @use "sass:meta";
 
 // ---------------------------------------------------------------------------
-// Theme tokens. The effective theme ("light"/"dark") is set on <html data-theme>
-// by SettingsService (follows the system unless overridden in the toolbar).
+// Theme. The helix tokens (`--h-*`, loaded in angular.json) carry every colour; `HxTheme` sets the class
+// `.app-dark` on <html> (SettingsService turns light, dark and system into that one switch).
 // ---------------------------------------------------------------------------
-:root {
-  --bg: #ffffff;
-  --chrome: #f6f8fa;
-  --fg: #1f2328;
-  --muted: #656d76;
-  --border: #d0d7de;
-  --hover: rgb(208 215 222 / 0.45);
-  --accent: #0e7c86;
-  --on-accent: #ffffff;
-  --toast-bg: #1f2328;
-  --toast-fg: #ffffff;
-  --error-bg: #fff1f0;
-  --error-border: #ffa39e;
-  --error-fg: #a8071a;
-  color-scheme: light;
-}
-
-:root[data-theme="dark"] {
-  --bg: #0d1117;
-  --chrome: #161b22;
-  --fg: #e6edf3;
-  --muted: #8d96a0;
-  --border: #30363d;
-  --hover: rgb(110 118 129 / 0.3);
-  --accent: #3fb8c2;
-  --on-accent: #0d1117;
-  --toast-bg: #e6edf3;
-  --toast-fg: #0d1117;
-  --error-bg: #2d1214;
-  --error-border: #6e2a2e;
-  --error-fg: #ff9492;
-  color-scheme: dark;
-}
-
 html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--h-content-background);
+  color: var(--h-text-color);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
@@ -52,12 +18,12 @@ body {
 // ---------------------------------------------------------------------------
 // Markdown + code highlighting, scoped per theme
 // ---------------------------------------------------------------------------
-:root[data-theme="light"] {
+:root:not(.app-dark) {
   @include meta.load-css("github-markdown-css/github-markdown-light.css");
   @include meta.load-css("highlight.js/styles/github.css");
 }
 
-:root[data-theme="dark"] {
+:root.app-dark {
   @include meta.load-css("github-markdown-css/github-markdown-dark.css");
   @include meta.load-css("highlight.js/styles/github-dark.css");
 }
@@ -79,7 +45,7 @@ body {
 // ---------------------------------------------------------------------------
 .markdown-body pre.mermaid {
   // placeholder until the diagram is rendered
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   white-space: pre-wrap;
 }
 
@@ -120,8 +86,8 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--h-content-background);
+  border: 1px solid var(--h-content-border-color);
   box-shadow: 0 16px 48px rgb(0 0 0 / 0.3);
   cursor: default;
 }
@@ -147,12 +113,12 @@ body {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--fg);
+  color: var(--h-text-color);
   font-size: 16px;
   cursor: pointer;
 
   &:hover {
-    background: var(--hover);
+    background: var(--h-surface-hover);
   }
 }
 
@@ -166,8 +132,8 @@ body {
   gap: 2px;
   padding: 2px;
   border-radius: 8px;
-  background: var(--chrome);
-  border: 1px solid var(--border);
+  background: var(--h-surface-frame);
+  border: 1px solid var(--h-content-border-color);
   box-shadow: 0 2px 6px rgb(0 0 0 / 0.15);
   cursor: default;
 
@@ -181,14 +147,14 @@ body {
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--fg);
+    color: var(--h-text-color);
     font: inherit;
     font-size: 12.5px;
     font-variant-numeric: tabular-nums;
     cursor: pointer;
 
     &:hover {
-      background: var(--hover);
+      background: var(--h-surface-hover);
     }
   }
 
@@ -206,10 +172,10 @@ body {
 .markdown-body .mermaid-error {
   margin: 0 0 16px;
   padding: 12px 14px;
-  border: 1px solid var(--error-border);
+  border: 1px solid var(--h-message-error-border-color);
   border-radius: 6px;
-  background: var(--error-bg);
-  color: var(--error-fg);
+  background: var(--h-message-error-background);
+  color: light-dark(var(--h-red-700), var(--h-red-300));
 
   pre {
     margin: 8px 0 0;
@@ -232,9 +198,9 @@ body {
   display: inline-block;
   margin: 0 0 16px;
   padding: 8px 20px 8px 4px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 6px;
-  background: var(--chrome);
+  background: var(--h-surface-frame);
 
   ul {
     margin: 0;
@@ -335,7 +301,7 @@ body {
   --callout-rgb: 8 109 221;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-note {
+:root.app-dark .markdown-body .callout-note {
   --callout-rgb: 107 166 255;
 }
 
@@ -344,7 +310,7 @@ body {
   --callout-rgb: 0 191 188;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-abstract {
+:root.app-dark .markdown-body .callout-abstract {
   --callout-rgb: 83 223 221;
 }
 
@@ -353,7 +319,7 @@ body {
   --callout-rgb: 8 109 221;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-info {
+:root.app-dark .markdown-body .callout-info {
   --callout-rgb: 107 166 255;
 }
 
@@ -362,7 +328,7 @@ body {
   --callout-rgb: 8 109 221;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-todo {
+:root.app-dark .markdown-body .callout-todo {
   --callout-rgb: 107 166 255;
 }
 
@@ -371,7 +337,7 @@ body {
   --callout-rgb: 0 191 188;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-tip {
+:root.app-dark .markdown-body .callout-tip {
   --callout-rgb: 83 223 221;
 }
 
@@ -380,7 +346,7 @@ body {
   --callout-rgb: 8 185 78;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-success {
+:root.app-dark .markdown-body .callout-success {
   --callout-rgb: 79 214 125;
 }
 
@@ -389,7 +355,7 @@ body {
   --callout-rgb: 224 172 0;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-question {
+:root.app-dark .markdown-body .callout-question {
   --callout-rgb: 240 198 64;
 }
 
@@ -398,7 +364,7 @@ body {
   --callout-rgb: 236 117 0;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-warning {
+:root.app-dark .markdown-body .callout-warning {
   --callout-rgb: 255 152 56;
 }
 
@@ -407,7 +373,7 @@ body {
   --callout-rgb: 233 49 71;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-failure {
+:root.app-dark .markdown-body .callout-failure {
   --callout-rgb: 255 105 120;
 }
 
@@ -416,7 +382,7 @@ body {
   --callout-rgb: 233 49 71;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-danger {
+:root.app-dark .markdown-body .callout-danger {
   --callout-rgb: 255 105 120;
 }
 
@@ -425,7 +391,7 @@ body {
   --callout-rgb: 233 49 71;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-bug {
+:root.app-dark .markdown-body .callout-bug {
   --callout-rgb: 255 105 120;
 }
 
@@ -434,7 +400,7 @@ body {
   --callout-rgb: 120 82 238;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-example {
+:root.app-dark .markdown-body .callout-example {
   --callout-rgb: 167 139 250;
 }
 
@@ -443,7 +409,7 @@ body {
   --callout-rgb: 158 158 158;
 }
 
-:root[data-theme="dark"] .markdown-body .callout-quote {
+:root.app-dark .markdown-body .callout-quote {
   --callout-rgb: 180 180 180;
 }
 
@@ -454,10 +420,10 @@ body {
   .frontmatter-warning {
     margin: 0 0 16px;
     padding: 8px 12px;
-    border: 1px solid var(--error-border);
+    border: 1px solid var(--h-message-error-border-color);
     border-radius: 6px;
-    background: var(--error-bg);
-    color: var(--error-fg);
+    background: var(--h-message-error-background);
+    color: light-dark(var(--h-red-700), var(--h-red-300));
     font-size: 13px;
     white-space: pre-wrap;
   }
@@ -465,9 +431,9 @@ body {
   dl.properties {
     margin: 0 0 24px;
     padding: 8px 12px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--h-content-border-color);
     border-radius: 6px;
-    background: var(--chrome);
+    background: var(--h-surface-frame);
     font-size: 14px;
   }
 
@@ -481,7 +447,7 @@ body {
     flex: 0 0 140px;
     margin: 0;
     padding: 0;
-    color: var(--muted);
+    color: var(--h-text-muted-color);
     font-weight: 500;
   }
 
@@ -510,7 +476,7 @@ body {
     padding: 0 8px;
     border-radius: 999px;
     background: rgb(14 124 134 / 0.14);
-    color: var(--accent);
+    color: var(--h-primary-color);
     text-decoration: none;
     cursor: default;
   }

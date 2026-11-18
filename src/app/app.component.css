@@ -2,8 +2,8 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--h-content-background);
+  color: var(--h-text-color);
 }
 
 main {
@@ -28,12 +28,12 @@ main {
   font-size: 44px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--accent);
+  color: var(--h-primary-color);
 }
 
 .welcome p {
   margin: 8px 0 0;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .actions {
@@ -46,22 +46,22 @@ main {
 .actions button {
   height: 36px;
   padding: 0 18px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 8px;
-  background: var(--chrome);
-  color: var(--fg);
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
   font: inherit;
   cursor: pointer;
 }
 
 .actions button:hover {
-  background: var(--hover);
+  background: var(--h-surface-hover);
 }
 
 .actions button.primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  border-color: var(--h-primary-color);
+  background: var(--h-primary-color);
+  color: var(--h-primary-contrast-color);
 }
 
 .actions button.primary:hover {
@@ -80,7 +80,7 @@ main {
   gap: 6px 16px;
   margin: 36px 0 0;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .shortcuts dt {
@@ -101,8 +101,8 @@ main {
   max-width: min(560px, calc(100vw - 32px));
   padding: 10px 16px;
   border-radius: 8px;
-  background: var(--toast-bg);
-  color: var(--toast-fg);
+  background: var(--h-toast-contrast-background);
+  color: var(--h-toast-contrast-color);
   font-size: 13px;
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
 }

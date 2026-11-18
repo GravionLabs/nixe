@@ -84,3 +84,41 @@ describe("SettingsService storage", () => {
     expect(write).not.toHaveBeenCalled();
   });
 });
+
+describe("SettingsService theme", () => {
+  beforeAll(() => {
+    try {
+      TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+    } catch {
+      // already initialised by an earlier suite in this file
+    }
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    stubMatchMedia();
+    document.documentElement.className = "";
+    TestBed.resetTestingModule();
+  });
+
+  it("switches the class .app-dark of HxTheme with the stored setting and sets no data-theme", () => {
+    const settings = TestBed.inject(SettingsService);
+    settings.themeMode.set("dark");
+    TestBed.tick();
+    expect(document.documentElement.classList.contains("app-dark")).toBe(true);
+    expect(document.documentElement.dataset["theme"]).toBeUndefined();
+
+    settings.themeMode.set("light");
+    TestBed.tick();
+    expect(document.documentElement.classList.contains("app-dark")).toBe(false);
+  });
+
+  it("follows the system in the mode system", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: () => undefined }));
+    window.matchMedia = (() => ({ matches: true, addEventListener: () => undefined })) as unknown as typeof window.matchMedia;
+    const settings = TestBed.inject(SettingsService);
+    TestBed.tick();
+    expect(settings.themeMode()).toBe("system");
+    expect(document.documentElement.classList.contains("app-dark")).toBe(true);
+  });
+});

@@ -1,4 +1,5 @@
-import { Injectable, computed, effect, signal } from "@angular/core";
+import { Injectable, computed, effect, inject, signal } from "@angular/core";
+import { HxTheme } from "@gravionlabs/helix-ui";
 
 import { backend } from "../file/backend";
 import { LinkPreviewMode } from "../preview/preview-core";
@@ -35,6 +36,7 @@ function readLegacy(): string | null {
 
 @Injectable({ providedIn: "root" })
 export class SettingsService {
+  private readonly theme = inject(HxTheme);
   private readonly stored: StoredSettings = loadSettings(null, readLegacy()).settings;
 
   readonly themeMode = signal<ThemeMode>(this.stored.theme);
@@ -91,9 +93,8 @@ export class SettingsService {
     this.systemDark.set(media.matches);
     media.addEventListener("change", (e) => this.systemDark.set(e.matches));
 
-    effect(() => {
-      document.documentElement.dataset["theme"] = this.dark() ? "dark" : "light";
-    });
+    // HxTheme owns the one switch (`.app-dark` on <html>) that the tokens, the Markdown and the code styles follow.
+    effect(() => this.theme.setDark(this.dark()));
 
     effect(() => this.persist(this.snapshot()));
   }

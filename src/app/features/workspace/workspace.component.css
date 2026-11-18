@@ -17,21 +17,21 @@
   gap: 1px;
   overflow-x: auto;
   flex: none;
-  background: var(--chrome);
-  border-bottom: 1px solid var(--border);
+  background: var(--h-surface-frame);
+  border-bottom: 1px solid var(--h-content-border-color);
 }
 
 .tab {
   display: flex;
   align-items: center;
   max-width: 200px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   border-bottom: 2px solid transparent;
 }
 
 .tab.active {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
+  color: var(--h-text-color);
+  border-bottom-color: var(--h-primary-color);
 }
 
 .tab button,
@@ -60,33 +60,33 @@
 
 .close:hover,
 .new:hover {
-  background: var(--hover);
+  background: var(--h-surface-hover);
   opacity: 1;
 }
 
 .new {
   padding: 0 10px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .pane.focused .tab.active {
-  border-bottom-color: var(--accent);
+  border-bottom-color: var(--h-primary-color);
 }
 
 .pane:not(.focused) .tab.active {
-  border-bottom-color: var(--border);
+  border-bottom-color: var(--h-content-border-color);
 }
 
 .divider {
   flex: none;
   width: 5px;
   cursor: col-resize;
-  background: var(--border);
+  background: var(--h-content-border-color);
   touch-action: none;
 }
 
 .divider:hover,
 .divider:focus-visible {
-  background: var(--accent);
+  background: var(--h-primary-color);
   outline: none;
 }
