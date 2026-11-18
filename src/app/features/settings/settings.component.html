@@ -1,5 +1,4 @@
-<div class="backdrop" (click)="page.close()" role="presentation"></div>
-<div class="dialog" role="dialog" aria-label="Settings">
+<div class="dialog" role="region" aria-label="Settings">
   <nav aria-label="Settings sections">
     @for (section of page.sections(); track section.id) {
       <button

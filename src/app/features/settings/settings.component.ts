@@ -10,7 +10,6 @@ import { SettingsPageService } from "../../core/settings/settings-page.service";
   selector: "app-settings",
   templateUrl: "./settings.component.html",
   styleUrl: "./settings.component.css",
-  host: { "(document:keydown.escape)": "page.close()" },
 })
 export class SettingsComponent implements OnDestroy {
   protected readonly page = inject(SettingsPageService);
@@ -29,7 +28,7 @@ export class SettingsComponent implements OnDestroy {
     this.shortcuts.cancel();
   }
 
-  /** While recording, the button swallows every key so no command runs and Escape does not close the page. */
+  /** While recording, the button swallows every key so no command runs. */
   protected onShortcutKey(event: KeyboardEvent): void {
     if (!this.shortcuts.recording()) return;
     event.preventDefault();

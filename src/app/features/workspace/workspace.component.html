@@ -21,25 +21,22 @@
     (pointerdown)="tabs.focusPane(pane.id)"
     (focusin)="tabs.focusPane(pane.id)"
   >
-    <div class="tabbar" role="tablist">
-      @for (tab of pane.tabs; track tab.id) {
-        <div class="tab" role="presentation" [class.active]="tab.id === pane.activeId">
-          <button
-            type="button"
-            role="tab"
-            class="label"
-            [attr.aria-selected]="tab.id === pane.activeId"
-            [title]="tab.doc.path() ?? 'New tab'"
-            (click)="tabs.activate(pane.id, tab.id)"
-            (auxclick)="middleClose($event, pane, tab)"
-          >
-            {{ title(tab) }}
-          </button>
-          <button type="button" class="close" aria-label="Close tab" (click)="closeTab($event, pane, tab)">✕</button>
-        </div>
-      }
+    <hx-tab-bar
+      class="tabbar"
+      ariaLabel="Open tabs"
+      [groupId]="'pane-' + pane.id"
+      [tabs]="items(pane)"
+      [value]="'' + pane.activeId"
+      [menu]="menu"
+      allTabsButton
+      (valueChange)="activate(pane, $event)"
+      (closed)="closeTab(pane, $event)"
+      (moved)="tabs.moveTab(pane.id, $event.from, $event.to)"
+      (received)="receive(pane, $event)"
+      (menuAction)="onMenu(pane, $event)"
+    >
       <button type="button" class="new" aria-label="New tab" title="New tab" (click)="addTab(pane)">+</button>
-    </div>
+    </hx-tab-bar>
     @for (tab of [shown(pane)]; track tab.id) {
       <ng-container *ngComponentOutlet="paneType; injector: tab.injector" />
     }

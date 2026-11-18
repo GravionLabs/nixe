@@ -11,7 +11,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import { HealthReport } from "../../core/file/backend";
-import { DocumentService } from "../../core/file/document.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { HealthService, HealthState } from "../../core/index/health.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -26,7 +26,6 @@ const report: HealthReport = {
 
 function render(state: HealthState, value: HealthReport | null) {
   const open = vi.fn().mockResolvedValue(undefined);
-  const close = vi.fn();
   const setExcluded = vi.fn();
   const refresh = vi.fn();
   TestBed.resetTestingModule();
@@ -34,10 +33,10 @@ function render(state: HealthState, value: HealthReport | null) {
     providers: [
       {
         provide: HealthService,
-        useValue: { state: signal(state), report: signal(value), key: signal("k"), refresh, close, setExcluded },
+        useValue: { state: signal(state), report: signal(value), key: signal("k"), refresh, setExcluded },
       },
       { provide: SettingsService, useValue: { healthExclude: signal(["templates"]) } },
-      { provide: DocumentService, useValue: { open } },
+      { provide: TabsService, useValue: { openInNewTab: open } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
     ],
   });
@@ -50,7 +49,7 @@ function render(state: HealthState, value: HealthReport | null) {
   });
   const fixture = TestBed.createComponent(HealthComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, open, close, setExcluded, refresh };
+  return { el: fixture.nativeElement as HTMLElement, open, setExcluded, refresh };
 }
 
 describe("HealthComponent", () => {
@@ -81,15 +80,13 @@ describe("HealthComponent", () => {
     ]);
   });
 
-  it("shows the excluded folders, forwards edits and closes", () => {
-    const { el, setExcluded, close } = render("ready", report);
+  it("shows the excluded folders, forwards edits", () => {
+    const { el, setExcluded } = render("ready", report);
     const input = el.querySelector("input")!;
     expect(input.value).toBe("templates");
     input.value = "templates, archive";
     input.dispatchEvent(new Event("change"));
     expect(setExcluded).toHaveBeenCalledWith("templates, archive");
-    el.querySelector<HTMLButtonElement>("button.close")!.click();
-    expect(close).toHaveBeenCalled();
   });
 
   it("says so while indexing and when the index failed", () => {

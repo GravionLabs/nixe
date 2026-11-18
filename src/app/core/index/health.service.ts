@@ -12,7 +12,6 @@ export class HealthService {
   private readonly index = inject(IndexService);
   private readonly settings = inject(SettingsService);
 
-  readonly visible = signal(false);
   readonly report = signal<HealthReport | null>(null);
   private readonly failed = signal(false);
   private request = 0;
@@ -28,14 +27,6 @@ export class HealthService {
   readonly key = computed(
     () => `${this.index.status().state}|${this.index.revision()}|${this.settings.healthExclude().join("\n")}`,
   );
-
-  open(): void {
-    this.visible.set(true);
-  }
-
-  close(): void {
-    this.visible.set(false);
-  }
 
   /** Sets the excluded folders from a comma or line separated list. */
   setExcluded(text: string): void {

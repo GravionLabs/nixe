@@ -106,6 +106,11 @@ is watched for external changes; the watcher event goes to every tab showing tha
 - Commands: `new-tab` (⌘/Ctrl+T), `close-tab` (⌘/Ctrl+W; closes the window when only an empty tab is
   left), `next-tab` / `previous-tab` (⌃Tab, ⌃⇧Tab), `split-right`, `unsplit`, `focus-other-pane`.
   ⌘/Ctrl+click on a link, a tree entry or a backlink opens the note in a new tab.
+- Views as tabs: settings and the vault health report are not notes; they open as a tab
+  (`TabsService.openView`, at most one of each: the open one is focused, also in the other pane).
+  The tab keeps an empty document, so it never reaches the back/forward history; opening a note into
+  it turns it into a note tab. `TabState.view` stores it, so it is restored on start. The tab strip of
+  each pane is `HxTabBar` (close, reorder, drag between panes, all-tabs menu).
 - The same note in two panes: typing in an editor is passed to the other tabs on that note
   (`DocumentService.typed` → `remote`), an editor there applies it as a change that is not saved
   again; a save marks the write as the pane's own so the watcher does not report a conflict.

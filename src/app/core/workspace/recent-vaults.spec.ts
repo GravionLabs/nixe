@@ -35,7 +35,7 @@ describe("recent vaults", () => {
 });
 
 describe("sanitizeStates layout", () => {
-  const tab = { path: "/a/x.md", history: ["/a/x.md"], index: 0, editing: true, line: 2 };
+  const tab = { view: null, path: "/a/x.md", history: ["/a/x.md"], index: 0, editing: true, line: 2 };
 
   it("keeps the stored tabs of a vault", () => {
     const layout = { panes: [{ tabs: [tab], active: 0 }], focused: 0, ratio: 0.5 };
