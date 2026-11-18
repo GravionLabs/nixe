@@ -11,6 +11,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **deps**: Renovate opens its pull requests against the default branch (#203)
 
 
+### Documentation
+- Update CHANGELOG.md for v1.3.2 [skip ci]
+
+
 ## [1.3.1] — 2026-11-18
 
 ### Bug Fixes
