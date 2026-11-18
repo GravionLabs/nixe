@@ -5,6 +5,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.1] — 2026-11-18
+
+### Bug Fixes
+- **deps**: 7-day minimum release age (#193)
+
+
 ## [1.3.0] — 2026-11-17
 
 ### Bug Fixes
@@ -12,6 +18,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **ci**: Grant pull-requests: write to the pr-checks job (#191) (#192)
 - **updater**: Set the updater public key (#168) (#190)
 - **updater**: Align the npm plugin with the crate version (#194) (#195)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.3.0 [skip ci]
 
 
 ### Features
