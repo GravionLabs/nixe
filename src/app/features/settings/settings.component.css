@@ -1,29 +1,15 @@
 :host {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
   display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgb(0 0 0 / 0.3);
+  min-height: 0;
 }
 
 .dialog {
-  position: relative;
   display: flex;
-  width: min(820px, 92vw);
-  height: min(560px, 80vh);
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 8px;
+  flex: 1;
+  min-width: 0;
   background: var(--h-surface-frame);
   color: var(--h-text-color);
   font-size: 13px;
-  box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
   overflow: hidden;
 }
 

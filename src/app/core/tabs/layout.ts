@@ -1,6 +1,12 @@
+/** The views that open as a tab instead of a note. */
+export const TAB_VIEWS = ["settings", "health"] as const;
+export type TabView = (typeof TAB_VIEWS)[number];
+
 /** What a vault restores of its tabs: the panes, their tabs and the divider. */
 export interface TabState {
-  /** The shown note; null for an empty tab. */
+  /** The view of a tab that is not a note; null for a note or an empty tab. */
+  view: TabView | null;
+  /** The shown note; null for an empty tab or a view. */
   path: string | null;
   /** Back/forward list of the tab and the position in it. */
   history: string[];
@@ -39,6 +45,8 @@ export function clampRatio(ratio: number): number {
 function sanitizeTab(raw: unknown): TabState | null {
   if (typeof raw !== "object" || raw === null) return null;
   const t = raw as Record<string, unknown>;
+  const view = TAB_VIEWS.find((v) => v === t["view"]) ?? null;
+  if (view) return { view, path: null, history: [], index: -1, editing: false, line: null };
   const path = typeof t["path"] === "string" && t["path"] !== "" ? t["path"] : null;
   const history = Array.isArray(t["history"])
     ? t["history"].filter((p): p is string => typeof p === "string" && p !== "").slice(-MAX_HISTORY)
@@ -46,6 +54,7 @@ function sanitizeTab(raw: unknown): TabState | null {
   const index = typeof t["index"] === "number" && Number.isInteger(t["index"]) ? t["index"] : history.length - 1;
   const line = typeof t["line"] === "number" && Number.isFinite(t["line"]) && t["line"] >= 1 ? Math.floor(t["line"]) : null;
   return {
+    view: null,
     path,
     history,
     index: Math.min(Math.max(index, -1), history.length - 1),
@@ -83,7 +92,7 @@ export function sanitizeLayout(value: unknown): LayoutState | null {
   };
 }
 
-/** True when some tab of the layout shows a note. */
+/** True when some tab of the layout shows a note or a view. */
 export function layoutHasNote(layout: LayoutState): boolean {
-  return layout.panes.some((p) => p.tabs.some((t) => t.path !== null));
+  return layout.panes.some((p) => p.tabs.some((t) => t.path !== null || t.view !== null));
 }

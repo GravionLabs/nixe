@@ -18,9 +18,6 @@
   @if (showSearch()) {
     <app-search (error)="showToast($event)" />
   }
-  @if (showHealth()) {
-    <app-health (error)="showToast($event)" />
-  }
   @if (showGit()) {
     <app-git (error)="showToast($event)" (committed)="showToast('Committed')" />
   }
@@ -85,10 +82,6 @@
 
 @if (recent.visible()) {
   <app-recent />
-}
-
-@if (settingsPage.visible()) {
-  <app-settings />
 }
 
 <app-link-preview />

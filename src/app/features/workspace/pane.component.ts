@@ -7,6 +7,8 @@ import { SettingsService } from "../../core/settings/settings.service";
 import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { EditorComponent } from "../editor/editor.component";
+import { HealthComponent } from "../health/health.component";
+import { SettingsComponent } from "../settings/settings.component";
 import { ViewerComponent } from "../viewer/viewer.component";
 
 /**
@@ -15,9 +17,13 @@ import { ViewerComponent } from "../viewer/viewer.component";
  */
 @Component({
   selector: "app-pane",
-  imports: [EditorComponent, ViewerComponent],
+  imports: [EditorComponent, HealthComponent, SettingsComponent, ViewerComponent],
   template: `
-    @if (doc.path()) {
+    @if (tab.view() === "settings") {
+      <app-settings class="view" />
+    } @else if (tab.view() === "health") {
+      <app-health class="view" (error)="tabs.notice.set($event)" />
+    } @else if (doc.path()) {
       @if (editor.editing()) {
         @defer (on immediate) {
           <app-editor class="note" (error)="tabs.notice.set($event)" />
@@ -34,6 +40,10 @@ import { ViewerComponent } from "../viewer/viewer.component";
       display: flex;
       flex: 1;
       min-height: 0;
+      min-width: 0;
+    }
+    .view {
+      flex: 1;
       min-width: 0;
     }
     .note {
@@ -53,7 +63,7 @@ export class PaneComponent implements OnDestroy {
   protected readonly tabs = inject(TabsService);
   private readonly markdown = inject(MarkdownService);
   private readonly workspace = inject(WorkspaceService);
-  private readonly tab = inject(CURRENT_TAB);
+  protected readonly tab = inject(CURRENT_TAB);
   private readonly viewer = viewChild(ViewerComponent);
 
   protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
@@ -74,6 +84,10 @@ export class PaneComponent implements OnDestroy {
     effect(() => {
       const viewer = this.viewer();
       this.tab.viewer = viewer ? { topLine: () => viewer.topLine(), openFind: () => viewer.openFind() } : null;
+    });
+    // A note opened into a tab that shows a view (the sidebar opens into the shown tab) replaces it.
+    effect(() => {
+      if (this.tab.view() !== null && this.doc.path() !== null) this.tab.view.set(null);
     });
   }
 

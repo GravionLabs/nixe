@@ -1,12 +1,12 @@
 import { Component, effect, inject, output, untracked } from "@angular/core";
 
-import { DocumentService } from "../../core/file/document.service";
 import { HealthService } from "../../core/index/health.service";
 import { joinPath } from "../../core/markdown/paths";
 import { SettingsService } from "../../core/settings/settings.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
-/** Left-hand panel: the problems of the vault, each entry opens the note. */
+/** The vault health tab: the problems of the vault, each entry opens the note. */
 @Component({
   selector: "app-health",
   templateUrl: "./health.component.html",
@@ -15,7 +15,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 export class HealthComponent {
   protected readonly health = inject(HealthService);
   protected readonly settings = inject(SettingsService);
-  private readonly doc = inject(DocumentService);
+  private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
 
   readonly error = output<string>();
@@ -35,7 +35,8 @@ export class HealthComponent {
     const root = this.workspace.vaultRoot();
     if (!root) return;
     try {
-      await this.doc.open(joinPath(root, rel), { line });
+      // The health tab stays: the note opens in a tab of its own.
+      await this.tabs.openInNewTab(joinPath(root, rel), { line });
     } catch (err) {
       this.error.emit(String(err));
     }
