@@ -341,19 +341,23 @@ fn scans_2000_notes_quickly() {
 
 #[test]
 fn a_second_opener_during_creation_keeps_the_database() {
-    let base = temp_dir("race");
-    let db = base.join("index/v.sqlite");
-    let handles: Vec<_> = (0..8)
-        .map(|_| {
-            let db = db.clone();
-            std::thread::spawn(move || {
-                let conn = open(&db).unwrap();
-                assert!(tables(&conn).contains(&"notes".to_string()));
+    // Switching a new file to WAL does not call the busy handler while other connections open it
+    // (#207), so one round fails only now and then; many rounds make a regression certain.
+    for round in 0..30 {
+        let base = temp_dir(&format!("race-{round}"));
+        let db = base.join("index/v.sqlite");
+        let handles: Vec<_> = (0..8)
+            .map(|_| {
+                let db = db.clone();
+                std::thread::spawn(move || {
+                    let conn = open(&db).unwrap();
+                    assert!(tables(&conn).contains(&"notes".to_string()));
+                })
             })
-        })
-        .collect();
-    for h in handles {
-        h.join().unwrap();
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
     }
 }
 

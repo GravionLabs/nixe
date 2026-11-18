@@ -87,6 +87,9 @@ pub fn vault_hash(root: &Path) -> String {
     format!("{hash:016x}")
 }
 
+/// How long an opener waits for a lock held by another connection.
+const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
 /// Opens the index at `path`, creating it. A file with another schema version, or one that is
 /// not a database, is deleted and created anew. Other errors (a busy database, for example)
 /// are returned and never delete anything.
@@ -112,8 +115,8 @@ fn is_unusable(e: &rusqlite::Error) -> bool {
 
 fn try_open(path: &Path) -> rusqlite::Result<Connection> {
     let mut conn = Connection::open(path)?;
-    conn.busy_timeout(std::time::Duration::from_secs(10))?;
-    conn.pragma_update(None, "journal_mode", "WAL")?;
+    conn.busy_timeout(BUSY_TIMEOUT)?;
+    enable_wal(&conn)?;
     conn.pragma_update(None, "synchronous", "NORMAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
     if read_version(&conn)? == SCHEMA_VERSION {
@@ -132,6 +135,29 @@ fn try_open(path: &Path) -> rusqlite::Result<Connection> {
     tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     tx.commit()?;
     Ok(conn)
+}
+
+/// Switches the database to WAL. On a new file SQLite answers `database is locked` at once, without
+/// calling the busy handler, when another connection opens the file at the same time (#207), so the
+/// `busy_timeout` does not help here: retry for as long as it would have waited. A database that
+/// is already in WAL mode accepts the pragma at any time.
+fn enable_wal(conn: &Connection) -> rusqlite::Result<()> {
+    let start = std::time::Instant::now();
+    loop {
+        match conn.pragma_update(None, "journal_mode", "WAL") {
+            Err(e) if is_busy(&e) && start.elapsed() < BUSY_TIMEOUT => {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            other => return other,
+        }
+    }
+}
+
+fn is_busy(e: &rusqlite::Error) -> bool {
+    matches!(
+        e.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)
+    )
 }
 
 fn read_version(conn: &Connection) -> rusqlite::Result<i32> {
