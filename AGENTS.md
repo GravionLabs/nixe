@@ -6,6 +6,8 @@ Nixe is a Tauri 2 desktop app: an Angular frontend (`src/`) and a Rust core (`sr
 
 - Node version: `.nvmrc`. Package manager: pnpm (`pnpm install --frozen-lockfile`).
 - Rust: stable toolchain; the crate is `src-tauri/Cargo.toml`.
+- Dependencies: a release younger than 7 days is not installed (`minimumReleaseAge` in `pnpm-workspace.yaml`). Renovate (`.github/renovate.json5`, run weekly by `.github/workflows/renovate.yml`) opens the update pull requests against `release/next` with the same 7 days from the preset `github>GravionLabs/ci`.
+- Workflows reference every action, also those of GravionLabs/ci, by the commit SHA of a release with the version as comment (`owner/action@<sha> # v1.2.3`); Renovate raises the pins.
 
 ## Checks
 

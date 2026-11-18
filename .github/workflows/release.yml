@@ -14,22 +14,22 @@ jobs:
     outputs:
       semver: ${{ steps.version.outputs.semver }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
       - name: Determine version
         id: version
-        uses: GravionLabs/ci/versioning/determine-version@main
+        uses: GravionLabs/ci/versioning/determine-version@511932d4b5d0d7c77149bb705cfc2b6bae5f2df1 # v1.15.0
         with:
           gitversion-config-file: GitVersion.yml
 
   test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -39,8 +39,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
       - run: cargo test --manifest-path src-tauri/Cargo.toml
@@ -61,7 +63,7 @@ jobs:
       pull-requests: read # close-issues reads the release PR
     steps:
       - name: Create GitHub release
-        uses: GravionLabs/ci/versioning/gh-release@v1
+        uses: GravionLabs/ci/versioning/gh-release@511932d4b5d0d7c77149bb705cfc2b6bae5f2df1 # v1.15.0
         with:
           version: ${{ needs.determine-version.outputs.semver }}
           changelog-file: CHANGELOG.md
@@ -108,9 +110,9 @@ jobs:
       PUBLISH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       SIGN_MACOS: ${{ startsWith(matrix.platform, 'macos') && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -152,10 +154,11 @@ jobs:
             const cargo = fs.readFileSync(cargoPath, 'utf8');
             fs.writeFileSync(cargoPath, cargo.replace(/^version = \".*\"/m, \`version = \"\${version}\"\`));
           "
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
+          toolchain: stable
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-      - uses: swatinem/rust-cache@v2
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
       - name: Install Linux dependencies
@@ -191,7 +194,7 @@ jobs:
           done
           echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
           printf '%s' "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Signs the update packages (updater key pair, docs/updater.md); only a publish gets the key.
@@ -232,7 +235,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Write, check and upload SHA256SUMS
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
