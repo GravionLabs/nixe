@@ -5,10 +5,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.2] — 2026-11-18
+
+### Bug Fixes
+- **deps**: Renovate opens its pull requests against the default branch (#203)
+
+
 ## [1.3.1] — 2026-11-18
 
 ### Bug Fixes
 - **deps**: 7-day minimum release age (#193)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.3.1 [skip ci]
 
 
 ## [1.3.0] — 2026-11-17
