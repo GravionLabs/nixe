@@ -3,3 +3,11 @@ allowBuilds:
   esbuild: true
   lmdb: true
   msgpackr-extract: true
+# 7 days, in minutes: a younger release reaches neither the lockfile nor an install (GravionLabs/ci#239).
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  # In the lockfile before the 7 days applied and younger than that on 2026-11-18; remove after 2026-11-20.
+  - "@codemirror/lint@6.9.8"
+  - "jsdom@31.0.1"
+  - "tldts-core@7.5.2"
+  - "tldts@7.5.2"
