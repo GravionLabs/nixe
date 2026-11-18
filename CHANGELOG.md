@@ -5,6 +5,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.4] — 2026-11-18
+
+### Bug Fixes
+- **index**: Retry the WAL switch while another opener holds the new database (#207)
+
+
+## [1.3.3] — 2026-11-18
+
+### Documentation
+- Update CHANGELOG.md for v1.3.3 [skip ci]
+
+
 ## [1.3.2] — 2026-11-18
 
 ### Bug Fixes
