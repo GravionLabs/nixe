@@ -20,6 +20,8 @@ export class SettingsComponent implements OnDestroy {
   private readonly recorder = viewChild<ElementRef<HTMLButtonElement>>("recorder");
 
   constructor() {
+    // A restored tab (or another vault) has no Obsidian settings loaded yet.
+    void this.page.refreshObsidian();
     effect(() => this.input()?.nativeElement.focus());
     effect(() => this.recorder()?.nativeElement.focus());
   }
