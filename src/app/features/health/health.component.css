@@ -5,9 +5,9 @@
   width: 340px;
   min-width: 0;
   overflow-y: auto;
-  border-right: 1px solid var(--border);
-  background: var(--chrome);
-  color: var(--fg);
+  border-right: 1px solid var(--h-content-border-color);
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
   font-size: 13px;
 }
 
@@ -17,20 +17,20 @@ header {
   justify-content: space-between;
   height: 34px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--h-content-border-color);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 input {
   margin: 8px 12px;
   padding: 5px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--h-content-background);
   color: inherit;
   font: inherit;
 }
@@ -43,12 +43,12 @@ ul {
 
 li {
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--h-content-border-color);
 }
 
 .status {
   margin: 4px 12px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 button {
@@ -66,14 +66,14 @@ button {
 }
 
 button:hover {
-  background: var(--hover);
+  background: var(--h-surface-hover);
 }
 
 button.close {
   width: auto;
   padding: 0 6px;
   font-size: 16px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .name {
@@ -85,19 +85,19 @@ button.close {
 
 .path {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .snippet {
   display: block;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   overflow-wrap: anywhere;
 }
 
 mark {
   background: color-mix(in srgb, gold 45%, transparent);
-  color: var(--fg);
+  color: var(--h-text-color);
 }
 
 h2 {
@@ -108,7 +108,7 @@ h2 {
 
 .count {
   margin-left: 4px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   font-weight: 400;
 }
 
@@ -117,7 +117,7 @@ h2 {
   flex-direction: column;
   padding: 8px 12px 0;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .exclude input {
@@ -126,7 +126,7 @@ h2 {
 
 .detail {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

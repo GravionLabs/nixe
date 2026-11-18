@@ -3,7 +3,7 @@
   flex-direction: column;
   height: 100%;
   min-width: 0;
-  background: var(--bg);
+  background: var(--h-content-background);
 }
 
 .host {
@@ -16,9 +16,9 @@
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  border-bottom: 1px solid var(--error-border);
-  background: var(--error-bg);
-  color: var(--error-fg);
+  border-bottom: 1px solid var(--h-message-error-border-color);
+  background: var(--h-message-error-background);
+  color: light-dark(var(--h-red-700), var(--h-red-300));
 }
 
 .bar span {
@@ -28,14 +28,14 @@
 .bar button {
   height: 28px;
   padding: 0 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 6px;
-  background: var(--chrome);
-  color: var(--fg);
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
   font: inherit;
   cursor: pointer;
 }
 
 .bar button:hover {
-  background: var(--hover);
+  background: var(--h-surface-hover);
 }

@@ -2,7 +2,7 @@
   display: block;
   height: 100%;
   overflow: auto;
-  background: var(--bg);
+  background: var(--h-content-background);
 }
 
 .properties-host {
@@ -68,30 +68,30 @@
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: var(--chrome);
-  color: var(--fg);
-  border-bottom: 1px solid var(--muted);
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
+  border-bottom: 1px solid var(--h-text-muted-color);
 }
 
 .find-bar .find-input {
   flex: 1;
   min-width: 0;
   padding: 3px 6px;
-  color: var(--fg);
-  background: var(--bg);
-  border: 1px solid var(--muted);
+  color: var(--h-text-color);
+  background: var(--h-content-background);
+  border: 1px solid var(--h-text-muted-color);
   border-radius: 3px;
 }
 
 .find-bar .find-count {
   min-width: 5em;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   font-size: 0.85em;
   text-align: right;
 }
 
 .find-bar button {
-  color: var(--fg);
+  color: var(--h-text-color);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 3px;
@@ -99,8 +99,8 @@
 }
 
 .find-bar button.active {
-  color: var(--bg);
-  background: var(--accent);
+  color: var(--h-content-background);
+  background: var(--h-primary-color);
 }
 
 .markdown-body:focus {

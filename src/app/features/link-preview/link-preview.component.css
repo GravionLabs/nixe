@@ -8,9 +8,9 @@
   overflow: auto;
   box-sizing: border-box;
   padding: 4px 16px 12px;
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border);
+  background: var(--h-content-background);
+  color: var(--h-text-color);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   font-size: 13px;
@@ -28,8 +28,8 @@
 :host ::ng-deep .embed {
   margin: 1em 0;
   padding: 0 1em;
-  border-left: 3px solid var(--border);
-  background: var(--hover);
+  border-left: 3px solid var(--h-content-border-color);
+  background: var(--h-surface-hover);
   border-radius: 4px;
 }
 

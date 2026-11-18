@@ -28,9 +28,9 @@ import { basename } from "../../core/markdown/paths";
       align-items: center;
       gap: 8px;
       padding: 6px 12px;
-      border-bottom: 1px solid var(--border);
-      background: var(--chrome);
-      color: var(--fg);
+      border-bottom: 1px solid var(--h-content-border-color);
+      background: var(--h-surface-frame);
+      color: var(--h-text-color);
       font-size: 12px;
     }
     .text {
@@ -41,20 +41,20 @@ import { basename } from "../../core/markdown/paths";
       white-space: nowrap;
     }
     .link {
-      color: var(--accent);
+      color: var(--h-primary-color);
     }
     button {
       height: 24px;
       padding: 0 10px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--h-content-border-color);
       border-radius: 6px;
-      background: var(--bg);
-      color: var(--fg);
+      background: var(--h-content-background);
+      color: var(--h-text-color);
       font: inherit;
       cursor: pointer;
     }
     button:hover {
-      background: var(--hover);
+      background: var(--h-surface-hover);
     }
   `,
 })

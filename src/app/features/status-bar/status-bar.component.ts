@@ -39,9 +39,9 @@ import { GitService } from "../../core/git/git.service";
       align-items: center;
       min-height: 22px;
       padding: 0 8px;
-      border-top: 1px solid var(--border);
-      background: var(--chrome);
-      color: var(--muted);
+      border-top: 1px solid var(--h-content-border-color);
+      background: var(--h-surface-frame);
+      color: var(--h-text-muted-color);
       font-size: 12px;
     }
 
@@ -57,7 +57,7 @@ import { GitService } from "../../core/git/git.service";
     }
 
     .result.error {
-      color: var(--error-fg);
+      color: light-dark(var(--h-red-700), var(--h-red-300));
     }
 
     .result {
@@ -69,7 +69,7 @@ import { GitService } from "../../core/git/git.service";
     }
 
     button:hover:not(:disabled) {
-      background: var(--hover);
+      background: var(--h-surface-hover);
     }
   `,
 })

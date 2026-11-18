@@ -42,7 +42,7 @@ import { ViewerComponent } from "../viewer/viewer.component";
     }
     .empty {
       margin: auto;
-      color: var(--muted);
+      color: var(--h-text-muted-color);
     }
   `,
 })
