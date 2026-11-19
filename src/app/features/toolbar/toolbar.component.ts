@@ -1,16 +1,22 @@
-import { Component, computed, inject } from "@angular/core";
+import { Component, inject } from "@angular/core";
+import { HxAppToolbar } from "@gravionlabs/helix-desktop";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
-import { ShellService } from "../../core/shell/shell.service";
-import { SettingsService, ZOOM_MAX, ZOOM_MIN } from "../../core/settings/settings.service";
+import { SettingsService } from "../../core/settings/settings.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
 const MOD = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
 
+/**
+ * The slim bar of the open note: back and forward, the title, the edit toggle, outline and backlinks.
+ * Everything else (sidebar, open, zoom, version, LaTeX, theme) lives in the activity bar, the status
+ * bar, the settings page and the command palette.
+ */
 @Component({
   selector: "app-toolbar",
+  imports: [HxAppToolbar],
   templateUrl: "./toolbar.component.html",
   styleUrl: "./toolbar.component.css",
 })
@@ -19,18 +25,11 @@ export class ToolbarComponent {
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
   protected readonly editor = inject(EditorService);
-  protected readonly shell = inject(ShellService);
   private readonly commands = inject(CommandRegistry);
   protected readonly mod = MOD;
-  protected readonly zoomMin = ZOOM_MIN;
-  protected readonly zoomMax = ZOOM_MAX;
 
-  protected readonly themeLabel = computed(
-    () => ({ system: "System", light: "Light", dark: "Dark" })[this.settings.themeMode()],
-  );
-
-  /** Runs the same command as the shortcut and the menu entry. */
-  protected toggleEditor(): void {
-    this.commands.execute("toggle-editor");
+  /** Runs the same command as the shortcut and the palette entry. */
+  protected run(id: string): void {
+    this.commands.execute(id);
   }
 }
