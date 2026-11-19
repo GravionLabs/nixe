@@ -1,3 +1,6 @@
+// SCSS on purpose, the one exception to "CSS is the default" in this app: `meta.load-css()` below loads
+// the GitHub markdown and highlight.js themes into a light and a dark selector, which CSS cannot do.
+// Component styles and everything new are plain CSS.
 @use "sass:meta";
 
 // ---------------------------------------------------------------------------
