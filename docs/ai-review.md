@@ -14,8 +14,9 @@ you have merged it.
   reading notes). You review and merge it as a whole, so a small branch is easy to judge.
 - **Small commits with a clear message.** Nixe shows the commit messages of the branch next to its
   author and date.
-- **Push the branch.** On another device the branch arrives with the next sync (it fetches `origin`);
-  the status bar then shows `n branches to review`.
+- **Push the branch.** Nixe lists a remote branch once its remote-tracking ref exists locally. Sync
+  fetches only the working branch, so on another device run `git fetch` first; the status bar then
+  shows `n branches to review`.
 
 ## In Nixe
 

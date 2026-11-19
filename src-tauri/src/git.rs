@@ -571,8 +571,14 @@ pub fn review_branches(root: &Path, prefix: &str) -> Result<Vec<ReviewBranch>, S
             let c = repo.find_commit(oid.map_err(e)?).map_err(e)?;
             messages.push(c.summary().ok().flatten().unwrap_or("").to_owned());
         }
-        let base = repo.merge_base(head, tip).map_err(e)?;
-        let notes = notes_changed(repo, &base.to_string(), &tip.to_string())?.len();
+        // A branch without common history (orphan) cannot be reviewed; it must not hide the others.
+        let Ok(base) = repo.merge_base(head, tip) else {
+            continue;
+        };
+        let Ok(changed) = notes_changed(repo, &base.to_string(), &tip.to_string()) else {
+            continue;
+        };
+        let notes = changed.len();
         let entry = ReviewBranch {
             name: name.to_owned(),
             tip: tip.to_string(),
@@ -757,6 +763,29 @@ mod tests {
         assert!(x.remote);
         let y = list.iter().find(|b| b.name == "claude/y").unwrap();
         assert!(y.remote);
+    }
+
+    #[test]
+    fn review_branches_skips_a_branch_without_common_history() {
+        let (dir, backend) = repo_with_commit("review-orphan");
+        commit_on_branch(&dir, &backend, "claude/ok", &[("a.md", "x")]);
+        let repo = &backend.repo;
+        let sig = git2::Signature::now("O", "o@example.com").unwrap();
+        let tree = repo
+            .find_tree(repo.treebuilder(None).unwrap().write().unwrap())
+            .unwrap();
+        repo.commit(
+            Some("refs/heads/claude/orphan"),
+            &sig,
+            &sig,
+            "orphan",
+            &tree,
+            &[],
+        )
+        .unwrap();
+        let list = review_branches(&dir, "claude/").unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].name, "claude/ok");
     }
 
     #[test]
