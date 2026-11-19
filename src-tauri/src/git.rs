@@ -219,6 +219,137 @@ pub fn vault_commit(
         .commit(message, fallback)
 }
 
+/// One commit that touched a note (#105).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryEntry {
+    pub id: String,
+    pub author: String,
+    /// Seconds since the epoch.
+    pub time: i64,
+    /// First line of the message.
+    pub message: String,
+    /// The path of the note in this commit (differs from the open path after a rename).
+    pub path: String,
+    /// First parent; `None` for the commit that created the note's repository.
+    pub parent: Option<String>,
+    /// The path of the note in the parent (the old name when this commit renamed it).
+    pub parent_path: String,
+}
+
+fn blob_id(tree: &git2::Tree, path: &str) -> Option<git2::Oid> {
+    tree.get_path(Path::new(path)).ok().map(|e| e.id())
+}
+
+/// The commits that touched `path`, newest first, following renames. Skips `offset` matches
+/// and returns at most `limit`. The walk starts at HEAD every time; a commit costs two tree
+/// lookups, so a few thousand commits stay well under a second.
+pub fn note_history(
+    root: &Path,
+    path: &str,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<HistoryEntry>, String> {
+    let Some(backend) = Git2Backend::open(root) else {
+        return Ok(vec![]);
+    };
+    let repo = &backend.repo;
+    if repo.head().is_err() {
+        return Ok(vec![]);
+    }
+    let mut walk = repo.revwalk().map_err(e)?;
+    walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
+        .map_err(e)?;
+    walk.push_head().map_err(e)?;
+    let mut current = path.to_owned();
+    let mut out = Vec::new();
+    let mut seen = 0usize;
+    for oid in walk {
+        let commit = repo.find_commit(oid.map_err(e)?).map_err(e)?;
+        let tree = commit.tree().map_err(e)?;
+        let Some(here) = blob_id(&tree, &current) else {
+            continue;
+        };
+        let parents: Vec<git2::Commit> = commit.parents().collect();
+        let in_parents: Vec<Option<git2::Oid>> = parents
+            .iter()
+            .map(|p| p.tree().ok().and_then(|t| blob_id(&t, &current)))
+            .collect();
+        // Untouched: some parent has the same content (also covers a merge that took one side).
+        if in_parents.contains(&Some(here)) {
+            continue;
+        }
+        let mut parent_path = current.clone();
+        let mut renamed_from = None;
+        if let Some(first) = parents.first() {
+            if in_parents[0].is_none() {
+                // Added here, or renamed here: look for the old name.
+                let ptree = first.tree().map_err(e)?;
+                let mut diff = repo
+                    .diff_tree_to_tree(Some(&ptree), Some(&tree), None)
+                    .map_err(e)?;
+                let mut find = git2::DiffFindOptions::new();
+                find.renames(true);
+                diff.find_similar(Some(&mut find)).map_err(e)?;
+                for d in diff.deltas() {
+                    if d.status() == git2::Delta::Renamed
+                        && d.new_file().path().and_then(Path::to_str) == Some(current.as_str())
+                    {
+                        renamed_from = d
+                            .old_file()
+                            .path()
+                            .and_then(Path::to_str)
+                            .map(str::to_owned);
+                    }
+                }
+                if let Some(old) = &renamed_from {
+                    parent_path = old.clone();
+                }
+            }
+        }
+        if seen >= offset {
+            out.push(HistoryEntry {
+                id: commit.id().to_string(),
+                author: commit.author().name().unwrap_or("").to_owned(),
+                time: commit.time().seconds(),
+                message: commit.summary().ok().flatten().unwrap_or("").to_owned(),
+                path: current.clone(),
+                parent: parents.first().map(|p| p.id().to_string()),
+                parent_path,
+            });
+            if out.len() >= limit {
+                break;
+            }
+        }
+        seen += 1;
+        if let Some(old) = renamed_from {
+            current = old;
+        }
+    }
+    Ok(out)
+}
+
+/// The text of a note at `rev` (a commit id; `HEAD` works too), or the file on disk for
+/// `None`. A note that does not exist there reads as an empty text.
+pub fn note_version(root: &Path, path: &str, rev: Option<&str>) -> Result<String, String> {
+    let Some(rev) = rev else {
+        return Ok(std::fs::read_to_string(root.join(path)).unwrap_or_default());
+    };
+    let backend =
+        Git2Backend::open(root).ok_or_else(|| "the vault is not a Git repository".to_string())?;
+    let repo = &backend.repo;
+    let tree = repo
+        .revparse_single(rev)
+        .and_then(|o| o.peel_to_commit())
+        .and_then(|c| c.tree())
+        .map_err(e)?;
+    let Some(entry) = tree.get_path(Path::new(path)).ok() else {
+        return Ok(String::new());
+    };
+    let blob = repo.find_blob(entry.id()).map_err(e)?;
+    Ok(String::from_utf8_lossy(blob.content()).into_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,6 +374,79 @@ mod tests {
         let backend = Git2Backend { repo };
         backend.commit(Some("init"), None).unwrap();
         (dir, backend)
+    }
+
+    fn commit_file(dir: &Path, backend: &Git2Backend, name: &str, text: &str, msg: &str) {
+        fs::write(dir.join(name), text).unwrap();
+        backend.commit(Some(msg), None).unwrap();
+    }
+
+    #[test]
+    fn history_lists_the_commits_of_a_note_newest_first() {
+        let (dir, backend) = repo_with_commit("hist");
+        commit_file(&dir, &backend, "b.md", "other", "other note");
+        commit_file(&dir, &backend, "a.md", "a2", "edit a");
+        let h = note_history(&dir, "a.md", 0, 10).unwrap();
+        let msgs: Vec<&str> = h.iter().map(|x| x.message.as_str()).collect();
+        assert_eq!(msgs, ["edit a", "init"]);
+        assert_eq!(h[0].author, "Config Author");
+        assert_eq!(h[1].parent, None);
+        let before = h[0].parent.as_deref().unwrap();
+        assert_eq!(note_version(&dir, "a.md", Some(before)).unwrap(), "a");
+        assert_eq!(note_version(&dir, "a.md", Some(&h[1].id)).unwrap(), "a");
+        assert_eq!(note_version(&dir, "a.md", Some(&h[0].id)).unwrap(), "a2");
+        assert_eq!(note_version(&dir, "a.md", None).unwrap(), "a2");
+        assert_eq!(note_version(&dir, "nope.md", Some("HEAD")).unwrap(), "");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn history_follows_a_rename() {
+        let (dir, backend) = repo_with_commit("rename");
+        let long = "line one\nline two\nline three\nline four\n";
+        commit_file(&dir, &backend, "a.md", long, "write a");
+        fs::rename(dir.join("a.md"), dir.join("sub-b.md")).unwrap();
+        backend.commit(Some("rename"), None).unwrap();
+        commit_file(
+            &dir,
+            &backend,
+            "sub-b.md",
+            &format!("{long}five\n"),
+            "edit b",
+        );
+        let h = note_history(&dir, "sub-b.md", 0, 10).unwrap();
+        let msgs: Vec<&str> = h.iter().map(|x| x.message.as_str()).collect();
+        assert_eq!(msgs, ["edit b", "rename", "write a", "init"]);
+        assert_eq!(h[0].path, "sub-b.md");
+        assert_eq!(h[1].path, "sub-b.md");
+        assert_eq!(h[1].parent_path, "a.md");
+        assert_eq!(h[2].path, "a.md");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn history_pages_and_handles_500_commits() {
+        let (dir, backend) = repo_with_commit("many");
+        for i in 0..499 {
+            commit_file(&dir, &backend, "a.md", &format!("v{i}"), &format!("c{i}"));
+        }
+        let start = std::time::Instant::now();
+        let all = note_history(&dir, "a.md", 0, 1000).unwrap();
+        assert!(start.elapsed().as_secs_f64() < 1.0, "{:?}", start.elapsed());
+        assert_eq!(all.len(), 500);
+        let page = note_history(&dir, "a.md", 100, 50).unwrap();
+        assert_eq!(page.len(), 50);
+        assert_eq!(page[0], all[100]);
+        assert!(note_history(&dir, "a.md", 500, 50).unwrap().is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn history_of_a_folder_without_repository_is_empty() {
+        let dir = temp("hist-none");
+        assert!(note_history(&dir, "a.md", 0, 10).unwrap().is_empty());
+        assert!(note_version(&dir, "a.md", Some("HEAD")).is_err());
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]

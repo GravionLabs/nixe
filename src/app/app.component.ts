@@ -36,6 +36,7 @@ import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { CloneComponent } from "./features/clone/clone.component";
 import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
 import { GitComponent } from "./features/git/git.component";
+import { HistoryComponent } from "./features/history/history.component";
 import { StatusBarComponent } from "./features/status-bar/status-bar.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
@@ -53,7 +54,7 @@ export class NavIconDirective {
 
 @Component({
   selector: "app-root",
-  imports: [HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
+  imports: [HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },

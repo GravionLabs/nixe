@@ -20,6 +20,7 @@ export class ShellService {
     this.commands.register({ id: "toggle-sidebar", title: "Toggle sidebar", shortcut: "Mod+B", run: () => this.toggleSidebar() });
     this.commands.register({ id: "show-files", title: "Show files", run: () => this.show("files") });
     this.commands.register({ id: "search", title: "Search vault", shortcut: "Mod+Shift+F", keys: ["Mod+Shift+F"], when: inVault, run: () => this.show("search") });
+    this.commands.register({ id: "note-history", title: "Note history", when: () => this.git.available(), run: () => this.show("history") });
     this.commands.register({ id: "git-changes", title: "Git changes", when: () => this.git.available(), run: () => this.show("git") });
   }
 
