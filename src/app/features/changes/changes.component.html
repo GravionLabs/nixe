@@ -1,0 +1,57 @@
+<section aria-label="Changes since">
+  <h2>Changes since</h2>
+  <div class="range" role="group" aria-label="Range">
+    <button type="button" [class.on]="changes.kind() === 'sync'" (click)="changes.showSync()">Last sync</button>
+    <button type="button" [class.on]="changes.kind() === 'yesterday'" (click)="changes.showYesterday()">Yesterday</button>
+    <button type="button" [class.on]="changes.kind() === 'commit'" (click)="commit.focus()">Commit</button>
+  </div>
+  <form class="commit" (submit)="$event.preventDefault(); changes.showCommit(commit.value)">
+    <input #commit type="text" aria-label="Commit id" placeholder="Commit id" />
+    <button type="submit">Show</button>
+  </form>
+
+  @if (changes.message(); as message) {
+    <p class="status">{{ message }}</p>
+  }
+  @if (changes.loading()) {
+    <p class="status">Loading…</p>
+  }
+  <ul class="list" aria-label="Changed notes">
+    @for (change of changes.changes(); track change.path) {
+      <li>
+        <button
+          type="button"
+          class="entry"
+          [attr.aria-expanded]="changes.selected() === change.path"
+          [title]="change.path"
+          (click)="changes.toggle(change)"
+        >
+          <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
+          <span class="name">{{ change.path }}</span>
+        </button>
+        @if (change.kind !== "deleted") {
+          <button type="button" class="open" (click)="open(change)">Open</button>
+        }
+        @if (changes.selected() === change.path && changes.diff()) {
+          <div class="diff" aria-label="Difference">
+            <p class="stat"><span class="add">+{{ stat().added }}</span> <span class="del">−{{ stat().removed }}</span></p>
+            @for (row of rows(); track $index) {
+              <div class="row" [class]="row.kind">
+                <span class="sign">{{ row.kind === "add" ? "+" : row.kind === "del" ? "−" : " " }}</span>
+                <span class="text">
+                  @if (row.segments; as segments) {
+                    @for (seg of segments; track $index) {
+                      <span [class.word]="seg.changed">{{ seg.text }}</span>
+                    }
+                  } @else {
+                    {{ row.text }}
+                  }
+                </span>
+              </div>
+            }
+          </div>
+        }
+      </li>
+    }
+  </ul>
+</section>

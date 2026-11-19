@@ -144,6 +144,8 @@ export interface SyncReport {
   committed: boolean;
   pulled: boolean;
   pushed: boolean;
+  /** HEAD before the pull when it brought changes: where "what changed since the sync" starts. */
+  pulledFrom?: string | null;
   /** Vault-relative notes that both sides changed; each kept both versions. */
   conflicts: string[];
 }
@@ -250,6 +252,11 @@ export const backend = {
   /** A note at a commit (empty when it did not exist there), or the file on disk for `rev: null`. */
   gitNoteVersion: (path: string, rev: string | null) => invoke<string>("git_note_version", { path, rev }),
   /** Notes deleted by the last `commits` commits and not present now, newest first. */
+  /** The notes (added, modified, deleted) that differ between the commit `from` and `to` (default HEAD). */
+  gitChangesBetween: (from: string, to: string | null = null) =>
+    invoke<GitChange[]>("git_changes_between", { from, to }),
+  /** The newest commit at or before `time` (seconds since the epoch); null when the history starts later. */
+  gitRevAt: (time: number) => invoke<string | null>("git_rev_at", { time }),
   gitDeletedNotes: (commits: number) => invoke<DeletedNote[]>("git_deleted_notes", { commits }),
   /**
    * Stages everything and commits; returns the commit id. An empty `message` gives

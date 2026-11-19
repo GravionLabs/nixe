@@ -1,6 +1,7 @@
 import { Component, ElementRef, computed, effect, inject, output, signal, viewChild } from "@angular/core";
 
 import { DocumentService } from "../../core/file/document.service";
+import { ChangesService } from "../../core/git/changes.service";
 import { basename } from "../../core/markdown/paths";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
@@ -22,6 +23,7 @@ export interface MenuState {
 export class SidebarComponent {
   protected readonly workspace = inject(WorkspaceService);
   protected readonly doc = inject(DocumentService);
+  protected readonly changes = inject(ChangesService);
   private readonly ops = inject(VaultOpsService);
   private readonly tabs = inject(TabsService);
   readonly error = output<string>();

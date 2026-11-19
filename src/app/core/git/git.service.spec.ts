@@ -116,6 +116,16 @@ describe("GitService", () => {
       expect(git.syncState()).toEqual({ phase: "done", message: "Synced (committed, pulled, pushed)" });
     });
 
+    it("remembers where HEAD was before a pull that brought changes", async () => {
+      const report = { committed: false, pulled: true, pushed: false, pulledFrom: "abc", conflicts: [] };
+      const sync = vi.spyOn(backend, "gitVaultSync").mockResolvedValue(report);
+      await git.sync();
+      expect(git.lastPull()).toEqual({ from: "abc" });
+      sync.mockResolvedValue({ ...report, pulled: false, pulledFrom: null });
+      await git.sync();
+      expect(git.lastPull()).toEqual({ from: "abc" });
+    });
+
     it("says when nothing had to be done", async () => {
       vi.spyOn(backend, "gitVaultSync").mockResolvedValue({ committed: false, pulled: false, pushed: false, conflicts: [] });
       await git.sync();
