@@ -162,6 +162,20 @@ export interface GitStatus {
   behind: number;
 }
 
+/** One commit that touched a note. */
+export interface HistoryEntry {
+  id: string;
+  author: string;
+  /** Seconds since the epoch. */
+  time: number;
+  message: string;
+  /** The note's path in this commit (differs after a rename). */
+  path: string;
+  parent: string | null;
+  /** The note's path in the parent commit. */
+  parentPath: string;
+}
+
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
@@ -218,6 +232,11 @@ export const backend = {
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Git state of the vault; null when the vault is not a Git repository. */
   gitVaultStatus: () => invoke<GitStatus | null>("git_vault_status"),
+  /** Commits that touched a vault-relative note, newest first, following renames; `offset`/`limit` page. */
+  gitNoteHistory: (path: string, offset: number, limit: number) =>
+    invoke<HistoryEntry[]>("git_note_history", { path, offset, limit }),
+  /** A note at a commit (empty when it did not exist there), or the file on disk for `rev: null`. */
+  gitNoteVersion: (path: string, rev: string | null) => invoke<string>("git_note_version", { path, rev }),
   /**
    * Stages everything and commits; returns the commit id. An empty `message` gives
    * `vault backup: <timestamp>`; `name` and `email` are used when the Git config has no author.

@@ -154,6 +154,33 @@ async fn git_vault_status(state: State<'_, AppState>) -> Result<Option<git::GitS
         .map_err(|e| e.to_string())?
 }
 
+/// The commits that touched a note, newest first, following renames (#105).
+#[tauri::command]
+async fn git_note_history(
+    state: State<'_, AppState>,
+    path: String,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<git::HistoryEntry>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::note_history(&root, &path, offset, limit))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// A note at a commit, or the file on disk for `rev: None` (#105).
+#[tauri::command]
+async fn git_note_version(
+    state: State<'_, AppState>,
+    path: String,
+    rev: Option<String>,
+) -> Result<String, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::note_version(&root, &path, rev.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// Stages every change of the vault and commits; returns the commit id.
 /// The author comes from the Git config, else from `name` and `email` (the settings).
 #[tauri::command]
@@ -567,6 +594,8 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_note_history,
+        git_note_version,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
@@ -625,6 +654,8 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_note_history,
+        git_note_version,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,

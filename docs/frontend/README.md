@@ -93,3 +93,7 @@ shows conflicts before saving and stores only the differences from the defaults 
 of the webview key handler (`CommandRegistry.overrides`) and are sent to the native menu
 (`set_menu_shortcuts`), so the menu shows the changed shortcuts. While a shortcut is recorded the
 menu accelerators are off, so the pressed keys do not run commands.
+
+## Note history
+
+The sidebar view `history` (needs a Git vault; command `note-history`) lists the commits that touched the open note, the uncommitted state first (`HistoryService`, `features/history`). Older commits load in pages of 50 when the list is scrolled to its end. One selected entry shows its change against its parent (the uncommitted state against HEAD); two show the difference between them. `core/git/line-diff.ts` computes the line-based diff with word-level highlighting for paired lines; the view has a source mode (the diff) and a rendered mode (both versions rendered side by side).
