@@ -29,6 +29,7 @@ pub mod mcp;
 mod menu;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
+mod review;
 mod settings;
 mod tree;
 mod vault;
@@ -212,6 +213,70 @@ async fn git_review_changes(
     tauri::async_runtime::spawn_blocking(move || git::review_changes(&root, &rev))
         .await
         .map_err(|e| e.to_string())?
+}
+
+/// The hunks of one note of a review branch (#109).
+#[tauri::command]
+async fn git_review_hunks(
+    state: State<'_, AppState>,
+    tip: String,
+    path: String,
+) -> Result<Vec<review::ReviewHunk>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || review::review_hunks(&root, &tip, &path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Commits the accepted changes of a review branch and optionally deletes the branch (#109).
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn git_review_finish(
+    state: State<'_, AppState>,
+    branch: String,
+    tip: String,
+    decisions: Vec<review::NoteDecision>,
+    delete_branch: bool,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<review::ReviewOutcome, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        review::review_finish(
+            &root,
+            &branch,
+            &tip,
+            &decisions,
+            delete_branch,
+            fallback.as_ref(),
+            &credentials::KeyringStore,
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The unfinished decisions of a review branch, as saved (#109).
+#[tauri::command]
+fn git_review_state_load(
+    state: State<'_, AppState>,
+    branch: String,
+) -> Result<Option<String>, String> {
+    review::review_state_load(&vault_root_of(&state)?, &branch)
+}
+
+/// Saves (or, with `None`, removes) the unfinished decisions of a review branch (#109).
+#[tauri::command]
+fn git_review_state_save(
+    state: State<'_, AppState>,
+    branch: String,
+    content: Option<String>,
+) -> Result<(), String> {
+    review::review_state_save(&vault_root_of(&state)?, &branch, content.as_deref())
 }
 
 /// The notes that the last commits deleted (#106).
@@ -659,6 +724,10 @@ pub fn run() {
         git_rev_at,
         git_review_branches,
         git_review_changes,
+        git_review_hunks,
+        git_review_finish,
+        git_review_state_load,
+        git_review_state_save,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
@@ -724,6 +793,10 @@ pub fn run() {
         git_rev_at,
         git_review_branches,
         git_review_changes,
+        git_review_hunks,
+        git_review_finish,
+        git_review_state_load,
+        git_review_state_save,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
