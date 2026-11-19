@@ -90,15 +90,4 @@
     }
     {{ themeLabel() }}
   </button>
-  <span class="sep"></span>
-  <button
-    type="button"
-    class="toggle version"
-    [disabled]="updater.busy()"
-    (click)="updater.check()"
-    title="Check for updates"
-    aria-label="Check for updates"
-  >
-    {{ updater.version() ? "v" + updater.version() : "Updates" }}
-  </button>
 </div>

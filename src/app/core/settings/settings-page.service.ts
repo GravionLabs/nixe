@@ -3,6 +3,7 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 import { CommandRegistry } from "../commands/command-registry";
 import { ObsidianSetting, backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { UpdateService } from "../updater/update.service";
 import { builtinSections } from "./builtin-sections";
 import { SettingsRegistry, filterSections } from "./settings-registry";
 import { SettingsService } from "./settings.service";
@@ -23,10 +24,12 @@ export class SettingsPageService {
 
   constructor() {
     const commands = inject(CommandRegistry);
+    const updater = inject(UpdateService);
     const sections = builtinSections({
       settings: inject(SettingsService),
       obsidian: () => this.obsidian(),
       commands: () => commands.all(),
+      version: () => updater.version(),
     });
     for (const section of sections) this.registry.register(section);
   }

@@ -5,15 +5,17 @@ The plugin and the restart (`tauri-plugin-process`) are desktop only.
 
 ## Use
 
-- **Nixe → Check for Updates…** (macOS) or **Help → Check for Updates…**, the command palette, or the version button
-  in the toolbar (`v<running version>`).
+- **Nixe → Check for Updates…** (macOS) or **Help → Check for Updates…**, the command palette, or the update item
+  at the right of the status bar (it shows the running version next to it).
 - A check runs **only** when you ask for it. Nixe makes no other network call to look for updates, not at startup and
   not on a timer.
-- If a newer version exists, the dialog shows its release notes and **Install and restart**. The package is
+- If a newer version exists, the update item shows `Update <version>`; its popover has the release notes and **Install and restart**. The package is
   downloaded and its signature is verified against `plugins.updater.pubkey` before it is installed. Unsaved text of
   the editor is written to disk before the installer starts (Windows quits the app when the installer runs).
 - An error names the failed step ("Check for updates failed", "Update failed"). After a failed install the update
-  stays in the dialog, so **Retry: Install and restart** needs no new check.
+  stays known, so the update item (`Update failed, retry`) installs again without a new check.
+- An RC build (`1.2.0-rc011`) shows the `RC` badge at its version and offers no update: no item, no menu command.
+- On iOS the status bar is not rendered; the version is on the settings page (General).
 - Pre-releases (`1.2.0-rc011`) are not offered to a stable install: the endpoint is `releases/latest`, which GitHub
   resolves to the newest non-pre-release, and the app also ignores a pre-release answer when it runs a stable version.
 

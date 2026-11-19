@@ -90,9 +90,7 @@
     </div>
   }
 
-  @if (git.available()) {
-    <app-status-bar slot="status" />
-  }
+  <app-status-bar slot="status" />
 </hx-app-shell>
 
 @if (showSwitcher()) {
@@ -105,10 +103,6 @@
 
 @if (cloneVault.visible()) {
   <app-clone />
-}
-
-@if (updater.visible()) {
-  <app-update />
 }
 
 @if (palette.visible()) {

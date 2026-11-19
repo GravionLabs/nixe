@@ -15,7 +15,6 @@ import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { ShellService } from "../../core/shell/shell.service";
-import { UpdateService } from "../../core/updater/update.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { ToolbarComponent } from "./toolbar.component";
 
@@ -35,7 +34,6 @@ function render(opts: { path: string | null; editing: boolean; blocked?: boolean
       },
       { provide: ShellService, useValue: { toggleSidebar: vi.fn() } },
       { provide: WorkspaceService, useValue: { root: signal(null) } },
-      { provide: UpdateService, useValue: { version: signal("1.2.3"), busy: signal(false), check } },
       {
         provide: SettingsService,
         useValue: { zoom: signal(100), math: signal(true), sidebarVisible: signal(true), themeMode: signal("system") },
@@ -78,14 +76,5 @@ describe("ToolbarComponent edit toggle", () => {
     expect(render({ path: null, editing: false }).button.disabled).toBe(true);
     expect(render({ path: "/n.md", editing: true, blocked: true }).button.disabled).toBe(true);
     expect(render({ path: "/n.md", editing: true }).button.disabled).toBe(false);
-  });
-});
-
-describe("ToolbarComponent version control", () => {
-  it("shows the running version and checks for updates on click", () => {
-    const { el, check } = render({ path: null, editing: false });
-    const version = [...el.querySelectorAll("button")].find((b) => b.textContent?.trim() === "v1.2.3")!;
-    version.click();
-    expect(check).toHaveBeenCalled();
   });
 });

@@ -15,7 +15,6 @@ export class UpdateService {
 
   /** The running version; empty until known. */
   readonly version = signal("");
-  readonly visible = signal(false);
   readonly phase = signal<UpdatePhase>("idle");
   /** The offered update; kept after a failed install so it can be retried. */
   readonly update = signal<Update | null>(null);
@@ -35,10 +34,9 @@ export class UpdateService {
     }
   }
 
-  /** The menu entry and the version control: asks the update endpoint once. */
+  /** The menu entry and the status bar: asks the update endpoint once. */
   async check(): Promise<void> {
     if (this.busy()) return;
-    this.visible.set(true);
     this.error.set("");
     this.failedStep.set(null);
     this.phase.set("checking");
@@ -79,11 +77,6 @@ export class UpdateService {
     } catch (err) {
       this.fail("update", err);
     }
-  }
-
-  close(): void {
-    if (this.phase() === "installing") return;
-    this.visible.set(false);
   }
 
   private fail(step: UpdateStep, err: unknown): void {
