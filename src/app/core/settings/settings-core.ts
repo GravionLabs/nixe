@@ -37,6 +37,8 @@ export interface StoredSettings {
   autoSyncMinutes: number;
   autoSyncOnFocus: boolean;
   autoSyncOnQuit: boolean;
+  /** Branches with this prefix that are ahead of the working branch wait for review (#108); empty turns it off. */
+  reviewBranchPrefix: string;
   /** Shortcut of a command id that differs from its default; "" means removed. */
   shortcuts: Record<string, string>;
 }
@@ -65,6 +67,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   autoSyncMinutes: 10,
   autoSyncOnFocus: false,
   autoSyncOnQuit: false,
+  reviewBranchPrefix: "claude/",
   shortcuts: {},
 };
 
@@ -101,6 +104,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     autoSyncMinutes: clampMinutes(Number(o["autoSyncMinutes"] ?? d.autoSyncMinutes)),
     autoSyncOnFocus: o["autoSyncOnFocus"] === true,
     autoSyncOnQuit: o["autoSyncOnQuit"] === true,
+    reviewBranchPrefix: text(o["reviewBranchPrefix"], d.reviewBranchPrefix),
     shortcuts: sanitizeShortcuts(o["shortcuts"]),
   };
 }

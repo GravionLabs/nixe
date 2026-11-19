@@ -171,6 +171,7 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
         },
         toggle("auto-sync-focus", "Sync when the window gets focus", s.autoSyncOnFocus, undefined, ["git"]),
         toggle("auto-sync-quit", "Sync when quitting", s.autoSyncOnQuit, undefined, ["git"]),
+        text("review-branch-prefix", "Review branch prefix", s.reviewBranchPrefix, "Branches with this prefix that are ahead of the working branch wait for review. Empty turns the review off.", "claude/"),
       ],
     },
     {

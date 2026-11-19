@@ -12,6 +12,7 @@ import { CommandRegistry } from "../../core/commands/command-registry";
 import { GitStatus } from "../../core/file/backend";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
+import { ReviewService } from "../../core/git/review.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { ShellService } from "../../core/shell/shell.service";
 import { UpdatePhase, UpdateService } from "../../core/updater/update.service";
@@ -27,6 +28,7 @@ interface Options {
   percent?: number | null;
   zoom?: number;
   pulled?: number;
+  waiting?: number;
 }
 
 function render(o: Options = {}) {
@@ -42,6 +44,7 @@ function render(o: Options = {}) {
     providers: [
       { provide: GitService, useValue: { status: signal(o.status ?? null), sync, syncState: signal(o.syncState ?? { phase: "idle", message: "" }) } },
       { provide: ChangesService, useValue: { pulled: signal(Array.from({ length: o.pulled ?? 0 }, (_, i) => ({ path: `n${i}.md`, kind: "modified" }))), showSync } },
+      { provide: ReviewService, useValue: { count: signal(o.waiting ?? 0) } },
       { provide: ShellService, useValue: { show } },
       { provide: SettingsService, useValue: { zoom } },
       { provide: CommandRegistry, useValue: { execute } },
@@ -104,6 +107,16 @@ describe("StatusBarComponent", () => {
     expect(r.el.querySelector(".pulled")!.textContent).toContain("3 notes changed");
     r.el.querySelector<HTMLElement>(".pulled button")!.click();
     expect(r.showSync).toHaveBeenCalled();
+    expect(r.show).toHaveBeenCalledWith("git");
+  });
+
+  it("shows the number of branches waiting for review and opens the Git view", () => {
+    expect(render({ status: repo }).el.querySelector(".review")).toBeNull();
+    const one = render({ status: repo, waiting: 1 });
+    expect(one.el.querySelector(".review")!.textContent).toContain("1 branch to review");
+    const r = render({ status: repo, waiting: 3 });
+    expect(r.el.querySelector(".review")!.textContent).toContain("3 branches to review");
+    r.el.querySelector<HTMLElement>(".review button")!.click();
     expect(r.show).toHaveBeenCalledWith("git");
   });
 

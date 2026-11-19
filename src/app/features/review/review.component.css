@@ -1,0 +1,122 @@
+:host {
+  display: block;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status {
+  margin: 4px 0;
+  color: var(--h-text-muted-color);
+  font-size: 12px;
+}
+
+.branch,
+.entry {
+  display: flex;
+  width: 100%;
+  text-align: left;
+}
+
+.branch {
+  flex-direction: column;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta,
+.messages {
+  font-size: 11px;
+  color: var(--h-text-muted-color);
+}
+
+.messages {
+  padding: 0 8px 4px;
+}
+
+.tag {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--h-text-muted-color);
+}
+
+.entry {
+  gap: 6px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 11px;
+}
+
+.toolbar .stat {
+  flex: 1;
+}
+
+.toolbar .on {
+  font-weight: 600;
+}
+
+.kind.added,
+.add {
+  color: #2da44e;
+}
+
+.kind.deleted,
+.del {
+  color: #cf222e;
+}
+
+.diff {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  overflow: auto;
+}
+
+.row {
+  display: flex;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.row .sign {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: var(--h-text-muted-color);
+}
+
+.row.add {
+  background: rgba(46, 160, 67, 0.15);
+}
+
+.row.del {
+  background: rgba(248, 81, 73, 0.15);
+}
+
+.row.add .word {
+  background: rgba(46, 160, 67, 0.4);
+}
+
+.row.del .word {
+  background: rgba(248, 81, 73, 0.4);
+}
+
+.rendered section {
+  border-top: 1px solid var(--h-content-border-color);
+}
+
+.rendered h3 {
+  font-size: 11px;
+  color: var(--h-text-muted-color);
+}

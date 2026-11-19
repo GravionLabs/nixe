@@ -1,0 +1,90 @@
+<section aria-label="Review">
+  <h2>Review <span class="count">{{ review.count() }}</span></h2>
+  @if (review.error(); as error) {
+    <p class="status" role="alert">{{ error }}</p>
+  }
+  <ul class="branches" aria-label="Branches waiting for review">
+    @for (branch of review.branches(); track branch.name) {
+      <li>
+        <button
+          type="button"
+          class="branch"
+          [attr.aria-expanded]="review.open()?.name === branch.name"
+          [title]="branch.tip"
+          (click)="review.toggle(branch)"
+        >
+          <span class="name">{{ branch.name }}@if (branch.remote) { <span class="tag">remote</span>}</span>
+          <span class="meta">
+            {{ branch.author }} · {{ time(branch.time) }} · {{ branch.notes }} {{ branch.notes === 1 ? "note" : "notes" }}
+          </span>
+        </button>
+        <ul class="messages" aria-label="Commits">
+          @for (message of branch.messages; track $index) {
+            <li>{{ message }}</li>
+          }
+        </ul>
+        @if (review.open()?.name === branch.name) {
+          @if (review.loading()) {
+            <p class="status">Loading…</p>
+          }
+          <ul class="list" aria-label="Changed notes">
+            @for (change of review.changes(); track change.path) {
+              <li>
+                <button
+                  type="button"
+                  class="entry"
+                  [attr.aria-expanded]="review.selected() === change.path"
+                  [title]="change.path"
+                  (click)="review.select(change)"
+                >
+                  <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
+                  <span class="name">{{ change.path }}</span>
+                </button>
+                @if (review.selected() === change.path && review.diff(); as diff) {
+                  <div class="toolbar">
+                    <span class="stat"><span class="add">+{{ stat().added }}</span> <span class="del">−{{ stat().removed }}</span></span>
+                    <button type="button" [class.on]="mode() === 'source'" (click)="mode.set('source')">Source</button>
+                    <button type="button" [class.on]="mode() === 'rendered'" (click)="mode.set('rendered')">Rendered</button>
+                  </div>
+                  @if (mode() === "source") {
+                    <div class="diff" aria-label="Difference">
+                      @for (row of rows(); track $index) {
+                        <div class="row" [class]="row.kind">
+                          <span class="sign">{{ row.kind === "add" ? "+" : row.kind === "del" ? "−" : " " }}</span>
+                          <span class="text">
+                            @if (row.segments; as segments) {
+                              @for (seg of segments; track $index) {
+                                <span [class.word]="seg.changed">{{ seg.text }}</span>
+                              }
+                            } @else {
+                              {{ row.text }}
+                            }
+                          </span>
+                        </div>
+                      } @empty {
+                        <p class="status">No difference</p>
+                      }
+                    </div>
+                  } @else {
+                    @if (rendered(); as html) {
+                      <div class="rendered" aria-label="Rendered versions">
+                        <section><h3>Before</h3><div class="md" [innerHTML]="html.old"></div></section>
+                        <section><h3>After</h3><div class="md" [innerHTML]="html.new"></div></section>
+                      </div>
+                    }
+                  }
+                }
+              </li>
+            } @empty {
+              @if (!review.loading()) {
+                <li class="status">No notes changed</li>
+              }
+            }
+          </ul>
+        }
+      </li>
+    } @empty {
+      <li class="status">Nothing waits for review</li>
+    }
+  </ul>
+</section>

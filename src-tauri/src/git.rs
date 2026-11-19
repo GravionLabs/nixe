@@ -428,7 +428,10 @@ pub fn changes_between(
 ) -> Result<Vec<GitChange>, String> {
     let backend =
         Git2Backend::open(root).ok_or_else(|| "the vault is not a Git repository".to_string())?;
-    let repo = &backend.repo;
+    notes_changed(&backend.repo, from, to.unwrap_or("HEAD"))
+}
+
+fn notes_changed(repo: &git2::Repository, from: &str, to: &str) -> Result<Vec<GitChange>, String> {
     let tree_of = |rev: &str| {
         repo.revparse_single(rev)
             .and_then(|o| o.peel_to_commit())
@@ -436,7 +439,7 @@ pub fn changes_between(
             .map_err(e)
     };
     let old = tree_of(from)?;
-    let new = tree_of(to.unwrap_or("HEAD"))?;
+    let new = tree_of(to)?;
     let diff = repo
         .diff_tree_to_tree(Some(&old), Some(&new), None)
         .map_err(e)?;
@@ -489,6 +492,145 @@ pub fn rev_at(root: &Path, secs: i64) -> Result<Option<String>, String> {
     Ok(None)
 }
 
+/// A branch that waits for review (#108): ahead of the working branch and named with the prefix.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewBranch {
+    /// Branch name without the remote (`claude/tidy-inbox`).
+    pub name: String,
+    /// The tip commit; every other command takes it as the revision.
+    pub tip: String,
+    /// The branch exists only on a remote (`origin`), not as a local branch.
+    pub remote: bool,
+    /// Author of the newest commit.
+    pub author: String,
+    /// Seconds since the epoch, of the newest commit.
+    pub time: i64,
+    /// First lines of the commit messages the branch is ahead by, newest first.
+    pub messages: Vec<String>,
+    /// How many commits the branch is ahead of the working branch.
+    pub ahead: usize,
+    /// How many notes differ from the merge base.
+    pub notes: usize,
+}
+
+/// The changes of a review branch against the merge base with HEAD.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewChanges {
+    /// The merge base: the "before" side of every note.
+    pub base: String,
+    pub changes: Vec<GitChange>,
+}
+
+/// Local and remote branches named with `prefix` that are ahead of HEAD, newest first. A branch
+/// that exists locally and on a remote is listed once, with the tip that contains the other (else the newer). An empty prefix lists
+/// nothing; so does a vault without a commit.
+pub fn review_branches(root: &Path, prefix: &str) -> Result<Vec<ReviewBranch>, String> {
+    let Some(backend) = Git2Backend::open(root) else {
+        return Ok(vec![]);
+    };
+    let repo = &backend.repo;
+    let Some(head) = repo.head().ok().and_then(|h| h.target()) else {
+        return Ok(vec![]);
+    };
+    if prefix.is_empty() {
+        return Ok(vec![]);
+    }
+    let mut found: Vec<ReviewBranch> = Vec::new();
+    for item in repo.branches(None).map_err(e)? {
+        let (branch, kind) = item.map_err(e)?;
+        let Some(full) = branch.name().map_err(e)? else {
+            continue;
+        };
+        let remote = kind == git2::BranchType::Remote;
+        // `origin/claude/x` -> `claude/x`; `origin/HEAD` has no target.
+        let name = if remote {
+            full.split_once('/').map_or(full, |(_, rest)| rest)
+        } else {
+            full
+        };
+        if !name.starts_with(prefix) {
+            continue;
+        }
+        let Some(tip) = branch.get().resolve().ok().and_then(|r| r.target()) else {
+            continue;
+        };
+        let (ahead, _) = repo.graph_ahead_behind(tip, head).map_err(e)?;
+        if ahead == 0 {
+            continue;
+        }
+        let commit = repo.find_commit(tip).map_err(e)?;
+        let mut walk = repo.revwalk().map_err(e)?;
+        walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
+            .map_err(e)?;
+        walk.push(tip).map_err(e)?;
+        walk.hide(head).map_err(e)?;
+        let mut messages = Vec::new();
+        for oid in walk {
+            let c = repo.find_commit(oid.map_err(e)?).map_err(e)?;
+            messages.push(c.summary().ok().flatten().unwrap_or("").to_owned());
+        }
+        // A branch without common history (orphan) cannot be reviewed; it must not hide the others.
+        let Ok(base) = repo.merge_base(head, tip) else {
+            continue;
+        };
+        let Ok(changed) = notes_changed(repo, &base.to_string(), &tip.to_string()) else {
+            continue;
+        };
+        let notes = changed.len();
+        let entry = ReviewBranch {
+            name: name.to_owned(),
+            tip: tip.to_string(),
+            remote,
+            author: commit.author().name().unwrap_or("").to_owned(),
+            time: commit.time().seconds(),
+            messages,
+            ahead,
+            notes,
+        };
+        match found.iter_mut().find(|b| b.name == entry.name) {
+            Some(existing) => {
+                // Local and remote differ: the one that contains the other, else the newer.
+                let old = git2::Oid::from_str(&existing.tip).map_err(e)?;
+                let newer = if repo.graph_descendant_of(tip, old).map_err(e)? {
+                    true
+                } else if repo.graph_descendant_of(old, tip).map_err(e)? {
+                    false
+                } else {
+                    entry.time > existing.time
+                };
+                if newer {
+                    *existing = entry;
+                }
+            }
+            None => found.push(entry),
+        }
+    }
+    found.sort_by(|a, b| b.time.cmp(&a.time).then_with(|| a.name.cmp(&b.name)));
+    Ok(found)
+}
+
+/// The notes a branch (any revision) changed relative to its merge base with HEAD (#108).
+pub fn review_changes(root: &Path, rev: &str) -> Result<ReviewChanges, String> {
+    let backend =
+        Git2Backend::open(root).ok_or_else(|| "the vault is not a Git repository".to_string())?;
+    let repo = &backend.repo;
+    let head = repo
+        .head()
+        .ok()
+        .and_then(|h| h.target())
+        .ok_or_else(|| "the vault has no commit yet".to_string())?;
+    let tip = repo
+        .revparse_single(rev)
+        .and_then(|o| o.peel_to_commit())
+        .map_err(e)?
+        .id();
+    let base = repo.merge_base(head, tip).map_err(e)?.to_string();
+    let changes = notes_changed(repo, &base, &tip.to_string())?;
+    Ok(ReviewChanges { base, changes })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -518,6 +660,178 @@ mod tests {
     fn commit_file(dir: &Path, backend: &Git2Backend, name: &str, text: &str, msg: &str) {
         fs::write(dir.join(name), text).unwrap();
         backend.commit(Some(msg), None).unwrap();
+    }
+
+    /// Commits `files` on a new branch `name` cut from HEAD, then returns to the working branch.
+    fn commit_on_branch(dir: &Path, backend: &Git2Backend, name: &str, files: &[(&str, &str)]) {
+        let repo = &backend.repo;
+        let work = repo.head().unwrap().name().unwrap().to_owned();
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        repo.branch(name, &head, true).unwrap();
+        repo.set_head(&format!("refs/heads/{name}")).unwrap();
+        for (file, text) in files {
+            fs::write(dir.join(file), text).unwrap();
+            backend.commit(Some(&format!("edit {file}")), None).unwrap();
+        }
+        repo.set_head(&work).unwrap();
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
+            .unwrap();
+    }
+
+    #[test]
+    fn review_branches_lists_prefixed_branches_that_are_ahead() {
+        let (dir, backend) = repo_with_commit("review");
+        commit_on_branch(
+            &dir,
+            &backend,
+            "claude/tidy",
+            &[("a.md", "tidy"), ("new.md", "n"), ("img.png", "x")],
+        );
+        commit_on_branch(&dir, &backend, "feature/other", &[("o.md", "o")]);
+        // A branch with nothing new is not waiting.
+        let head = backend.repo.head().unwrap().peel_to_commit().unwrap();
+        backend.repo.branch("claude/empty", &head, false).unwrap();
+        // The working branch moves on: the merge base is older than HEAD.
+        commit_file(&dir, &backend, "main.md", "m", "main work");
+        let list = review_branches(&dir, "claude/").unwrap();
+        assert_eq!(list.len(), 1);
+        let b = &list[0];
+        assert_eq!(b.name, "claude/tidy");
+        assert!(!b.remote);
+        assert_eq!(b.author, "Config Author");
+        assert_eq!(b.ahead, 3);
+        assert_eq!(b.notes, 2, "a.md and new.md; the image is no note");
+        assert_eq!(b.messages, vec!["edit img.png", "edit new.md", "edit a.md"]);
+        assert_eq!(
+            b.tip,
+            backend
+                .repo
+                .find_branch("claude/tidy", git2::BranchType::Local)
+                .unwrap()
+                .get()
+                .target()
+                .unwrap()
+                .to_string()
+        );
+        // The prefix is configurable; an empty one lists nothing.
+        let other = review_branches(&dir, "feature/").unwrap();
+        assert_eq!(other.len(), 1);
+        assert_eq!(other[0].name, "feature/other");
+        assert!(review_branches(&dir, "").unwrap().is_empty());
+        assert!(review_branches(&dir, "nothing/").unwrap().is_empty());
+    }
+
+    #[test]
+    fn review_branches_lists_a_remote_branch_once_with_the_newer_tip() {
+        let (dir, backend) = repo_with_commit("review-remote");
+        commit_on_branch(&dir, &backend, "claude/x", &[("a.md", "one")]);
+        let repo = &backend.repo;
+        let old = repo
+            .find_branch("claude/x", git2::BranchType::Local)
+            .unwrap()
+            .get()
+            .target()
+            .unwrap();
+        // The remote branch is one commit further than the local one.
+        commit_on_branch(
+            &dir,
+            &backend,
+            "claude/x",
+            &[("a.md", "one"), ("b.md", "two")],
+        );
+        let newer = repo
+            .find_branch("claude/x", git2::BranchType::Local)
+            .unwrap()
+            .get()
+            .target()
+            .unwrap();
+        repo.reference("refs/remotes/origin/claude/x", newer, true, "t")
+            .unwrap();
+        repo.reference("refs/remotes/origin/claude/y", old, true, "t")
+            .unwrap();
+        repo.find_branch("claude/x", git2::BranchType::Local)
+            .unwrap()
+            .delete()
+            .unwrap();
+        repo.branch("claude/x", &repo.find_commit(old).unwrap(), false)
+            .unwrap();
+        let list = review_branches(&dir, "claude/").unwrap();
+        let names: Vec<(&str, bool)> = list.iter().map(|b| (b.name.as_str(), b.remote)).collect();
+        assert_eq!(names.len(), 2);
+        let x = list.iter().find(|b| b.name == "claude/x").unwrap();
+        assert_eq!(x.tip, newer.to_string());
+        assert!(x.remote);
+        let y = list.iter().find(|b| b.name == "claude/y").unwrap();
+        assert!(y.remote);
+    }
+
+    #[test]
+    fn review_branches_skips_a_branch_without_common_history() {
+        let (dir, backend) = repo_with_commit("review-orphan");
+        commit_on_branch(&dir, &backend, "claude/ok", &[("a.md", "x")]);
+        let repo = &backend.repo;
+        let sig = git2::Signature::now("O", "o@example.com").unwrap();
+        let tree = repo
+            .find_tree(repo.treebuilder(None).unwrap().write().unwrap())
+            .unwrap();
+        repo.commit(
+            Some("refs/heads/claude/orphan"),
+            &sig,
+            &sig,
+            "orphan",
+            &tree,
+            &[],
+        )
+        .unwrap();
+        let list = review_branches(&dir, "claude/").unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].name, "claude/ok");
+    }
+
+    #[test]
+    fn review_branches_is_empty_without_repository_or_commit() {
+        let dir = temp("review-none");
+        assert!(review_branches(&dir, "claude/").unwrap().is_empty());
+        Repository::init(&dir).unwrap();
+        assert!(review_branches(&dir, "claude/").unwrap().is_empty());
+    }
+
+    #[test]
+    fn review_changes_diffs_against_the_merge_base_not_against_head() {
+        let (dir, backend) = repo_with_commit("review-diff");
+        commit_file(&dir, &backend, "gone.md", "bye", "add gone");
+        commit_on_branch(
+            &dir,
+            &backend,
+            "claude/tidy",
+            &[("a.md", "tidy"), ("new.md", "n")],
+        );
+        let base = backend.repo.head().unwrap().target().unwrap().to_string();
+        // Work on the main line after the branch was cut must not show up as a change of the branch.
+        commit_file(&dir, &backend, "main.md", "m", "main work");
+        fs::remove_file(dir.join("gone.md")).unwrap();
+        backend.commit(Some("drop gone"), None).unwrap();
+        let r = review_changes(&dir, "claude/tidy").unwrap();
+        assert_eq!(r.base, base);
+        let got: Vec<(&str, ChangeKind)> = r
+            .changes
+            .iter()
+            .map(|c| (c.path.as_str(), c.kind))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("a.md", ChangeKind::Modified),
+                ("new.md", ChangeKind::Added)
+            ]
+        );
+        // The "before" and "after" texts come from the base and the tip.
+        assert_eq!(note_version(&dir, "a.md", Some(&r.base)).unwrap(), "a");
+        assert_eq!(
+            note_version(&dir, "a.md", Some("claude/tidy")).unwrap(),
+            "tidy"
+        );
+        assert!(review_changes(&dir, "nope").is_err());
     }
 
     #[test]
