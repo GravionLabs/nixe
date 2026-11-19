@@ -16,7 +16,7 @@ Cross-platform Markdown viewer and editor for macOS, Windows, and Linux. Built w
   ```
   Invalid diagrams are shown as an error box with the message and the source.
   Click a diagram to open it in a zoomable dialog, with zoom buttons in the dialog and scroll-to-zoom.
-- **LaTeX** via KaTeX: `$…$`, `$$…$$`, ```` ```math ````. Can be turned off in the toolbar.
+- **LaTeX** via KaTeX: `$…$`, `$$…$$`, ```` ```math ````. Can be turned off in the settings (or with the *Toggle LaTeX math* command).
 - **Links**:
   - external: opens in the system browser
   - anchors `#section`
@@ -29,7 +29,7 @@ Cross-platform Markdown viewer and editor for macOS, Windows, and Linux. Built w
   - The wiki root is the topmost folder with a `.order` file, otherwise the Git root.
 - **Open folder**: a file tree of Markdown files on the left. It loads lazily, its width is adjustable, and it expands to the active file as you navigate. In ADO wikis the `.order` sequence is used, `Page.md` and the folder `Page/` appear as a single node, and names are decoded (`Data-Flow.md` → "Data Flow"). The last opened folder is restored on startup.
 - **Native menu**: File (Quick switcher, Open file, Open folder, Reload), Edit, View
-- **Editor**: the *Edit* button in the toolbar (or ⌘/Ctrl + E, View → Toggle Editor) switches a note between viewer and editor and keeps the scroll position. Changes are saved automatically.
+- **Editor**: the *Edit* button in the toolbar, which also holds back/forward and the outline and backlinks toggles (or ⌘/Ctrl + E, View → Toggle Editor) switches a note between viewer and editor and keeps the scroll position. Changes are saved automatically.
 - **Live reload** when the file changes on disk
 - **Light/dark**: follows the system or can be set manually
 - Open via menu/dialog, drag & drop, command line (`nixe README.md`, `nixe ./docs`), or file association
@@ -69,7 +69,7 @@ Get-FileHash .\Nixe_<version>_x64-setup.exe -Algorithm SHA256
 | ⌘/Ctrl + ⇧ + F | Search the vault (selects the Search view in the sidebar) |
 | ⌘/Ctrl + E or toolbar *Edit* button | Toggle editor |
 | ⌘/Ctrl + [ / ] or Alt + ← / → | Back / forward |
-| ⌘/Ctrl + = / - / 0 or ⌘/Ctrl + scroll or toolbar buttons | Zoom in / out / reset |
+| ⌘/Ctrl + = / - / 0 or ⌘/Ctrl + scroll or the zoom in the status bar | Zoom in / out / reset |
 
 ## Development
 
