@@ -163,6 +163,50 @@ export interface ReviewChanges {
   changes: GitChange[];
 }
 
+/** One block of changed lines of a note of a review branch (#109). */
+export interface ReviewHunk {
+  index: number;
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  /** The lines of the merge base. */
+  old: string;
+  /** The lines of the branch. */
+  new: string;
+}
+
+export interface HunkDecision {
+  index: number;
+  accept: boolean;
+  /** The edited replacement; absent takes the lines of the branch. */
+  text?: string;
+}
+
+export interface NoteDecision {
+  path: string;
+  /** For a note without hunks. */
+  accepted: boolean;
+  hunks: HunkDecision[];
+  /** How a conflicting note ends. */
+  resolve?: "mine" | "branch";
+}
+
+/** A note that cannot be merged cleanly: both versions (null = deleted). */
+export interface ReviewConflict {
+  path: string;
+  mine: string | null;
+  branch: string | null;
+}
+
+export interface ReviewOutcome {
+  commit: string | null;
+  applied: string[];
+  conflicts: ReviewConflict[];
+  branchDeleted: boolean;
+  warning: string | null;
+}
+
 /** What one sync did. */
 export interface SyncReport {
   committed: boolean;
@@ -285,6 +329,25 @@ export const backend = {
   gitReviewBranches: (prefix: string) => invoke<ReviewBranch[]>("git_review_branches", { prefix }),
   /** The notes the branch tip `rev` changed against the merge base with HEAD. */
   gitReviewChanges: (rev: string) => invoke<ReviewChanges>("git_review_changes", { rev }),
+  /** The hunks of one note of the branch tip against the merge base. */
+  gitReviewHunks: (tip: string, path: string) => invoke<ReviewHunk[]>("git_review_hunks", { tip, path }),
+  /**
+   * Commits the accepted changes onto the working branch and, with `deleteBranch`, deletes the
+   * branch locally and on the remote. Conflicts come back in the outcome; nothing is changed then.
+   */
+  gitReviewFinish: (
+    branch: string,
+    tip: string,
+    decisions: NoteDecision[],
+    deleteBranch: boolean,
+    name: string | null,
+    email: string | null,
+  ) => invoke<ReviewOutcome>("git_review_finish", { branch, tip, decisions, deleteBranch, name, email }),
+  /** The saved, unfinished decisions of a branch (text); null when there are none. */
+  gitReviewStateLoad: (branch: string) => invoke<string | null>("git_review_state_load", { branch }),
+  /** Saves the decisions of a branch; null removes them. */
+  gitReviewStateSave: (branch: string, content: string | null) =>
+    invoke<void>("git_review_state_save", { branch, content }),
   gitDeletedNotes: (commits: number) => invoke<DeletedNote[]>("git_deleted_notes", { commits }),
   /**
    * Stages everything and commits; returns the commit id. An empty `message` gives

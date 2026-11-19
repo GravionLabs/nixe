@@ -26,8 +26,17 @@ you have merged it.
 3. Opening a branch lists its notes. The changes are measured against the merge base, so what you
    changed on your own branch in the meantime does not show up as a change of the agent.
 4. A note shows the line diff (*Source*) or both versions side by side (*Rendered*).
-5. To accept the work, merge the branch with Git (`git merge claude/tidy-inbox`, or a pull request).
-   Once it is merged, or deleted, it is no longer ahead and leaves the list.
+5. *Hunks* lists the blocks of changed lines of a note. Accept or reject each hunk, or the whole
+   note. An accepted hunk can be edited before it is applied. Nothing changes in the vault yet, and
+   the decisions are saved: an unfinished review is still there after a restart (as long as the
+   branch has the same tip).
+6. *Finish review* asks for a confirmation, then commits exactly the accepted changes onto your
+   branch (`review: accept changes from claude/tidy-inbox`) and deletes the branch locally and on
+   the remote. If you rejected everything, nothing is committed and the branch is just deleted. If
+   the remote cannot be reached, the commit and the local deletion stand and Nixe says so.
+7. A note you changed since the agent cut its branch is merged line by line. When your changes and
+   the accepted ones overlap, Nixe writes nothing and shows both versions of that note: *Keep mine*
+   or *Use branch version*, then finish again.
 
 ## Snippet for `CLAUDE.md` of the vault
 
