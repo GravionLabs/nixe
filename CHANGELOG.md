@@ -5,10 +5,32 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.0] — 2026-11-19
+
+### Bug Fixes
+- **deps**: Exempt the helix packages from the minimum release age (#212)
+
+
+### Features
+- **tabs**: HxTabBar and settings and vault health as tabs (#200) (#211)
+- **shell**: Activity bar with one active sidebar view (#199) (#218)
+- **status-bar**: Always visible with Git, zoom, version and update state (#201) (#219)
+- **toolbar**: Slim toolbar for the open note (#202) (#220)
+
+
+### Refactoring
+- **theme**: Adopt the helix tokens and HxTheme (#198) (#209)
+- **styles**: CSS as the default, keep styles.scss as the documented exception (#216) (#217)
+
+
 ## [1.3.4] — 2026-11-18
 
 ### Bug Fixes
 - **index**: Retry the WAL switch while another opener holds the new database (#207)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.3.4 [skip ci]
 
 
 ## [1.3.3] — 2026-11-18
