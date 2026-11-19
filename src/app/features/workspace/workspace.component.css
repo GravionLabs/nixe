@@ -12,81 +12,28 @@
 }
 
 .tabbar {
-  display: flex;
-  align-items: stretch;
-  gap: 1px;
-  overflow-x: auto;
   flex: none;
-  background: var(--chrome);
-  border-bottom: 1px solid var(--border);
 }
 
-.tab {
-  display: flex;
-  align-items: center;
-  max-width: 200px;
-  color: var(--muted);
-  border-bottom: 2px solid transparent;
-}
-
-.tab.active {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
-}
-
-.tab button,
 .new {
   border: 0;
   background: none;
-  color: inherit;
+  color: var(--h-text-muted-color);
   font: inherit;
   cursor: pointer;
-}
-
-.label {
-  padding: 6px 4px 6px 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.close {
-  padding: 2px 6px;
-  margin-right: 4px;
-  border-radius: 4px;
-  font-size: 11px;
-  opacity: 0.6;
-}
-
-.close:hover,
-.new:hover {
-  background: var(--hover);
-  opacity: 1;
-}
-
-.new {
   padding: 0 10px;
-  color: var(--muted);
-}
-
-.pane.focused .tab.active {
-  border-bottom-color: var(--accent);
-}
-
-.pane:not(.focused) .tab.active {
-  border-bottom-color: var(--border);
 }
 
 .divider {
   flex: none;
   width: 5px;
   cursor: col-resize;
-  background: var(--border);
+  background: var(--h-content-border-color);
   touch-action: none;
 }
 
 .divider:hover,
 .divider:focus-visible {
-  background: var(--accent);
+  background: var(--h-primary-color);
   outline: none;
 }

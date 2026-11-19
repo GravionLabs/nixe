@@ -12,6 +12,8 @@ export interface SectionSources {
   /** The Obsidian settings of the open vault; null when no vault is open. */
   obsidian: () => readonly ObsidianSetting[] | null;
   commands: () => readonly Command[];
+  /** The running app version; empty until known. */
+  version: () => string;
 }
 
 /** Comma-separated list as typed in a text field. */
@@ -41,6 +43,14 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       title: "General",
       order: 10,
       items: () => [
+        {
+          kind: "readonly" as const,
+          id: "version",
+          label: "Version",
+          description: "The running version of Nixe.",
+          keywords: ["about", "release", "build"],
+          value: () => src.version() || "Unknown",
+        },
         toggle("sidebar", "Show the sidebar", s.sidebarVisible, "The file tree of the vault.", ["files", "tree"]),
         toggle("backlinks", "Show the backlinks panel", s.backlinksVisible, "Notes that link to the open note.", ["links"]),
         toggle("outline", "Show the outline panel", s.outlineVisible, "The headings of the open note.", ["headings", "toc"]),

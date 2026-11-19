@@ -38,6 +38,25 @@ describe("SettingsService storage", () => {
     expect(settings.dark()).toBe(true);
   });
 
+  it("restores the active view, the collapsed sidebar and its width", async () => {
+    read.mockResolvedValue(JSON.stringify({ activeView: "git", sidebar: false, sidebarWidth: 333 }));
+    const settings = TestBed.inject(SettingsService);
+    await settings.load();
+    expect(settings.activeView()).toBe("git");
+    expect(settings.sidebarVisible()).toBe(false);
+    expect(settings.sidebarWidth()).toBe(333);
+  });
+
+  it("writes the active view to the file", async () => {
+    read.mockResolvedValue(JSON.stringify({}));
+    const settings = TestBed.inject(SettingsService);
+    await settings.load();
+    settings.activeView.set("search");
+    TestBed.tick();
+    await settings.flush();
+    expect(JSON.parse(write.mock.calls.at(-1)![0]).activeView).toBe("search");
+  });
+
   it("migrates the localStorage entry into the file on the first start", async () => {
     localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ theme: "light", lastFolder: "/v", recentVaults: ["/v"] }));
     read.mockResolvedValue(null);
@@ -82,5 +101,43 @@ describe("SettingsService storage", () => {
     TestBed.tick();
     await settings.flush();
     expect(write).not.toHaveBeenCalled();
+  });
+});
+
+describe("SettingsService theme", () => {
+  beforeAll(() => {
+    try {
+      TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+    } catch {
+      // already initialised by an earlier suite in this file
+    }
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    stubMatchMedia();
+    document.documentElement.className = "";
+    TestBed.resetTestingModule();
+  });
+
+  it("switches the class .app-dark of HxTheme with the stored setting and sets no data-theme", () => {
+    const settings = TestBed.inject(SettingsService);
+    settings.themeMode.set("dark");
+    TestBed.tick();
+    expect(document.documentElement.classList.contains("app-dark")).toBe(true);
+    expect(document.documentElement.dataset["theme"]).toBeUndefined();
+
+    settings.themeMode.set("light");
+    TestBed.tick();
+    expect(document.documentElement.classList.contains("app-dark")).toBe(false);
+  });
+
+  it("follows the system in the mode system", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: () => undefined }));
+    window.matchMedia = (() => ({ matches: true, addEventListener: () => undefined })) as unknown as typeof window.matchMedia;
+    const settings = TestBed.inject(SettingsService);
+    TestBed.tick();
+    expect(settings.themeMode()).toBe("system");
+    expect(document.documentElement.classList.contains("app-dark")).toBe(true);
   });
 });

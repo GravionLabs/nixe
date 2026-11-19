@@ -21,10 +21,10 @@
   flex-direction: column;
   gap: 10px;
   padding: 14px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 8px;
-  background: var(--chrome);
-  color: var(--fg);
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
   font-size: 13px;
   box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
 }
@@ -42,18 +42,18 @@ label {
 
 input {
   padding: 7px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--h-content-background);
   color: inherit;
   font: inherit;
 }
 
 button {
   padding: 5px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--h-content-background);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -90,7 +90,7 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .buttons {
@@ -99,11 +99,11 @@ button:disabled {
 
 .status {
   margin: 0;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .status.error {
-  color: var(--fg);
+  color: var(--h-text-color);
 }
 
 progress {

@@ -27,10 +27,10 @@ export class SearchComponent {
       this.search.key();
       untracked(() => void this.search.refresh());
     });
-    // Opening the panel (again) puts the cursor into the field.
+    // Showing the view puts the cursor into the field.
     effect(() => {
       const el = this.input()?.nativeElement;
-      if (el && this.search.visible()) el.focus();
+      if (el) el.focus();
     });
   }
 

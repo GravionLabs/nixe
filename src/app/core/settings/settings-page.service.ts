@@ -3,17 +3,17 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 import { CommandRegistry } from "../commands/command-registry";
 import { ObsidianSetting, backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { UpdateService } from "../updater/update.service";
 import { builtinSections } from "./builtin-sections";
 import { SettingsRegistry, filterSections } from "./settings-registry";
 import { SettingsService } from "./settings.service";
 
-/** State of the settings page: visibility, the search field and the Obsidian settings of the vault. */
+/** State of the settings page: the search field and the Obsidian settings of the vault. */
 @Injectable({ providedIn: "root" })
 export class SettingsPageService {
   private readonly registry = inject(SettingsRegistry);
   private readonly workspace = inject(WorkspaceService);
 
-  readonly visible = signal(false);
   readonly query = signal("");
   /** Section shown when no search is active. */
   readonly selectedId = signal("general");
@@ -24,10 +24,12 @@ export class SettingsPageService {
 
   constructor() {
     const commands = inject(CommandRegistry);
+    const updater = inject(UpdateService);
     const sections = builtinSections({
       settings: inject(SettingsService),
       obsidian: () => this.obsidian(),
       commands: () => commands.all(),
+      version: () => updater.version(),
     });
     for (const section of sections) this.registry.register(section);
   }
@@ -39,14 +41,10 @@ export class SettingsPageService {
     return sections.filter((s) => s.id === this.selectedId());
   });
 
+  /** Resets the search and reads the Obsidian settings; the tab itself is opened by `TabsService`. */
   async open(): Promise<void> {
     this.query.set("");
-    this.visible.set(true);
     await this.refreshObsidian();
-  }
-
-  close(): void {
-    this.visible.set(false);
   }
 
   select(id: string): void {

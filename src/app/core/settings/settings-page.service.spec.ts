@@ -9,6 +9,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 import { CommandRegistry } from "../commands/command-registry";
 import { backend } from "../file/backend";
+import { UpdateService } from "../updater/update.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { builtinSections, parseList } from "./builtin-sections";
 import { SettingsPageService } from "./settings-page.service";
@@ -45,6 +46,13 @@ describe("settings page", () => {
       "Git",
       "Shortcuts",
     ]);
+  });
+
+  it("shows the running version read-only in General", () => {
+    TestBed.inject(UpdateService).version.set("1.4.0");
+    const item = TestBed.inject(SettingsRegistry).shown().flatMap((s) => s.items).find((i) => i.id === "version")!;
+    if (item.kind !== "readonly") throw new Error("readonly expected");
+    expect(item.value()).toBe("1.4.0");
   });
 
   it("changes apply to the settings at once", () => {

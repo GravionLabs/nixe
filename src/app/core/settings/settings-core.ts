@@ -17,6 +17,8 @@ export interface StoredSettings {
   math: boolean;
   sidebar: boolean;
   sidebarWidth: number;
+  /** The id of the view the sidebar shows (the views registry). */
+  activeView: string;
   backlinks: boolean;
   outline: boolean;
   linkPreview: LinkPreviewMode;
@@ -44,6 +46,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   math: true,
   sidebar: true,
   sidebarWidth: 260,
+  activeView: "files",
   backlinks: false,
   outline: false,
   linkPreview: "modifier",
@@ -79,6 +82,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     math: bool(o["math"], d.math),
     sidebar: bool(o["sidebar"], d.sidebar),
     sidebarWidth: finite(o["sidebarWidth"], d.sidebarWidth),
+    activeView: text(o["activeView"], d.activeView),
     backlinks: bool(o["backlinks"], d.backlinks),
     outline: o["outline"] === true,
     linkPreview: sanitizeMode(o["linkPreview"]),

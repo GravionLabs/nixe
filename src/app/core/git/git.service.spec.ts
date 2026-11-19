@@ -62,18 +62,14 @@ describe("GitService", () => {
     await git.refresh();
     expect(git.status()).toBeNull();
     expect(git.available()).toBe(false);
-    git.open();
-    expect(git.visible()).toBe(false);
   });
 
   it("clears the state when no vault is open or the status fails", async () => {
     await git.refresh();
-    git.open();
-    expect(git.visible()).toBe(true);
+    expect(git.available()).toBe(true);
     vi.spyOn(backend, "gitVaultStatus").mockRejectedValue(new Error("x"));
     await git.refresh();
     expect(git.status()).toBeNull();
-    expect(git.visible()).toBe(false);
     vaultRoot.set(null);
     await git.refresh();
     expect(git.available()).toBe(false);

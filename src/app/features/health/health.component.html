@@ -1,6 +1,5 @@
 <header>
   <span>Vault health</span>
-  <button type="button" class="close" aria-label="Close vault health" (click)="health.close()">×</button>
 </header>
 
 <label class="exclude">
@@ -10,7 +9,6 @@
     placeholder="templates, archive"
     [value]="settings.healthExclude().join(', ')"
     (change)="onExclude($event)"
-    (keydown.escape)="health.close()"
   />
 </label>
 

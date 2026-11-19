@@ -1,11 +1,11 @@
-import { Injectable, InjectionToken, Injector, Provider, computed, inject, isSignal, signal } from "@angular/core";
+import { Injectable, InjectionToken, Injector, Provider, WritableSignal, computed, inject, isSignal, signal } from "@angular/core";
 
 import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { OutlineService } from "../outline/outline.service";
 import { toSlashes } from "../markdown/paths";
-import { LayoutState, MAX_TABS, TabState, clampRatio } from "./layout";
+import { LayoutState, MAX_TABS, TabState, TabView, clampRatio } from "./layout";
 
 /** What the viewer of a tab offers to the app. */
 export interface ViewerHandle {
@@ -23,6 +23,12 @@ export interface Tab {
   readonly doc: DocumentService;
   readonly editor: EditorService;
   readonly outline: OutlineService;
+  /**
+   * The view this tab shows instead of a note (settings, vault health); null for a note or an empty
+   * tab. The tab keeps an empty document, so it never reaches the note history. Opening a note in
+   * it turns it back into a note tab.
+   */
+  readonly view: WritableSignal<TabView | null>;
   /** Set by the pane while the viewer of the tab is shown. */
   viewer: ViewerHandle | null;
   /** 1-based first visible line, kept while the tab is not shown. */
@@ -101,7 +107,9 @@ export class TabsService {
   /** False while there is only one empty tab: the welcome page is shown then. */
   readonly showWorkspace = computed(() => {
     const panes = this.panes();
-    return panes.length > 1 || panes[0].tabs.length > 1 || this.activeTab().doc.path() !== null;
+    return (
+      panes.length > 1 || panes[0].tabs.length > 1 || this.activeTab().doc.path() !== null || this.activeTab().view() !== null
+    );
   });
 
   private readonly hook = {
@@ -131,6 +139,54 @@ export class TabsService {
     this.updatePane(pane.id, (p) => ({ ...p, tabs: [...p.tabs, tab], activeId: tab.id }));
     this.watch();
     return tab;
+  }
+
+  /** Shows a view as a tab: the one that exists (in either pane) is focused, else a new tab opens. */
+  openView(view: TabView): Tab {
+    for (const pane of this.panes()) {
+      const found = pane.tabs.find((t) => t.view() === view);
+      if (found) {
+        this.activate(pane.id, found.id);
+        return found;
+      }
+    }
+    const tab = this.newTab();
+    tab.view.set(view);
+    return tab;
+  }
+
+  /** Moves a tab of a pane to position `to` (the position it has after the move). */
+  moveTab(paneId: number, from: number, to: number): void {
+    const pane = this.panes().find((p) => p.id === paneId);
+    if (!pane || from === to || from < 0 || from >= pane.tabs.length || to < 0 || to >= pane.tabs.length) return;
+    const tabs = [...pane.tabs];
+    const [tab] = tabs.splice(from, 1);
+    tabs.splice(to, 0, tab);
+    this.updatePane(paneId, (p) => ({ ...p, tabs }));
+  }
+
+  /** Moves a tab from one pane into another, at `index`, and shows it there. */
+  moveTabToPane(fromPaneId: number, tabId: number, toPaneId: number, index: number): void {
+    if (fromPaneId === toPaneId) return;
+    const panes = this.panes();
+    const from = panes.find((p) => p.id === fromPaneId);
+    const to = panes.find((p) => p.id === toPaneId);
+    const tab = from?.tabs.find((t) => t.id === tabId);
+    if (!from || !to || !tab || to.tabs.length >= MAX_TABS) return;
+    this.leave(this.shownTab(to));
+    const at = Math.min(Math.max(index, 0), to.tabs.length);
+    const rest = from.tabs.filter((t) => t.id !== tabId);
+    const next = panes
+      .map((p) => {
+        if (p.id === toPaneId) return { ...p, tabs: [...p.tabs.slice(0, at), tab, ...p.tabs.slice(at)], activeId: tab.id };
+        if (p.id !== fromPaneId) return p;
+        const wasShown = p.activeId === tabId;
+        return { ...p, tabs: rest, activeId: wasShown && rest.length ? rest[Math.min(from.tabs.indexOf(tab), rest.length - 1)].id : p.activeId };
+      })
+      .filter((p) => p.tabs.length > 0);
+    this.panes.set(next);
+    this.focusedId.set(toPaneId);
+    this.watch();
   }
 
   /** Opens a note in a new tab of the focused pane; the tab is dropped again when it fails. */
@@ -167,7 +223,7 @@ export class TabsService {
         this.watch();
         return true;
       }
-      if (closing.doc.path() === null) return false;
+      if (closing.doc.path() === null && closing.view() === null) return false;
       const fresh = this.createTab();
       this.panes.set([{ ...pane, tabs: [fresh], activeId: fresh.id }]);
       this.watch();
@@ -298,7 +354,7 @@ export class TabsService {
         return { pane, kept };
       }),
     );
-    if (!built.some((b) => b.kept.some((k) => k.tab.doc.path() !== null))) return false;
+    if (!built.some((b) => b.kept.some((k) => k.tab.doc.path() !== null || k.tab.view() !== null))) return false;
     const panes: Pane[] = [];
     let focused = -1;
     built.forEach((b, i) => {
@@ -317,6 +373,10 @@ export class TabsService {
 
   private async restoreTab(state: TabState): Promise<Tab | null> {
     const tab = this.createTab();
+    if (state.view !== null) {
+      tab.view.set(state.view);
+      return tab;
+    }
     if (state.path === null) return tab;
     try {
       await tab.doc.open(state.path, { addToHistory: false, watch: false });
@@ -339,7 +399,7 @@ export class TabsService {
   private tabState(tab: Tab): TabState {
     const path = tab.doc.path();
     const { history, index } = tab.doc.historyState();
-    return { path, history, index, editing: path !== null && tab.editor.editing(), line: this.lineOf(tab) };
+    return { view: tab.view(), path, history, index, editing: path !== null && tab.editor.editing(), line: this.lineOf(tab) };
   }
 
   private lineOf(tab: Tab): number | null {
@@ -397,6 +457,7 @@ export class TabsService {
       doc,
       editor: injector.get(EditorService),
       outline: injector.get(OutlineService),
+      view: signal<TabView | null>(null),
       viewer: null,
       scrollLine: null,
     };

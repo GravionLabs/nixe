@@ -1,4 +1,5 @@
-import { Component, computed, effect, inject, isDevMode, signal, untracked } from "@angular/core";
+import { Component, Directive, TemplateRef, computed, effect, inject, input, isDevMode, signal, untracked, viewChildren } from "@angular/core";
+import { HxActivityBar, HxAppShell } from "@gravionlabs/helix-desktop";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -13,10 +14,9 @@ import { IndexService } from "./core/index/index.service";
 import { AutoSyncService } from "./core/git/auto-sync.service";
 import { CloneService } from "./core/git/clone.service";
 import { GitService } from "./core/git/git.service";
-import { HealthService } from "./core/index/health.service";
-import { SearchService } from "./core/index/search.service";
 import { SettingsPageService } from "./core/settings/settings-page.service";
 import { SettingsService } from "./core/settings/settings.service";
+import { isPrerelease } from "./core/updater/update-logic";
 import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
 import { TemplateService } from "./core/templates/template.service";
@@ -27,7 +27,6 @@ import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { LinkPreviewComponent } from "./features/link-preview/link-preview.component";
 import { OutlineComponent } from "./features/outline/outline.component";
-import { SettingsComponent } from "./features/settings/settings.component";
 import { RecentComponent } from "./features/recent/recent.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
@@ -38,17 +37,23 @@ import { CloneComponent } from "./features/clone/clone.component";
 import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
 import { GitComponent } from "./features/git/git.component";
 import { StatusBarComponent } from "./features/status-bar/status-bar.component";
-import { HealthComponent } from "./features/health/health.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
 import { ToolbarComponent } from "./features/toolbar/toolbar.component";
-import { UpdateComponent } from "./features/update/update.component";
 import { WorkspaceComponent } from "./features/workspace/workspace.component";
 import { TabsService } from "./core/tabs/tabs.service";
+import { ShellService } from "./core/shell/shell.service";
+
+/** Marks the template of an activity bar icon with the icon name of the views registry. */
+@Directive({ selector: "ng-template[navIcon]" })
+export class NavIconDirective {
+  readonly name = input.required<string>({ alias: "navIcon" });
+  readonly template = inject(TemplateRef);
+}
 
 @Component({
   selector: "app-root",
-  imports: [LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HealthComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SettingsComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, UpdateComponent, WorkspaceComponent],
+  imports: [HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -61,8 +66,8 @@ export class AppComponent {
   private readonly ops = inject(VaultOpsService);
   protected readonly editor = inject(EditorService);
   protected readonly tabs = inject(TabsService);
-  protected readonly search = inject(SearchService);
-  protected readonly health = inject(HealthService);
+  /** Registers the commands that select a view (toggle sidebar, search, files, Git). */
+  protected readonly shell = inject(ShellService);
   protected readonly git = inject(GitService);
   protected readonly cloneVault = inject(CloneService);
   private readonly autoSync = inject(AutoSyncService);
@@ -82,21 +87,19 @@ export class AppComponent {
   protected readonly toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
-  protected readonly showSidebar = computed(
-    () => this.workspace.root() !== null && this.settings.sidebarVisible(),
-  );
+  private readonly icons = viewChildren(NavIconDirective);
+
+  /** The activity bar items with their icons: the registry names an icon, the templates draw it. */
+  protected readonly barItems = computed(() => {
+    const templates = new Map(this.icons().map((i) => [i.name(), i.template]));
+    return this.shell.items().map((item) => ({ ...item, icon: templates.get(String(item.icon)) ?? item.icon }));
+  });
 
   protected readonly showBacklinks = computed(
     () => this.workspace.vaultRoot() !== null && this.doc.path() !== null && this.settings.backlinksVisible(),
   );
 
   protected readonly showOutline = computed(() => this.doc.path() !== null && this.settings.outlineVisible());
-
-  protected readonly showSearch = computed(() => this.workspace.vaultRoot() !== null && this.search.visible());
-
-  protected readonly showHealth = computed(() => this.workspace.vaultRoot() !== null && this.health.visible());
-
-  protected readonly showGit = computed(() => this.git.available() && this.git.visible());
 
   protected readonly showSwitcher = computed(() => this.workspace.vaultRoot() !== null && this.switcher.visible());
 
@@ -224,10 +227,10 @@ export class AppComponent {
       { id: "split-right", title: "Split tab to the right", when: noteOpen, run: () => this.run(() => this.tabs.splitRight()) },
       { id: "unsplit", title: "Merge the split panes", when: () => this.tabs.split(), run: () => this.tabs.unsplit() },
       { id: "focus-other-pane", title: "Focus the other pane", when: () => this.tabs.split(), run: () => this.tabs.focusNextPane() },
-      { id: "open-settings", title: "Open settings", shortcut: "Mod+,", keys: ["Mod+,"], run: () => this.run(() => this.settingsPage.open()) },
+      { id: "open-settings", title: "Open settings", shortcut: "Mod+,", keys: ["Mod+,"], run: () => this.run(async () => { this.tabs.openView("settings"); await this.settingsPage.open(); }) },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },
-      { id: "check-updates", title: "Check for updates…", run: () => this.updater.check() },
+      { id: "check-updates", title: "Check for updates…", when: () => !isPrerelease(this.updater.version()), run: () => this.updater.check() },
       { id: "open-recent", title: "Open recent vault…", run: () => this.run(() => this.recent.open()) },
       { id: "clone-vault", title: "Clone vault…", run: () => this.cloneVault.open() },
       {
@@ -242,10 +245,7 @@ export class AppComponent {
       },
       { id: "back", title: "Back", shortcut: "Mod+[", keys: ["Alt+ArrowLeft"], run: () => this.run(() => this.doc.back()) },
       { id: "forward", title: "Forward", shortcut: "Mod+]", keys: ["Alt+ArrowRight"], run: () => this.run(() => this.doc.forward()) },
-      { id: "toggle-sidebar", title: "Toggle sidebar", shortcut: "Mod+B", run: () => this.settings.sidebarVisible.update((v) => !v) },
-      { id: "search", title: "Search vault", shortcut: "Mod+Shift+F", keys: ["Mod+Shift+F"], when: inVault, run: () => this.search.openWith() },
-      { id: "vault-health", title: "Vault health", when: inVault, run: () => this.health.open() },
-      { id: "git-changes", title: "Git changes", when: () => this.git.available(), run: () => this.git.open() },
+      { id: "vault-health", title: "Vault health", when: inVault, run: () => this.run(async () => void this.tabs.openView("health")) },
       { id: "git-sync", title: "Sync with the remote", shortcut: "Mod+Shift+S", keys: ["Mod+Shift+S"], when: () => this.git.available(), run: () => this.git.sync() },
       { id: "toggle-backlinks", title: "Toggle backlinks panel", shortcut: "Mod+Shift+B", when: inVault, run: () => this.settings.backlinksVisible.update((v) => !v) },
       { id: "toggle-outline", title: "Toggle outline panel", shortcut: "Mod+Shift+L", when: noteOpen, run: () => this.settings.outlineVisible.update((v) => !v) },

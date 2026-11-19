@@ -48,7 +48,6 @@ describe("UpdateService", () => {
     await updater.check();
     expect(updater.phase()).toBe("available");
     expect(updater.update()?.version).toBe("1.1.0");
-    expect(updater.visible()).toBe(true);
   });
 
   it("reports up to date when there is no update", async () => {

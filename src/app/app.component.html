@@ -1,38 +1,57 @@
-<app-toolbar />
+<ng-template navIcon="files"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg></ng-template>
+<ng-template navIcon="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></svg></ng-template>
+<ng-template navIcon="git"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="9" r="2.5" /><path d="M6 8.5v7M18 11.5c0 4-6 3-11 5" /></svg></ng-template>
+<ng-template navIcon="health"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4" /></svg></ng-template>
+<ng-template navIcon="calendar"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg></ng-template>
+<ng-template navIcon="palette"><svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8" /></svg></ng-template>
+<ng-template navIcon="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" /></svg></ng-template>
 
-@if (gitSpike) {
-  @defer {
-    <app-git-spike />
-    <app-editor-spike />
-  }
-}
+<hx-app-shell
+  [sidebarWidth]="settings.sidebarWidth()"
+  (sidebarWidthChange)="settings.sidebarWidth.set($event)"
+  [collapsed]="shell.shownView() === null"
+  (collapsedChange)="settings.sidebarVisible.set(!$event)"
+  [activeId]="shell.activeView()"
+>
+  <app-toolbar slot="toolbar" />
 
-@if (doc.path()) {
-  <app-conflict-bar (error)="showToast($event)" />
-}
+  <hx-activity-bar
+    slot="activity"
+    label="Views"
+    [items]="barItems()"
+    [activeId]="shell.activeView()"
+    [expanded]="shell.shownView() !== null"
+    (selected)="shell.select($event)"
+  />
 
-<main>
-  @if (showSidebar()) {
-    <app-sidebar (error)="showToast($event)" />
-  }
-  @if (showSearch()) {
-    <app-search (error)="showToast($event)" />
-  }
-  @if (showHealth()) {
-    <app-health (error)="showToast($event)" />
-  }
-  @if (showGit()) {
-    <app-git (error)="showToast($event)" (committed)="showToast('Committed')" />
-  }
-  @if (tabs.showWorkspace()) {
-    <app-workspace class="pane" />
-    @if (showOutline()) {
-      <app-outline />
+  @switch (shell.shownView()) {
+    @case ("files") {
+      <app-sidebar slot="sidebar" (error)="showToast($event)" />
     }
-    @if (showBacklinks()) {
-      <app-backlinks (error)="showToast($event)" />
+    @case ("search") {
+      <app-search slot="sidebar" (error)="showToast($event)" />
     }
-  } @else {
+    @case ("git") {
+      <app-git slot="sidebar" (error)="showToast($event)" (committed)="showToast('Committed')" />
+    }
+  }
+
+  <div class="content">
+  @if (gitSpike) {
+    @defer {
+      <app-git-spike />
+      <app-editor-spike />
+    }
+  }
+
+  @if (doc.path()) {
+    <app-conflict-bar (error)="showToast($event)" />
+  }
+
+  <main>
+    @if (tabs.showWorkspace()) {
+      <app-workspace class="pane" />
+    } @else {
     <section class="welcome">
       <h1>Nixe</h1>
       <p>Markdown viewer with Mermaid, Azure DevOps wiki, and LaTeX</p>
@@ -56,12 +75,23 @@
         <dt>{{ mod }}[ / ]</dt><dd>Back / forward</dd>
       </dl>
     </section>
-  }
-</main>
+    }
+  </main>
+  </div>
 
-@if (git.available()) {
-  <app-status-bar />
-}
+  @if (tabs.showWorkspace() && (showOutline() || showBacklinks())) {
+    <div slot="panel" class="panel">
+      @if (showOutline()) {
+        <app-outline />
+      }
+      @if (showBacklinks()) {
+        <app-backlinks (error)="showToast($event)" />
+      }
+    </div>
+  }
+
+  <app-status-bar slot="status" />
+</hx-app-shell>
 
 @if (showSwitcher()) {
   <app-switcher (error)="showToast($event)" />
@@ -75,20 +105,12 @@
   <app-clone />
 }
 
-@if (updater.visible()) {
-  <app-update />
-}
-
 @if (palette.visible()) {
   <app-palette />
 }
 
 @if (recent.visible()) {
   <app-recent />
-}
-
-@if (settingsPage.visible()) {
-  <app-settings />
 }
 
 <app-link-preview />

@@ -20,10 +20,10 @@
   max-height: 60vh;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 8px;
-  background: var(--chrome);
-  color: var(--fg);
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
   font-size: 13px;
   box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
   overflow: hidden;
@@ -32,9 +32,9 @@
 input {
   margin: 10px;
   padding: 7px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--h-content-background);
   color: inherit;
   font: inherit;
 }
@@ -62,12 +62,12 @@ li button {
 
 li.selected button,
 li button:hover {
-  background: var(--border);
+  background: var(--h-content-border-color);
 }
 
 .path,
 .alias {
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   font-size: 11px;
 }
 
@@ -80,21 +80,21 @@ li button:hover {
 
 .empty {
   padding: 6px 14px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .empty button {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--fg);
+  color: var(--h-text-color);
   font: inherit;
   cursor: pointer;
 }
 
 .shortcut {
   margin-left: auto;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   font-size: 11px;
   white-space: nowrap;
 }

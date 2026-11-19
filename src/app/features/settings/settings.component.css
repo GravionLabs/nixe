@@ -1,29 +1,15 @@
 :host {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
   display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgb(0 0 0 / 0.3);
+  min-height: 0;
 }
 
 .dialog {
-  position: relative;
   display: flex;
-  width: min(820px, 92vw);
-  height: min(560px, 80vh);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--chrome);
-  color: var(--fg);
+  flex: 1;
+  min-width: 0;
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
   font-size: 13px;
-  box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
   overflow: hidden;
 }
 
@@ -32,7 +18,7 @@ nav {
   flex-direction: column;
   width: 170px;
   padding: 10px 6px;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--h-content-border-color);
 }
 
 nav button {
@@ -48,7 +34,7 @@ nav button {
 
 nav button:hover,
 nav button.active {
-  background: var(--border);
+  background: var(--h-content-border-color);
 }
 
 .content {
@@ -61,9 +47,9 @@ nav button.active {
   width: 100%;
   box-sizing: border-box;
   padding: 7px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--h-content-background);
   color: inherit;
   font: inherit;
 }
@@ -79,12 +65,12 @@ h2 {
   justify-content: space-between;
   gap: 16px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--h-content-border-color);
 }
 
 .description {
   margin: 2px 0 0;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   font-size: 11px;
 }
 
@@ -100,9 +86,9 @@ h2 {
 .control select {
   width: 200px;
   padding: 4px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--h-content-background);
   color: inherit;
   font: inherit;
 }
@@ -110,9 +96,9 @@ h2 {
 .key {
   min-width: 90px;
   padding: 3px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--h-content-background);
   color: inherit;
   font: inherit;
   text-align: center;
@@ -123,7 +109,7 @@ button.key {
 }
 
 .key.recording {
-  border-color: var(--accent, currentColor);
+  border-color: var(--h-primary-color, currentColor);
 }
 
 .actions {
@@ -135,7 +121,7 @@ button.key {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   font: inherit;
   font-size: 11px;
   text-decoration: underline;
@@ -145,7 +131,7 @@ button.key {
 .hint,
 .conflict {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .conflict {
@@ -159,12 +145,12 @@ button.key {
 }
 
 .source {
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   font-family: monospace;
   font-size: 11px;
 }
 
 .empty {
   padding: 12px 0;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }

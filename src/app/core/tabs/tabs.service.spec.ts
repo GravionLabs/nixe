@@ -307,6 +307,108 @@ describe("TabsService", () => {
     });
   });
 
+  describe("tabs that are not a note", () => {
+    it("opens a view as a tab of its own", async () => {
+      await TestBed.inject(DocumentService).open("/v/a.md");
+      const tab = tabs.openView("settings");
+      expect(tabs.panes()[0].tabs.length).toBe(2);
+      expect(tabs.activeTab()).toBe(tab);
+      expect(tab.view()).toBe("settings");
+      expect(tab.doc.path()).toBeNull();
+      expect(tab.doc.historyState().history).toEqual([]);
+    });
+
+    it("shows the workspace for a view alone", () => {
+      tabs.openView("health");
+      expect(tabs.showWorkspace()).toBe(true);
+    });
+
+    it("focuses the view that is open instead of opening a second one", async () => {
+      const first = tabs.openView("settings");
+      await tabs.openInNewTab("/v/a.md");
+      expect(tabs.openView("settings")).toBe(first);
+      expect(tabs.activeTab()).toBe(first);
+      expect(tabs.panes()[0].tabs.filter((t) => t.view() === "settings").length).toBe(1);
+      tabs.openView("health");
+      expect(tabs.panes()[0].tabs.map((t) => t.view())).toEqual([null, "settings", null, "health"]);
+    });
+
+    it("finds the view in the other pane", async () => {
+      await tabs.openInNewTab("/v/a.md");
+      await tabs.splitRight();
+      const [left, right] = tabs.panes();
+      const view = tabs.openView("settings");
+      expect(tabs.panes()[1].tabs).toContain(view);
+      tabs.activate(left.id, left.tabs[0].id);
+      expect(tabs.openView("settings")).toBe(view);
+      expect(tabs.focusedPane().id).toBe(right.id);
+    });
+
+    it("closes, and the last tab of all becomes an empty tab", () => {
+      const view = tabs.openView("settings");
+      expect(tabs.closeTab(tabs.focusedPane().id, view.id)).toBe(true);
+      expect(tabs.panes()[0].tabs.length).toBe(1);
+      const only = tabs.openView("settings");
+      tabs.closeTab(tabs.focusedPane().id, tabs.panes()[0].tabs[0].id);
+      expect(tabs.panes()[0].tabs).toEqual([only]);
+      expect(tabs.closeTab(tabs.focusedPane().id, only.id)).toBe(true);
+      expect(tabs.activeTab().view()).toBeNull();
+      expect(tabs.showWorkspace()).toBe(false);
+    });
+
+    it("is stored with the layout, not in the note history, and restored", async () => {
+      await TestBed.inject(DocumentService).open("/v/a.md");
+      tabs.openView("health");
+      const layout = tabs.snapshot();
+      expect(layout.panes[0].tabs.map((t) => [t.view, t.path, t.history])).toEqual([
+        [null, "/v/a.md", ["/v/a.md"]],
+        ["health", null, []],
+      ]);
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [...ACTIVE_TAB_PROVIDERS] });
+      tabs = TestBed.inject(TabsService);
+      expect(await tabs.restore(JSON.parse(JSON.stringify(layout)))).toBe(true);
+      const restored = tabs.panes()[0];
+      expect(restored.tabs.map((t) => t.view())).toEqual([null, "health"]);
+      expect(tabs.activeTab().view()).toBe("health");
+    });
+
+    it("restores a layout that holds only a view", async () => {
+      tabs.openView("settings");
+      const layout = JSON.parse(JSON.stringify(tabs.snapshot()));
+      layout.panes[0].tabs = layout.panes[0].tabs.filter((t: { view: string | null }) => t.view !== null);
+      layout.panes[0].active = 0;
+      expect(await tabs.restore(layout)).toBe(true);
+      expect(tabs.activeTab().view()).toBe("settings");
+    });
+  });
+
+  describe("moving tabs", () => {
+    it("reorders inside a pane", async () => {
+      await tabs.openInNewTab("/v/a.md");
+      await tabs.openInNewTab("/v/b.md");
+      const ids = tabs.panes()[0].tabs.map((t) => t.id);
+      tabs.moveTab(tabs.panes()[0].id, 0, 2);
+      expect(tabs.panes()[0].tabs.map((t) => t.id)).toEqual([ids[1], ids[2], ids[0]]);
+      tabs.moveTab(tabs.panes()[0].id, 5, 0);
+      expect(tabs.panes()[0].tabs.map((t) => t.id)).toEqual([ids[1], ids[2], ids[0]]);
+    });
+
+    it("moves a tab into the other pane and drops a pane that is left empty", async () => {
+      await tabs.openInNewTab("/v/a.md");
+      await tabs.splitRight();
+      const [left, right] = tabs.panes();
+      const moving = left.tabs[1];
+      tabs.moveTabToPane(left.id, moving.id, right.id, 0);
+      expect(tabs.panes()[1].tabs[0]).toBe(moving);
+      expect(tabs.panes()[1].activeId).toBe(moving.id);
+      expect(tabs.focusedPane().id).toBe(right.id);
+      for (const t of [...tabs.panes()[0].tabs]) tabs.moveTabToPane(left.id, t.id, right.id, 0);
+      expect(tabs.panes().length).toBe(1);
+    });
+  });
+
   it("gives components created with a tab's injector that tab's services", async () => {
     @Component({ selector: "app-probe", template: "{{ doc.path() }}" })
     class Probe {

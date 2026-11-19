@@ -10,7 +10,6 @@ export type SearchState = "idle" | "loading" | "error" | "ready";
 export class SearchService {
   private readonly index = inject(IndexService);
 
-  readonly visible = signal(false);
   readonly query = signal("");
   readonly hits = signal<SearchHit[]>([]);
   private readonly failed = signal(false);
@@ -26,14 +25,9 @@ export class SearchService {
   /** Changes whenever the results must be read again: the index finished or was updated. */
   readonly key = computed(() => `${this.index.status().state}|${this.index.revision()}`);
 
-  /** Shows the panel, optionally with a query to run. */
+  /** Sets the query to run, when there is one. */
   openWith(query?: string): void {
-    this.visible.set(true);
     if (query !== undefined) void this.setQuery(query);
-  }
-
-  close(): void {
-    this.visible.set(false);
   }
 
   async setQuery(query: string): Promise<void> {

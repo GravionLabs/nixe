@@ -2,11 +2,10 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  flex: 1;
   min-width: 0;
-  border-right: 1px solid var(--border);
-  background: var(--chrome);
-  color: var(--fg);
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
   font-size: 13px;
   user-select: none;
   -webkit-user-select: none;
@@ -18,7 +17,7 @@ header {
   gap: 4px;
   height: 34px;
   padding: 0 6px 0 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--h-content-border-color);
 }
 
 .root {
@@ -31,7 +30,7 @@ header {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 button.icon {
@@ -44,13 +43,13 @@ button.icon {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
   cursor: pointer;
 }
 
 button.icon:hover {
-  background: var(--hover);
-  color: var(--fg);
+  background: var(--h-surface-hover);
+  color: var(--h-text-color);
 }
 
 svg {
@@ -80,17 +79,17 @@ svg {
 }
 
 .row:hover {
-  background: var(--hover);
+  background: var(--h-surface-hover);
 }
 
 .row:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--h-primary-color);
   outline-offset: -2px;
 }
 
 .row.active {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--fg);
+  background: color-mix(in srgb, var(--h-primary-color) 18%, transparent);
+  color: var(--h-text-color);
   font-weight: 600;
 }
 
@@ -99,7 +98,7 @@ svg {
   flex-shrink: 0;
   width: 16px;
   justify-content: center;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .chevron svg {
@@ -114,11 +113,11 @@ svg {
 
 .kind {
   flex-shrink: 0;
-  color: var(--muted);
+  color: var(--h-text-muted-color);
 }
 
 .row.active .kind {
-  color: var(--accent);
+  color: var(--h-primary-color);
 }
 
 .label {
@@ -128,21 +127,7 @@ svg {
 
 .empty {
   margin: 12px;
-  color: var(--muted);
-}
-
-.resizer {
-  position: absolute;
-  top: 0;
-  right: -3px;
-  bottom: 0;
-  width: 6px;
-  cursor: col-resize;
-  z-index: 1;
-}
-
-.resizer:hover {
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--h-text-muted-color);
 }
 
 .rename {
@@ -150,10 +135,10 @@ svg {
   min-width: 0;
   height: 20px;
   padding: 0 4px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--h-primary-color);
   border-radius: 4px;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--h-content-background);
+  color: var(--h-text-color);
   font: inherit;
   user-select: text;
   -webkit-user-select: text;
@@ -172,9 +157,9 @@ svg {
   margin: 0;
   padding: 4px;
   list-style: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--h-content-border-color);
   border-radius: 8px;
-  background: var(--chrome);
+  background: var(--h-surface-frame);
   box-shadow: 0 6px 24px rgb(0 0 0 / 25%);
 }
 
@@ -185,7 +170,7 @@ svg {
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: var(--fg);
+  color: var(--h-text-color);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -193,7 +178,7 @@ svg {
 
 .menu button:hover,
 .menu button:focus-visible {
-  background: var(--hover);
+  background: var(--h-surface-hover);
   outline: none;
 }
 
@@ -201,8 +186,8 @@ svg {
   flex-shrink: 0;
   margin-left: 6px;
   padding: 0 5px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--h-primary-color);
   border-radius: 8px;
-  color: var(--accent);
+  color: var(--h-primary-color);
   font-size: 10px;
 }
