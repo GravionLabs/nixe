@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
@@ -23,6 +23,10 @@ const timeline: TimelineEntry[] = [
 function render(comparison: Comparison | null, notePath: string | null = "a.md") {
   const loadMore = vi.fn().mockResolvedValue(undefined);
   const select = vi.fn().mockResolvedValue(undefined);
+  const restore = vi.fn().mockResolvedValue(undefined);
+  const restoreDeleted = vi.fn().mockResolvedValue(undefined);
+  const versionText = vi.fn().mockResolvedValue("whole version");
+  const notice = signal<string | null>(null);
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -37,6 +41,11 @@ function render(comparison: Comparison | null, notePath: string | null = "a.md")
           loading: signal(false),
           loadMore,
           select,
+          restore,
+          restoreDeleted,
+          versionText,
+          notice,
+          deleted: signal([{ path: "gone.md", id: "d1", parent: "p1", author: "Ann", time: 0, message: "delete" }]),
         },
       },
       { provide: MarkdownService, useValue: { render: (t: string) => `<p>${t}</p>` } },
@@ -48,7 +57,7 @@ function render(comparison: Comparison | null, notePath: string | null = "a.md")
   });
   const fixture = TestBed.createComponent(HistoryComponent);
   fixture.detectChanges();
-  return { fixture, el: fixture.nativeElement as HTMLElement, loadMore, select };
+  return { fixture, el: fixture.nativeElement as HTMLElement, loadMore, select, restore, restoreDeleted, versionText, notice };
 }
 
 describe("HistoryComponent", () => {
@@ -92,5 +101,38 @@ describe("HistoryComponent", () => {
   it("asks for a note when none is open", () => {
     const { el } = render(null, null);
     expect(el.textContent).toContain("Open a note");
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("offers Restore this version and Copy on commits only", () => {
+    const { el, restore } = render(null);
+    const rows = el.querySelectorAll(".timeline li");
+    expect(rows[0].querySelector(".restore")).toBeNull();
+    rows[1].querySelector<HTMLButtonElement>(".restore")!.click();
+    expect(restore).toHaveBeenCalledWith(timeline[1]);
+  });
+
+  it("copies the whole version, or the selected part when text is selected", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const { el, notice } = render(null);
+    const copy = el.querySelector<HTMLButtonElement>(".copy")!;
+    copy.click();
+    await new Promise((r) => setTimeout(r));
+    expect(writeText).toHaveBeenLastCalledWith("whole version");
+    vi.spyOn(window, "getSelection").mockReturnValue({ toString: () => "part" } as Selection);
+    copy.click();
+    await new Promise((r) => setTimeout(r));
+    expect(writeText).toHaveBeenLastCalledWith("part");
+    expect(notice()).toBe("Copied the selection");
+  });
+
+  it("lists the deleted notes with a Restore button", () => {
+    const { el, restoreDeleted } = render(null);
+    const li = el.querySelector(".deleted li")!;
+    expect(li.textContent).toContain("gone.md");
+    li.querySelector("button")!.click();
+    expect(restoreDeleted).toHaveBeenCalledWith(expect.objectContaining({ path: "gone.md" }));
   });
 });

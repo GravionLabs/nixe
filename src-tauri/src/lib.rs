@@ -168,6 +168,18 @@ async fn git_note_history(
         .map_err(|e| e.to_string())?
 }
 
+/// The notes that the last commits deleted (#106).
+#[tauri::command]
+async fn git_deleted_notes(
+    state: State<'_, AppState>,
+    commits: usize,
+) -> Result<Vec<git::DeletedNote>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::deleted_notes(&root, commits))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// A note at a commit, or the file on disk for `rev: None` (#105).
 #[tauri::command]
 async fn git_note_version(
@@ -596,6 +608,7 @@ pub fn run() {
         git_vault_commit,
         git_note_history,
         git_note_version,
+        git_deleted_notes,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
@@ -656,6 +669,7 @@ pub fn run() {
         git_vault_commit,
         git_note_history,
         git_note_version,
+        git_deleted_notes,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,

@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 
-import { HistoryEntry, backend } from "../file/backend";
+import { DeletedNote, HistoryEntry, backend } from "../file/backend";
+import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
 import { IndexService } from "../index/index.service";
 import { toSlashes } from "../markdown/paths";
@@ -8,6 +9,8 @@ import { WorkspaceService } from "../workspace/workspace.service";
 import { GitService } from "./git.service";
 
 export const PAGE_SIZE = 50;
+/** How many of the latest commits are searched for deleted notes. */
+export const DELETED_COMMITS = 50;
 
 /** A row of the timeline: a commit, or the uncommitted state (`id` null). */
 export interface TimelineEntry {
@@ -42,6 +45,7 @@ export class HistoryService {
   private readonly workspace = inject(WorkspaceService);
   private readonly git = inject(GitService);
   private readonly index = inject(IndexService);
+  private readonly editor = inject(EditorService);
 
   /** The committed entries loaded so far. */
   readonly commits = signal<HistoryEntry[]>([]);
@@ -52,7 +56,12 @@ export class HistoryService {
   /** Selected timeline ids (at most two, in click order); `""` stands for the uncommitted state. */
   readonly selection = signal<string[]>([]);
   readonly comparison = signal<Comparison | null>(null);
+  /** Notes the latest commits deleted. */
+  readonly deleted = signal<DeletedNote[]>([]);
+  /** Result or failure of the last restore, for the view. */
+  readonly notice = signal<string | null>(null);
   private request = 0;
+  private deletedRequest = 0;
   private compareRequest = 0;
 
   /** Vault-relative path of the open note; null without a note in a Git vault. */
@@ -85,6 +94,73 @@ export class HistoryService {
       this.git.status();
       untracked(() => void this.reload());
     });
+    effect(() => {
+      this.git.available();
+      this.index.revision();
+      this.git.status();
+      untracked(() => void this.loadDeleted());
+    });
+  }
+
+  /** Reads the notes the latest commits deleted. */
+  async loadDeleted(): Promise<void> {
+    const request = ++this.deletedRequest;
+    if (!this.git.available()) {
+      this.deleted.set([]);
+      return;
+    }
+    try {
+      const list = await backend.gitDeletedNotes(DELETED_COMMITS);
+      if (request === this.deletedRequest) this.deleted.set(list);
+    } catch {
+      if (request === this.deletedRequest) this.deleted.set([]);
+    }
+  }
+
+  /**
+   * Writes the content of a commit into the open note (atomic write). The result is an ordinary
+   * change in the Git status; the history is not touched.
+   */
+  async restore(entry: TimelineEntry): Promise<void> {
+    const file = this.doc.path();
+    if (entry.id === null || !file) return;
+    this.notice.set(null);
+    try {
+      const text = await backend.gitNoteVersion(entry.path, entry.id);
+      // Pending text is written first, so the editor cannot write it over the restored text.
+      await this.editor.handle?.flush();
+      await backend.writeTextFile(file, text);
+      await this.doc.open(file, { addToHistory: false });
+      await this.git.refresh();
+      this.notice.set(`Restored ${this.label(entry)}`);
+    } catch (err) {
+      this.notice.set(`Restore failed: ${err}`);
+    }
+  }
+
+  /** The text of a commit, for the clipboard. */
+  async versionText(entry: TimelineEntry): Promise<string> {
+    return backend.gitNoteVersion(entry.path, entry.id);
+  }
+
+  /** Brings a deleted note back with its last content; refuses when a file of that name exists. */
+  async restoreDeleted(note: DeletedNote): Promise<void> {
+    const root = this.workspace.vaultRoot();
+    if (!root) return;
+    this.notice.set(null);
+    try {
+      const file = `${toSlashes(root).replace(/\/+$/, "")}/${note.path}`;
+      const slash = file.lastIndexOf("/");
+      await backend.createDir(file.slice(0, slash));
+      await backend.createFile(file);
+      await backend.writeTextFile(file, await backend.gitNoteVersion(note.path, note.parent));
+      await this.workspace.reloadTree();
+      await this.git.refresh();
+      await this.doc.open(file);
+      this.notice.set(`Restored ${note.path}`);
+    } catch (err) {
+      this.notice.set(`Restore failed: ${err}`);
+    }
   }
 
   /** Loads the first page again (the note, the vault or the repository changed). */
