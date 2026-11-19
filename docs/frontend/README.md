@@ -103,3 +103,7 @@ Each commit row offers `Restore this version`, which writes that commit's text i
 ### Changes since the last sync
 
 `git_vault_sync` reports `pulledFrom`, the commit HEAD was at before a pull that brought changes. `GitService.lastPull` keeps it and `ChangesService` lists the notes between that commit and HEAD (`git_changes_between`). The status bar then offers `n notes changed`, which opens the Git view; its `Changes since` section lists the changed, added and deleted notes with a line diff each (`ChangesComponent`) and switches the range to last sync, yesterday (`git_rev_at`, 24 hours ago) or a commit id. The notes of the last pull carry a dot in the file tree until they are opened. All of this lives in memory only: a restart forgets the last pull.
+
+### Review of agent branches
+
+`ReviewService` lists the branches that wait for review (`git_review_branches`): local and remote branches named with the setting `reviewBranchPrefix` (Settings > Git, default `claude/`; empty turns it off) that are ahead of the working branch. It reads again when the Git status, the index or the prefix changes, so a sync that fetches a new branch shows it. The status bar offers `n branches to review`, which opens the Git view; its `Review` section (`ReviewComponent`) shows author, date, commit messages and the number of changed notes per branch. Opening a branch lists its notes against the merge base with HEAD (`git_review_changes`); a note shows the diff of the history view, source or rendered. The convention for the agent is in [`docs/ai-review.md`](../ai-review.md).

@@ -190,6 +190,30 @@ async fn git_rev_at(state: State<'_, AppState>, time: i64) -> Result<Option<Stri
         .map_err(|e| e.to_string())?
 }
 
+/// The branches that wait for review (#108).
+#[tauri::command]
+async fn git_review_branches(
+    state: State<'_, AppState>,
+    prefix: String,
+) -> Result<Vec<git::ReviewBranch>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::review_branches(&root, &prefix))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The notes a branch changed against its merge base with HEAD (#108).
+#[tauri::command]
+async fn git_review_changes(
+    state: State<'_, AppState>,
+    rev: String,
+) -> Result<git::ReviewChanges, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::review_changes(&root, &rev))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// The notes that the last commits deleted (#106).
 #[tauri::command]
 async fn git_deleted_notes(
@@ -633,6 +657,8 @@ pub fn run() {
         git_deleted_notes,
         git_changes_between,
         git_rev_at,
+        git_review_branches,
+        git_review_changes,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
@@ -696,6 +722,8 @@ pub fn run() {
         git_deleted_notes,
         git_changes_between,
         git_rev_at,
+        git_review_branches,
+        git_review_changes,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,

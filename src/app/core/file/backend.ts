@@ -139,6 +139,30 @@ export interface GitChange {
   kind: "added" | "modified" | "deleted";
 }
 
+/** A branch that waits for review (#108). */
+export interface ReviewBranch {
+  /** Without the remote name: `claude/tidy-inbox`. */
+  name: string;
+  /** The tip commit; the revision for the changes and the "after" text. */
+  tip: string;
+  /** Only on a remote, not a local branch. */
+  remote: boolean;
+  author: string;
+  /** Seconds since the epoch. */
+  time: number;
+  /** Commit messages the branch is ahead by, newest first. */
+  messages: string[];
+  ahead: number;
+  notes: number;
+}
+
+/** The notes a branch changed against its merge base with HEAD. */
+export interface ReviewChanges {
+  /** The merge base: the "before" side of every note. */
+  base: string;
+  changes: GitChange[];
+}
+
 /** What one sync did. */
 export interface SyncReport {
   committed: boolean;
@@ -257,6 +281,10 @@ export const backend = {
     invoke<GitChange[]>("git_changes_between", { from, to }),
   /** The newest commit at or before `time` (seconds since the epoch); null when the history starts later. */
   gitRevAt: (time: number) => invoke<string | null>("git_rev_at", { time }),
+  /** Branches named with `prefix` that are ahead of the working branch, newest first. */
+  gitReviewBranches: (prefix: string) => invoke<ReviewBranch[]>("git_review_branches", { prefix }),
+  /** The notes the branch tip `rev` changed against the merge base with HEAD. */
+  gitReviewChanges: (rev: string) => invoke<ReviewChanges>("git_review_changes", { rev }),
   gitDeletedNotes: (commits: number) => invoke<DeletedNote[]>("git_deleted_notes", { commits }),
   /**
    * Stages everything and commits; returns the commit id. An empty `message` gives

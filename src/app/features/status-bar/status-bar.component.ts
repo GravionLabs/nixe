@@ -4,6 +4,7 @@ import { HxStatusBar, HxStatusItem, HxStatusPopover, HxStatusVersion, HxStatusZo
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
+import { ReviewService } from "../../core/git/review.service";
 import { SettingsService, ZOOM_MAX, ZOOM_MIN } from "../../core/settings/settings.service";
 import { ShellService } from "../../core/shell/shell.service";
 import { isPrerelease } from "../../core/updater/update-logic";
@@ -54,6 +55,17 @@ import { UpdateService } from "../../core/updater/update.service";
               (click)="showPulled()"
             >
               {{ n }} {{ n === 1 ? "note" : "notes" }} changed
+            </hx-status-item>
+          }
+          @if (review.count(); as n) {
+            <hx-status-item
+              slot="start"
+              kind="button"
+              class="review"
+              title="Branches waiting for review"
+              (click)="showReview()"
+            >
+              {{ n }} {{ n === 1 ? "branch" : "branches" }} to review
             </hx-status-item>
           }
           @if (git.syncState().message; as message) {
@@ -127,6 +139,7 @@ import { UpdateService } from "../../core/updater/update.service";
 export class StatusBarComponent {
   protected readonly git = inject(GitService);
   protected readonly changes = inject(ChangesService);
+  protected readonly review = inject(ReviewService);
   protected readonly shell = inject(ShellService);
   protected readonly settings = inject(SettingsService);
   protected readonly updater = inject(UpdateService);
@@ -152,6 +165,11 @@ export class StatusBarComponent {
   /** Opens the list of the notes the last pull changed. */
   protected showPulled(): void {
     void this.changes.showSync();
+    this.shell.show("git");
+  }
+
+  /** Opens the Git view, which lists the branches waiting for review. */
+  protected showReview(): void {
     this.shell.show("git");
   }
 
