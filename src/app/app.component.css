@@ -12,6 +12,13 @@ main {
   display: flex;
 }
 
+.content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
 .pane {
   flex: 1;
   min-width: 0;
@@ -105,4 +112,25 @@ main {
   color: var(--h-toast-contrast-color);
   font-size: 13px;
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+}
+
+.panel {
+  display: flex;
+  height: 100%;
+}
+
+hx-app-shell {
+  flex: 1;
+  min-height: 0;
+}
+
+
+svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

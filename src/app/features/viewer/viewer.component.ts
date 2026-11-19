@@ -25,6 +25,7 @@ import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikili
 import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { OutlineService } from "../../core/outline/outline.service";
+import { ShellService } from "../../core/shell/shell.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { PropertiesComponent } from "../properties/properties.component";
 import { SearchService } from "../../core/index/search.service";
@@ -125,6 +126,7 @@ export class ViewerComponent {
   private readonly outline = inject(OutlineService);
   protected readonly preview = inject(LinkPreviewService);
   private readonly tabs = inject(TabsService);
+  private readonly shell = inject(ShellService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
   private readonly search = inject(SearchService);
@@ -461,7 +463,10 @@ export class ViewerComponent {
     event.preventDefault();
     if (link.classList.contains("tag")) {
       const name = link.getAttribute("data-tag") ?? link.textContent?.replace(/^#/, "") ?? "";
-      if (name) this.search.openWith(`tag:#${name}`);
+      if (name) {
+        this.shell.show("search");
+        this.search.openWith(`tag:#${name}`);
+      }
       return;
     }
 

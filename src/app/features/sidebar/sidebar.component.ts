@@ -2,14 +2,10 @@ import { Component, ElementRef, computed, effect, inject, output, signal, viewCh
 
 import { DocumentService } from "../../core/file/document.service";
 import { basename } from "../../core/markdown/paths";
-import { SettingsService } from "../../core/settings/settings.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { conflictPaths } from "../../core/workspace/tree-model";
 import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
-
-const MIN_WIDTH = 160;
-const MAX_WIDTH = 600;
 
 /** The context menu: where it is shown and what it acts on (`null`: the empty area, i.e. the root). */
 export interface MenuState {
@@ -22,12 +18,10 @@ export interface MenuState {
   selector: "app-sidebar",
   templateUrl: "./sidebar.component.html",
   styleUrl: "./sidebar.component.css",
-  host: { "[style.width.px]": "settings.sidebarWidth()" },
 })
 export class SidebarComponent {
   protected readonly workspace = inject(WorkspaceService);
   protected readonly doc = inject(DocumentService);
-  protected readonly settings = inject(SettingsService);
   private readonly ops = inject(VaultOpsService);
   private readonly tabs = inject(TabsService);
   readonly error = output<string>();
@@ -171,24 +165,5 @@ export class SidebarComponent {
     this.closeMenu();
     const path = node ? this.path(node) : this.workspace.root();
     return path ? this.attempt(() => this.ops.reveal(path)) : Promise.resolve();
-  }
-
-  protected startResize(event: PointerEvent): void {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startWidth = this.settings.sidebarWidth();
-    const handle = event.target as HTMLElement;
-    handle.setPointerCapture(event.pointerId);
-
-    const move = (e: PointerEvent) => {
-      const width = startWidth + e.clientX - startX;
-      this.settings.sidebarWidth.set(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, width)));
-    };
-    const stop = () => {
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", stop);
-    };
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", stop);
   }
 }

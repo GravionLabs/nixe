@@ -3,8 +3,7 @@
     type="button"
     class="icon"
     [class.active]="settings.sidebarVisible()"
-    [disabled]="!workspace.root()"
-    (click)="settings.sidebarVisible.set(!settings.sidebarVisible())"
+    (click)="shell.toggleSidebar()"
     [title]="'Toggle sidebar (' + mod + 'B)'"
     aria-label="Toggle sidebar"
   >

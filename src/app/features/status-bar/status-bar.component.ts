@@ -1,6 +1,7 @@
 import { Component, inject } from "@angular/core";
 
 import { GitService } from "../../core/git/git.service";
+import { ShellService } from "../../core/shell/shell.service";
 
 /** Bottom bar; shows the Git state of the vault, and nothing for a vault without a repository. */
 @Component({
@@ -12,7 +13,7 @@ import { GitService } from "../../core/git/git.service";
         class="git"
         [attr.aria-label]="'Git: ' + (status.branch ?? 'detached HEAD')"
         title="Show the Git changes"
-        (click)="git.visible() ? git.close() : git.open()"
+        (click)="shell.show('git')"
       >
         <span class="branch">⎇ {{ status.branch ?? "detached HEAD" }}</span>
         <span class="changes">{{ status.changes.length }} changed</span>
@@ -75,4 +76,5 @@ import { GitService } from "../../core/git/git.service";
 })
 export class StatusBarComponent {
   protected readonly git = inject(GitService);
+  protected readonly shell = inject(ShellService);
 }

@@ -25,6 +25,7 @@
             "inlineStyleLanguage": "css",
             "styles": [
               "node_modules/@gravionlabs/helix-ui/tokens.css",
+              "node_modules/@gravionlabs/helix-desktop/styles.css",
               "node_modules/katex/dist/katex.min.css",
               "src/styles.scss"
             ],

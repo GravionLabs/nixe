@@ -38,6 +38,25 @@ describe("SettingsService storage", () => {
     expect(settings.dark()).toBe(true);
   });
 
+  it("restores the active view, the collapsed sidebar and its width", async () => {
+    read.mockResolvedValue(JSON.stringify({ activeView: "git", sidebar: false, sidebarWidth: 333 }));
+    const settings = TestBed.inject(SettingsService);
+    await settings.load();
+    expect(settings.activeView()).toBe("git");
+    expect(settings.sidebarVisible()).toBe(false);
+    expect(settings.sidebarWidth()).toBe(333);
+  });
+
+  it("writes the active view to the file", async () => {
+    read.mockResolvedValue(JSON.stringify({}));
+    const settings = TestBed.inject(SettingsService);
+    await settings.load();
+    settings.activeView.set("search");
+    TestBed.tick();
+    await settings.flush();
+    expect(JSON.parse(write.mock.calls.at(-1)![0]).activeView).toBe("search");
+  });
+
   it("migrates the localStorage entry into the file on the first start", async () => {
     localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ theme: "light", lastFolder: "/v", recentVaults: ["/v"] }));
     read.mockResolvedValue(null);

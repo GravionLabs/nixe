@@ -10,19 +10,22 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 import { GitStatus } from "../../core/file/backend";
 import { GitService } from "../../core/git/git.service";
+import { ShellService } from "../../core/shell/shell.service";
 import { StatusBarComponent } from "./status-bar.component";
 
-function render(status: GitStatus | null, visible = false, syncState = { phase: "idle", message: "" }) {
+function render(status: GitStatus | null, syncState = { phase: "idle", message: "" }) {
   const sync = vi.fn();
-  const open = vi.fn();
-  const close = vi.fn();
+  const show = vi.fn();
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
-    providers: [{ provide: GitService, useValue: { status: signal(status), visible: signal(visible), open, close, sync, syncState: signal(syncState) } }],
+    providers: [
+      { provide: GitService, useValue: { status: signal(status), sync, syncState: signal(syncState) } },
+      { provide: ShellService, useValue: { show } },
+    ],
   });
   const fixture = TestBed.createComponent(StatusBarComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, open, close, sync };
+  return { el: fixture.nativeElement as HTMLElement, show, sync };
 }
 
 describe("StatusBarComponent", () => {
@@ -41,20 +44,17 @@ describe("StatusBarComponent", () => {
     expect(render(null).el.querySelector("button")).toBeNull();
   });
 
-  it("toggles the panel", () => {
+  it("shows the Git view in the sidebar", () => {
     const status: GitStatus = { branch: null, changes: [], ahead: 0, behind: 0 };
-    const closed = render(status, false);
-    closed.el.querySelector("button")!.click();
-    expect(closed.open).toHaveBeenCalled();
-    const shown = render(status, true);
-    shown.el.querySelector("button")!.click();
-    expect(shown.close).toHaveBeenCalled();
-    expect(shown.el.textContent).toContain("detached HEAD");
+    const r = render(status);
+    r.el.querySelector("button")!.click();
+    expect(r.show).toHaveBeenCalledWith("git");
+    expect(r.el.textContent).toContain("detached HEAD");
   });
 
   it("syncs from the button and shows the result", () => {
     const status: GitStatus = { branch: "main", changes: [], ahead: 0, behind: 0 };
-    const done = render(status, false, { phase: "done", message: "Already in sync" });
+    const done = render(status, { phase: "done", message: "Already in sync" });
     done.el.querySelector<HTMLButtonElement>(".sync-button")!.click();
     expect(done.sync).toHaveBeenCalled();
     expect(done.el.querySelector(".result")!.textContent).toBe("Already in sync");
@@ -62,8 +62,8 @@ describe("StatusBarComponent", () => {
 
   it("disables the button while syncing and marks an error", () => {
     const status: GitStatus = { branch: "main", changes: [], ahead: 0, behind: 0 };
-    expect(render(status, false, { phase: "syncing", message: "Syncing…" }).el.querySelector<HTMLButtonElement>(".sync-button")!.disabled).toBe(true);
-    const failed = render(status, false, { phase: "error", message: "Sync failed: x" });
+    expect(render(status, { phase: "syncing", message: "Syncing…" }).el.querySelector<HTMLButtonElement>(".sync-button")!.disabled).toBe(true);
+    const failed = render(status, { phase: "error", message: "Sync failed: x" });
     expect(failed.el.querySelector(".result.error")).not.toBeNull();
   });
 
