@@ -25,3 +25,11 @@ describe("global styles in angular.json", () => {
     expect(css).toContain(".hx-tab-bar");
   });
 });
+
+describe("workspace tab bar", () => {
+  const html = readFileSync(resolve(__dirname, "features/workspace/workspace.component.html"), "utf8");
+
+  it("renders the new-tab button as a helix button", () => {
+    expect(html).toMatch(/<button hx-button[^>]*aria-label="New tab"/);
+  });
+});
