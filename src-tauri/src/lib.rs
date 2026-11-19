@@ -168,6 +168,28 @@ async fn git_note_history(
         .map_err(|e| e.to_string())?
 }
 
+/// The notes that differ between a commit and HEAD (or `to`) (#107).
+#[tauri::command]
+async fn git_changes_between(
+    state: State<'_, AppState>,
+    from: String,
+    to: Option<String>,
+) -> Result<Vec<git::GitChange>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::changes_between(&root, &from, to.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The newest commit at or before a time, in seconds since the epoch (#107).
+#[tauri::command]
+async fn git_rev_at(state: State<'_, AppState>, time: i64) -> Result<Option<String>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::rev_at(&root, time))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// The notes that the last commits deleted (#106).
 #[tauri::command]
 async fn git_deleted_notes(
@@ -609,6 +631,8 @@ pub fn run() {
         git_note_history,
         git_note_version,
         git_deleted_notes,
+        git_changes_between,
+        git_rev_at,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
@@ -670,6 +694,8 @@ pub fn run() {
         git_note_history,
         git_note_version,
         git_deleted_notes,
+        git_changes_between,
+        git_rev_at,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,

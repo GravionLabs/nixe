@@ -7,10 +7,12 @@ import { GitService } from "../../core/git/git.service";
 import { joinPath } from "../../core/markdown/paths";
 import { SettingsService } from "../../core/settings/settings.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { ChangesComponent } from "../changes/changes.component";
 
 /** Left-hand panel: the changed notes of the vault and a commit form. */
 @Component({
   selector: "app-git",
+  imports: [ChangesComponent],
   templateUrl: "./git.component.html",
   styleUrl: "./git.component.css",
 })

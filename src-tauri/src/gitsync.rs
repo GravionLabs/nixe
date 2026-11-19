@@ -317,6 +317,9 @@ pub struct SyncReport {
     pub pulled: bool,
     /// Local commits were published.
     pub pushed: bool,
+    /// HEAD before the pull when it brought changes: the start of "what changed since the sync".
+    #[serde(rename = "pulledFrom")]
+    pub pulled_from: Option<String>,
     /// Notes (vault-relative) that both sides changed; each kept both versions.
     pub conflicts: Vec<String>,
 }
@@ -337,10 +340,17 @@ pub fn sync_vault(
     }
     let url = origin_url(dir).map_err(|_| "the repository has no remote named origin")?;
     let stamp = Stamp::now();
+    let head_before = git2::Repository::open(dir)
+        .ok()
+        .and_then(|r| r.head().ok().and_then(|h| h.target()))
+        .map(|id| id.to_string());
     let (pulled, conflicts) = with_auth(&url, store, |auth| {
         pull_rebase_keeping_both(dir, auth, &stamp)
     })?;
     report.pulled = pulled != Pulled::UpToDate;
+    if report.pulled {
+        report.pulled_from = head_before;
+    }
     report.conflicts = conflicts;
     if backend.status()?.ahead > 0 {
         with_auth(&url, store, |auth| push(dir, auth))?;
@@ -589,9 +599,15 @@ mod tests {
                 committed: true,
                 pulled: true,
                 pushed: true,
+                pulled_from: report.pulled_from.clone(),
                 conflicts: vec![]
             }
         );
+        // The start is b's own commit of y.md; from there the pull brought x.md.
+        let from = report.pulled_from.as_deref().unwrap();
+        let changed = crate::git::changes_between(&b, from, None).unwrap();
+        assert_eq!(changed.len(), 1);
+        assert_eq!(changed[0].path, "x.md");
         assert!(b.join("x.md").exists() && b.join("y.md").exists());
         assert!(clean(&b));
         // The other side now fast-forwards to the pushed commit.

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@angular/compiler";
 import { readFileSync } from "node:fs";
-import { signal } from "@angular/core";
+import { NO_ERRORS_SCHEMA, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -67,6 +67,8 @@ function render(
   });
   TestBed.overrideComponent(GitComponent, {
     set: {
+      imports: [],
+      schemas: [NO_ERRORS_SCHEMA],
       templateUrl: undefined,
       styleUrl: undefined,
       template: readFileSync("src/app/features/git/git.component.html", "utf8"),

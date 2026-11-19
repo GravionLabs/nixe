@@ -419,6 +419,76 @@ pub fn deleted_notes(root: &Path, commits: usize) -> Result<Vec<DeletedNote>, St
     Ok(out)
 }
 
+/// The Markdown notes that differ between the commit `from` and `to` (HEAD when `None`):
+/// added, modified and deleted ones, sorted by path (#107). Renames show as a delete and an add.
+pub fn changes_between(
+    root: &Path,
+    from: &str,
+    to: Option<&str>,
+) -> Result<Vec<GitChange>, String> {
+    let backend =
+        Git2Backend::open(root).ok_or_else(|| "the vault is not a Git repository".to_string())?;
+    let repo = &backend.repo;
+    let tree_of = |rev: &str| {
+        repo.revparse_single(rev)
+            .and_then(|o| o.peel_to_commit())
+            .and_then(|c| c.tree())
+            .map_err(e)
+    };
+    let old = tree_of(from)?;
+    let new = tree_of(to.unwrap_or("HEAD"))?;
+    let diff = repo
+        .diff_tree_to_tree(Some(&old), Some(&new), None)
+        .map_err(e)?;
+    let mut out: Vec<GitChange> = Vec::new();
+    for d in diff.deltas() {
+        let kind = match d.status() {
+            git2::Delta::Added => ChangeKind::Added,
+            git2::Delta::Deleted => ChangeKind::Deleted,
+            git2::Delta::Modified | git2::Delta::Typechange => ChangeKind::Modified,
+            _ => continue,
+        };
+        let file = if kind == ChangeKind::Deleted {
+            d.old_file()
+        } else {
+            d.new_file()
+        };
+        let Some(path) = file.path().and_then(Path::to_str) else {
+            continue;
+        };
+        if path.to_lowercase().ends_with(".md") {
+            out.push(GitChange {
+                path: path.to_owned(),
+                kind,
+            });
+        }
+    }
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(out)
+}
+
+/// The newest commit (id) reachable from HEAD that is at or before `secs` (seconds since the
+/// epoch); `None` when the history starts later (#107).
+pub fn rev_at(root: &Path, secs: i64) -> Result<Option<String>, String> {
+    let Some(backend) = Git2Backend::open(root) else {
+        return Ok(None);
+    };
+    let repo = &backend.repo;
+    if repo.head().is_err() {
+        return Ok(None);
+    }
+    let mut walk = repo.revwalk().map_err(e)?;
+    walk.set_sorting(git2::Sort::TIME).map_err(e)?;
+    walk.push_head().map_err(e)?;
+    for oid in walk {
+        let commit = repo.find_commit(oid.map_err(e)?).map_err(e)?;
+        if commit.time().seconds() <= secs {
+            return Ok(Some(commit.id().to_string()));
+        }
+    }
+    Ok(None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -448,6 +518,42 @@ mod tests {
     fn commit_file(dir: &Path, backend: &Git2Backend, name: &str, text: &str, msg: &str) {
         fs::write(dir.join(name), text).unwrap();
         backend.commit(Some(msg), None).unwrap();
+    }
+
+    #[test]
+    fn changes_between_lists_added_modified_deleted_notes() {
+        let (dir, backend) = repo_with_commit("range");
+        commit_file(&dir, &backend, "gone.md", "bye", "add gone");
+        let from = backend.repo.head().unwrap().target().unwrap().to_string();
+        fs::write(dir.join("a.md"), "changed").unwrap();
+        fs::write(dir.join("new.md"), "n").unwrap();
+        fs::write(dir.join("img.png"), "x").unwrap();
+        fs::remove_file(dir.join("gone.md")).unwrap();
+        backend.commit(Some("many"), None).unwrap();
+        let c = changes_between(&dir, &from, None).unwrap();
+        let got: Vec<(&str, ChangeKind)> = c.iter().map(|c| (c.path.as_str(), c.kind)).collect();
+        assert_eq!(
+            got,
+            vec![
+                ("a.md", ChangeKind::Modified),
+                ("gone.md", ChangeKind::Deleted),
+                ("new.md", ChangeKind::Added),
+            ]
+        );
+        assert!(changes_between(&dir, "HEAD", None).unwrap().is_empty());
+        assert!(changes_between(&dir, "nope", None).is_err());
+    }
+
+    #[test]
+    fn rev_at_finds_the_newest_commit_before_a_time() {
+        let (dir, backend) = repo_with_commit("rev-at");
+        let head = backend.repo.head().unwrap().target().unwrap().to_string();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        assert_eq!(rev_at(&dir, now + 60).unwrap(), Some(head));
+        assert_eq!(rev_at(&dir, now - 86_400).unwrap(), None);
     }
 
     #[test]
