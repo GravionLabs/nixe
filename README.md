@@ -37,7 +37,7 @@ Cross-platform Markdown viewer and editor for macOS, Windows, and Linux. Built w
 
 ## Updates
 
-Nixe updates itself from the latest GitHub release, only when you ask: *Nixe → Check for Updates…* (macOS), *Help → Check for Updates…* or the version button in the toolbar. See [docs/updater.md](docs/updater.md).
+Nixe updates itself from the latest GitHub release, only when you ask: *Nixe → Check for Updates…* (macOS), *Help → Check for Updates…* or the update item in the status bar. See [docs/updater.md](docs/updater.md).
 
 ## Verify the download
 

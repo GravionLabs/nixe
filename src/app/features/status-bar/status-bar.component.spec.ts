@@ -8,25 +8,60 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
+import { CommandRegistry } from "../../core/commands/command-registry";
 import { GitStatus } from "../../core/file/backend";
 import { GitService } from "../../core/git/git.service";
+import { SettingsService } from "../../core/settings/settings.service";
 import { ShellService } from "../../core/shell/shell.service";
+import { UpdatePhase, UpdateService } from "../../core/updater/update.service";
 import { StatusBarComponent } from "./status-bar.component";
 
-function render(status: GitStatus | null, syncState = { phase: "idle", message: "" }) {
+interface Options {
+  status?: GitStatus | null;
+  syncState?: { phase: string; message: string };
+  phase?: UpdatePhase;
+  version?: string;
+  update?: { version: string; body?: string } | null;
+  error?: string;
+  percent?: number | null;
+  zoom?: number;
+}
+
+function render(o: Options = {}) {
   const sync = vi.fn();
   const show = vi.fn();
+  const check = vi.fn();
+  const install = vi.fn();
+  const execute = vi.fn();
+  const zoom = signal(o.zoom ?? 100);
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
-      { provide: GitService, useValue: { status: signal(status), sync, syncState: signal(syncState) } },
+      { provide: GitService, useValue: { status: signal(o.status ?? null), sync, syncState: signal(o.syncState ?? { phase: "idle", message: "" }) } },
       { provide: ShellService, useValue: { show } },
+      { provide: SettingsService, useValue: { zoom } },
+      { provide: CommandRegistry, useValue: { execute } },
+      {
+        provide: UpdateService,
+        useValue: {
+          version: signal(o.version ?? "1.2.0"),
+          phase: signal(o.phase ?? "idle"),
+          update: signal(o.update ?? null),
+          error: signal(o.error ?? ""),
+          percent: signal(o.percent ?? null),
+          check,
+          install,
+        },
+      },
     ],
   });
   const fixture = TestBed.createComponent(StatusBarComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, show, sync };
+  const el = fixture.nativeElement as HTMLElement;
+  return { el, show, sync, check, install, execute, zoom, fixture, text: () => el.textContent ?? "" };
 }
+
+const repo: GitStatus = { branch: "main", changes: [{ path: "a.md", kind: "added" }], ahead: 2, behind: 3 };
 
 describe("StatusBarComponent", () => {
   beforeAll(() => {
@@ -34,40 +69,153 @@ describe("StatusBarComponent", () => {
   });
 
   it("shows branch, changed files and ahead/behind", () => {
-    const { el } = render({ branch: "main", changes: [{ path: "a.md", kind: "added" }], ahead: 2, behind: 3 });
-    expect(el.textContent).toContain("main");
-    expect(el.textContent).toContain("1 changed");
-    expect(el.textContent).toContain("↑2 ↓3");
+    const { text } = render({ status: repo });
+    expect(text()).toContain("main");
+    expect(text()).toContain("1 changed");
+    expect(text()).toContain("↑2 ↓3");
   });
 
-  it("shows nothing without a repository", () => {
-    expect(render(null).el.querySelector("button")).toBeNull();
+  it("is shown without a repository, with no Git items", () => {
+    const { el, text } = render({ status: null });
+    expect(el.querySelector("hx-status-bar")).not.toBeNull();
+    expect(el.querySelector(".git")).toBeNull();
+    expect(el.querySelector(".sync-button")).toBeNull();
+    expect(text()).toContain("1.2.0");
+    expect(el.querySelector("hx-status-zoom")).not.toBeNull();
   });
 
   it("shows the Git view in the sidebar", () => {
-    const status: GitStatus = { branch: null, changes: [], ahead: 0, behind: 0 };
-    const r = render(status);
-    r.el.querySelector("button")!.click();
+    const r = render({ status: { branch: null, changes: [], ahead: 0, behind: 0 } });
+    r.el.querySelector<HTMLElement>(".git button")!.click();
     expect(r.show).toHaveBeenCalledWith("git");
-    expect(r.el.textContent).toContain("detached HEAD");
+    expect(r.text()).toContain("detached HEAD");
   });
 
   it("syncs from the button and shows the result", () => {
-    const status: GitStatus = { branch: "main", changes: [], ahead: 0, behind: 0 };
-    const done = render(status, { phase: "done", message: "Already in sync" });
-    done.el.querySelector<HTMLButtonElement>(".sync-button")!.click();
-    expect(done.sync).toHaveBeenCalled();
-    expect(done.el.querySelector(".result")!.textContent).toBe("Already in sync");
+    const r = render({ status: repo, syncState: { phase: "done", message: "Already in sync" } });
+    r.el.querySelector<HTMLElement>(".sync-button button")!.click();
+    expect(r.sync).toHaveBeenCalled();
+    expect(r.el.querySelector(".result")!.textContent).toContain("Already in sync");
   });
 
-  it("disables the button while syncing and marks an error", () => {
-    const status: GitStatus = { branch: "main", changes: [], ahead: 0, behind: 0 };
-    expect(render(status, { phase: "syncing", message: "Syncing…" }).el.querySelector<HTMLButtonElement>(".sync-button")!.disabled).toBe(true);
-    const failed = render(status, { phase: "error", message: "Sync failed: x" });
-    expect(failed.el.querySelector(".result.error")).not.toBeNull();
+  it("disables the sync button while syncing", () => {
+    const r = render({ status: repo, syncState: { phase: "syncing", message: "" } });
+    expect(r.el.querySelector<HTMLButtonElement>(".sync-button button")!.disabled).toBe(true);
   });
 
-  it("has no sync button without a repository", () => {
-    expect(render(null).el.querySelector(".sync-button")).toBeNull();
+  it("marks a failed sync as an error", () => {
+    const r = render({ status: repo, syncState: { phase: "error", message: "boom" } });
+    expect(r.el.querySelector(".result")!.textContent).toContain("boom");
+  });
+
+  it("is not rendered on iOS", () => {
+    document.documentElement.dataset["platform"] = "ios";
+    try {
+      const r = render({ status: repo });
+      expect(r.el.querySelector("hx-status-bar")).toBeNull();
+      expect(r.text().trim()).toBe("");
+    } finally {
+      delete document.documentElement.dataset["platform"];
+    }
+  });
+
+  describe("zoom", () => {
+    const zoomButtons = (el: HTMLElement) => Array.from(el.querySelectorAll<HTMLButtonElement>("hx-status-zoom button"));
+
+    it("shows the level", () => {
+      expect(render({ zoom: 120 }).text()).toContain("120%");
+    });
+
+    it("zooms in and out in steps of 10", () => {
+      const r = render({ zoom: 100 });
+      const [out, , zoomIn] = zoomButtons(r.el);
+      zoomIn.click();
+      expect(r.zoom()).toBe(110);
+      out.click();
+      out.click();
+      expect(r.zoom()).toBe(90);
+    });
+
+    it("resets to 100 from the level", () => {
+      const r = render({ zoom: 150 });
+      zoomButtons(r.el)[1].click();
+      expect(r.zoom()).toBe(100);
+    });
+
+    it("stops at the limits", () => {
+      const max = render({ zoom: 300 });
+      zoomButtons(max.el)[2].click();
+      expect(max.zoom()).toBe(300);
+      const min = render({ zoom: 50 });
+      zoomButtons(min.el)[0].click();
+      expect(min.zoom()).toBe(50);
+    });
+  });
+
+  describe("version and shortcuts", () => {
+    it("shows the version without a badge on a stable build", () => {
+      const r = render({ version: "1.2.0" });
+      expect(r.text()).toContain("1.2.0");
+      expect(r.text()).not.toContain("RC");
+    });
+
+    it("shows the RC badge and offers no update on an RC build", () => {
+      const r = render({ version: "1.3.0-rc011" });
+      expect(r.text()).toContain("RC");
+      expect(r.el.querySelector(".update")).toBeNull();
+    });
+
+    it("opens the commands from the ? item", () => {
+      const r = render();
+      r.el.querySelector<HTMLElement>(".shortcuts button")!.click();
+      expect(r.execute).toHaveBeenCalledWith("command-palette");
+    });
+  });
+
+  describe("update state", () => {
+    it("idle: offers the check", () => {
+      const r = render({ phase: "idle" });
+      expect(r.text()).toContain("Check for updates");
+      r.el.querySelector<HTMLElement>(".update button")!.click();
+      expect(r.check).toHaveBeenCalled();
+    });
+
+    it("checking", () => {
+      expect(render({ phase: "checking" }).text()).toContain("Checking for updates");
+    });
+
+    it("up to date", () => {
+      expect(render({ phase: "up-to-date" }).text()).toContain("Up to date");
+    });
+
+    it("available: shows the version, the notes and installs", () => {
+      const r = render({ phase: "available", update: { version: "1.3.0", body: "Fixes" } });
+      expect(r.text()).toContain("Update 1.3.0");
+      r.el.querySelector<HTMLElement>(".update button")!.click();
+      r.fixture.detectChanges();
+      expect(r.text()).toContain("Fixes");
+      r.el.querySelector<HTMLButtonElement>("button.install")!.click();
+      expect(r.install).toHaveBeenCalled();
+    });
+
+    it("installing: shows the progress", () => {
+      const r = render({ phase: "installing", update: { version: "1.3.0" }, percent: 42 });
+      expect(r.text()).toContain("Installing");
+      expect(r.text()).toContain("42%");
+    });
+
+    it("error after a failed install retries the install", () => {
+      const r = render({ phase: "error", update: { version: "1.3.0" }, error: "disk full" });
+      expect(r.text()).toContain("Update failed");
+      r.el.querySelector<HTMLElement>(".update button")!.click();
+      expect(r.install).toHaveBeenCalled();
+    });
+
+    it("error after a failed check retries the check", () => {
+      const r = render({ phase: "error", error: "offline" });
+      expect(r.text()).toContain("Update check failed");
+      r.el.querySelector<HTMLElement>(".update button")!.click();
+      expect(r.check).toHaveBeenCalled();
+    });
   });
 });

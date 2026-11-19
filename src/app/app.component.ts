@@ -16,6 +16,7 @@ import { CloneService } from "./core/git/clone.service";
 import { GitService } from "./core/git/git.service";
 import { SettingsPageService } from "./core/settings/settings-page.service";
 import { SettingsService } from "./core/settings/settings.service";
+import { isPrerelease } from "./core/updater/update-logic";
 import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
 import { TemplateService } from "./core/templates/template.service";
@@ -39,7 +40,6 @@ import { StatusBarComponent } from "./features/status-bar/status-bar.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
 import { ToolbarComponent } from "./features/toolbar/toolbar.component";
-import { UpdateComponent } from "./features/update/update.component";
 import { WorkspaceComponent } from "./features/workspace/workspace.component";
 import { TabsService } from "./core/tabs/tabs.service";
 import { ShellService } from "./core/shell/shell.service";
@@ -53,7 +53,7 @@ export class NavIconDirective {
 
 @Component({
   selector: "app-root",
-  imports: [HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, UpdateComponent, WorkspaceComponent],
+  imports: [HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -230,7 +230,7 @@ export class AppComponent {
       { id: "open-settings", title: "Open settings", shortcut: "Mod+,", keys: ["Mod+,"], run: () => this.run(async () => { this.tabs.openView("settings"); await this.settingsPage.open(); }) },
       { id: "open-file", title: "Open file", shortcut: "Mod+Shift+P", run: () => this.run(() => this.doc.openWithDialog()) },
       { id: "open-folder", title: "Open folder", shortcut: "Mod+Shift+O", run: () => this.run(() => this.workspace.openFolderWithDialog()) },
-      { id: "check-updates", title: "Check for updates…", run: () => this.updater.check() },
+      { id: "check-updates", title: "Check for updates…", when: () => !isPrerelease(this.updater.version()), run: () => this.updater.check() },
       { id: "open-recent", title: "Open recent vault…", run: () => this.run(() => this.recent.open()) },
       { id: "clone-vault", title: "Clone vault…", run: () => this.cloneVault.open() },
       {
