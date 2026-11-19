@@ -44,6 +44,14 @@ export class HistoryComponent {
     return this.history.selection().includes(entry.id ?? "");
   }
 
+  /** Copies the selected text of the diff or rendered versions, else the whole version. */
+  protected async copy(entry: TimelineEntry): Promise<void> {
+    const part = window.getSelection()?.toString() ?? "";
+    const text = part !== "" ? part : await this.history.versionText(entry);
+    await navigator.clipboard.writeText(text);
+    this.history.notice.set(part !== "" ? "Copied the selection" : "Copied the version");
+  }
+
   /** Older entries load when the list is scrolled near its end. */
   protected onScroll(list: HTMLElement): void {
     if (list.scrollHeight - list.scrollTop - list.clientHeight < 80) void this.history.loadMore();

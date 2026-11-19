@@ -138,3 +138,38 @@ header {
   font-size: 11px;
   color: var(--h-text-muted-color);
 }
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.5rem 0.25rem;
+}
+
+.actions button,
+.deleted button {
+  font-size: 0.75rem;
+}
+
+.deleted-title {
+  margin: 0.75rem 0.5rem 0.25rem;
+  font-size: 0.8rem;
+}
+
+.deleted {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.5rem;
+}
+
+.deleted li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.deleted .message {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

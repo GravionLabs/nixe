@@ -176,6 +176,18 @@ export interface HistoryEntry {
   parentPath: string;
 }
 
+/** A note that a recent commit deleted. */
+export interface DeletedNote {
+  path: string;
+  /** The commit that deleted it. */
+  id: string;
+  /** The parent of that commit: the last version of the note. */
+  parent: string;
+  author: string;
+  time: number;
+  message: string;
+}
+
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
@@ -237,6 +249,8 @@ export const backend = {
     invoke<HistoryEntry[]>("git_note_history", { path, offset, limit }),
   /** A note at a commit (empty when it did not exist there), or the file on disk for `rev: null`. */
   gitNoteVersion: (path: string, rev: string | null) => invoke<string>("git_note_version", { path, rev }),
+  /** Notes deleted by the last `commits` commits and not present now, newest first. */
+  gitDeletedNotes: (commits: number) => invoke<DeletedNote[]>("git_deleted_notes", { commits }),
   /**
    * Stages everything and commits; returns the commit id. An empty `message` gives
    * `vault backup: <timestamp>`; `name` and `email` are used when the Git config has no author.

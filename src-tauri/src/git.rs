@@ -350,6 +350,75 @@ pub fn note_version(root: &Path, path: &str, rev: Option<&str>) -> Result<String
     Ok(String::from_utf8_lossy(blob.content()).into_owned())
 }
 
+/// A note that a recent commit deleted (#106).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeletedNote {
+    /// Vault-relative path of the deleted note.
+    pub path: String,
+    /// The commit that deleted it.
+    pub id: String,
+    /// The parent of that commit, which still has the note: restore reads it from there.
+    pub parent: String,
+    pub author: String,
+    /// Seconds since the epoch.
+    pub time: i64,
+    pub message: String,
+}
+
+/// The Markdown notes that the last `commits` commits (first-parent, newest first) deleted
+/// and that do not exist in HEAD now. A note deleted twice is listed once, at its newest deletion.
+pub fn deleted_notes(root: &Path, commits: usize) -> Result<Vec<DeletedNote>, String> {
+    let Some(backend) = Git2Backend::open(root) else {
+        return Ok(vec![]);
+    };
+    let repo = &backend.repo;
+    if repo.head().is_err() {
+        return Ok(vec![]);
+    }
+    let head_tree = repo.head().and_then(|h| h.peel_to_tree()).map_err(e)?;
+    let mut walk = repo.revwalk().map_err(e)?;
+    walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
+        .map_err(e)?;
+    walk.push_head().map_err(e)?;
+    let mut out: Vec<DeletedNote> = Vec::new();
+    for oid in walk.take(commits) {
+        let commit = repo.find_commit(oid.map_err(e)?).map_err(e)?;
+        let Some(parent) = commit.parents().next() else {
+            continue;
+        };
+        let diff = repo
+            .diff_tree_to_tree(
+                Some(&parent.tree().map_err(e)?),
+                Some(&commit.tree().map_err(e)?),
+                None,
+            )
+            .map_err(e)?;
+        for d in diff.deltas() {
+            if d.status() != git2::Delta::Deleted {
+                continue;
+            }
+            let Some(path) = d.old_file().path().and_then(Path::to_str) else {
+                continue;
+            };
+            let is_note = path.to_lowercase().ends_with(".md");
+            if !is_note || blob_id(&head_tree, path).is_some() || out.iter().any(|n| n.path == path)
+            {
+                continue;
+            }
+            out.push(DeletedNote {
+                path: path.to_owned(),
+                id: commit.id().to_string(),
+                parent: parent.id().to_string(),
+                author: commit.author().name().unwrap_or("").to_owned(),
+                time: commit.time().seconds(),
+                message: commit.summary().ok().flatten().unwrap_or("").to_owned(),
+            });
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -379,6 +448,38 @@ mod tests {
     fn commit_file(dir: &Path, backend: &Git2Backend, name: &str, text: &str, msg: &str) {
         fs::write(dir.join(name), text).unwrap();
         backend.commit(Some(msg), None).unwrap();
+    }
+
+    #[test]
+    fn deleted_notes_lists_recent_deletions_not_restored() {
+        let (dir, backend) = repo_with_commit("deleted");
+        commit_file(&dir, &backend, "gone.md", "bye", "add gone");
+        commit_file(&dir, &backend, "back.md", "again", "add back");
+        commit_file(&dir, &backend, "img.png", "x", "add img");
+        for n in ["gone.md", "back.md", "img.png"] {
+            fs::remove_file(dir.join(n)).unwrap();
+        }
+        backend.commit(Some("delete"), None).unwrap();
+        commit_file(&dir, &backend, "back.md", "again", "restore back");
+        let d = deleted_notes(&dir, 10).unwrap();
+        assert_eq!(d.len(), 1);
+        assert_eq!(d[0].path, "gone.md");
+        assert_eq!(d[0].message, "delete");
+        assert_eq!(
+            note_version(&dir, "gone.md", Some(&d[0].parent)).unwrap(),
+            "bye"
+        );
+        // Only the last commits count: the deletion is two commits back.
+        assert!(deleted_notes(&dir, 1).unwrap().is_empty());
+        assert_eq!(deleted_notes(&dir, 2).unwrap().len(), 1);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn deleted_notes_is_empty_without_a_repository() {
+        let dir = temp("deleted-none");
+        assert!(deleted_notes(&dir, 10).unwrap().is_empty());
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
