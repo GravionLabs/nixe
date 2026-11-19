@@ -205,6 +205,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.15
         version: 6.43.15
+      '@gravionlabs/helix-desktop':
+        specifier: ^22.4.0
+        version: 22.4.0(3f48da14f57b43ef06b4b94b68c5b468)
       '@gravionlabs/helix-ui':
         specifier: ^22.4.0
         version: 22.4.0(8496a19a87ca987f790f5cbd9de14caa)
@@ -711,6 +714,24 @@ packages:
       '@noble/hashes': ^1.8.0 || ^2.0.0
     peerDependenciesMeta:
       '@noble/hashes':
+        optional: true
+
+  '@gravionlabs/helix-desktop@22.4.0':
+    resolution: {integrity: sha512-SabQiCLkx9Uj5tSnLk7HUAiZ2IKZjkxGNo11Biq41yMDuP0Celya8Ho00h9N+RA+9oeHnu6dVswdhZLAUlfNWQ==}
+    peerDependencies:
+      '@angular/cdk': '>=22'
+      '@angular/common': '>=22'
+      '@angular/core': '>=22'
+      '@gravionlabs/helix-ui': '>=0.1.0'
+      '@tauri-apps/api': '>=2'
+      '@tauri-apps/plugin-process': '>=2'
+      '@tauri-apps/plugin-updater': '>=2'
+    peerDependenciesMeta:
+      '@tauri-apps/api':
+        optional: true
+      '@tauri-apps/plugin-process':
+        optional: true
+      '@tauri-apps/plugin-updater':
         optional: true
 
   '@gravionlabs/helix-ui@22.4.0':
@@ -3423,6 +3444,18 @@ snapshots:
     optional: true
 
   '@exodus/bytes@1.16.0': {}
+
+  '@gravionlabs/helix-desktop@22.4.0(3f48da14f57b43ef06b4b94b68c5b468)':
+    dependencies:
+      '@angular/cdk': 22.2.7(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(@angular/forms@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(@angular/platform-browser@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)))(rxjs@7.8.2))(@angular/platform-browser@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)))(rxjs@7.8.2)
+      '@angular/common': 22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@angular/core': 22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)
+      '@gravionlabs/helix-ui': 22.4.0(8496a19a87ca987f790f5cbd9de14caa)
+      tslib: 2.8.1
+    optionalDependencies:
+      '@tauri-apps/api': 2.12.0
+      '@tauri-apps/plugin-process': 2.4.0
+      '@tauri-apps/plugin-updater': 2.13.3
 
   '@gravionlabs/helix-ui@22.4.0(8496a19a87ca987f790f5cbd9de14caa)':
     dependencies:
