@@ -206,8 +206,8 @@ importers:
         specifier: ^6.43.15
         version: 6.43.15
       '@gravionlabs/helix-ui':
-        specifier: ^22.3.1
-        version: 22.3.1(8496a19a87ca987f790f5cbd9de14caa)
+        specifier: ^22.4.0
+        version: 22.4.0(8496a19a87ca987f790f5cbd9de14caa)
       '@tauri-apps/api':
         specifier: ^2.12.0
         version: 2.12.0
@@ -713,8 +713,8 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@gravionlabs/helix-ui@22.3.1':
-    resolution: {integrity: sha512-bsgY9GmdE5e1VR6ZBk2ZYb31Mn5ib30ukQ/WNi914yi1wYBsae7MNbptAQYBEQZLQHjtip+0fkI5YgAKbpYnBA==}
+  '@gravionlabs/helix-ui@22.4.0':
+    resolution: {integrity: sha512-YX9OSHC8vFv31+iYFN5s+0wbjnam3OSsHEjxoMkkyADFJvWRco6CcABZD6IvOlIcaQcU8gbcUpi7M3XJRkb6Tw==}
     peerDependencies:
       '@angular/cdk': '>=22'
       '@angular/common': '>=22'
@@ -3424,7 +3424,7 @@ snapshots:
 
   '@exodus/bytes@1.16.0': {}
 
-  '@gravionlabs/helix-ui@22.3.1(8496a19a87ca987f790f5cbd9de14caa)':
+  '@gravionlabs/helix-ui@22.4.0(8496a19a87ca987f790f5cbd9de14caa)':
     dependencies:
       '@angular/cdk': 22.2.7(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(@angular/forms@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(@angular/platform-browser@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)))(rxjs@7.8.2))(@angular/platform-browser@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)))(rxjs@7.8.2)
       '@angular/common': 22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2)

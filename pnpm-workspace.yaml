@@ -6,6 +6,8 @@ allowBuilds:
 # 7 days, in minutes: a younger release reaches neither the lockfile nor an install (GravionLabs/ci#239).
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
+  # Own design system: a new helix release installs at once (ADR 0005).
+  - "@gravionlabs/helix-*"
   # In the lockfile before the 7 days applied and younger than that on 2026-11-18; remove after 2026-11-20.
   - "@codemirror/lint@6.9.8"
   - "jsdom@31.0.1"
