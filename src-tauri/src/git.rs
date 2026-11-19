@@ -431,7 +431,11 @@ pub fn changes_between(
     notes_changed(&backend.repo, from, to.unwrap_or("HEAD"))
 }
 
-fn notes_changed(repo: &git2::Repository, from: &str, to: &str) -> Result<Vec<GitChange>, String> {
+pub(crate) fn notes_changed(
+    repo: &git2::Repository,
+    from: &str,
+    to: &str,
+) -> Result<Vec<GitChange>, String> {
     let tree_of = |rev: &str| {
         repo.revparse_single(rev)
             .and_then(|o| o.peel_to_commit())
