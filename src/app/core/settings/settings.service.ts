@@ -44,6 +44,8 @@ export class SettingsService {
   readonly math = signal<boolean>(this.stored.math);
   readonly sidebarVisible = signal<boolean>(this.stored.sidebar);
   readonly sidebarWidth = signal<number>(this.stored.sidebarWidth);
+  /** The id of the view the sidebar shows. */
+  readonly activeView = signal<string>(this.stored.activeView);
   /** Right-hand backlinks and outgoing links panel. */
   readonly backlinksVisible = signal<boolean>(this.stored.backlinks);
   /** Right-hand outline panel (the headings of the open note). */
@@ -106,6 +108,7 @@ export class SettingsService {
       math: this.math(),
       sidebar: this.sidebarVisible(),
       sidebarWidth: this.sidebarWidth(),
+      activeView: this.activeView(),
       backlinks: this.backlinksVisible(),
       outline: this.outlineVisible(),
       linkPreview: this.linkPreview(),
@@ -134,6 +137,7 @@ export class SettingsService {
     this.math.set(s.math);
     this.sidebarVisible.set(s.sidebar);
     this.sidebarWidth.set(s.sidebarWidth);
+    this.activeView.set(s.activeView);
     this.backlinksVisible.set(s.backlinks);
     this.outlineVisible.set(s.outline);
     this.linkPreview.set(s.linkPreview);

@@ -43,13 +43,12 @@ describe("SearchService", () => {
     search = TestBed.inject(SearchService);
   });
 
-  it("opens with a query and searches the index", async () => {
+  it("sets a query and searches the index", async () => {
     const hits = [{ path: "a.md", title: "a", snippets: [] }];
     const spy = vi.spyOn(backend, "searchNotes").mockResolvedValue(hits);
     search.openWith("tag:#work");
     await vi.waitFor(() => expect(search.hits()).toEqual(hits));
     expect(spy).toHaveBeenCalledWith("tag:#work");
-    expect(search.visible()).toBe(true);
     expect(search.state()).toBe("ready");
   });
 

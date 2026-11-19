@@ -1,6 +1,5 @@
 <header>
   <span>Search</span>
-  <button type="button" class="close" aria-label="Close search" (click)="search.close()">×</button>
 </header>
 
 <input
@@ -10,7 +9,6 @@
   aria-label="Search the vault"
   [value]="search.query()"
   (input)="onInput($event)"
-  (keydown.escape)="search.close()"
 />
 
 @switch (search.state()) {

@@ -14,6 +14,7 @@ import { CommandRegistry } from "../../core/commands/command-registry";
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
 import { SettingsService } from "../../core/settings/settings.service";
+import { ShellService } from "../../core/shell/shell.service";
 import { UpdateService } from "../../core/updater/update.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { ToolbarComponent } from "./toolbar.component";
@@ -32,6 +33,7 @@ function render(opts: { path: string | null; editing: boolean; blocked?: boolean
         provide: DocumentService,
         useValue: { path: signal(opts.path), fileName: signal(""), canGoBack: signal(false), canGoForward: signal(false) },
       },
+      { provide: ShellService, useValue: { toggleSidebar: vi.fn() } },
       { provide: WorkspaceService, useValue: { root: signal(null) } },
       { provide: UpdateService, useValue: { version: signal("1.2.3"), busy: signal(false), check } },
       {

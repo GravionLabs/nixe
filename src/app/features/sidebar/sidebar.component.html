@@ -60,8 +60,6 @@
   }
 </nav>
 
-<div class="resizer" (pointerdown)="startResize($event)" title="Resize"></div>
-
 @if (menu(); as m) {
   <div class="menu-backdrop" (click)="closeMenu()" (contextmenu)="$event.preventDefault(); closeMenu()" role="presentation"></div>
   <ul class="menu" role="menu" [style.left.px]="m.x" [style.top.px]="m.y" (keydown.escape)="closeMenu()">

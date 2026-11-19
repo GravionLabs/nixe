@@ -3,6 +3,7 @@ import { Component, computed, inject } from "@angular/core";
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
+import { ShellService } from "../../core/shell/shell.service";
 import { SettingsService, ZOOM_MAX, ZOOM_MIN } from "../../core/settings/settings.service";
 import { UpdateService } from "../../core/updater/update.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -20,6 +21,7 @@ export class ToolbarComponent {
   protected readonly settings = inject(SettingsService);
   protected readonly editor = inject(EditorService);
   protected readonly updater = inject(UpdateService);
+  protected readonly shell = inject(ShellService);
   private readonly commands = inject(CommandRegistry);
   protected readonly mod = MOD;
   protected readonly zoomMin = ZOOM_MIN;

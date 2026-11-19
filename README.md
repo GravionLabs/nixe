@@ -65,7 +65,8 @@ Get-FileHash .\Nixe_<version>_x64-setup.exe -Algorithm SHA256
 | ⌘/Ctrl + ⇧ + P | Open file |
 | ⌘/Ctrl + ⇧ + O | Open folder |
 | ⌘/Ctrl + R | Reload |
-| ⌘/Ctrl + B | Toggle sidebar |
+| ⌘/Ctrl + B | Collapse / show the sidebar |
+| ⌘/Ctrl + ⇧ + F | Search the vault (selects the Search view in the sidebar) |
 | ⌘/Ctrl + E or toolbar *Edit* button | Toggle editor |
 | ⌘/Ctrl + [ / ] or Alt + ← / → | Back / forward |
 | ⌘/Ctrl + = / - / 0 or ⌘/Ctrl + scroll or toolbar buttons | Zoom in / out / reset |
@@ -101,6 +102,7 @@ src/app/core/markdown/   Markdown core (framework-free, tested with Vitest)
   markdown.service.ts    DOMPurify + image paths → Tauri asset protocol
 src/app/core/workspace/  file tree (tree-model.ts is framework-free and tested)
 src/app/core/file/       DocumentService (file, history), backend calls
+src/app/core/shell/      views registry (id, label, icon, sidebar or tab) and the activity bar state
 src/app/features/        toolbar, sidebar, viewer
 src-tauri/src/lib.rs     file I/O, watcher, wiki root, CLI/file opening, single instance
 src-tauri/src/menu.rs    native menu → `menu` event to the frontend

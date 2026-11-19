@@ -39,7 +39,6 @@ export class GitService {
   private readonly index = inject(IndexService);
   private readonly settings = inject(SettingsService);
 
-  readonly visible = signal(false);
   readonly status = signal<GitStatus | null>(null);
   readonly committing = signal(false);
   /** Whether a token is stored for `GIT_HOST`. The token itself is never read into the frontend. */
@@ -120,20 +119,11 @@ export class GitService {
     }
   }
 
-  open(): void {
-    if (this.available()) this.visible.set(true);
-  }
-
-  close(): void {
-    this.visible.set(false);
-  }
-
   /** A newer call wins over an older one still running. */
   async refresh(): Promise<void> {
     const request = ++this.request;
     if (this.workspace.vaultRoot() === null) {
       this.status.set(null);
-      this.visible.set(false);
       return;
     }
     let status: GitStatus | null;
@@ -144,7 +134,6 @@ export class GitService {
     }
     if (request !== this.request) return;
     this.status.set(status);
-    if (status === null) this.visible.set(false);
   }
 
   /**

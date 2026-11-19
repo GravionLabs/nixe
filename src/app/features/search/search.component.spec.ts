@@ -83,15 +83,12 @@ describe("SearchComponent", () => {
     expect(open).toHaveBeenLastCalledWith("/vault/work/b.md", { line: null });
   });
 
-  it("forwards typing to the search and closes on the close button and Escape", () => {
-    const { el, setQuery, close } = render("ready", []);
+  it("forwards typing to the search", () => {
+    const { el, setQuery } = render("ready", []);
     const input = el.querySelector("input")!;
     input.value = "tag:#x";
     input.dispatchEvent(new Event("input"));
     expect(setQuery).toHaveBeenCalledWith("tag:#x");
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    el.querySelector<HTMLButtonElement>("button.close")!.click();
-    expect(close).toHaveBeenCalledTimes(2);
   });
 
   it("says so when nothing matches, while indexing and when the index failed", () => {
