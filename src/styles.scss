@@ -86,6 +86,11 @@ body {
   cursor: pointer;
 }
 
+// Images open in the zoom dialog (the ones inside a link follow the link).
+.markdown-body img[data-zoomable] {
+  cursor: zoom-in;
+}
+
 // ---------------------------------------------------------------------------
 // Mermaid
 // ---------------------------------------------------------------------------
@@ -144,10 +149,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: grab;
+  touch-action: none;
+
+  &.panning {
+    cursor: grabbing;
+  }
 }
 
-.diagram-dialog-content svg {
+// `margin: auto` (not centering in the viewport) keeps the top/left of a large content reachable by scrolling.
+.diagram-dialog-content {
+  margin: auto;
+}
+
+.diagram-dialog-content svg,
+.diagram-dialog-content img {
   display: block;
+  user-select: none;
 }
 
 .diagram-dialog .close {
@@ -182,6 +200,10 @@ body {
   border: 1px solid var(--h-content-border-color);
   box-shadow: 0 2px 6px rgb(0 0 0 / 0.15);
   cursor: default;
+
+  button.text {
+    white-space: nowrap;
+  }
 
   button {
     display: flex;

@@ -73,6 +73,8 @@ README possible: that code could move into its own package unchanged.
 
 A click on a task checkbox in the reading view writes `- [ ]` / `- [x]` to the file: the renderer gives every task item its source line (`data-line`), the viewer enables the checkboxes and `setTaskState` (`core/markdown/task-toggle.ts`) changes only that one character, then `DocumentService.write` saves it atomically. The viewer skips the re-render that follows its own write, so nothing jumps or reloads. Other markers such as `- [/]` are never touched. A checkbox inside an embed (`![[Note]]`, a heading or a block) writes to the embedded note: the expander records its file and the line offset of the shown part on `.embed-body`. Piped stdin content stays read-only.
 
+A click on an image in the reading view opens it in the zoom dialog that Mermaid diagrams use (buttons, wheel zoom, drag to pan, Escape closes). The image is sized by `width`/`height`, never by a transform, so an SVG is drawn again at every zoom level and stays sharp. `decorateImages` (`core/markdown/image-zoom.ts`) makes images outside links focusable (Enter opens) and the stylesheet gives them a zoom-in cursor. An image inside a link follows the link; its dialog is in the context menu (*Open image*). For a local image the dialog also offers *Open with default app* and *Reveal in Finder/Explorer* (the file path is recovered from the asset URL by `assetFilePath`).
+
 See [state-management.md](state-management.md) for how these interact when the user
 clicks a link or expands a tree node.
 
