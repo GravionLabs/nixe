@@ -306,7 +306,14 @@ export class AppComponent {
 
   /** `nixe export`: runs the request and, without a window, ends the process with its result. */
   private async runPendingExport(): Promise<ExportRequest | null> {
-    const request = await backend.takePendingExport();
+    let request: ExportRequest | null;
+    try {
+      request = await backend.takePendingExport();
+    } catch (err) {
+      // Ends a headless export (a no-op in a normal window), which would otherwise hang hidden.
+      await backend.finishExport(1, String(err)).catch(() => undefined);
+      return null;
+    }
     if (!request) return null;
     try {
       const file = await this.exporter.runRequest(request);
