@@ -477,6 +477,40 @@ fn merge_note(
     })
 }
 
+/// Every replacement a find and replace would make, per note; changes nothing (#115).
+#[tauri::command]
+async fn replace_preview(
+    state: State<'_, AppState>,
+    options: vault::replace::Options,
+) -> Result<Vec<vault::replace::NoteReplacements>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || vault::replace::preview(&root, &options))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Replaces in the vault as one batch. In a Git repository the open changes are committed first,
+/// so that `git revert` undoes the replacement as a whole; a failing commit stops the batch.
+#[tauri::command]
+async fn replace_apply(
+    state: State<'_, AppState>,
+    options: vault::replace::Options,
+    exclusions: vault::replace::Exclusions,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<vault::replace::Applied, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        vault::replace::apply_with_checkpoint(&root, &options, &exclusions, fallback.as_ref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Moves a file or folder to `.trash/` in the vault; returns its new path.
 #[tauri::command]
 fn trash_path(state: State<'_, AppState>, path: String) -> Result<String, String> {
@@ -815,6 +849,8 @@ pub fn run() {
         extract_text,
         merge_preview,
         merge_note,
+        replace_preview,
+        replace_apply,
         trash_path,
         conflict_pair,
         resolve_conflict,
@@ -896,6 +932,8 @@ pub fn run() {
         extract_text,
         merge_preview,
         merge_note,
+        replace_preview,
+        replace_apply,
         trash_path,
         conflict_pair,
         resolve_conflict,

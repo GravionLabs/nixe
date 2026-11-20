@@ -1,6 +1,9 @@
 <header>
   <span>Search</span>
+  <span class="actions">
+  <button type="button" class="toggle-replace" [class.on]="replace.enabled()" [attr.aria-pressed]="replace.enabled()" (click)="replace.toggle()" title="Replace in the vault" aria-label="Replace in the vault">⇄</button>
   <button type="button" class="bookmark" [disabled]="!search.query().trim()" (click)="bookmarkSearch()" title="Bookmark this search" aria-label="Bookmark this search">☆</button>
+  </span>
 </header>
 
 <input
@@ -12,6 +15,55 @@
   (input)="onInput($event)"
 />
 
+@if (replace.enabled()) {
+  <div class="replace">
+    <input
+      class="replacement"
+      type="text"
+      placeholder="Replace with…"
+      aria-label="Replace with"
+      [value]="replace.replacement()"
+      (input)="onReplacement($event)"
+    />
+    <div class="options">
+      <label><input type="checkbox" [checked]="replace.regex()" (change)="replace.regex.set(!replace.regex())" /> Regex</label>
+      <label><input type="checkbox" [checked]="replace.caseSensitive()" (change)="replace.caseSensitive.set(!replace.caseSensitive())" /> Match case</label>
+      <label><input type="checkbox" [checked]="replace.wholeWord()" (change)="replace.wholeWord.set(!replace.wholeWord())" /> Whole word</label>
+    </div>
+    <button type="button" class="apply" [disabled]="replace.busy() || replace.totals().notes === 0" (click)="applyReplace()">
+      Replace {{ replace.totals().replacements }} in {{ replace.totals().notes }} {{ replace.totals().notes === 1 ? "note" : "notes" }}
+    </button>
+  </div>
+  @if (replace.error(); as message) {
+    <p class="status" role="alert">{{ message }}</p>
+  } @else if (search.query().trim() && replace.notes().length === 0) {
+    <p class="status">No matches</p>
+  }
+  <ul aria-label="Replacements">
+    @for (note of replace.notes(); track note.path) {
+      <li class="diff-note" [class.excluded]="replace.isNoteExcluded(note.path)">
+        <label class="note-row">
+          <input type="checkbox" [checked]="!replace.isNoteExcluded(note.path)" (change)="replace.toggleNote(note.path)" [attr.aria-label]="'Replace in ' + note.path" />
+          <span class="name">{{ note.path }}</span>
+          <span class="path">{{ note.count }}</span>
+        </label>
+        @for (r of note.replacements; track r.index) {
+          <div class="diff" [class.excluded]="replace.isMatchExcluded(note.path, r.index)">
+            <input type="checkbox" [checked]="!replace.isMatchExcluded(note.path, r.index)" [disabled]="replace.isNoteExcluded(note.path)" (change)="replace.toggleMatch(note.path, r.index)" [attr.aria-label]="'Replace line ' + r.line" />
+            <span class="lines">
+              <span class="line">{{ r.line }}</span>
+              <del>{{ r.before }}</del>
+              <ins>{{ r.after }}</ins>
+            </span>
+          </div>
+        }
+        @if (note.count > note.replacements.length) {
+          <p class="status">… and {{ note.count - note.replacements.length }} more in this note</p>
+        }
+      </li>
+    }
+  </ul>
+} @else {
 @switch (search.state()) {
   @case ("loading") {
     <p class="status" role="status">Indexing the vault…</p>
@@ -46,4 +98,5 @@
       </ul>
     }
   }
+}
 }
