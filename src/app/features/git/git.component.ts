@@ -1,7 +1,7 @@
 import { Component, inject, output } from "@angular/core";
 
 import { clampMinutes } from "../../core/git/auto-sync";
-import { GitChange } from "../../core/file/backend";
+import type { GitChange } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { GitService } from "../../core/git/git.service";
 import { joinPath } from "../../core/markdown/paths";
@@ -23,7 +23,7 @@ export class GitComponent {
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
   readonly committed = output<void>();
 
   protected setMinutes(input: HTMLInputElement): void {
@@ -42,7 +42,7 @@ export class GitComponent {
     try {
       await this.doc.open(joinPath(root, rel));
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
@@ -51,7 +51,7 @@ export class GitComponent {
       await this.git.saveToken(input.value);
       input.value = "";
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
@@ -59,7 +59,7 @@ export class GitComponent {
     try {
       await this.git.deleteToken();
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
@@ -71,7 +71,7 @@ export class GitComponent {
       form?.reset();
       this.committed.emit();
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

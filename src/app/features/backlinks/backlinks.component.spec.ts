@@ -10,9 +10,10 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { Backlink, UnlinkedMention } from "../../core/file/backend";
+import type { Backlink, UnlinkedMention } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
-import { BacklinksService, BacklinksState, OutgoingLink } from "../../core/index/backlinks.service";
+import type { BacklinksState, OutgoingLink } from "../../core/index/backlinks.service";
+import { BacklinksService } from "../../core/index/backlinks.service";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { BacklinksComponent } from "./backlinks.component";
@@ -166,7 +167,7 @@ describe("BacklinksComponent", () => {
   it("reports a failing link as an error", async () => {
     const { el, linkMention, fixture } = render("ready", [], [], [mention]);
     const errors: string[] = [];
-    fixture.componentInstance.error.subscribe((e: string) => errors.push(e));
+    fixture.componentInstance.failed.subscribe((e: string) => errors.push(e));
     linkMention.mockRejectedValue("M.md changed");
     el.querySelector<HTMLButtonElement>("button.fold")!.click();
     fixture.detectChanges();

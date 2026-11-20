@@ -1,4 +1,5 @@
-import { Component, OnDestroy, computed, effect, inject, viewChild } from "@angular/core";
+import type { OnDestroy } from "@angular/core";
+import { Component, computed, effect, inject, viewChild } from "@angular/core";
 
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
@@ -19,28 +20,7 @@ import { ViewerComponent } from "../viewer/viewer.component";
 @Component({
   selector: "app-pane",
   imports: [EditorComponent, HealthComponent, SettingsComponent, StartComponent, ViewerComponent],
-  template: `
-    @if (tab.view() === "settings") {
-      <app-settings class="view" />
-    } @else if (tab.view() === "health") {
-      <app-health class="view" (error)="tabs.notice.set($event)" />
-    } @else if (doc.path()) {
-      @if (editor.editing()) {
-        @defer (on immediate) {
-          <app-editor class="note" (error)="tabs.notice.set($event)" />
-        }
-      } @else {
-        <app-viewer
-          class="note"
-          [html]="html()"
-          [dark]="settings.dark()"
-          (notify)="tabs.notice.set($event)"
-        />
-      }
-    } @else {
-      <app-start class="view" (error)="tabs.notice.set($event)" />
-    }
-  `,
+  templateUrl: "./pane.component.html",
   styles: `
     :host {
       display: flex;

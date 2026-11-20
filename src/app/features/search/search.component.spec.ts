@@ -11,10 +11,11 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
-import { SearchHit } from "../../core/file/backend";
+import type { SearchHit } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { ReplaceService } from "../../core/index/replace.service";
-import { SearchService, SearchState, segments } from "../../core/index/search.service";
+import type { SearchState } from "../../core/index/search.service";
+import { SearchService, segments } from "../../core/index/search.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { SearchComponent } from "./search.component";
 

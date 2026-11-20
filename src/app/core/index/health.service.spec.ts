@@ -8,7 +8,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
-import { HealthReport, backend } from "../file/backend";
+import type { HealthReport } from "../file/backend";
+import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
 import { HealthService } from "./health.service";
 import { IndexService } from "./index.service";

@@ -11,7 +11,7 @@ import {
 /** The left edge of the right panel: drag it or use the arrow keys to change the width. */
 @Component({
   selector: "app-panel-resizer",
-  template: "",
+  templateUrl: "./panel-resizer.component.html",
   host: {
     role: "separator",
     "aria-orientation": "vertical",

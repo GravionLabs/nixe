@@ -1,0 +1,10 @@
+# Commits that only reformat code; `git blame` skips them.
+# GitHub reads this file automatically; locally run once:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: oxfmt formats the frontend (#273)
+fc298721b90f2249ebce9fa7055242947bc3a755
+# style: oxfmt formats the files merged from release/next (#277)
+df803900ddd009091fb67591b9491fc2a316010f
+# style: oxfmt formats the files merged from release/next (#277)
+8c8cb176b50cbccb5b8dbdfda2b952f88e694415

@@ -89,7 +89,7 @@ export function localCandidates(linkPath: string, ctx: Omit<ResolveContext, "exi
     for (const name of nameVariants(linkPath)) {
       const full = joinPath(base, name);
       // Page names may contain dots ("v1.2 Release"), so ".md" is always tried first.
-      if (!isMarkdownPath(full)) result.push(full + ".md");
+      if (!isMarkdownPath(full)) result.push(`${full}.md`);
       result.push(full);
     }
   }

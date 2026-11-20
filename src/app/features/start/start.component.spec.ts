@@ -54,7 +54,7 @@ function render({ vault = null, notes = [], vaults = [], openRecent = true }: Op
   });
   const fixture = TestBed.createComponent(StartComponent);
   const errors: string[] = [];
-  fixture.componentInstance.error.subscribe((e) => errors.push(e));
+  fixture.componentInstance.failed.subscribe((e) => errors.push(e));
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
   const buttons = () => Array.from(el.querySelectorAll("button"));

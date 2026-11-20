@@ -1,6 +1,7 @@
 import { Injectable, effect, inject, signal, untracked } from "@angular/core";
 
-import { ConflictPair, backend } from "../file/backend";
+import type { ConflictPair } from "../file/backend";
+import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { EditorService } from "../editor/editor.service";
 import { IndexService } from "../index/index.service";

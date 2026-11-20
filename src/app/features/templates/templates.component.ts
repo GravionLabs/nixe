@@ -1,7 +1,9 @@
-import { Component, ElementRef, effect, inject, output, viewChild } from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import { Component, effect, inject, output, viewChild } from "@angular/core";
 import { HxDialog } from "@gravionlabs/helix-ui";
 
-import { TemplateEntry, TemplateService } from "../../core/templates/template.service";
+import type { TemplateEntry } from "../../core/templates/template.service";
+import { TemplateService } from "../../core/templates/template.service";
 
 /** `Insert template` overlay: type to filter, arrow keys to choose, Enter to insert. */
 @Component({
@@ -13,7 +15,7 @@ import { TemplateEntry, TemplateService } from "../../core/templates/template.se
 export class TemplatesComponent {
   protected readonly templates = inject(TemplateService);
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("input");
 
   constructor() {
@@ -50,7 +52,7 @@ export class TemplatesComponent {
     try {
       await this.templates.insert(entry);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

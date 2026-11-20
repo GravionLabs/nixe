@@ -46,7 +46,7 @@ export class StartComponent {
   private readonly doc = inject(DocumentService);
 
   /** A message for the user, for example a vault that is gone or a note that cannot be opened. */
-  readonly error = output<string>();
+  readonly failed = output<string>();
 
   protected readonly inVault = computed(() => this.workspace.vaultRoot() !== null);
 
@@ -81,15 +81,15 @@ export class StartComponent {
     try {
       await this.doc.open(joinPath(root, relative));
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
   protected async openVault(path: string): Promise<void> {
     try {
-      if (!(await this.workspace.openRecent(path))) this.error.emit(missingMessage([path]));
+      if (!(await this.workspace.openRecent(path))) this.failed.emit(missingMessage([path]));
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

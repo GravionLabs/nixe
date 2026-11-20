@@ -1,7 +1,8 @@
 import { Injectable, signal } from "@angular/core";
 import { listen } from "@tauri-apps/api/event";
 
-import { INDEX_EVENT, IndexStatus, VAULT_CHANGED_EVENT, backend } from "../file/backend";
+import type { IndexStatus } from "../file/backend";
+import { INDEX_EVENT, VAULT_CHANGED_EVENT, backend } from "../file/backend";
 
 /** State of the vault index: build progress and a counter that moves whenever notes changed. */
 @Injectable({ providedIn: "root" })

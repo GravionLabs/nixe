@@ -25,7 +25,8 @@ import {
   backend,
 } from "./core/file/backend";
 import { EditorService } from "./core/editor/editor.service";
-import { Command, CommandRegistry } from "./core/commands/command-registry";
+import type { Command } from "./core/commands/command-registry";
+import { CommandRegistry } from "./core/commands/command-registry";
 import { PaletteService } from "./core/commands/palette.service";
 import { ShortcutService } from "./core/commands/shortcut.service";
 import { DocumentService } from "./core/file/document.service";
@@ -37,7 +38,8 @@ import { GitService } from "./core/git/git.service";
 import { SettingsPageService } from "./core/settings/settings-page.service";
 import { overlaysNote, clampPanelWidth } from "./core/panel/panel-width";
 import { PanelResizerComponent } from "./features/panel-resizer/panel-resizer.component";
-import { PanelTab, SettingsService } from "./core/settings/settings.service";
+import type { PanelTab } from "./core/settings/settings.service";
+import { SettingsService } from "./core/settings/settings.service";
 import { isPrerelease } from "./core/updater/update-logic";
 import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
@@ -74,9 +76,9 @@ import { FocusService } from "./core/shell/focus.service";
 import { ShellService } from "./core/shell/shell.service";
 
 /** Marks the template of an activity bar icon with the icon name of the views registry. */
-@Directive({ selector: "ng-template[navIcon]" })
+@Directive({ selector: "ng-template[appNavIcon]" })
 export class NavIconDirective {
-  readonly name = input.required<string>({ alias: "navIcon" });
+  readonly name = input.required<string>({ alias: "appNavIcon" });
   readonly template = inject(TemplateRef);
 }
 
@@ -150,9 +152,10 @@ export class AppComponent {
   /** The activity bar items with their icons: the registry names an icon, the templates draw it. */
   protected readonly barItems = computed(() => {
     const templates = new Map(this.icons().map((i) => [i.name(), i.template]));
-    return this.shell
-      .items()
-      .map((item) => ({ ...item, icon: templates.get(String(item.icon)) ?? item.icon }));
+    return this.shell.items().map((item) => ({
+      ...item,
+      icon: typeof item.icon === "string" ? (templates.get(item.icon) ?? item.icon) : item.icon,
+    }));
   });
 
   /** The Links tab needs a vault; outside one the panel only has the outline. */
@@ -241,8 +244,8 @@ export class AppComponent {
     // Desktop-only listeners must not stop the pending file from opening
     // (on iOS some of them are unavailable).
     try {
-      await listen(OPEN_FILE_EVENT, () => this.openPending());
-      await listen<string>(FILE_CHANGED_EVENT, (e) => this.tabs.onExternalChange(e.payload));
+      await listen(OPEN_FILE_EVENT, () => void this.openPending());
+      await listen<string>(FILE_CHANGED_EVENT, (e) => void this.tabs.onExternalChange(e.payload));
       await this.updater.init();
       await this.index.init();
       await this.bookmarks.init();

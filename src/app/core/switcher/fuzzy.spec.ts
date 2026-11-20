@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { SwitcherEntry, fileLabel, fuzzyMatch, fuzzyScore, highlightParts, rank } from "./fuzzy";
+import type { SwitcherEntry } from "./fuzzy";
+import { fileLabel, fuzzyMatch, fuzzyScore, highlightParts, rank } from "./fuzzy";
 
 const entry = (path: string, aliases: string[] = []): SwitcherEntry => ({
   path,

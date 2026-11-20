@@ -24,27 +24,7 @@ function saveUrl(url: string): void {
 /** Temporary prototype for #60 (git2 on iOS). Dev builds only; remove after the spike. */
 @Component({
   selector: "app-git-spike",
-  template: `
-    <details class="spike">
-      <summary>Git spike (#60)</summary>
-      <input #url [value]="savedUrl" placeholder="https://github.com/owner/private-repo.git" />
-      <input #token type="password" placeholder="personal access token" />
-      <div class="row">
-        <button type="button" (click)="run('token set', () => setToken(token))">Save token</button>
-        <button type="button" (click)="run('token get', () => hasToken())">Token?</button>
-        <button type="button" (click)="run('clone', () => clone(url.value))">Clone</button>
-        <button type="button" (click)="run('commit', () => commit())">Commit</button>
-        <button type="button" (click)="run('pull --rebase', () => cmd('git_pull_rebase'))">
-          Pull
-        </button>
-        <button type="button" (click)="run('push', () => cmd('git_push'))">Push</button>
-      </div>
-      @if (git.tokenPrompt()) {
-        <p role="alert">A token is needed: enter it above and press "Save token".</p>
-      }
-      <pre>{{ log() }}</pre>
-    </details>
-  `,
+  templateUrl: "./git-spike.component.html",
   styles: `
     .spike {
       padding: 0.5rem 1rem;
@@ -75,8 +55,9 @@ export class GitSpikeComponent {
     const start = performance.now();
     try {
       const result = await action();
+      const text = typeof result === "string" ? result : (JSON.stringify(result) ?? "");
       this.log.update(
-        (l) => `${l}${name}: ok ${Math.round(performance.now() - start)} ms ${result ?? ""}\n`,
+        (l) => `${l}${name}: ok ${Math.round(performance.now() - start)} ms ${text}\n`,
       );
     } catch (error) {
       this.log.update((l) => `${l}${name}: FAILED ${String(error)}\n`);

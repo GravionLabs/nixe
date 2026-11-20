@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { GitChange } from "../../core/file/backend";
+import type { GitChange } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";

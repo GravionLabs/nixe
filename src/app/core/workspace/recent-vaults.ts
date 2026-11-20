@@ -1,5 +1,6 @@
 import { sanitizePanelWidth } from "../panel/panel-width";
-import { LayoutState, sanitizeLayout } from "../tabs/layout";
+import type { LayoutState } from "../tabs/layout";
+import { sanitizeLayout } from "../tabs/layout";
 
 /** How many vaults `File → Open recent` remembers. */
 export const MAX_RECENT_VAULTS = 5;

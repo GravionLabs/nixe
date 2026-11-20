@@ -2,10 +2,10 @@ import { Injectable, computed, effect, inject, signal } from "@angular/core";
 
 import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
-import { Command, CommandRegistry, formatShortcut } from "./command-registry";
+import type { Command } from "./command-registry";
+import { CommandRegistry, formatShortcut } from "./command-registry";
+import type { Bindings, RecordedKey } from "./shortcuts-core";
 import {
-  Bindings,
-  RecordedKey,
   bindingFromEvent,
   canonicalBinding,
   effectiveBindings,

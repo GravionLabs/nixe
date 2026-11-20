@@ -3,18 +3,12 @@ import { HxTheme } from "@gravionlabs/helix-ui";
 
 import { backend } from "../file/backend";
 import type { TreeSort } from "../workspace/tree-model";
-import { LinkPreviewMode } from "../preview/preview-core";
-import {
-  VaultState,
-  VaultStates,
-  addRecent,
-  pruneStates,
-  removeRecent,
-} from "../workspace/recent-vaults";
+import type { LinkPreviewMode } from "../preview/preview-core";
+import type { VaultState, VaultStates } from "../workspace/recent-vaults";
+import { addRecent, pruneStates, removeRecent } from "../workspace/recent-vaults";
+import type { StoredSettings, ThemeMode } from "./settings-core";
 import {
   LEGACY_STORAGE_KEY,
-  StoredSettings,
-  ThemeMode,
   ZOOM_MAX,
   ZOOM_MIN,
   loadSettings,

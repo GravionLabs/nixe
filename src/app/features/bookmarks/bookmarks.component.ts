@@ -1,13 +1,7 @@
 import { Component, computed, inject, signal } from "@angular/core";
 
-import {
-  Bookmark,
-  ItemPath,
-  isFile,
-  isGroup,
-  isSearch,
-  labelOf,
-} from "../../core/bookmarks/bookmarks-core";
+import type { Bookmark, ItemPath } from "../../core/bookmarks/bookmarks-core";
+import { isFile, isGroup, isSearch, labelOf } from "../../core/bookmarks/bookmarks-core";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { SearchService } from "../../core/index/search.service";
 import { ShellService } from "../../core/shell/shell.service";
@@ -49,78 +43,7 @@ const ICONS: Record<BookmarkRow["kind"], string> = {
 /** Sidebar: the bookmarks of the vault; drag to reorder or to move into a group. */
 @Component({
   selector: "app-bookmarks",
-  template: `
-    <header>
-      <span>Bookmarks</span>
-      <button
-        type="button"
-        class="add"
-        (click)="bookmarks.addGroup()"
-        title="New group"
-        aria-label="New group"
-      >
-        +
-      </button>
-    </header>
-    @if (rows().length === 0) {
-      <p class="status">
-        No bookmarks yet. Bookmark a note, a heading or a search from the command palette.
-      </p>
-    }
-    <ul
-      role="tree"
-      aria-label="Bookmarks"
-      (dragover)="$event.preventDefault()"
-      (drop)="dropAtEnd($event)"
-    >
-      @for (row of rows(); track row.path.join(".")) {
-        <li
-          role="treeitem"
-          draggable="true"
-          [attr.data-kind]="row.kind"
-          [style.padding-left.px]="8 + row.depth * 14"
-          (dragstart)="dragging.set(row.path)"
-          (dragend)="dragging.set(null)"
-          (dragover)="$event.preventDefault(); $event.stopPropagation()"
-          (drop)="drop($event, row)"
-        >
-          <span class="icon" aria-hidden="true">{{ icon(row) }}</span>
-          @if (editing()?.join(".") === row.path.join(".")) {
-            <input
-              #name
-              class="rename"
-              type="text"
-              aria-label="Group name"
-              [value]="label(row)"
-              (click)="$event.stopPropagation()"
-              (keydown.enter)="commit(row, name.value)"
-              (keydown.escape)="editing.set(null)"
-              (blur)="commit(row, name.value)"
-            />
-          } @else {
-            <button
-              type="button"
-              class="label"
-              [title]="label(row)"
-              (click)="open(row)"
-              (dblclick)="rename(row)"
-            >
-              {{ label(row) }}
-            </button>
-          }
-          <button
-            type="button"
-            class="remove"
-            (click)="bookmarks.remove(row.path)"
-            title="Remove bookmark"
-            aria-label="Remove bookmark"
-          >
-            ×
-          </button>
-        </li>
-      }
-    </ul>
-  `,
+  templateUrl: "./bookmarks.component.html",
   styles: `
     :host {
       display: flex;

@@ -9,7 +9,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 import { backend } from "../file/backend";
 import { LEGACY_STORAGE_KEY, serializeSettings } from "../settings/settings-core";
 import { SettingsService } from "../settings/settings.service";
-import { CommandRegistry, KeyInput } from "./command-registry";
+import type { KeyInput } from "./command-registry";
+import { CommandRegistry } from "./command-registry";
 import { ShortcutService } from "./shortcut.service";
 
 const key = (k: string, mods: Partial<KeyInput> = {}): KeyInput & { code: string } => ({

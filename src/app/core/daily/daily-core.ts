@@ -71,7 +71,7 @@ function matcherFor(format: string): Matcher | null {
       source += capture("monthName", MONTHS.map((n) => n.slice(0, 3)).join("|"));
     else if (t === "DD") source += capture("day", "\\d{2}");
     else if (t === "D") source += capture("day", "\\d{1,2}");
-    else if (t === "Do") source += capture("day", "\\d{1,2}") + "(?:st|nd|rd|th)";
+    else if (t === "Do") source += `${capture("day", "\\d{1,2}")}(?:st|nd|rd|th)`;
     else source += "[^/]+?";
   }
   source += escapeRe(format.slice(at));
@@ -95,7 +95,7 @@ export function parseDailyPath(
   const folder = trimSlashes(config.folder);
   let rest = path.slice(0, -3);
   if (folder) {
-    if (!rest.startsWith(folder + "/")) return null;
+    if (!rest.startsWith(`${folder}/`)) return null;
     rest = rest.slice(folder.length + 1);
   }
   const m = matcher.re.exec(rest);

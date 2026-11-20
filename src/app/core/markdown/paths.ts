@@ -18,7 +18,7 @@ export function dirname(p: string): string {
   if (idx < 0) return ".";
   if (idx === 0) return "/";
   const dir = s.slice(0, idx);
-  return /^[A-Za-z]:$/.test(dir) ? dir + "/" : dir;
+  return /^[A-Za-z]:$/.test(dir) ? `${dir}/` : dir;
 }
 
 export function basename(p: string): string {

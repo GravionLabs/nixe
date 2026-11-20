@@ -11,14 +11,15 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { EditorService } from "../../core/editor/editor.service";
 import { countText } from "../../core/editor/text-stats";
-import { GitStatus } from "../../core/file/backend";
+import type { GitStatus } from "../../core/file/backend";
 import { BacklinksService } from "../../core/index/backlinks.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
 import { ReviewService } from "../../core/git/review.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { ShellService } from "../../core/shell/shell.service";
-import { UpdatePhase, UpdateService } from "../../core/updater/update.service";
+import type { UpdatePhase } from "../../core/updater/update.service";
+import { UpdateService } from "../../core/updater/update.service";
 import { StatusBarComponent } from "./status-bar.component";
 
 interface Options {

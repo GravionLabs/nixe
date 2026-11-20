@@ -1,6 +1,6 @@
+import type { ElementRef } from "@angular/core";
 import {
   Component,
-  ElementRef,
   computed,
   effect,
   inject,
@@ -11,13 +11,13 @@ import {
 } from "@angular/core";
 
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
-import { SearchHit, SearchSnippet } from "../../core/file/backend";
+import type { SearchHit, SearchSnippet } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { ReplaceService } from "../../core/index/replace.service";
+import type { SearchSort } from "../../core/index/search.service";
 import {
   SEARCH_SORTS,
   SearchService,
-  SearchSort,
   segments,
   sortHits,
   withOperator,
@@ -56,7 +56,7 @@ export class SearchComponent {
   protected readonly replace = inject(ReplaceService);
   private readonly bookmarks = inject(BookmarksService);
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
   protected readonly segments = segments;
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("input");
   protected readonly operators = SEARCH_OPERATORS;
@@ -141,7 +141,7 @@ export class SearchComponent {
     try {
       await this.replace.apply(this.search.query().trim());
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
@@ -159,7 +159,7 @@ export class SearchComponent {
     try {
       await this.doc.open(joinPath(root, rel), { line });
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

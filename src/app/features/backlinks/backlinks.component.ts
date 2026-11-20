@@ -1,8 +1,9 @@
 import { Component, effect, inject, output, signal, untracked } from "@angular/core";
 
-import { Backlink, UnlinkedMention } from "../../core/file/backend";
+import type { Backlink, UnlinkedMention } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
-import { BacklinksService, OutgoingLink } from "../../core/index/backlinks.service";
+import type { OutgoingLink } from "../../core/index/backlinks.service";
+import { BacklinksService } from "../../core/index/backlinks.service";
 import { joinPath } from "../../core/markdown/paths";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { TabsService } from "../../core/tabs/tabs.service";
@@ -21,7 +22,7 @@ export class BacklinksComponent {
   private readonly tabs = inject(TabsService);
   private readonly preview = inject(LinkPreviewService);
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
 
   /** The section of unlinked mentions starts collapsed: it is read from the index only when opened. */
   protected readonly unlinkedOpen = signal(false);
@@ -49,7 +50,7 @@ export class BacklinksComponent {
     try {
       await this.links.linkMention(mention);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
@@ -86,7 +87,7 @@ export class BacklinksComponent {
         await this.tabs.openInNewTab(joinPath(root, rel), options);
       else await this.doc.open(joinPath(root, rel), options);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

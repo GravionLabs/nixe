@@ -153,7 +153,8 @@ export function labelOf(b: Bookmark): string {
   }
   if (isSearch(b)) return b.title || b.query;
   if (isGroup(b)) return b.title || "Group";
-  return String((b as OtherBookmark)["title"] ?? b.type);
+  const title = (b as OtherBookmark)["title"];
+  return typeof title === "string" ? title : b.type;
 }
 
 /** True when the same note, heading or search is already bookmarked (anywhere in the tree). */

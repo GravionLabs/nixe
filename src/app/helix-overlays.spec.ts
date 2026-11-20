@@ -22,7 +22,7 @@ const sources = [...files(root), resolve(root, "../styles.scss")].map((path) => 
 const rel = (path: string) => path.slice(resolve(root, "..").length + 1);
 
 // The viewer's zoom dialog pans and zooms an image or a diagram; hx-dialog has no such surface.
-const ALLOWED_BACKDROP = new Set(["app/features/viewer/viewer.component.ts", "styles.scss"]);
+const ALLOWED_BACKDROP = new Set(["app/features/viewer/viewer.component.html", "styles.scss"]);
 
 describe("helix overlays", () => {
   it("builds no own backdrop", () => {

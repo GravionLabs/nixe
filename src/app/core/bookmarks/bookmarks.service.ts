@@ -1,19 +1,22 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 import { listen } from "@tauri-apps/api/event";
 
-import { VAULT_CHANGED_EVENT, VaultChange, backend } from "../file/backend";
+import type { VaultChange } from "../file/backend";
+import { VAULT_CHANGED_EVENT, backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { SearchService } from "../index/search.service";
 import { outlineOf } from "../outline/outline-core";
 import { OutlineService } from "../outline/outline.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
-import {
+import type {
   Bookmark,
   BookmarkFile,
   FileBookmark,
   ItemPath,
   SearchBookmark,
+} from "./bookmarks-core";
+import {
   addBookmark,
   addGroup,
   contains,

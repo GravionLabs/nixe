@@ -34,12 +34,7 @@ describe("DocumentService writing", () => {
   it("does not touch the content when the write fails", async () => {
     const doc = await opened();
     invoke.mockRejectedValueOnce("denied");
-    try {
-      await doc.write("/v/a.md", "new");
-      expect.unreachable();
-    } catch (e) {
-      expect(e).toBe("denied");
-    }
+    await expect(doc.write("/v/a.md", "new")).rejects.toBe("denied");
     expect(doc.content()).toBe("old");
   });
 

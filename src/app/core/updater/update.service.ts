@@ -1,10 +1,12 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check, Update } from "@tauri-apps/plugin-updater";
+import type { Update } from "@tauri-apps/plugin-updater";
+import { check } from "@tauri-apps/plugin-updater";
 
 import { EditorService } from "../editor/editor.service";
-import { UpdateStep, downloadPercent, failureMessage, isOfferable } from "./update-logic";
+import type { UpdateStep } from "./update-logic";
+import { downloadPercent, failureMessage, isOfferable } from "./update-logic";
 
 export type UpdatePhase = "idle" | "checking" | "up-to-date" | "available" | "installing" | "error";
 

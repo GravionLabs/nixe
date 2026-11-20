@@ -6,22 +6,7 @@ import { basename } from "../../core/markdown/paths";
 /** Shown above a note that has a sync conflict: links the two versions and settles the pair. */
 @Component({
   selector: "app-conflict-bar",
-  template: `
-    @if (conflict.pair(); as pair) {
-      <div class="bar" role="alert">
-        <span class="text">
-          @if (conflict.isCopy()) {
-            This is your version from the sync conflict.
-          } @else {
-            This note changed on two devices. Your version is saved as
-          }
-          <a href="#" class="link" (click)="open($event)">{{ basename(conflict.other() ?? "") }}</a>
-        </span>
-        <button type="button" (click)="keep('this')">Keep this one</button>
-        <button type="button" (click)="keep('other')">Keep the other</button>
-      </div>
-    }
-  `,
+  templateUrl: "./conflict-bar.component.html",
   styles: `
     .bar {
       display: flex;
@@ -60,7 +45,7 @@ import { basename } from "../../core/markdown/paths";
 })
 export class ConflictBarComponent {
   protected readonly conflict = inject(ConflictService);
-  readonly error = output<string>();
+  readonly failed = output<string>();
   protected readonly basename = basename;
 
   protected async open(event: Event): Promise<void> {
@@ -76,7 +61,7 @@ export class ConflictBarComponent {
     try {
       await action();
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

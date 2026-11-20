@@ -1,10 +1,13 @@
-import { Component, ElementRef, effect, inject, output, viewChild } from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import { Component, effect, inject, output, viewChild } from "@angular/core";
 import { HxDialog } from "@gravionlabs/helix-ui";
 
-import { KeyHintsComponent, KeyHint, isMac, modKey } from "./key-hints.component";
+import type { KeyHint } from "./key-hints.component";
+import { KeyHintsComponent, isMac, modKey } from "./key-hints.component";
 import { DocumentService } from "../../core/file/document.service";
 import { joinPath } from "../../core/markdown/paths";
-import { SwitcherMatch, highlightParts } from "../../core/switcher/fuzzy";
+import type { SwitcherMatch } from "../../core/switcher/fuzzy";
+import { highlightParts } from "../../core/switcher/fuzzy";
 import { SwitcherService } from "../../core/switcher/switcher.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
@@ -24,7 +27,7 @@ export class SwitcherComponent {
   private readonly ops = inject(VaultOpsService);
   private readonly tabs = inject(TabsService);
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("input");
 
   protected readonly parts = highlightParts;
@@ -86,7 +89,7 @@ export class SwitcherComponent {
     try {
       await this.ops.createNoteForLink(query);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
@@ -99,7 +102,7 @@ export class SwitcherComponent {
       if (newTab) await this.tabs.openInNewTab(path);
       else await this.doc.open(path);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

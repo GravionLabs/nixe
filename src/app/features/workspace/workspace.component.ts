@@ -1,16 +1,13 @@
 import { NgComponentOutlet } from "@angular/common";
 import { Component, ElementRef, inject } from "@angular/core";
-import {
-  HxButton,
-  HxTabBar,
-  HxTabBarItem,
-  HxTabBarMenuItem,
-  HxTabBarReceive,
-} from "@gravionlabs/helix-ui";
+import type { HxTabBarItem, HxTabBarMenuItem, HxTabBarReceive } from "@gravionlabs/helix-ui";
+import { HxButton, HxTabBar } from "@gravionlabs/helix-ui";
 
 import { basename } from "../../core/markdown/paths";
-import { MAX_RATIO, MIN_RATIO, TabView } from "../../core/tabs/layout";
-import { Pane, Tab, TabsService } from "../../core/tabs/tabs.service";
+import type { TabView } from "../../core/tabs/layout";
+import { MAX_RATIO, MIN_RATIO } from "../../core/tabs/layout";
+import type { Pane, Tab } from "../../core/tabs/tabs.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { PaneComponent } from "./pane.component";
 
 const KEY_STEP = 0.02;

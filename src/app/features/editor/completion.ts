@@ -1,29 +1,29 @@
-import {
+import type {
   Completion,
   CompletionContext,
   CompletionResult,
   CompletionSource,
-  autocompletion,
 } from "@codemirror/autocomplete";
-import { Extension } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { autocompletion } from "@codemirror/autocomplete";
+import type { Extension } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 
-import {
+import type {
   BlockRef,
   HeadingRef,
   PlainOption,
   WikilinkStage,
+} from "../../core/editor/completion-core";
+import {
   blockOptions,
-  blocksOf,
   headingOptions,
-  headingsOf,
   noteOptions,
   tagOptions,
   tagStage,
   wikilinkStage,
 } from "../../core/editor/completion-core";
-import { LinkFormat, TagCount } from "../../core/file/backend";
-import { SwitcherEntry } from "../../core/switcher/fuzzy";
+import type { LinkFormat, TagCount } from "../../core/file/backend";
+import type { SwitcherEntry } from "../../core/switcher/fuzzy";
 import { inCode } from "./editor-extensions";
 
 /** What the completion needs to know about the vault; the editor component supplies it. */

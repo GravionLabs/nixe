@@ -54,7 +54,7 @@ export class TemplateService {
   async list(): Promise<TemplateEntry[]> {
     const folder = await this.folder();
     if (!folder) throw new Error("No template folder: set `folder` in .obsidian/templates.json.");
-    const prefix = folder + "/";
+    const prefix = `${folder}/`;
     const entries = (this.workspace.vaultFiles() ?? [])
       .filter((p) => p.startsWith(prefix) && /\.md$/iu.test(p))
       .map((path) => ({ path, name: basename(path).replace(/\.md$/iu, "") }))

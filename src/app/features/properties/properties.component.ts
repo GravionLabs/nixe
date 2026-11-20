@@ -25,140 +25,12 @@ const today = (): string => {
 /** The properties of the open note, edited in place; every change is written into the frontmatter. */
 @Component({
   selector: "app-properties",
-  template: `
-    @if (parsed().error; as error) {
-      <div class="frontmatter-warning" role="alert">Invalid frontmatter: {{ error }}</div>
-    } @else {
-      <section class="properties-panel" aria-label="Properties">
-        @for (p of props(); track p.key) {
-          <div class="prop" [attr.data-type]="p.type">
-            <input
-              class="prop-key"
-              type="text"
-              [value]="p.key"
-              [attr.aria-label]="'Name of property ' + p.key"
-              (change)="rename(p.key, $any($event.target))"
-            />
-            <div class="prop-value">
-              @switch (p.type) {
-                @case ("checkbox") {
-                  <input
-                    type="checkbox"
-                    [checked]="p.value === true"
-                    [attr.aria-label]="p.key"
-                    (change)="set(p.key, $any($event.target).checked)"
-                  />
-                }
-                @case ("number") {
-                  <input
-                    type="number"
-                    step="any"
-                    [value]="p.value"
-                    [attr.aria-label]="p.key"
-                    (change)="setNumber(p.key, $any($event.target))"
-                  />
-                }
-                @case ("date") {
-                  <input
-                    [type]="isDateOnly(p.value) ? 'date' : 'text'"
-                    [value]="p.value"
-                    [attr.aria-label]="p.key"
-                    (change)="set(p.key, $any($event.target).value)"
-                  />
-                }
-                @case ("tags") {
-                  <ng-container
-                    *ngTemplateOutlet="chips; context: { p: p, source: suggestionsFor(p.key) }"
-                  />
-                }
-                @case ("list") {
-                  <ng-container *ngTemplateOutlet="chips; context: { p: p, source: [] }" />
-                }
-                @default {
-                  @if (isObject(p.value)) {
-                    <input type="text" disabled [value]="json(p.value)" [attr.aria-label]="p.key" />
-                  } @else {
-                    <input
-                      type="text"
-                      [value]="p.value ?? ''"
-                      [attr.aria-label]="p.key"
-                      (change)="set(p.key, $any($event.target).value)"
-                    />
-                  }
-                }
-              }
-            </div>
-            <button
-              type="button"
-              class="prop-remove"
-              [attr.aria-label]="'Remove property ' + p.key"
-              (click)="remove(p.key)"
-            >
-              ✕
-            </button>
-          </div>
-        }
-
-        @if (adding()) {
-          <form class="prop prop-new" (submit)="$event.preventDefault(); add(name, kind)">
-            <input
-              #name
-              class="prop-key"
-              type="text"
-              placeholder="Name"
-              aria-label="New property name"
-            />
-            <select #kind aria-label="Type of the new property">
-              @for (t of types; track t.type) {
-                <option [value]="t.type">{{ t.label }}</option>
-              }
-            </select>
-            <button type="submit">Add</button>
-            <button type="button" (click)="adding.set(false)">Cancel</button>
-          </form>
-        } @else {
-          <button type="button" class="prop-add" (click)="adding.set(true)">+ Add property</button>
-        }
-      </section>
-    }
-
-    <ng-template #chips let-p="p" let-source="source">
-      <span class="chip-input">
-        @for (item of items(p.value); track $index) {
-          <span class="property-chip">
-            {{ item }}
-            <button
-              type="button"
-              [attr.aria-label]="'Remove ' + item"
-              (click)="removeChip(p, $index)"
-            >
-              ✕
-            </button>
-          </span>
-        }
-        <input
-          type="text"
-          class="chip-field"
-          [attr.list]="'suggest-' + p.key"
-          [attr.aria-label]="'Add to ' + p.key"
-          placeholder="Add…"
-          (focus)="loadSuggestions()"
-          (keydown)="onChipKey($event, p)"
-          (change)="addChip(p, $any($event.target))"
-        />
-        <datalist [id]="'suggest-' + p.key">
-          @for (s of suggest(source, p); track s) {
-            <option [value]="s"></option>
-          }
-        </datalist>
-      </span>
-    </ng-template>
-  `,
+  templateUrl: "./properties.component.html",
   styleUrl: "./properties.component.css",
   imports: [NgTemplateOutlet],
 })
 export class PropertiesComponent {
-  readonly error = output<string>();
+  readonly failed = output<string>();
 
   private readonly doc = inject(DocumentService);
 
@@ -200,7 +72,8 @@ export class PropertiesComponent {
   protected setNumber(key: string, input: HTMLInputElement): Promise<boolean> {
     const n = parseNumber(input.value);
     if (n === null) {
-      input.value = String(this.props().find((p) => p.key === key)?.value ?? "");
+      const old = this.props().find((p) => p.key === key)?.value;
+      input.value = typeof old === "number" || typeof old === "string" ? String(old) : "";
       return Promise.resolve(false);
     }
     return this.set(key, n);
@@ -250,7 +123,7 @@ export class PropertiesComponent {
     const key = name.value.trim();
     if (!key) return;
     if (this.props().some((p) => p.key === key)) {
-      this.error.emit(`The property "${key}" already exists.`);
+      this.failed.emit(`The property "${key}" already exists.`);
       return;
     }
     const value = initialValue(kind.value as PropertyType, today());
@@ -267,7 +140,7 @@ export class PropertiesComponent {
       if (next !== text) await this.doc.write(path, next);
       return true;
     } catch (err) {
-      this.error.emit(err instanceof Error ? err.message : String(err));
+      this.failed.emit(err instanceof Error ? err.message : String(err));
       return false;
     }
   }

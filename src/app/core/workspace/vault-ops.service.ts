@@ -2,7 +2,8 @@ import { Injectable, inject } from "@angular/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
-import { NewNoteLocation, RelinkChange, backend } from "../file/backend";
+import type { NewNoteLocation, RelinkChange } from "../file/backend";
+import { backend } from "../file/backend";
 import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
 import { BookmarksService } from "../bookmarks/bookmarks.service";
@@ -27,7 +28,7 @@ export class VaultOpsService {
       .catch(() => ({ location: "root", folder: "" }) as NewNoteLocation);
     if (setting.location === "folder" && setting.folder) return joinPath(vault, setting.folder);
     const current = this.doc.path();
-    if (setting.location === "current" && current?.startsWith(vault + "/")) return dirname(current);
+    if (setting.location === "current" && current?.startsWith(`${vault}/`)) return dirname(current);
     return vault;
   }
 

@@ -1,13 +1,5 @@
-import {
-  Component,
-  ElementRef,
-  computed,
-  effect,
-  inject,
-  output,
-  signal,
-  viewChild,
-} from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import { Component, computed, effect, inject, output, signal, viewChild } from "@angular/core";
 import { HxAppToolbar } from "@gravionlabs/helix-desktop";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
@@ -17,7 +9,8 @@ import { ShellService } from "../../core/shell/shell.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
-import { Crumb, breadcrumb } from "./breadcrumb";
+import type { Crumb } from "./breadcrumb";
+import { breadcrumb } from "./breadcrumb";
 
 const MOD = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
 
@@ -42,7 +35,7 @@ export class ToolbarComponent {
   private readonly ops = inject(VaultOpsService);
   protected readonly mod = MOD;
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
 
   /** The path of the note as segments. */
   protected readonly crumbs = computed<Crumb[]>(() =>
@@ -75,7 +68,7 @@ export class ToolbarComponent {
       // The folder itself is expanded too: the path below it leads through it.
       await this.workspace.reveal(`${dir}/.`);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
@@ -94,7 +87,7 @@ export class ToolbarComponent {
     try {
       await this.ops.rename(path, input.value);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 

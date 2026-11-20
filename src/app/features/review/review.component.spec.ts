@@ -11,7 +11,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import { DocumentService } from "../../core/file/document.service";
-import { GitChange, ReviewBranch, ReviewConflict, ReviewHunk } from "../../core/file/backend";
+import type { GitChange, ReviewBranch, ReviewConflict, ReviewHunk } from "../../core/file/backend";
 import { ReviewService } from "../../core/git/review.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";

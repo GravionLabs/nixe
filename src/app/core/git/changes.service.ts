@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 
-import { GitChange, backend } from "../file/backend";
+import type { GitChange } from "../file/backend";
+import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { joinPath } from "../markdown/paths";
 import { WorkspaceService } from "../workspace/workspace.service";

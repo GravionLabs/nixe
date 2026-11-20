@@ -38,7 +38,7 @@ function render(text: string) {
   });
   TestBed.overrideComponent(PropertiesComponent, { set: { styleUrl: undefined, styles: [] } });
   const fixture = TestBed.createComponent(PropertiesComponent);
-  fixture.componentInstance.error.subscribe((e) => errors.push(e));
+  fixture.componentInstance.failed.subscribe((e) => errors.push(e));
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
   const settle = async () => {

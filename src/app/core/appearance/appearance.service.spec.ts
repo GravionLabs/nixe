@@ -8,7 +8,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
-import { CssFile } from "./appearance-core";
+import type { CssFile } from "./appearance-core";
 import { AppearanceService } from "./appearance.service";
 
 const file = (name: string, css: string, modified = 1): CssFile => ({ name, css, modified });

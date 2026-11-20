@@ -2,9 +2,12 @@ import { sanitizeAccent, sanitizeFont, sanitizeNames } from "../appearance/appea
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
 import { DEFAULT_PANEL_WIDTH, sanitizePanelWidth } from "../panel/panel-width";
-import { LinkPreviewMode, sanitizeMode } from "../preview/preview-core";
-import { TreeSort, sanitizeTreeSort } from "../workspace/tree-model";
-import { VaultStates, sanitizeRecent, sanitizeStates } from "../workspace/recent-vaults";
+import type { LinkPreviewMode } from "../preview/preview-core";
+import { sanitizeMode } from "../preview/preview-core";
+import type { TreeSort } from "../workspace/tree-model";
+import { sanitizeTreeSort } from "../workspace/tree-model";
+import type { VaultStates } from "../workspace/recent-vaults";
+import { sanitizeRecent, sanitizeStates } from "../workspace/recent-vaults";
 
 export type ThemeMode = "system" | "light" | "dark";
 

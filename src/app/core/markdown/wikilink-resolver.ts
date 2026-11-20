@@ -40,7 +40,7 @@ export function resolveWikilink(target: string, files: readonly string[]): strin
     if (exact.length === 1) return exact[0];
     if (exact.length > 1) return null;
     // "folder/Note" or "Note": the path or basename anywhere in the vault.
-    const suffix = files.filter((f) => f.toLowerCase().endsWith("/" + lower));
+    const suffix = files.filter((f) => f.toLowerCase().endsWith(`/${lower}`));
     if (suffix.length === 1) return suffix[0];
     if (suffix.length > 1) return null;
   }

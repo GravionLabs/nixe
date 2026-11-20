@@ -8,19 +8,12 @@ import {
   searchKeymap,
   searchPanelOpen,
 } from "@codemirror/search";
-import { EditorState, Extension, Range } from "@codemirror/state";
-import {
-  Decoration,
-  DecorationSet,
-  EditorView,
-  ViewPlugin,
-  ViewUpdate,
-  Command,
-  drawSelection,
-  keymap,
-} from "@codemirror/view";
+import type { EditorState, Extension, Range } from "@codemirror/state";
+import type { DecorationSet, ViewUpdate, Command } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, drawSelection, keymap } from "@codemirror/view";
 
-import { CompletionData, completionExtension } from "./completion";
+import type { CompletionData } from "./completion";
+import { completionExtension } from "./completion";
 import { inlineTokens, nodeClass, tokenAt } from "../../core/editor/editor-core";
 
 const CODE_NODES = new Set(["FencedCode", "CodeBlock", "InlineCode", "CommentBlock", "HTMLBlock"]);

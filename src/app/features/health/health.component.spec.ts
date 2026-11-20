@@ -10,9 +10,10 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { HealthReport } from "../../core/file/backend";
+import type { HealthReport } from "../../core/file/backend";
 import { TabsService } from "../../core/tabs/tabs.service";
-import { HealthService, HealthState } from "../../core/index/health.service";
+import type { HealthState } from "../../core/index/health.service";
+import { HealthService } from "../../core/index/health.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { HealthComponent } from "./health.component";

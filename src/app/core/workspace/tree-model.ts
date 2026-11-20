@@ -95,7 +95,7 @@ const DEFAULT_PAGES = ["readme.md", "index.md", "home.md"];
 /** File to show when a folder is opened: README/index/Home, else the first page. */
 export function defaultPage(items: TreeItem[]): string | null {
   for (const name of DEFAULT_PAGES) {
-    const hit = items.find((i) => !i.dirPath && i.filePath?.toLowerCase().endsWith("/" + name));
+    const hit = items.find((i) => !i.dirPath && i.filePath?.toLowerCase().endsWith(`/${name}`));
     if (hit) return hit.filePath;
   }
   return items.find((i) => i.filePath)?.filePath ?? null;

@@ -105,6 +105,7 @@
       (keydown)="onKeydown(node, $event)"
     >
       @if (node.dirPath) {
+        <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -- a mouse shortcut; the keyboard expands and collapses the row (ArrowRight/ArrowLeft in onKeydown) -->
         <span class="chevron" [class.open]="isOpen(node)" (click)="toggle(node, $event)">
           <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
         </span>

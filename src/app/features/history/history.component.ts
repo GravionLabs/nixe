@@ -1,7 +1,9 @@
 import { Component, computed, inject, signal } from "@angular/core";
 
-import { DiffRow, diffLines, diffStat } from "../../core/git/line-diff";
-import { HistoryService, TimelineEntry } from "../../core/git/history.service";
+import type { DiffRow } from "../../core/git/line-diff";
+import { diffLines, diffStat } from "../../core/git/line-diff";
+import type { TimelineEntry } from "../../core/git/history.service";
+import { HistoryService } from "../../core/git/history.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 

@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
-import { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
+import type { CompletionResult } from "@codemirror/autocomplete";
+import { CompletionContext } from "@codemirror/autocomplete";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 
-import { CompletionData, tagSource, wikilinkSource } from "./completion";
+import type { CompletionData } from "./completion";
+import { tagSource, wikilinkSource } from "./completion";
 
 const data: CompletionData = {
   notes: async () => [
@@ -59,7 +61,7 @@ async function choose(
   );
   const { head } = view.state.selection.main;
   const text = view.state.doc.toString();
-  return text.slice(0, head) + "|" + text.slice(head);
+  return `${text.slice(0, head)}|${text.slice(head)}`;
 }
 
 describe("wikilinkSource", () => {

@@ -4,7 +4,8 @@ import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { SettingItem, SettingsRegistry, ShownSection, filterSections } from "./settings-registry";
+import type { SettingItem, ShownSection } from "./settings-registry";
+import { SettingsRegistry, filterSections } from "./settings-registry";
 
 const toggle = (id: string, label: string, extra: Partial<SettingItem> = {}): SettingItem =>
   ({ kind: "toggle", id, label, get: () => false, set: () => undefined, ...extra }) as SettingItem;

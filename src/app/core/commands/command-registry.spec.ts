@@ -4,7 +4,8 @@ import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CommandRegistry, KeyInput, formatShortcut, matchesBinding } from "./command-registry";
+import type { KeyInput } from "./command-registry";
+import { CommandRegistry, formatShortcut, matchesBinding } from "./command-registry";
 import { PaletteService } from "./palette.service";
 
 const key = (k: string, mods: Partial<KeyInput> = {}): KeyInput => ({

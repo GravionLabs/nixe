@@ -24,8 +24,11 @@ type MarkdownItPlugin = (md: MarkdownIt, options?: unknown) => void;
 
 // The KaTeX plugin is CommonJS; depending on the bundler the plugin function
 // is either the default export or nested one level deeper.
-const katexPlugin: MarkdownItPlugin = ((katexModule as any).default?.default ??
-  (katexModule as any).default ??
+const katexInterop = katexModule as unknown as {
+  default?: MarkdownItPlugin & { default?: MarkdownItPlugin };
+};
+const katexPlugin: MarkdownItPlugin = (katexInterop.default?.default ??
+  katexInterop.default ??
   katexModule) as MarkdownItPlugin;
 
 /** GitHub/Azure-DevOps-style heading slugs: lowercase, punctuation removed, spaces → "-". */

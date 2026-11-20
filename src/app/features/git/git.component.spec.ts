@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { GitStatus } from "../../core/file/backend";
+import type { GitStatus } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { GitService } from "../../core/git/git.service";
 import { SettingsService } from "../../core/settings/settings.service";
@@ -79,7 +79,7 @@ function render(
   });
   const fixture = TestBed.createComponent(GitComponent);
   const errors: string[] = [];
-  fixture.componentInstance.error.subscribe((e) => errors.push(e));
+  fixture.componentInstance.failed.subscribe((e) => errors.push(e));
   fixture.detectChanges();
   return {
     settings,

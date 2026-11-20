@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { matchesBinding } from "./command-registry";
+import type { RecordedKey } from "./shortcuts-core";
 import {
-  RecordedKey,
   bindingFromEvent,
   canonicalBinding,
   effectiveBindings,

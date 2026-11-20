@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
-import { Backlink, IndexedLink, UnlinkedMention, backend } from "../file/backend";
+import type { Backlink, IndexedLink, UnlinkedMention } from "../file/backend";
+import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { basename } from "../markdown/paths";
 import { WorkspaceService } from "../workspace/workspace.service";
@@ -39,7 +40,7 @@ export class BacklinksService {
     const root = this.workspace.vaultRoot();
     const path = this.doc.path();
     if (!root || !path) return null;
-    const prefix = root.endsWith("/") ? root : root + "/";
+    const prefix = root.endsWith("/") ? root : `${root}/`;
     return path.startsWith(prefix) ? path.slice(prefix.length) : null;
   });
 

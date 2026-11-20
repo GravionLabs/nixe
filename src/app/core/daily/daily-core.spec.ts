@@ -26,8 +26,12 @@ describe("dailyPath", () => {
   });
 
   it("refuses paths that leave the vault", () => {
-    expect(() => dailyPath(day, { folder: "../x", format: "YYYY" })).toThrow();
-    expect(() => dailyPath(day, { folder: "", format: "YYYY//DD" })).toThrow();
+    expect(() => dailyPath(day, { folder: "../x", format: "YYYY" })).toThrow(
+      "not a path in the vault",
+    );
+    expect(() => dailyPath(day, { folder: "", format: "YYYY//DD" })).toThrow(
+      "not a path in the vault",
+    );
   });
 });
 

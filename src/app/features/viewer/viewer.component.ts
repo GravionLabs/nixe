@@ -10,13 +10,16 @@ import {
   untracked,
   viewChild,
 } from "@angular/core";
-import { HxMenu, HxMenuItem } from "@gravionlabs/helix-ui";
+import type { HxMenuItem } from "@gravionlabs/helix-ui";
+import { HxMenu } from "@gravionlabs/helix-ui";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 import { viewerTopLine } from "../../core/editor/editor-core";
 import { FoldStateService } from "../../core/fold/fold-state.service";
-import { HeadingFold, applyHeadingFolds, commandTarget } from "../../core/fold/viewer-folds";
-import { TextPart, findInParts, stepIndex } from "../../core/find/find-core";
+import type { HeadingFold } from "../../core/fold/viewer-folds";
+import { applyHeadingFolds, commandTarget } from "../../core/fold/viewer-folds";
+import type { TextPart } from "../../core/find/find-core";
+import { findInParts, stepIndex } from "../../core/find/find-core";
 import { STDIN_FILE_SUFFIX, backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
@@ -49,120 +52,7 @@ const DIALOG_ZOOM_STEP = 1.1;
 
 @Component({
   selector: "app-viewer",
-  template: `
-    @if (findOpen()) {
-      <div class="find-bar" role="search" (keydown)="onFindKeydown($event)">
-        <input
-          #findInput
-          type="text"
-          class="find-input"
-          placeholder="Find"
-          aria-label="Find in note"
-          [value]="findQuery()"
-          (input)="setFindQuery($any($event.target).value)"
-        />
-        <span class="find-count" aria-live="polite">{{ findStatus() }}</span>
-        <button
-          type="button"
-          (click)="findStep(-1)"
-          title="Previous match"
-          aria-label="Previous match"
-        >
-          ↑
-        </button>
-        <button type="button" (click)="findStep(1)" title="Next match" aria-label="Next match">
-          ↓
-        </button>
-        <button
-          type="button"
-          [class.active]="findCase()"
-          [attr.aria-pressed]="findCase()"
-          (click)="toggleFindOption('case')"
-          title="Match case"
-        >
-          Aa
-        </button>
-        <button
-          type="button"
-          [class.active]="findRegex()"
-          [attr.aria-pressed]="findRegex()"
-          (click)="toggleFindOption('regex')"
-          title="Regular expression"
-        >
-          .*
-        </button>
-        <button type="button" (click)="closeFind()" title="Close" aria-label="Close find bar">
-          ✕
-        </button>
-      </div>
-    }
-    <app-properties
-      class="properties-host"
-      [style.zoom.%]="settings.zoom()"
-      (error)="notify.emit($event)"
-    />
-    <article
-      #content
-      class="markdown-body"
-      [class.wrap-code]="settings.wrapCode()"
-      tabindex="-1"
-      [style.zoom.%]="settings.zoom()"
-      (click)="onClick($event)"
-      (keydown)="onContentKeydown($event)"
-      (contextmenu)="onContextMenu($event)"
-      (wheel)="onWheel($event)"
-      (mousemove)="onHover($event)"
-      (mouseleave)="preview.leave()"
-    ></article>
-
-    <div
-      class="diagram-dialog-backdrop"
-      [class.open]="dialogOpen()"
-      (click)="closeDiagram()"
-      (wheel)="onDialogWheel($event)"
-    >
-      <div class="diagram-dialog" (click)="$event.stopPropagation()">
-        <div class="diagram-dialog-toolbar">
-          <button type="button" (click)="dialogZoomOut()" title="Zoom out" aria-label="Zoom out">
-            <svg viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.35-4.35M8 11h6" />
-            </svg>
-          </button>
-          <button type="button" class="zoom-level" (click)="resetDialogZoom()" title="Reset zoom">
-            {{ dialogZoomPercent() }}%
-          </button>
-          <button type="button" (click)="dialogZoomIn()" title="Zoom in" aria-label="Zoom in">
-            <svg viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
-            </svg>
-          </button>
-          @if (dialogFile(); as file) {
-            <button type="button" class="text" (click)="openDialogFile(file)">
-              Open with default app
-            </button>
-            <button type="button" class="text" (click)="revealDialogFile(file)">
-              {{ revealText }}
-            </button>
-          }
-        </div>
-        <button type="button" class="close" (click)="closeDiagram()" aria-label="Close">✕</button>
-        <div
-          class="diagram-dialog-viewport"
-          [class.panning]="panning()"
-          (pointerdown)="onPanStart($event)"
-          (pointermove)="onPanMove($event)"
-          (pointerup)="onPanEnd($event)"
-          (pointercancel)="onPanEnd($event)"
-        >
-          <div #dialogContent class="diagram-dialog-content"></div>
-        </div>
-      </div>
-    </div>
-
-    <hx-menu #imageMenu popup ariaLabel="Image" [model]="imageMenuItems" />
-  `,
+  templateUrl: "./viewer.component.html",
   styleUrl: "./viewer.component.css",
   imports: [HxMenu, PropertiesComponent],
   host: { "(scroll)": "trackScroll()" },

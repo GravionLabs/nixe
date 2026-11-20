@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/* oxlint-disable typescript/no-explicit-any -- the spec calls protected members of the component under test through `as any` */
 import "@angular/compiler";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";

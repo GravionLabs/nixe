@@ -1,7 +1,9 @@
-import { Component, ElementRef, effect, inject, output, viewChild } from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import { Component, effect, inject, output, viewChild } from "@angular/core";
 import { HxDialog } from "@gravionlabs/helix-ui";
 
-import { ComposerService, TargetOption } from "../../core/composer/composer.service";
+import type { TargetOption } from "../../core/composer/composer.service";
+import { ComposerService } from "../../core/composer/composer.service";
 
 /** Overlay that asks for the target note of `Extract selection`, `Extract heading` and `Merge into…`. */
 @Component({
@@ -13,7 +15,7 @@ import { ComposerService, TargetOption } from "../../core/composer/composer.serv
 export class ComposerComponent {
   protected readonly composer = inject(ComposerService);
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("input");
 
   constructor() {
@@ -50,7 +52,7 @@ export class ComposerComponent {
     try {
       await this.composer.choose(option);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

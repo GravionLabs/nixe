@@ -63,5 +63,5 @@ function renderToc(md: MarkdownIt, tokens: Token[]): string {
     html += "</li>\n</ul>\n";
     depth--;
   }
-  return html + "</nav>\n";
+  return `${html}</nav>\n`;
 }

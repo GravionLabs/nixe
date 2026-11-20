@@ -3,7 +3,8 @@ import { Injectable } from "@angular/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { backend } from "../file/backend";
-import { FoldState, normalizeLines, parseFoldState, serializeFoldState } from "./fold-core";
+import type { FoldState } from "./fold-core";
+import { normalizeLines, parseFoldState, serializeFoldState } from "./fold-core";
 
 const SAVE_DELAY_MS = 500;
 

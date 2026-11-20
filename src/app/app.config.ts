@@ -1,9 +1,5 @@
-import {
-  ApplicationConfig,
-  inject,
-  provideAppInitializer,
-  provideBrowserGlobalErrorListeners,
-} from "@angular/core";
+import type { ApplicationConfig } from "@angular/core";
+import { inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from "@angular/core";
 
 import { provideHxTheme } from "@gravionlabs/helix-ui";
 
