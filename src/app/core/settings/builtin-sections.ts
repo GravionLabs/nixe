@@ -125,6 +125,7 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           value: () => src.version() || "Unknown",
         },
         toggle("sidebar", "Show the sidebar", s.sidebarVisible, "The file tree of the vault.", ["files", "tree"]),
+        toggle("tree-git-status", "Git status in the file tree", s.treeGitStatus, "Mark changed, added and untracked notes with a letter and a color, and their folders with a dot.", ["git", "decoration", "files", "modified"]),
         toggle("backlinks", "Show the backlinks panel", s.backlinksVisible, "Notes that link to the open note.", ["links"]),
         toggle("outline", "Show the outline panel", s.outlineVisible, "The headings of the open note.", ["headings", "toc"]),
       ],

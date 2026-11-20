@@ -93,6 +93,8 @@ describe.each(["light", "dark"] as const)("contrast in the %s theme", (scope) =>
     // The error text is `light-dark(var(--h-red-700), var(--h-red-300))`: the message token is below 4.5:1.
     [scope === "dark" ? "--h-red-300" : "--h-red-700", "--h-message-error-background"],
     ["--h-toast-contrast-color", "--h-toast-contrast-background"],
+    // The Git status of the file tree (sidebar.component.css): `light-dark(<color>-700, <color>-300)` on the sidebar.
+    ...["amber", "green", "teal"].map((c): [string, string] => [`--h-${c}-${scope === "dark" ? 300 : 700}`, "--h-surface-frame"]),
   ];
   it.each(pairs)("%s on %s is at least 4.5:1", (fg, bg) => {
     const f = resolveColor(scope, fg);

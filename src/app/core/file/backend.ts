@@ -212,6 +212,8 @@ export interface GitChange {
   /** Vault-relative path. */
   path: string;
   kind: "added" | "modified" | "deleted";
+  /** A new note Git does not track yet; only the working-tree status sets it. */
+  untracked?: boolean;
 }
 
 /** A branch that waits for review (#108). */

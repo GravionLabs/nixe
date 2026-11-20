@@ -20,6 +20,8 @@ pub struct GitChange {
     /// Path relative to the vault root.
     pub path: String,
     pub kind: ChangeKind,
+    /// True for a new file Git does not track yet (not staged); only `status` sets it.
+    pub untracked: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -135,9 +137,12 @@ impl GitBackend for Git2Backend {
         let mut changes: Vec<GitChange> = statuses
             .iter()
             .filter_map(|s| {
+                let status = s.status();
                 Some(GitChange {
                     path: s.path().ok()?.to_owned(),
-                    kind: kind_of(s.status())?,
+                    kind: kind_of(status)?,
+                    untracked: status.contains(Status::WT_NEW)
+                        && !status.contains(Status::INDEX_NEW),
                 })
             })
             .collect();
@@ -467,6 +472,7 @@ pub(crate) fn notes_changed(
             out.push(GitChange {
                 path: path.to_owned(),
                 kind,
+                untracked: false,
             });
         }
     }
@@ -1004,11 +1010,13 @@ mod tests {
             vec![
                 GitChange {
                     path: "a.md".into(),
-                    kind: ChangeKind::Modified
+                    kind: ChangeKind::Modified,
+                    untracked: false
                 },
                 GitChange {
                     path: "b.md".into(),
-                    kind: ChangeKind::Added
+                    kind: ChangeKind::Added,
+                    untracked: true
                 },
             ]
         );
@@ -1018,7 +1026,8 @@ mod tests {
             status.changes[0],
             GitChange {
                 path: "a.md".into(),
-                kind: ChangeKind::Deleted
+                kind: ChangeKind::Deleted,
+                untracked: false
             }
         );
         assert!(status.branch.is_some());
