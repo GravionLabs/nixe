@@ -70,6 +70,14 @@ export class FocusService {
       when: noteOpen,
       run: () => this.focusPanel(),
     });
+    this.commands.register({
+      id: "filter-file-tree",
+      title: "Filter file tree",
+      shortcut: "Mod+Alt+E",
+      keys: ["Mod+Alt+E"],
+      when: inVault,
+      run: () => this.focusFilter(),
+    });
     document.addEventListener(
       "pointerdown",
       () => document.documentElement.removeAttribute(KEYBOARD_FOCUS_ATTRIBUTE),
@@ -81,6 +89,14 @@ export class FocusService {
   focusFileTree(): Promise<boolean> {
     this.shell.show("files");
     return this.focusWhenReady(() => firstOf("app-sidebar .row[tabindex='0']", "app-sidebar .row"));
+  }
+
+  /** Shows the files, opens the sidebar when it is collapsed and focuses the filter field above the tree. */
+  focusFilter(): Promise<boolean> {
+    this.shell.show("files");
+    return this.focusWhenReady(() =>
+      document.querySelector<HTMLInputElement>("app-sidebar .filter"),
+    );
   }
 
   focusNote(): Promise<boolean> {

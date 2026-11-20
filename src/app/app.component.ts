@@ -12,6 +12,7 @@ import {
   viewChildren,
 } from "@angular/core";
 import { HxActivityBar, HxAppShell } from "@gravionlabs/helix-desktop";
+import { HxMessageService, HxToast } from "@gravionlabs/helix-ui";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -34,6 +35,8 @@ import { AutoSyncService } from "./core/git/auto-sync.service";
 import { CloneService } from "./core/git/clone.service";
 import { GitService } from "./core/git/git.service";
 import { SettingsPageService } from "./core/settings/settings-page.service";
+import { overlaysNote, clampPanelWidth } from "./core/panel/panel-width";
+import { PanelResizerComponent } from "./features/panel-resizer/panel-resizer.component";
 import { PanelTab, SettingsService } from "./core/settings/settings.service";
 import { isPrerelease } from "./core/updater/update-logic";
 import { UpdateService } from "./core/updater/update.service";
@@ -80,6 +83,8 @@ export class NavIconDirective {
 @Component({
   selector: "app-root",
   imports: [
+    HxToast,
+    PanelResizerComponent,
     BookmarksComponent,
     HxActivityBar,
     HxAppShell,
@@ -107,7 +112,7 @@ export class NavIconDirective {
   ],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
-  host: { "(document:keydown)": "onKeydown($event)" },
+  host: { "(document:keydown)": "onKeydown($event)", "(window:resize)": "onResize()" },
 })
 export class AppComponent {
   protected readonly doc = inject(DocumentService);
@@ -138,8 +143,7 @@ export class AppComponent {
   private readonly shortcuts = inject(ShortcutService);
 
   protected readonly gitSpike = isDevMode();
-  protected readonly toast = signal<string | null>(null);
-  private toastTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly messages = inject(HxMessageService);
 
   private readonly icons = viewChildren(NavIconDirective);
 
@@ -153,6 +157,25 @@ export class AppComponent {
 
   /** The Links tab needs a vault; outside one the panel only has the outline. */
   protected readonly linksAvailable = computed(() => this.workspace.vaultRoot() !== null);
+
+  protected readonly windowWidth = signal(window.innerWidth);
+
+  protected onResize(): void {
+    this.windowWidth.set(window.innerWidth);
+  }
+
+  /** Width the sidebar takes right now. */
+  protected readonly sidebarShown = computed(() =>
+    this.shell.shownView() === null ? 0 : this.settings.sidebarWidth(),
+  );
+  /** Too narrow for the panel next to a note of 320px: the panel floats over the note. */
+  protected readonly panelOverlays = computed(() =>
+    overlaysNote(this.windowWidth(), this.sidebarShown()),
+  );
+  /** The stored width within what the window allows. */
+  protected readonly panelWidthShown = computed(() =>
+    clampPanelWidth(this.settings.panelWidth(), this.windowWidth(), this.sidebarShown()),
+  );
 
   protected readonly showPanel = computed(
     () => this.doc.path() !== null && this.settings.panelOpen(),
@@ -266,17 +289,21 @@ export class AppComponent {
     });
   }
 
+  /** A short notice; messages stack and go away by themselves. */
   protected showToast(message: string): void {
-    clearTimeout(this.toastTimer);
-    this.toast.set(message);
-    this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
+    this.messages.add({ severity: "info", summary: message, life: 4000 });
+  }
+
+  /** An error stays until the user closes it. */
+  protected showError(message: string): void {
+    this.messages.add({ severity: "error", summary: message, sticky: true });
   }
 
   protected async run(action: () => Promise<unknown>): Promise<void> {
     try {
       await action();
     } catch (err) {
-      this.showToast(String(err));
+      this.showError(String(err));
     }
   }
 

@@ -160,6 +160,13 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           "tree",
         ]),
         toggle(
+          "tree-git-status",
+          "Git status in the file tree",
+          s.treeGitStatus,
+          "Mark changed, added and untracked notes with a letter and a color, and their folders with a dot.",
+          ["git", "decoration", "files", "modified"],
+        ),
+        toggle(
           "backlinks",
           "Show the backlinks panel",
           s.backlinksVisible,

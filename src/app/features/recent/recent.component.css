@@ -1,36 +1,7 @@
-:host {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 12vh;
-}
-
-.backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgb(0 0 0 / 0.3);
-}
-
-.dialog {
-  position: relative;
-  width: min(560px, 90vw);
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 8px;
-  background: var(--h-surface-frame);
-  color: var(--h-text-color);
-  font-size: 13px;
-  box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
-  overflow: hidden;
-}
-
 ul {
   margin: 0;
   padding: 6px 0;
   list-style: none;
-  outline: none;
 }
 
 li button {

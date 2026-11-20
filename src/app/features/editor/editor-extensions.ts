@@ -102,7 +102,6 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
         color: "var(--h-text-color)",
         backgroundColor: "var(--h-content-background)",
       },
-      "&.cm-focused": { outline: "none" },
       ".cm-scroller": { overflow: "auto", fontFamily: "inherit", lineHeight: "1.6" },
       ".cm-content": {
         maxWidth: "var(--nixe-content-width, 980px)",

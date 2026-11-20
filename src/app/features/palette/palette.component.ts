@@ -1,5 +1,7 @@
 import { Component, ElementRef, effect, inject, viewChild } from "@angular/core";
+import { HxDialog } from "@gravionlabs/helix-ui";
 
+import { KeyHintsComponent, KeyHint } from "../switcher/key-hints.component";
 import { Command, CommandRegistry, formatShortcut } from "../../core/commands/command-registry";
 import { PaletteService } from "../../core/commands/palette.service";
 
@@ -8,6 +10,7 @@ import { PaletteService } from "../../core/commands/palette.service";
   selector: "app-palette",
   templateUrl: "./palette.component.html",
   styleUrl: "./palette.component.css",
+  imports: [HxDialog, KeyHintsComponent],
 })
 export class PaletteComponent {
   protected readonly palette = inject(PaletteService);
@@ -18,6 +21,12 @@ export class PaletteComponent {
   constructor() {
     effect(() => this.input()?.nativeElement.focus());
   }
+
+  protected readonly hints: KeyHint[] = [
+    { keys: "Enter", label: "run" },
+    { keys: "↑↓", label: "move" },
+    { keys: "Esc", label: "close" },
+  ];
 
   protected shortcut(command: Command): string {
     const shortcut = this.registry.shortcutOf(command);

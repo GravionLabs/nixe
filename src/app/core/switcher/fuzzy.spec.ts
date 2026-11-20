@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SwitcherEntry, fileLabel, fuzzyScore, rank } from "./fuzzy";
+import { SwitcherEntry, fileLabel, fuzzyMatch, fuzzyScore, highlightParts, rank } from "./fuzzy";
 
 const entry = (path: string, aliases: string[] = []): SwitcherEntry => ({
   path,
@@ -95,5 +95,42 @@ describe("rank", () => {
 
   it("returns nothing when nothing matches", () => {
     expect(rank(all, "zzz", [])).toEqual([]);
+  });
+});
+
+describe("fuzzyMatch", () => {
+  it("returns the positions of the matched characters", () => {
+    expect(fuzzyMatch("mn", "Meeting Notes")?.positions).toEqual([0, 8]);
+    expect(fuzzyMatch("note", "note")?.positions).toEqual([0, 1, 2, 3]);
+  });
+
+  it("agrees with fuzzyScore and returns null without a match", () => {
+    expect(fuzzyMatch("abc", "a-b-c")?.score).toBe(fuzzyScore("abc", "a-b-c"));
+    expect(fuzzyMatch("xyz", "abc")).toBeNull();
+  });
+
+  it("has no positions for an empty query", () => {
+    expect(fuzzyMatch("", "abc")?.positions).toEqual([]);
+  });
+
+  it("carries the positions of the best label into rank", () => {
+    const [match] = rank([entry("Home.md", ["Start page"])], "sp", []);
+    expect(match?.isAlias).toBe(true);
+    expect(match?.positions).toEqual([0, 6]);
+  });
+});
+
+describe("highlightParts", () => {
+  it("splits a label into matched and unmatched runs", () => {
+    expect(highlightParts("Meeting", [0, 1, 4])).toEqual([
+      { text: "Me", matched: true },
+      { text: "et", matched: false },
+      { text: "i", matched: true },
+      { text: "ng", matched: false },
+    ]);
+  });
+
+  it("returns one unmatched run without positions", () => {
+    expect(highlightParts("abc", [])).toEqual([{ text: "abc", matched: false }]);
   });
 });

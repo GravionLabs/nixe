@@ -152,3 +152,15 @@ Sort offers file name and modified time, ascending and descending (`treeSort` in
 default `name-asc`). Folders stay first. Name ascending keeps the order of the backend, which honors
 an Azure DevOps `.order` file. Reveal expands the folders of the open note and scrolls its row into
 view (`WorkspaceService.revealActive`).
+The button or command only flashes the row for 2 s; the reveal on a tab switch stays quiet.
+
+In a vault with Git a changed note shows a letter at the right of its row (`M` modified, `A`
+added, `U` untracked) and its name in the color of the status; a folder with such notes shows a
+dot. The status is the one of `GitService.status()`; the colors are `light-dark()` pairs of Helix
+tokens whose contrast on the sidebar is checked in `theme-tokens.spec.ts`. The setting "Git status
+in the file tree" (`treeGitStatus`, default on) turns it off.
+
+The filter field above the tree (command `filter-file-tree`, "Filter file tree", Ctrl/⌘+Alt+E)
+narrows the tree to the notes and folders whose name contains the text, case-insensitive. Matching
+parts are highlighted, the folders of the matches are expanded (`WorkspaceService.setTreeFilter`
+loads the folders from the vault file list) and Escape clears the field.

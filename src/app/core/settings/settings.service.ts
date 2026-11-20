@@ -52,6 +52,8 @@ export class SettingsService {
   readonly backlinksVisible = signal<boolean>(this.stored.backlinks);
   /** Right-hand outline panel (the headings of the open note). */
   readonly outlineVisible = signal<boolean>(this.stored.outline);
+  /** Width of the right panel; kept per vault (#250). */
+  readonly panelWidth = signal<number>(this.stored.panelWidth);
   /**
    * The tab of the right panel. The panel is open when `outlineVisible` or `backlinksVisible` is
    * set; they are stored per vault, so the open tab survives a restart. Both set (an old
@@ -130,6 +132,9 @@ export class SettingsService {
   /** Order of the file tree (#230). */
   readonly treeSort = signal<TreeSort>(this.stored.treeSort);
 
+  /** The file tree marks changed notes with their Git status (#248). */
+  readonly treeGitStatus = signal<boolean>(this.stored.treeGitStatus);
+
   /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
   readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
@@ -159,6 +164,7 @@ export class SettingsService {
       activeView: this.activeView(),
       backlinks: this.backlinksVisible(),
       outline: this.outlineVisible(),
+      panelWidth: this.panelWidth(),
       linkPreview: this.linkPreview(),
       lastFolder: this.lastFolder(),
       recentVaults: this.recentVaults(),
@@ -185,6 +191,7 @@ export class SettingsService {
       fontText: this.fontText(),
       fontMono: this.fontMono(),
       treeSort: this.treeSort(),
+      treeGitStatus: this.treeGitStatus(),
       shortcuts: this.shortcuts(),
     };
   }
@@ -198,6 +205,7 @@ export class SettingsService {
     this.activeView.set(s.activeView);
     this.backlinksVisible.set(s.backlinks);
     this.outlineVisible.set(s.outline);
+    this.panelWidth.set(s.panelWidth);
     this.linkPreview.set(s.linkPreview);
     this.lastFolder.set(s.lastFolder);
     this.recentVaults.set(s.recentVaults);
@@ -224,6 +232,7 @@ export class SettingsService {
     this.fontText.set(s.fontText);
     this.fontMono.set(s.fontMono);
     this.treeSort.set(s.treeSort);
+    this.treeGitStatus.set(s.treeGitStatus);
     this.shortcuts.set(s.shortcuts);
   }
 

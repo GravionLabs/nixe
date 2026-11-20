@@ -1,10 +1,12 @@
-<div
-  class="backdrop"
-  (click)="composer.close()"
-  (keydown.escape)="composer.close()"
-  role="presentation"
-></div>
-<div class="dialog" role="dialog" [attr.aria-label]="composer.title()">
+<hx-dialog
+  [visible]="true"
+  (hidden)="composer.close()"
+  [ariaLabel]="composer.title()"
+  [closable]="false"
+  dismissableMask
+  position="top"
+  width="min(560px, 90vw)"
+>
   <input
     #input
     type="text"
@@ -32,4 +34,4 @@
       <li class="empty">No matching note</li>
     }
   </ul>
-</div>
+</hx-dialog>

@@ -24,6 +24,10 @@ the helix design system (`@gravionlabs/helix-ui`): the `--h-*` tokens, `HxTheme`
 - **Contrast:** text and controls keep at least 4.5:1 in both themes. The helix error message colour is
   below that, so error text uses `light-dark(var(--h-red-700), var(--h-red-300))`.
   `src/app/theme-tokens.spec.ts` checks the pairs.
+- **Focus and motion:** one focus ring in `styles.scss`, built from the `--h-focus-ring-*` tokens (at
+  least 3:1 against the surfaces, checked in both themes); components set no `outline`. With
+  `prefers-reduced-motion: reduce` transitions, animations and scroll animation stop. Callout, find-hit
+  and embed colours are helix tokens or `color-mix` of them.
 
 ## Consequences
 

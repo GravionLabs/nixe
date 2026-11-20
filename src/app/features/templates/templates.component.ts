@@ -1,4 +1,5 @@
 import { Component, ElementRef, effect, inject, output, viewChild } from "@angular/core";
+import { HxDialog } from "@gravionlabs/helix-ui";
 
 import { TemplateEntry, TemplateService } from "../../core/templates/template.service";
 
@@ -7,6 +8,7 @@ import { TemplateEntry, TemplateService } from "../../core/templates/template.se
   selector: "app-templates",
   templateUrl: "./templates.component.html",
   styleUrl: "../switcher/switcher.component.css",
+  imports: [HxDialog],
 })
 export class TemplatesComponent {
   protected readonly templates = inject(TemplateService);

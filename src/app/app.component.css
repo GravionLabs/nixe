@@ -24,28 +24,23 @@ main {
   min-width: 0;
 }
 
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  max-width: min(560px, calc(100vw - 32px));
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: var(--h-toast-contrast-background);
-  color: var(--h-toast-contrast-color);
-  font-size: 13px;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
-}
-
 .panel {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  width: 280px;
+  position: relative;
   height: 100%;
   border-left: 1px solid var(--h-content-border-color);
   background: var(--h-surface-frame);
+}
+
+.panel.overlay {
+  position: absolute;
+  inset-block: 40px 28px;
+  inset-inline-end: 4px;
+  height: auto;
+  z-index: 20;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
 }
 
 .panel-tabs {
@@ -85,6 +80,7 @@ main {
 }
 
 hx-app-shell {
+  position: relative;
   flex: 1;
   min-height: 0;
 }

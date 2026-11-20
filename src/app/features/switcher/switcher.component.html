@@ -1,10 +1,12 @@
-<div
-  class="backdrop"
-  (click)="switcher.close()"
-  (keydown.escape)="switcher.close()"
-  role="presentation"
-></div>
-<div class="dialog" role="dialog" aria-label="Quick switcher">
+<hx-dialog
+  [visible]="true"
+  (hidden)="switcher.close()"
+  ariaLabel="Quick switcher"
+  [closable]="false"
+  dismissableMask
+  position="top"
+  width="min(560px, 90vw)"
+>
   <input
     #input
     type="text"
@@ -25,11 +27,15 @@
         [class.selected]="i === switcher.selected()"
       >
         <button type="button" tabindex="-1" (click)="choose(match)" [title]="match.entry.path">
-          <span class="name">{{ match.label }}</span>
+          <span class="name">
+            @for (part of parts(match.label, match.positions); track $index) {
+              <span [class.hit]="part.matched">{{ part.text }}</span>
+            }
+          </span>
           @if (match.isAlias) {
             <span class="alias">alias of {{ match.entry.title }}</span>
           }
-          <span class="path">{{ match.entry.path }}</span>
+          <span class="path" [title]="match.entry.path">{{ match.entry.path }}</span>
         </button>
       </li>
     } @empty {
@@ -44,4 +50,9 @@
       </li>
     }
   </ul>
-</div>
+  <div class="status" role="status" aria-live="polite">{{ announcement() }}</div>
+  @if (switcher.truncated()) {
+    <div class="more">More notes match; type more to narrow the list.</div>
+  }
+  <app-key-hints [hints]="hints()" />
+</hx-dialog>

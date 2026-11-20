@@ -16,6 +16,7 @@ import { CloneComponent } from "./clone.component";
 
 function render(prompt: { reason: "required" | "failed" } | null = null, cloning = false) {
   const clone = {
+    visible: signal(true),
     url: signal("https://github.com/a/b"),
     parent: signal(""),
     cloning: signal(cloning),
@@ -43,7 +44,8 @@ function render(prompt: { reason: "required" | "failed" } | null = null, cloning
   });
   const fixture = TestBed.createComponent(CloneComponent);
   fixture.detectChanges();
-  return { clone, git, el: fixture.nativeElement as HTMLElement, fixture };
+  // hx-dialog renders its content in the overlay, outside the host element.
+  return { clone, git, el: document.body, fixture };
 }
 
 describe("CloneComponent", () => {
@@ -51,12 +53,16 @@ describe("CloneComponent", () => {
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
   });
 
-  it("starts the clone on submit and closes on the backdrop", () => {
-    const { clone, el } = render();
+  it("starts the clone on submit and closes on the mask", async () => {
+    const { clone, el, fixture } = render();
+    expect(el.querySelector("[role=dialog]")?.textContent).toContain("Clone vault");
     el.querySelector("form")!.dispatchEvent(new Event("submit", { cancelable: true }));
     expect(clone.start).toHaveBeenCalled();
-    (el.querySelector(".backdrop") as HTMLElement).click();
-    expect(clone.close).toHaveBeenCalled();
+    (el.querySelector(".hx-dialog-backdrop") as HTMLElement).click();
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(clone.close).toHaveBeenCalled();
+    });
   });
 
   it("shows the progress and a cancel button while cloning", () => {

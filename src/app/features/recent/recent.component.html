@@ -1,5 +1,12 @@
-<div class="backdrop" (click)="picker.close()" role="presentation"></div>
-<div class="dialog" role="dialog" aria-label="Open recent vault">
+<hx-dialog
+  [visible]="true"
+  (hidden)="picker.close()"
+  ariaLabel="Open recent vault"
+  [closable]="false"
+  dismissableMask
+  position="top"
+  width="min(560px, 90vw)"
+>
   <ul
     #list
     id="recent-list"
@@ -23,4 +30,4 @@
       <li class="empty">No recent vaults</li>
     }
   </ul>
-</div>
+</hx-dialog>
