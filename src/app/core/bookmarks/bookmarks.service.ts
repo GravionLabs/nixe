@@ -18,6 +18,7 @@ import {
   addGroup,
   contains,
   headingLine,
+  isDamaged,
   isFile,
   isSearch,
   moveItem,
@@ -95,7 +96,11 @@ export class BookmarksService {
     this.store.set(null);
     if (!root) return;
     try {
-      const fromVault = await backend.readVaultBookmarks().catch(() => null);
+      let vaultUnreadable = false;
+      const fromVault = await backend.readVaultBookmarks().catch(() => {
+        vaultUnreadable = true;
+        return null;
+      });
       const useVault = inVault && (fromVault !== null || (await this.vaultHasFolder()));
       const stored = parseAppStore(await backend.readAppBookmarks());
       const fromApp = root in stored ? parseBookmarks(JSON.stringify(stored[root])) : null;
@@ -109,7 +114,10 @@ export class BookmarksService {
       this.file = file;
       this.items.set(file.items);
       this.store.set(useVault ? "vault" : "app");
-      this.writable = true;
+      // A vault file that exists but cannot be read or parsed is left alone.
+      const keep = useVault && (vaultUnreadable || isDamaged(fromVault));
+      this.writable = !keep;
+      if (keep) this.notice.set("Bookmarks of the vault are not readable; they are left as they are and not changed.");
     } catch (err) {
       if (generation === this.generation) console.warn("bookmarks unavailable", err);
     }

@@ -105,6 +105,21 @@ describe("BookmarksService", () => {
     expect(written.items.map((i: { type: string }) => i.type)).toEqual(["file", "url", "search"]);
   });
 
+  it("never overwrites a vault file that is damaged or cannot be read", async () => {
+    inVault.set(true);
+    vaultFile = "<<<<<<< conflict";
+    await start();
+    service.toggleNote();
+    await service.flush();
+    expect(writeVault).not.toHaveBeenCalled();
+    expect(service.notice()).toContain("not readable");
+    vi.spyOn(backend, "readVaultBookmarks").mockRejectedValue(new Error("denied"));
+    await start();
+    service.toggleNote();
+    await service.flush();
+    expect(writeVault).not.toHaveBeenCalled();
+  });
+
   it("falls back to the app data when the vault has no .obsidian folder", async () => {
     inVault.set(true);
     hasFolder = false;

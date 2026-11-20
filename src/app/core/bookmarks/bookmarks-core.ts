@@ -87,6 +87,17 @@ export function parseBookmarks(text: string | null): BookmarkFile {
   return { items: clean(items), extra };
 }
 
+/** True when the text is there but is no bookmarks file (damaged, half synced): it must not be overwritten. */
+export function isDamaged(text: string | null): boolean {
+  if (!text?.trim()) return false;
+  try {
+    const json = JSON.parse(text) as unknown;
+    return typeof json !== "object" || json === null || Array.isArray(json);
+  } catch {
+    return true;
+  }
+}
+
 export function serializeBookmarks(file: BookmarkFile): string {
   return JSON.stringify({ ...file.extra, items: file.items }, null, 2);
 }
