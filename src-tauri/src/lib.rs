@@ -36,6 +36,7 @@ mod review;
 mod settings;
 mod tree;
 mod vault;
+mod workspace;
 mod write;
 
 /// Event telling the frontend that a file or folder is waiting in `take_pending_file`.
@@ -751,6 +752,60 @@ fn list_vault_files(root: String) -> Vec<String> {
     vault::list_vault_files(Path::new(&root))
 }
 
+/// The names of the saved workspaces (#116).
+#[tauri::command]
+fn workspace_list(app: AppHandle) -> Result<Vec<String>, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(workspace::list(&dir))
+}
+
+/// A saved workspace: its roots with their kinds.
+#[tauri::command]
+fn workspace_load(app: AppHandle, name: String) -> Result<workspace::Workspace, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    workspace::load(&dir, &name)
+}
+
+/// Saves a workspace in the app data directory; nothing is written into its folders.
+#[tauri::command]
+fn workspace_save(app: AppHandle, workspace: workspace::Workspace) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    workspace::save(&dir, &workspace)
+}
+
+/// Forgets a saved workspace; its folders stay.
+#[tauri::command]
+fn workspace_delete(app: AppHandle, name: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    workspace::delete(&dir, &name)
+}
+
+/// `workspace` with the folder at `path` added as a root (kind detected); changes nothing on disk.
+#[tauri::command]
+fn workspace_add_root(
+    mut workspace: workspace::Workspace,
+    path: String,
+) -> Result<workspace::Workspace, String> {
+    workspace.add_root(Path::new(&path))?;
+    Ok(workspace)
+}
+
+/// Resolves link targets of a note in the root `from`; a `Root name:` prefix reaches another root.
+/// One entry per target, `None` for a missing or ambiguous note.
+#[tauri::command]
+async fn workspace_resolve_links(
+    workspace: workspace::Workspace,
+    from: String,
+    targets: Vec<String>,
+) -> Result<Vec<Option<workspace::ResolvedLink>>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let links = workspace::WorkspaceLinks::new(&workspace);
+        targets.iter().map(|t| links.resolve(&from, t)).collect()
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Watches a single file. The parent directory is watched (non-recursively) so
 /// that editors saving via "write temp file + rename" are detected as well.
 #[tauri::command]
@@ -893,6 +948,12 @@ pub fn run() {
         write_app_settings,
         read_appearance,
         appearance_dir,
+        workspace_list,
+        workspace_load,
+        workspace_save,
+        workspace_delete,
+        workspace_add_root,
+        workspace_resolve_links,
         read_folds,
         write_folds,
         read_vault_bookmarks,
@@ -979,6 +1040,12 @@ pub fn run() {
         write_app_settings,
         read_appearance,
         appearance_dir,
+        workspace_list,
+        workspace_load,
+        workspace_save,
+        workspace_delete,
+        workspace_add_root,
+        workspace_resolve_links,
         read_folds,
         write_folds,
         read_vault_bookmarks,

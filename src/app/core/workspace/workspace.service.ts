@@ -39,6 +39,8 @@ export class WorkspaceService {
   /** Vault-relative files, held in memory for wikilink resolution. */
   readonly vaultFiles = signal<readonly string[] | null>(null);
   private readonly rootNodes = signal<TreeNode[]>([]);
+  /** The further roots of a workspace (#116), each as a folder row below the tree of the first. */
+  readonly extraRoots = signal<TreeNode[]>([]);
   private rootHasOrder = false;
 
   constructor() {
@@ -71,6 +73,7 @@ export class WorkspaceService {
       }
     };
     walk(this.rootNodes());
+    walk(this.extraRoots());
     return rows;
   });
 
@@ -138,7 +141,10 @@ export class WorkspaceService {
       this.settings.panelWidth.set(state.panelWidth ?? DEFAULT_PANEL_WIDTH);
     }
 
-    if (switching) this.tabs.reset();
+    if (switching) {
+      this.tabs.reset();
+      this.extraRoots.set([]);
+    }
     if (openDefaultPage) {
       const layout = state?.layout;
       const restored = layout && layoutHasNote(layout) ? await this.tabs.restore(layout) : false;
@@ -243,6 +249,28 @@ export class WorkspaceService {
       }),
     );
     return nodes;
+  }
+
+  /** Shows the folder `path` as a further root below the tree; one that is shown already stays. */
+  addExtraRoot(path: string, name: string): void {
+    path = toSlashes(path);
+    if (path === this.root() || this.extraRoots().some((n) => n.dirPath === path)) return;
+    const node: TreeNode = {
+      name,
+      dirPath: path,
+      filePath: null,
+      hasOrder: false,
+      modified: 0,
+      depth: 0,
+      expanded: signal(false),
+      children: signal<TreeNode[] | null>(null),
+    };
+    this.extraRoots.update((nodes) => [...nodes, node]);
+  }
+
+  /** Drops the further roots, keeping the first. */
+  clearExtraRoots(): void {
+    this.extraRoots.set([]);
   }
 
   /** Counts the requests to scroll the open note into view; the sidebar acts on it. */
