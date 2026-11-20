@@ -35,7 +35,7 @@
       (received)="receive(pane, $event)"
       (menuAction)="onMenu(pane, $event)"
     >
-      <button type="button" class="new" aria-label="New tab" title="New tab" (click)="addTab(pane)">+</button>
+      <button hx-button type="button" variant="text" severity="secondary" size="small" iconOnly class="new" aria-label="New tab" title="New tab" (click)="addTab(pane)">+</button>
     </hx-tab-bar>
     @for (tab of [shown(pane)]; track tab.id) {
       <ng-container *ngComponentOutlet="paneType; injector: tab.injector" />

@@ -17,7 +17,10 @@ describe("sanitizeSettings", () => {
       recentVaults: "nope",
       gitAuthorName: "Ada",
       lastFolder: 7,
+      reviewBranchPrefix: 5,
     });
+    expect(s.reviewBranchPrefix).toBe("claude/");
+    expect(sanitizeSettings({ reviewBranchPrefix: "agent/" }).reviewBranchPrefix).toBe("agent/");
     expect(s.theme).toBe("dark");
     expect(s.math).toBe(true);
     expect(s.zoom).toBe(300);

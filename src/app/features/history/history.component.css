@@ -1,0 +1,175 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
+  font-size: 13px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--h-content-border-color);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--h-text-muted-color);
+}
+
+.path,
+.status {
+  margin: 8px 12px;
+  color: var(--h-text-muted-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 40%;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--h-content-border-color);
+}
+
+.timeline button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.timeline button.selected {
+  background: var(--h-selection-background, rgba(100, 140, 255, 0.2));
+}
+
+.message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--h-text-muted-color);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+}
+
+.toolbar .range {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--h-text-muted-color);
+}
+
+.toolbar button.on {
+  font-weight: 600;
+}
+
+.add {
+  color: #2da44e;
+}
+
+.del {
+  color: #cf222e;
+}
+
+.diff {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  overflow: auto;
+}
+
+.row {
+  display: flex;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.row .sign {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: var(--h-text-muted-color);
+}
+
+.row.add {
+  background: rgba(46, 160, 67, 0.15);
+}
+
+.row.del {
+  background: rgba(248, 81, 73, 0.15);
+}
+
+.row.add .word {
+  background: rgba(46, 160, 67, 0.4);
+}
+
+.row.del .word {
+  background: rgba(248, 81, 73, 0.4);
+}
+
+.rendered section {
+  padding: 0 12px;
+  border-top: 1px solid var(--h-content-border-color);
+}
+
+.rendered h2 {
+  font-size: 11px;
+  color: var(--h-text-muted-color);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.5rem 0.25rem;
+}
+
+.actions button,
+.deleted button {
+  font-size: 0.75rem;
+}
+
+.deleted-title {
+  margin: 0.75rem 0.5rem 0.25rem;
+  font-size: 0.8rem;
+}
+
+.deleted {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.5rem;
+}
+
+.deleted li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.deleted .message {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -29,6 +29,7 @@ pub mod mcp;
 mod menu;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
+mod review;
 mod settings;
 mod tree;
 mod vault;
@@ -150,6 +151,155 @@ fn vault_root_of(state: &State<'_, AppState>) -> Result<PathBuf, String> {
 async fn git_vault_status(state: State<'_, AppState>) -> Result<Option<git::GitStatus>, String> {
     let root = vault_root_of(&state)?;
     tauri::async_runtime::spawn_blocking(move || git::vault_status(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The commits that touched a note, newest first, following renames (#105).
+#[tauri::command]
+async fn git_note_history(
+    state: State<'_, AppState>,
+    path: String,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<git::HistoryEntry>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::note_history(&root, &path, offset, limit))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The notes that differ between a commit and HEAD (or `to`) (#107).
+#[tauri::command]
+async fn git_changes_between(
+    state: State<'_, AppState>,
+    from: String,
+    to: Option<String>,
+) -> Result<Vec<git::GitChange>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::changes_between(&root, &from, to.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The newest commit at or before a time, in seconds since the epoch (#107).
+#[tauri::command]
+async fn git_rev_at(state: State<'_, AppState>, time: i64) -> Result<Option<String>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::rev_at(&root, time))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The branches that wait for review (#108).
+#[tauri::command]
+async fn git_review_branches(
+    state: State<'_, AppState>,
+    prefix: String,
+) -> Result<Vec<git::ReviewBranch>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::review_branches(&root, &prefix))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The notes a branch changed against its merge base with HEAD (#108).
+#[tauri::command]
+async fn git_review_changes(
+    state: State<'_, AppState>,
+    rev: String,
+) -> Result<git::ReviewChanges, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::review_changes(&root, &rev))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The hunks of one note of a review branch (#109).
+#[tauri::command]
+async fn git_review_hunks(
+    state: State<'_, AppState>,
+    tip: String,
+    path: String,
+) -> Result<Vec<review::ReviewHunk>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || review::review_hunks(&root, &tip, &path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Commits the accepted changes of a review branch and optionally deletes the branch (#109).
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn git_review_finish(
+    state: State<'_, AppState>,
+    branch: String,
+    tip: String,
+    decisions: Vec<review::NoteDecision>,
+    delete_branch: bool,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<review::ReviewOutcome, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        review::review_finish(
+            &root,
+            &branch,
+            &tip,
+            &decisions,
+            delete_branch,
+            fallback.as_ref(),
+            &credentials::KeyringStore,
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The unfinished decisions of a review branch, as saved (#109).
+#[tauri::command]
+fn git_review_state_load(
+    state: State<'_, AppState>,
+    branch: String,
+) -> Result<Option<String>, String> {
+    review::review_state_load(&vault_root_of(&state)?, &branch)
+}
+
+/// Saves (or, with `None`, removes) the unfinished decisions of a review branch (#109).
+#[tauri::command]
+fn git_review_state_save(
+    state: State<'_, AppState>,
+    branch: String,
+    content: Option<String>,
+) -> Result<(), String> {
+    review::review_state_save(&vault_root_of(&state)?, &branch, content.as_deref())
+}
+
+/// The notes that the last commits deleted (#106).
+#[tauri::command]
+async fn git_deleted_notes(
+    state: State<'_, AppState>,
+    commits: usize,
+) -> Result<Vec<git::DeletedNote>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::deleted_notes(&root, commits))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// A note at a commit, or the file on disk for `rev: None` (#105).
+#[tauri::command]
+async fn git_note_version(
+    state: State<'_, AppState>,
+    path: String,
+    rev: Option<String>,
+) -> Result<String, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::note_version(&root, &path, rev.as_deref()))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -567,6 +717,17 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_note_history,
+        git_note_version,
+        git_deleted_notes,
+        git_changes_between,
+        git_rev_at,
+        git_review_branches,
+        git_review_changes,
+        git_review_hunks,
+        git_review_finish,
+        git_review_state_load,
+        git_review_state_save,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,
@@ -625,6 +786,17 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_note_history,
+        git_note_version,
+        git_deleted_notes,
+        git_changes_between,
+        git_rev_at,
+        git_review_branches,
+        git_review_changes,
+        git_review_hunks,
+        git_review_finish,
+        git_review_state_load,
+        git_review_state_save,
         git_vault_sync,
         credentials::git_token_status,
         credentials::git_token_set,

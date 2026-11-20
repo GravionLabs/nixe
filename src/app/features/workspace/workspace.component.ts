@@ -1,6 +1,6 @@
 import { NgComponentOutlet } from "@angular/common";
 import { Component, ElementRef, inject } from "@angular/core";
-import { HxTabBar, HxTabBarItem, HxTabBarMenuItem, HxTabBarReceive } from "@gravionlabs/helix-ui";
+import { HxButton, HxTabBar, HxTabBarItem, HxTabBarMenuItem, HxTabBarReceive } from "@gravionlabs/helix-ui";
 
 import { basename } from "../../core/markdown/paths";
 import { MAX_RATIO, MIN_RATIO, TabView } from "../../core/tabs/layout";
@@ -13,7 +13,7 @@ const VIEW_TITLES: Record<TabView, string> = { settings: "Settings", health: "Va
 /** The tab bars and panes: one pane, or two side by side with a draggable divider. */
 @Component({
   selector: "app-workspace",
-  imports: [NgComponentOutlet, HxTabBar],
+  imports: [NgComponentOutlet, HxButton, HxTabBar],
   templateUrl: "./workspace.component.html",
   styleUrl: "./workspace.component.css",
 })

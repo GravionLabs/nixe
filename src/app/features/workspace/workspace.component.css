@@ -15,15 +15,6 @@
   flex: none;
 }
 
-.new {
-  border: 0;
-  background: none;
-  color: var(--h-text-muted-color);
-  font: inherit;
-  cursor: pointer;
-  padding: 0 10px;
-}
-
 .divider {
   flex: none;
   width: 5px;

@@ -93,3 +93,17 @@ shows conflicts before saving and stores only the differences from the defaults 
 of the webview key handler (`CommandRegistry.overrides`) and are sent to the native menu
 (`set_menu_shortcuts`), so the menu shows the changed shortcuts. While a shortcut is recorded the
 menu accelerators are off, so the pressed keys do not run commands.
+
+## Note history
+
+The sidebar view `history` (needs a Git vault; command `note-history`) lists the commits that touched the open note, the uncommitted state first (`HistoryService`, `features/history`). Older commits load in pages of 50 when the list is scrolled to its end. One selected entry shows its change against its parent (the uncommitted state against HEAD); two show the difference between them. `core/git/line-diff.ts` computes the line-based diff with word-level highlighting for paired lines; the view has a source mode (the diff) and a rendered mode (both versions rendered side by side).
+
+Each commit row offers `Restore this version`, which writes that commit's text into the open note through the atomic write (`write_text_file`) as a new change in the Git status; the history is never rewritten. `Copy` puts the selected part of the diff or rendered versions on the clipboard, else the whole version. Below the timeline, `Deleted notes` lists the notes the last 50 commits deleted (`git_deleted_notes`); `Restore` recreates one with its last content and refuses when a file of that name exists.
+
+### Changes since the last sync
+
+`git_vault_sync` reports `pulledFrom`, the commit HEAD was at before a pull that brought changes. `GitService.lastPull` keeps it and `ChangesService` lists the notes between that commit and HEAD (`git_changes_between`). The status bar then offers `n notes changed`, which opens the Git view; its `Changes since` section lists the changed, added and deleted notes with a line diff each (`ChangesComponent`) and switches the range to last sync, yesterday (`git_rev_at`, 24 hours ago) or a commit id. The notes of the last pull carry a dot in the file tree until they are opened. All of this lives in memory only: a restart forgets the last pull.
+
+### Review of agent branches
+
+`ReviewService` lists the branches that wait for review (`git_review_branches`): local and remote branches named with the setting `reviewBranchPrefix` (Settings > Git, default `claude/`; empty turns it off) that are ahead of the working branch. It reads again when the Git status, the index or the prefix changes, so a sync that fetches a new branch shows it. The status bar offers `n branches to review`, which opens the Git view; its `Review` section (`ReviewComponent`) shows author, date, commit messages and the number of changed notes per branch. Opening a branch lists its notes against the merge base with HEAD (`git_review_changes`); a note shows the diff of the history view, source or rendered. The *Hunks* view lists the blocks of changed lines (`git_review_hunks`); every note and every hunk is accepted or rejected, and an accepted hunk can be edited first. The decisions are saved per branch and tip (`git_review_state_save`), so an unfinished review survives a restart. *Finish review* asks, then commits the accepted changes (`git_review_finish`) and deletes the branch locally and on the remote; notes that conflict with changes made in the vault since are shown with both versions and need a decision. The convention for the agent is in [`docs/ai-review.md`](../ai-review.md).

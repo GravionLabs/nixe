@@ -23,6 +23,7 @@ export const VIEWS: readonly NixeView[] = [
   { id: "files", label: "Files", icon: "files", placement: "sidebar", position: "top", kind: "view" },
   { id: "search", label: "Search", icon: "search", placement: "sidebar", position: "top", kind: "view", needsVault: true },
   { id: "git", label: "Git", icon: "git", placement: "sidebar", position: "top", kind: "view", needsVault: true, needsGit: true },
+  { id: "history", label: "Note history", icon: "history", placement: "sidebar", position: "top", kind: "view", needsVault: true, needsGit: true },
   { id: "health", label: "Vault health", icon: "health", placement: "tab", position: "top", kind: "action", command: "vault-health", needsVault: true },
   { id: "daily-note", label: "Daily note", icon: "calendar", placement: "tab", position: "top", kind: "action", command: "daily-note", needsVault: true },
   { id: "command-palette", label: "Command palette", icon: "palette", placement: "tab", position: "top", kind: "action", command: "command-palette" },

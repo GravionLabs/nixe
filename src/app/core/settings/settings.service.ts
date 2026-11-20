@@ -82,6 +82,9 @@ export class SettingsService {
   readonly autoSyncOnFocus = signal<boolean>(this.stored.autoSyncOnFocus);
   readonly autoSyncOnQuit = signal<boolean>(this.stored.autoSyncOnQuit);
 
+  /** Branches with this prefix that are ahead of the working branch wait for review (#108). */
+  readonly reviewBranchPrefix = signal<string>(this.stored.reviewBranchPrefix);
+
   /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
   readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
@@ -127,6 +130,7 @@ export class SettingsService {
       autoSyncMinutes: this.autoSyncMinutes(),
       autoSyncOnFocus: this.autoSyncOnFocus(),
       autoSyncOnQuit: this.autoSyncOnQuit(),
+      reviewBranchPrefix: this.reviewBranchPrefix(),
       shortcuts: this.shortcuts(),
     };
   }
@@ -156,6 +160,7 @@ export class SettingsService {
     this.autoSyncMinutes.set(s.autoSyncMinutes);
     this.autoSyncOnFocus.set(s.autoSyncOnFocus);
     this.autoSyncOnQuit.set(s.autoSyncOnQuit);
+    this.reviewBranchPrefix.set(s.reviewBranchPrefix);
     this.shortcuts.set(s.shortcuts);
   }
 

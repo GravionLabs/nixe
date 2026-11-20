@@ -10,7 +10,9 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { GitStatus } from "../../core/file/backend";
+import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
+import { ReviewService } from "../../core/git/review.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { ShellService } from "../../core/shell/shell.service";
 import { UpdatePhase, UpdateService } from "../../core/updater/update.service";
@@ -25,11 +27,14 @@ interface Options {
   error?: string;
   percent?: number | null;
   zoom?: number;
+  pulled?: number;
+  waiting?: number;
 }
 
 function render(o: Options = {}) {
   const sync = vi.fn();
   const show = vi.fn();
+  const showSync = vi.fn();
   const check = vi.fn();
   const install = vi.fn();
   const execute = vi.fn();
@@ -38,6 +43,8 @@ function render(o: Options = {}) {
   TestBed.configureTestingModule({
     providers: [
       { provide: GitService, useValue: { status: signal(o.status ?? null), sync, syncState: signal(o.syncState ?? { phase: "idle", message: "" }) } },
+      { provide: ChangesService, useValue: { pulled: signal(Array.from({ length: o.pulled ?? 0 }, (_, i) => ({ path: `n${i}.md`, kind: "modified" }))), showSync } },
+      { provide: ReviewService, useValue: { count: signal(o.waiting ?? 0) } },
       { provide: ShellService, useValue: { show } },
       { provide: SettingsService, useValue: { zoom } },
       { provide: CommandRegistry, useValue: { execute } },
@@ -58,7 +65,7 @@ function render(o: Options = {}) {
   const fixture = TestBed.createComponent(StatusBarComponent);
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
-  return { el, show, sync, check, install, execute, zoom, fixture, text: () => el.textContent ?? "" };
+  return { el, show, showSync, sync, check, install, execute, zoom, fixture, text: () => el.textContent ?? "" };
 }
 
 const repo: GitStatus = { branch: "main", changes: [{ path: "a.md", kind: "added" }], ahead: 2, behind: 3 };
@@ -89,6 +96,28 @@ describe("StatusBarComponent", () => {
     r.el.querySelector<HTMLElement>(".git button")!.click();
     expect(r.show).toHaveBeenCalledWith("git");
     expect(r.text()).toContain("detached HEAD");
+  });
+
+  it("offers the notes the last pull changed and opens their list", () => {
+    const none = render({ status: repo });
+    expect(none.el.querySelector(".pulled")).toBeNull();
+    const one = render({ status: repo, pulled: 1 });
+    expect(one.el.querySelector(".pulled")!.textContent).toContain("1 note changed");
+    const r = render({ status: repo, pulled: 3 });
+    expect(r.el.querySelector(".pulled")!.textContent).toContain("3 notes changed");
+    r.el.querySelector<HTMLElement>(".pulled button")!.click();
+    expect(r.showSync).toHaveBeenCalled();
+    expect(r.show).toHaveBeenCalledWith("git");
+  });
+
+  it("shows the number of branches waiting for review and opens the Git view", () => {
+    expect(render({ status: repo }).el.querySelector(".review")).toBeNull();
+    const one = render({ status: repo, waiting: 1 });
+    expect(one.el.querySelector(".review")!.textContent).toContain("1 branch to review");
+    const r = render({ status: repo, waiting: 3 });
+    expect(r.el.querySelector(".review")!.textContent).toContain("3 branches to review");
+    r.el.querySelector<HTMLElement>(".review button")!.click();
+    expect(r.show).toHaveBeenCalledWith("git");
   });
 
   it("syncs from the button and shows the result", () => {

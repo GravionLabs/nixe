@@ -139,11 +139,81 @@ export interface GitChange {
   kind: "added" | "modified" | "deleted";
 }
 
+/** A branch that waits for review (#108). */
+export interface ReviewBranch {
+  /** Without the remote name: `claude/tidy-inbox`. */
+  name: string;
+  /** The tip commit; the revision for the changes and the "after" text. */
+  tip: string;
+  /** Only on a remote, not a local branch. */
+  remote: boolean;
+  author: string;
+  /** Seconds since the epoch. */
+  time: number;
+  /** Commit messages the branch is ahead by, newest first. */
+  messages: string[];
+  ahead: number;
+  notes: number;
+}
+
+/** The notes a branch changed against its merge base with HEAD. */
+export interface ReviewChanges {
+  /** The merge base: the "before" side of every note. */
+  base: string;
+  changes: GitChange[];
+}
+
+/** One block of changed lines of a note of a review branch (#109). */
+export interface ReviewHunk {
+  index: number;
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  /** The lines of the merge base. */
+  old: string;
+  /** The lines of the branch. */
+  new: string;
+}
+
+export interface HunkDecision {
+  index: number;
+  accept: boolean;
+  /** The edited replacement; absent takes the lines of the branch. */
+  text?: string;
+}
+
+export interface NoteDecision {
+  path: string;
+  /** For a note without hunks. */
+  accepted: boolean;
+  hunks: HunkDecision[];
+  /** How a conflicting note ends. */
+  resolve?: "mine" | "branch";
+}
+
+/** A note that cannot be merged cleanly: both versions (null = deleted). */
+export interface ReviewConflict {
+  path: string;
+  mine: string | null;
+  branch: string | null;
+}
+
+export interface ReviewOutcome {
+  commit: string | null;
+  applied: string[];
+  conflicts: ReviewConflict[];
+  branchDeleted: boolean;
+  warning: string | null;
+}
+
 /** What one sync did. */
 export interface SyncReport {
   committed: boolean;
   pulled: boolean;
   pushed: boolean;
+  /** HEAD before the pull when it brought changes: where "what changed since the sync" starts. */
+  pulledFrom?: string | null;
   /** Vault-relative notes that both sides changed; each kept both versions. */
   conflicts: string[];
 }
@@ -160,6 +230,32 @@ export interface GitStatus {
   changes: GitChange[];
   ahead: number;
   behind: number;
+}
+
+/** One commit that touched a note. */
+export interface HistoryEntry {
+  id: string;
+  author: string;
+  /** Seconds since the epoch. */
+  time: number;
+  message: string;
+  /** The note's path in this commit (differs after a rename). */
+  path: string;
+  parent: string | null;
+  /** The note's path in the parent commit. */
+  parentPath: string;
+}
+
+/** A note that a recent commit deleted. */
+export interface DeletedNote {
+  path: string;
+  /** The commit that deleted it. */
+  id: string;
+  /** The parent of that commit: the last version of the note. */
+  parent: string;
+  author: string;
+  time: number;
+  message: string;
 }
 
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
@@ -218,6 +314,41 @@ export const backend = {
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Git state of the vault; null when the vault is not a Git repository. */
   gitVaultStatus: () => invoke<GitStatus | null>("git_vault_status"),
+  /** Commits that touched a vault-relative note, newest first, following renames; `offset`/`limit` page. */
+  gitNoteHistory: (path: string, offset: number, limit: number) =>
+    invoke<HistoryEntry[]>("git_note_history", { path, offset, limit }),
+  /** A note at a commit (empty when it did not exist there), or the file on disk for `rev: null`. */
+  gitNoteVersion: (path: string, rev: string | null) => invoke<string>("git_note_version", { path, rev }),
+  /** Notes deleted by the last `commits` commits and not present now, newest first. */
+  /** The notes (added, modified, deleted) that differ between the commit `from` and `to` (default HEAD). */
+  gitChangesBetween: (from: string, to: string | null = null) =>
+    invoke<GitChange[]>("git_changes_between", { from, to }),
+  /** The newest commit at or before `time` (seconds since the epoch); null when the history starts later. */
+  gitRevAt: (time: number) => invoke<string | null>("git_rev_at", { time }),
+  /** Branches named with `prefix` that are ahead of the working branch, newest first. */
+  gitReviewBranches: (prefix: string) => invoke<ReviewBranch[]>("git_review_branches", { prefix }),
+  /** The notes the branch tip `rev` changed against the merge base with HEAD. */
+  gitReviewChanges: (rev: string) => invoke<ReviewChanges>("git_review_changes", { rev }),
+  /** The hunks of one note of the branch tip against the merge base. */
+  gitReviewHunks: (tip: string, path: string) => invoke<ReviewHunk[]>("git_review_hunks", { tip, path }),
+  /**
+   * Commits the accepted changes onto the working branch and, with `deleteBranch`, deletes the
+   * branch locally and on the remote. Conflicts come back in the outcome; nothing is changed then.
+   */
+  gitReviewFinish: (
+    branch: string,
+    tip: string,
+    decisions: NoteDecision[],
+    deleteBranch: boolean,
+    name: string | null,
+    email: string | null,
+  ) => invoke<ReviewOutcome>("git_review_finish", { branch, tip, decisions, deleteBranch, name, email }),
+  /** The saved, unfinished decisions of a branch (text); null when there are none. */
+  gitReviewStateLoad: (branch: string) => invoke<string | null>("git_review_state_load", { branch }),
+  /** Saves the decisions of a branch; null removes them. */
+  gitReviewStateSave: (branch: string, content: string | null) =>
+    invoke<void>("git_review_state_save", { branch, content }),
+  gitDeletedNotes: (commits: number) => invoke<DeletedNote[]>("git_deleted_notes", { commits }),
   /**
    * Stages everything and commits; returns the commit id. An empty `message` gives
    * `vault backup: <timestamp>`; `name` and `email` are used when the Git config has no author.

@@ -47,6 +47,8 @@ export class GitService {
   readonly tokenPrompt = signal<TokenPrompt | null>(null);
   /** Progress and result of the last sync, for the status bar. */
   readonly syncState = signal<SyncState>({ phase: "idle", message: "" });
+  /** The last pull that brought changes: the commit HEAD was at before it. A new object per pull. */
+  readonly lastPull = signal<{ from: string } | null>(null);
   private request = 0;
   /** The last sync error that was shown; an automatic sync does not show it again. */
   private lastError: string | null = null;
@@ -176,6 +178,7 @@ export class GitService {
     try {
       const report = await (auto ? call() : this.runRemote(call));
       this.lastError = null;
+      if (report.pulled && report.pulledFrom) this.lastPull.set({ from: report.pulledFrom });
       this.syncState.set({ phase: "done", message: describeSync(report) });
     } catch (err) {
       const text = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");

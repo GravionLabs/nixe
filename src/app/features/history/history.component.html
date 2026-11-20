@@ -1,0 +1,90 @@
+<header>
+  <span>History</span>
+</header>
+
+@if (history.notePath(); as path) {
+  <p class="path" [title]="path">{{ path }}</p>
+  @if (history.error(); as error) {
+    <p class="status" role="alert">{{ error }}</p>
+  }
+  <ul class="timeline" aria-label="Versions" #list (scroll)="onScroll(list)">
+    @for (entry of history.timeline(); track entry.id ?? 'uncommitted') {
+      <li>
+        <button type="button" [class.selected]="selected(entry)" [attr.aria-pressed]="selected(entry)" (click)="history.select(entry)">
+          <span class="message">{{ entry.message }}</span>
+          <span class="meta">{{ time(entry) }}@if (entry.author) { · {{ entry.author }}}</span>
+        </button>
+        @if (entry.id !== null) {
+          <span class="actions">
+            <button type="button" class="restore" (click)="history.restore(entry)">Restore this version</button>
+            <button type="button" class="copy" (mousedown)="$event.preventDefault()" (click)="copy(entry)">Copy</button>
+          </span>
+        }
+      </li>
+    } @empty {
+      @if (!history.loading()) {
+        <li class="status">No commits touched this note</li>
+      }
+    }
+    @if (history.loading()) {
+      <li class="status">Loading…</li>
+    }
+  </ul>
+
+  @if (history.comparison(); as comparison) {
+    <div class="toolbar">
+      <span class="stat"><span class="add">+{{ stat().added }}</span> <span class="del">−{{ stat().removed }}</span></span>
+      <span class="range">{{ comparison.oldLabel }} → {{ comparison.newLabel }}</span>
+      <button type="button" [class.on]="mode() === 'source'" (click)="mode.set('source')">Source</button>
+      <button type="button" [class.on]="mode() === 'rendered'" (click)="mode.set('rendered')">Rendered</button>
+    </div>
+    @if (mode() === "source") {
+      <div class="diff" aria-label="Difference">
+        @for (row of rows(); track $index) {
+          <div class="row" [class]="row.kind">
+            <span class="sign">{{ row.kind === "add" ? "+" : row.kind === "del" ? "−" : " " }}</span>
+            <span class="text">
+              @if (row.segments; as segments) {
+                @for (seg of segments; track $index) {
+                  <span [class.word]="seg.changed">{{ seg.text }}</span>
+                }
+              } @else {
+                {{ row.text }}
+              }
+            </span>
+          </div>
+        } @empty {
+          <p class="status">No difference</p>
+        }
+      </div>
+    } @else {
+      @if (rendered(); as html) {
+        <div class="rendered" aria-label="Rendered versions">
+          <section><h2>{{ comparison.oldLabel }}</h2><div class="md" [innerHTML]="html.old"></div></section>
+          <section><h2>{{ comparison.newLabel }}</h2><div class="md" [innerHTML]="html.new"></div></section>
+        </div>
+      }
+    }
+  } @else {
+    <p class="status">Select a version to see its change, or two to compare them.</p>
+  }
+} @else {
+  <p class="status">Open a note to see its history.</p>
+}
+
+@if (history.notice(); as notice) {
+  <p class="status" role="status">{{ notice }}</p>
+}
+
+@if (history.deleted().length > 0) {
+  <h3 class="deleted-title">Deleted notes</h3>
+  <ul class="deleted" aria-label="Deleted notes">
+    @for (note of history.deleted(); track note.path) {
+      <li>
+        <span class="message" [title]="note.path">{{ note.path }}</span>
+        <span class="meta">{{ time({ id: note.id, author: note.author, time: note.time, message: note.message, path: note.path }) }}</span>
+        <button type="button" (click)="history.restoreDeleted(note)">Restore</button>
+      </li>
+    }
+  </ul>
+}

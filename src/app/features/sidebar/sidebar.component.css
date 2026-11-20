@@ -191,3 +191,12 @@ svg {
   color: var(--h-primary-color);
   font-size: 10px;
 }
+
+.dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--h-primary-color);
+}
