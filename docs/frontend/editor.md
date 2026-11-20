@@ -98,3 +98,10 @@ Pasting an image or dropping a file into the editor copies it into the vault and
 - **Names:** a pasted image is `Pasted image YYYYMMDDHHmmss.png` (the extension follows the image type); a pasted or dropped file keeps its name. A taken name gets a number (`name 1.png`), nothing is overwritten.
 - **Links:** the link holds the file name, or the vault-relative path when another file of the vault has the same name.
 - **Dropped files inside the vault** are not copied; only the link is inserted. Dropping while the editor is closed still opens the file or folder.
+
+## Note composer
+
+`Extract selection to a note`, `Extract heading to a note` (the heading at the cursor and everything below it up to the next heading of the same or a higher level) and `Merge into…` are commands of the palette. Each asks for the target note (type to find one; extract also offers a typed name as a new note), lists the notes that change in a confirmation, and then runs as one batch in the backend (`vault/composer.rs`), so the watcher reports one debounced change. Code: `core/composer/`, `features/composer/`.
+
+- **Extract:** the text goes to the end of the target (or into a new note, folders are created) and a link `[[note]]` stays; the setting `Leave an embed when extracting` leaves `![[note]]`. Links to a heading or block id that moved (`[[Source#Heading]]`, `[[#Heading]]`, `[[Source#^id]]`) name the target, `[[#Other]]` in the moved text names the source, and Markdown links with a relative path are recomputed. Not rewritten: Markdown links with a `#heading`, the frontmatter, code and comments.
+- **Merge:** the open note is appended to the target without its frontmatter, every link to it names the target (in the form `newLinkFormat` asks for, heading and block kept) and the original moves to `.trash/`. The target is written first; if that fails nothing else changes.

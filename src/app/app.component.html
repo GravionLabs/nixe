@@ -105,6 +105,10 @@
   <app-switcher (error)="showToast($event)" />
 }
 
+@if (composer.visible()) {
+  <app-composer (error)="showToast($event)" />
+}
+
 @if (templates.visible()) {
   <app-templates (error)="showToast($event)" />
 }

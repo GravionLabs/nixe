@@ -88,9 +88,12 @@ pub fn plan(
         .iter()
         .map(|m| (m.from.as_str(), m.to.as_str()))
         .collect();
+    // Two files may end up on one path (a merge); the vault then holds that path once.
+    let mut seen = HashSet::new();
     let new_files: Vec<String> = files
         .iter()
         .map(|f| moved.get(f.as_str()).map_or(f.as_str(), |t| *t).to_string())
+        .filter(|f| seen.insert(f.clone()))
         .collect();
     let ctx = Context {
         moved: &moved,
@@ -137,6 +140,16 @@ struct Context<'a> {
 }
 
 fn rewrite_note(text: &str, from: &str, to: &str, ctx: &Context) -> (String, usize) {
+    rewrite_lines(text, |line, masked| link_edits(line, masked, from, to, ctx))
+}
+
+/// `text` with the edits `find` returns for each line outside the frontmatter, code fences, code
+/// spans and comments. `find` gets the line and the same line with code and comments blanked.
+/// Returns the new text and the number of edits.
+pub(super) fn rewrite_lines(
+    text: &str,
+    mut find: impl FnMut(&str, &str) -> Vec<Edit>,
+) -> (String, usize) {
     let (bom, text) = match text.strip_prefix('\u{feff}') {
         Some(rest) => ("\u{feff}", rest),
         None => ("", text),
@@ -166,7 +179,7 @@ fn rewrite_note(text: &str, from: &str, to: &str, ctx: &Context) -> (String, usi
             }
         }
         let masked = mask(line, &mut in_comment);
-        let mut edits = link_edits(line, &masked, from, to, ctx);
+        let mut edits = find(line, &masked);
         total += edits.len();
         edits.sort_by_key(|e| e.start);
         let mut at = 0;
@@ -215,10 +228,10 @@ fn mask(line: &str, in_comment: &mut bool) -> String {
     String::from_utf8(bytes).unwrap_or_else(|_| line.to_string())
 }
 
-struct Edit {
-    start: usize,
-    end: usize,
-    text: String,
+pub(super) struct Edit {
+    pub start: usize,
+    pub end: usize,
+    pub text: String,
 }
 
 fn link_edits(line: &str, masked: &str, from: &str, to: &str, ctx: &Context) -> Vec<Edit> {
@@ -443,12 +456,57 @@ fn encode_destination(path: &str) -> String {
     out
 }
 
+/// How a link names `target` when written in `source`, in the vault `files` (as it is after the
+/// change). `strip_md` writes a note without its extension.
+pub(super) fn link_text(
+    files: &[String],
+    format: LinkFormat,
+    target: &str,
+    source: &str,
+    strip_md: bool,
+) -> String {
+    let moved = HashMap::new();
+    let ctx = Context {
+        moved: &moved,
+        format,
+        old_files: HashSet::new(),
+        old_lower: HashMap::new(),
+        old: Resolver::new(&[] as &[String]),
+        new: Resolver::new(files),
+    };
+    path_text(target, source, strip_md, &ctx)
+}
+
+/// `text`, written in `from`, as it reads in `to`: Markdown links with a path relative to the
+/// note are recomputed (wikilinks name notes vault-wide and stay). `files` is the vault.
+pub(super) fn relocate_links(
+    text: &str,
+    from: &str,
+    to: &str,
+    files: &[String],
+    format: LinkFormat,
+) -> String {
+    let moved = HashMap::new();
+    let ctx = Context {
+        moved: &moved,
+        format,
+        old_files: files.iter().map(String::as_str).collect(),
+        old_lower: files
+            .iter()
+            .map(|f| (f.to_lowercase(), f.as_str()))
+            .collect(),
+        old: Resolver::new(files),
+        new: Resolver::new(files),
+    };
+    rewrite_note(text, from, to, &ctx).0
+}
+
 // ---------------------------------------------------------------------------------------------
 // Renaming
 // ---------------------------------------------------------------------------------------------
 
 /// The vault-relative form of `path`, forward slashes; `None` when it is not below `root`.
-fn relative_to(root: &Path, path: &Path) -> Option<String> {
+pub(super) fn relative_to(root: &Path, path: &Path) -> Option<String> {
     let canonical = dunce::canonicalize(root).ok();
     let rel = path
         .strip_prefix(root)

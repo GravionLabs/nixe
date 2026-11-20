@@ -41,6 +41,8 @@ export interface StoredSettings {
   reviewBranchPrefix: string;
   /** Bookmarks are written into `.obsidian/bookmarks.json` of the vault (#111); off keeps them in the app data. */
   bookmarksInVault: boolean;
+  /** Extracting text leaves an embed (`![[note]]`) instead of a link (#113). */
+  extractEmbed: boolean;
   /** Shortcut of a command id that differs from its default; "" means removed. */
   shortcuts: Record<string, string>;
 }
@@ -71,6 +73,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   autoSyncOnQuit: false,
   reviewBranchPrefix: "claude/",
   bookmarksInVault: false,
+  extractEmbed: false,
   shortcuts: {},
 };
 
@@ -109,6 +112,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     autoSyncOnQuit: o["autoSyncOnQuit"] === true,
     reviewBranchPrefix: text(o["reviewBranchPrefix"], d.reviewBranchPrefix),
     bookmarksInVault: o["bookmarksInVault"] === true,
+    extractEmbed: o["extractEmbed"] === true,
     shortcuts: sanitizeShortcuts(o["shortcuts"]),
   };
 }

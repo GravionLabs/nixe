@@ -407,7 +407,7 @@ pub(super) fn find_backtick_run(s: &str, n: usize) -> Option<usize> {
     None
 }
 
-fn heading(line: &str) -> Option<Heading> {
+pub(super) fn heading(line: &str) -> Option<Heading> {
     let trimmed = line.trim_start_matches(' ');
     if line.len() - trimmed.len() > 3 {
         return None;
