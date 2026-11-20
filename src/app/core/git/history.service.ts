@@ -91,11 +91,15 @@ export class HistoryService {
   });
 
   constructor() {
+    // A full reset only for another note; saves and status refreshes update in the background (#289).
     effect(() => {
       this.notePath();
+      untracked(() => void this.reload());
+    });
+    effect(() => {
       this.index.revision();
       this.git.status();
-      untracked(() => void this.reload());
+      untracked(() => void this.refreshHead());
     });
     effect(() => {
       this.git.available();
@@ -176,6 +180,34 @@ export class HistoryService {
     this.comparison.set(null);
     this.loading.set(false);
     await this.load(request);
+  }
+
+  /**
+   * Reads the first page again without clearing anything: the list is replaced only when it
+   * differs, the selection stays, and the comparison is recomputed when it shows the uncommitted state.
+   */
+  async refreshHead(): Promise<void> {
+    const path = this.notePath();
+    if (path === null || this.loading()) return;
+    const request = this.request;
+    let page: HistoryEntry[];
+    try {
+      page = await backend.gitNoteHistory(path, 0, PAGE_SIZE);
+    } catch {
+      return;
+    }
+    if (request !== this.request || this.loading() || this.notePath() !== path) return;
+    const current = this.commits();
+    const changed = JSON.stringify(page) !== JSON.stringify(current.slice(0, PAGE_SIZE));
+    if (changed) {
+      this.commits.set([...page, ...current.slice(PAGE_SIZE)]);
+      if (current.length <= PAGE_SIZE) this.exhausted.set(page.length < PAGE_SIZE);
+    }
+    const rows = this.timeline();
+    const kept = this.selection().filter((k) => rows.some((r) => this.key(r) === k));
+    const dropped = kept.length !== this.selection().length;
+    if (dropped) this.selection.set(kept);
+    if (dropped || (changed && kept.length > 0) || kept.includes("")) await this.compare();
   }
 
   /** Loads the next older page. */
