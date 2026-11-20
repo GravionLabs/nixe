@@ -36,6 +36,11 @@ export class EditorService {
   readonly editing = signal(false);
   /** True while an external change blocks closing the editor; mirrors the open editor's conflict. */
   readonly blocked = signal(false);
+  /**
+   * True while the tab has edits that are not on disk (also while saving is held). Lives with the
+   * tab, so the tab bar shows it when the editor of an inactive tab is gone.
+   */
+  readonly unsaved = signal(false);
   /** 1-based line the editor scrolls to when it opens. */
   readonly startLine = signal<number | null>(null);
   /** Words and characters of the open editor (its selection when there is one); null when none is open. */

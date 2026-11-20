@@ -179,9 +179,11 @@ export class EditorComponent implements OnDestroy {
       saver: new AutoSaver({
         write: (t) => this.write(session, t),
         onError: (e) => this.failed.emit(`Saving failed: ${String(e)}`),
+        onDirtyChange: (dirty) => this.editor.unsaved.set(dirty),
       }),
     };
     this.session = session;
+    this.editor.unsaved.set(false);
 
     this.loading = true;
     const state = EditorState.create({

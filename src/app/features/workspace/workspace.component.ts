@@ -49,6 +49,7 @@ export class WorkspaceComponent {
       id: String(tab.id),
       label: this.title(tab),
       title: tab.doc.path() ?? this.title(tab),
+      modified: tab.editor.unsaved(),
     }));
   }
 
