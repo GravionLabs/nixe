@@ -56,6 +56,10 @@ export function decorateCodeBlocks(root: HTMLElement): void {
     if (pre.classList.contains("mermaid") || pre.closest(`.${CODE_BLOCK_CLASS}, .mermaid-error`)) continue;
     const wrap = document.createElement("div");
     wrap.className = CODE_BLOCK_CLASS;
+    // Scroll sync looks for the top-level blocks with a source line.
+    // markdown-it puts it on the `<code>` of a fence.
+    const line = pre.dataset["line"] ?? pre.querySelector<HTMLElement>(":scope > code")?.dataset["line"];
+    if (line !== undefined) wrap.dataset["line"] = line;
     pre.replaceWith(wrap);
     wrap.append(pre, makeBar(language(pre)));
   }

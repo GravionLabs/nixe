@@ -21,6 +21,11 @@ describe("decorateCodeBlocks", () => {
     expect(root.querySelector(".code-lang")?.textContent).toBe("ts");
   });
 
+  it("keeps the source line on the top-level block", () => {
+    const root = mount("para\n\n```ts\nx\n```\n");
+    expect(root.querySelector<HTMLElement>(":scope > .code-block")?.dataset["line"]).toBe("2");
+  });
+
   it("shows no label without a language", () => {
     const root = mount("```\nplain\n```\n");
     expect(root.querySelector(".code-copy")).not.toBeNull();
