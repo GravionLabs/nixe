@@ -12,6 +12,8 @@ export interface AutoSaverOptions {
   delayMs?: number;
   /** Called when a write fails; the text stays dirty. */
   onError?: (error: unknown) => void;
+  /** Called whenever `dirty` flips. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /**
@@ -25,6 +27,7 @@ export class AutoSaver {
   private pending: string | null = null;
   private held = false;
   private running: Promise<void> = Promise.resolve();
+  private reported = false;
 
   constructor(private readonly options: AutoSaverOptions) {
     this.delayMs = options.delayMs ?? SAVE_IDLE_MS;
@@ -40,8 +43,16 @@ export class AutoSaver {
     return this.pending !== null;
   }
 
+  private report(): void {
+    const dirty = this.pending !== null;
+    if (dirty === this.reported) return;
+    this.reported = dirty;
+    this.options.onDirtyChange?.(dirty);
+  }
+
   change(text: string): void {
     this.pending = text;
+    this.report();
     clearTimeout(this.timer);
     if (this.held) return;
     this.timer = setTimeout(() => void this.flush(), this.delayMs);
@@ -61,6 +72,7 @@ export class AutoSaver {
   discard(): void {
     clearTimeout(this.timer);
     this.pending = null;
+    this.report();
   }
 
   flush(): Promise<void> {
@@ -74,11 +86,13 @@ export class AutoSaver {
     const text = this.pending;
     if (text === null || this.held) return;
     this.pending = null;
+    this.report();
     try {
       await this.options.write(text);
     } catch (error) {
       // A newer change keeps its own text; otherwise the failed one stays dirty for the next flush.
       this.pending ??= text;
+      this.report();
       this.options.onError?.(error);
     }
   }

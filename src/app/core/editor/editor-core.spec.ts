@@ -130,6 +130,41 @@ describe("AutoSaver", () => {
   });
 });
 
+describe("AutoSaver onDirtyChange", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("reports each flip once: change, write, held, failed write", async () => {
+    const flips: boolean[] = [];
+    const write = vi.fn().mockResolvedValue(undefined);
+    const saver = new AutoSaver({ write, onDirtyChange: (d) => flips.push(d) });
+    saver.change("a");
+    saver.change("b");
+    expect(flips).toEqual([true]);
+    await saver.flush();
+    expect(flips).toEqual([true, false]);
+    saver.hold(true);
+    saver.change("c");
+    await saver.flush();
+    expect(flips).toEqual([true, false, true]);
+    saver.discard();
+    expect(flips).toEqual([true, false, true, false]);
+  });
+
+  it("is dirty again after a failed write", async () => {
+    const flips: boolean[] = [];
+    const write = vi.fn().mockRejectedValue(new Error("full"));
+    const saver = new AutoSaver({
+      write,
+      onError: () => undefined,
+      onDirtyChange: (d) => flips.push(d),
+    });
+    saver.change("t");
+    await saver.flush();
+    expect(flips).toEqual([true, false, true]);
+  });
+});
+
 describe("ExternalChangeTracker", () => {
   it("ignores the opened text and writes in flight", () => {
     const tracker = new ExternalChangeTracker("opened");
