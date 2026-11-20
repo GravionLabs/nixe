@@ -97,8 +97,7 @@ li button:hover {
   max-width: 100%;
 }
 
-mark {
-  background: none;
+.hit {
   color: var(--h-accent-color, inherit);
   font-weight: 700;
   text-decoration: underline;

@@ -16,15 +16,7 @@
     @for (match of switcher.matches(); track match.entry.path; let i = $index) {
       <li role="option" [attr.aria-selected]="i === switcher.selected()" [class.selected]="i === switcher.selected()">
         <button type="button" tabindex="-1" (click)="choose(match)" [title]="match.entry.path">
-          <span class="name">
-            @for (part of parts(match.label, match.positions); track $index) {
-              @if (part.matched) {
-                <mark>{{ part.text }}</mark>
-              } @else {
-                {{ part.text }}
-              }
-            }
-          </span>
+          <span class="name">@for (part of parts(match.label, match.positions); track $index) {<span [class.hit]="part.matched">{{ part.text }}</span>}</span>
           @if (match.isAlias) {
             <span class="alias">alias of {{ match.entry.title }}</span>
           }
