@@ -63,7 +63,11 @@ function clean(raw: unknown): Bookmark[] {
     const b = item as Bookmark;
     if (typeof b.type !== "string") continue;
     if (b.type === "group") {
-      out.push({ ...b, title: typeof b["title"] === "string" ? (b["title"] as string) : "", items: clean(b["items"]) } as GroupBookmark);
+      out.push({
+        ...b,
+        title: typeof b["title"] === "string" ? (b["title"] as string) : "",
+        items: clean(b["items"]),
+      } as GroupBookmark);
     } else if ((b.type === "file" && !isFile(b)) || (b.type === "search" && !isSearch(b))) {
       continue;
     } else {
@@ -82,7 +86,8 @@ export function parseBookmarks(text: string | null): BookmarkFile {
   } catch {
     return { items: [], extra: {} };
   }
-  if (typeof json !== "object" || json === null || Array.isArray(json)) return { items: [], extra: {} };
+  if (typeof json !== "object" || json === null || Array.isArray(json))
+    return { items: [], extra: {} };
   const { items, ...extra } = json as Record<string, unknown>;
   return { items: clean(items), extra };
 }
@@ -107,7 +112,9 @@ export function parseAppStore(text: string | null): Record<string, unknown> {
   if (!text) return {};
   try {
     const json = JSON.parse(text) as unknown;
-    return typeof json === "object" && json !== null && !Array.isArray(json) ? (json as Record<string, unknown>) : {};
+    return typeof json === "object" && json !== null && !Array.isArray(json)
+      ? (json as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }
@@ -125,10 +132,16 @@ export function itemAt(items: readonly Bookmark[], path: ItemPath): Bookmark | n
 }
 
 /** Applies `change` to the list at `parent` (empty: the root) and returns the new tree. */
-function editList(items: Bookmark[], parent: ItemPath, change: (list: Bookmark[]) => Bookmark[]): Bookmark[] {
+function editList(
+  items: Bookmark[],
+  parent: ItemPath,
+  change: (list: Bookmark[]) => Bookmark[],
+): Bookmark[] {
   if (parent.length === 0) return change([...items]);
   const [head, ...rest] = parent;
-  return items.map((b, i) => (i === head && isGroup(b) ? { ...b, items: editList(b.items, rest, change) } : b));
+  return items.map((b, i) =>
+    i === head && isGroup(b) ? { ...b, items: editList(b.items, rest, change) } : b,
+  );
 }
 
 /** The text a bookmark shows. */
@@ -144,29 +157,41 @@ export function labelOf(b: Bookmark): string {
 }
 
 /** True when the same note, heading or search is already bookmarked (anywhere in the tree). */
-export function contains(items: readonly Bookmark[], probe: FileBookmark | SearchBookmark): boolean {
+export function contains(
+  items: readonly Bookmark[],
+  probe: FileBookmark | SearchBookmark,
+): boolean {
   return items.some((b) => {
     if (isGroup(b)) return contains(b.items, probe);
-    if (probe.type === "file") return isFile(b) && b.path === probe.path && (b.subpath ?? "") === (probe.subpath ?? "");
+    if (probe.type === "file")
+      return isFile(b) && b.path === probe.path && (b.subpath ?? "") === (probe.subpath ?? "");
     return isSearch(b) && b.query === probe.query;
   });
 }
 
 /** Appends a bookmark at the end of the root, unless it exists already. */
-export function addBookmark(items: Bookmark[], bookmark: FileBookmark | SearchBookmark, now: number): Bookmark[] {
+export function addBookmark(
+  items: Bookmark[],
+  bookmark: FileBookmark | SearchBookmark,
+  now: number,
+): Bookmark[] {
   if (contains(items, bookmark)) return items;
   return [...items, { ...bookmark, ctime: now }];
 }
 
 /** Removes the first bookmark equal to `probe`, wherever it is. */
-export function removeMatching(items: Bookmark[], probe: FileBookmark | SearchBookmark): Bookmark[] {
+export function removeMatching(
+  items: Bookmark[],
+  probe: FileBookmark | SearchBookmark,
+): Bookmark[] {
   let done = false;
   const walk = (list: Bookmark[]): Bookmark[] =>
     list.flatMap((b) => {
       if (isGroup(b)) return [{ ...b, items: walk(b.items) }];
-      const same = probe.type === "file"
-        ? isFile(b) && b.path === probe.path && (b.subpath ?? "") === (probe.subpath ?? "")
-        : isSearch(b) && b.query === probe.query;
+      const same =
+        probe.type === "file"
+          ? isFile(b) && b.path === probe.path && (b.subpath ?? "") === (probe.subpath ?? "")
+          : isSearch(b) && b.query === probe.query;
       if (same && !done) {
         done = true;
         return [];
@@ -178,7 +203,9 @@ export function removeMatching(items: Bookmark[], probe: FileBookmark | SearchBo
 
 export function removeAt(items: Bookmark[], path: ItemPath): Bookmark[] {
   if (path.length === 0) return items;
-  return editList(items, path.slice(0, -1), (list) => list.filter((_, i) => i !== path[path.length - 1]));
+  return editList(items, path.slice(0, -1), (list) =>
+    list.filter((_, i) => i !== path[path.length - 1]),
+  );
 }
 
 export function addGroup(items: Bookmark[], title: string, now: number): Bookmark[] {
@@ -188,7 +215,9 @@ export function addGroup(items: Bookmark[], title: string, now: number): Bookmar
 export function renameGroup(items: Bookmark[], path: ItemPath, title: string): Bookmark[] {
   const target = itemAt(items, path);
   if (!target || !isGroup(target)) return items;
-  return editList(items, path.slice(0, -1), (list) => list.map((b, i) => (i === path[path.length - 1] ? { ...target, title } : b)));
+  return editList(items, path.slice(0, -1), (list) =>
+    list.map((b, i) => (i === path[path.length - 1] ? { ...target, title } : b)),
+  );
 }
 
 function isPrefix(prefix: ItemPath, path: ItemPath): boolean {
@@ -199,7 +228,12 @@ function isPrefix(prefix: ItemPath, path: ItemPath): boolean {
  * Moves the item at `from` so that it ends up at index `index` of the list at `parent` (empty: the
  * root), counted in the list as it is before the move. A group cannot move into itself.
  */
-export function moveItem(items: Bookmark[], from: ItemPath, parent: ItemPath, index: number): Bookmark[] {
+export function moveItem(
+  items: Bookmark[],
+  from: ItemPath,
+  parent: ItemPath,
+  index: number,
+): Bookmark[] {
   const item = itemAt(items, from);
   if (!item || isPrefix(from, parent)) return items;
   const fromParent = from.slice(0, -1);
@@ -207,10 +241,15 @@ export function moveItem(items: Bookmark[], from: ItemPath, parent: ItemPath, in
   // Removing the item first shifts later siblings of the same list, and every path through that list.
   let target = [...parent];
   let at = index;
-  if (target.length > fromParent.length && isPrefix(fromParent, target) && target[fromParent.length]! > fromIndex) {
+  if (
+    target.length > fromParent.length &&
+    isPrefix(fromParent, target) &&
+    target[fromParent.length]! > fromIndex
+  ) {
     target[fromParent.length] = target[fromParent.length]! - 1;
   }
-  if (target.length === fromParent.length && isPrefix(fromParent, target) && at > fromIndex) at -= 1;
+  if (target.length === fromParent.length && isPrefix(fromParent, target) && at > fromIndex)
+    at -= 1;
   const without = removeAt(items, from);
   return editList(without, target, (list) => {
     list.splice(Math.min(Math.max(at, 0), list.length), 0, item);
@@ -220,7 +259,8 @@ export function moveItem(items: Bookmark[], from: ItemPath, parent: ItemPath, in
 
 /** Rewrites the paths after a note or folder moved from `from` to `to` (vault-relative). */
 export function renamePath(items: Bookmark[], from: string, to: string): Bookmark[] {
-  const remap = (p: string): string | null => (p === from ? to : p.startsWith(`${from}/`) ? to + p.slice(from.length) : null);
+  const remap = (p: string): string | null =>
+    p === from ? to : p.startsWith(`${from}/`) ? to + p.slice(from.length) : null;
   return items.map((b) => {
     if (isGroup(b)) return { ...b, items: renamePath(b.items, from, to) };
     if (isFile(b) || (b.type === "folder" && typeof b["path"] === "string")) {
@@ -232,7 +272,10 @@ export function renamePath(items: Bookmark[], from: string, to: string): Bookmar
 }
 
 /** The line of a heading bookmark (`#Heading`) among `headings`; null when it is gone. */
-export function headingLine(subpath: string | undefined, headings: readonly { text: string; line: number }[]): number | null {
+export function headingLine(
+  subpath: string | undefined,
+  headings: readonly { text: string; line: number }[],
+): number | null {
   if (!subpath?.startsWith("#") || subpath.startsWith("#^")) return null;
   const wanted = subpath.slice(1).trim().toLowerCase();
   return headings.find((h) => h.text.trim().toLowerCase() === wanted)?.line ?? null;

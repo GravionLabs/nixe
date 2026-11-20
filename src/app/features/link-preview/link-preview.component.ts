@@ -1,4 +1,13 @@
-import { Component, ElementRef, HostListener, computed, effect, inject, untracked, viewChild } from "@angular/core";
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  computed,
+  effect,
+  inject,
+  untracked,
+  viewChild,
+} from "@angular/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { backend } from "../../core/file/backend";
@@ -102,7 +111,8 @@ export class LinkPreviewComponent {
     if (wiki !== null) {
       const root = this.workspace.vaultRoot();
       const files = this.workspace.vaultFiles();
-      const rel = root && files && parseWikilinkTarget(wiki).note ? resolveWikilink(wiki, files) : null;
+      const rel =
+        root && files && parseWikilinkTarget(wiki).note ? resolveWikilink(wiki, files) : null;
       if (!root || !rel || !isMarkdownPath(rel)) return;
       this.preview.close();
       await this.open(joinPath(root, rel), parseWikilinkTarget(wiki).heading, newTab);

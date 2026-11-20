@@ -75,21 +75,31 @@ export function calloutPlugin(md: MarkdownIt): void {
       const para = tokens[i + 1];
       const inline = tokens[i + 2];
       const paraClose = tokens[i + 3];
-      if (para?.type !== "paragraph_open" || inline?.type !== "inline" || paraClose?.type !== "paragraph_close") {
+      if (
+        para?.type !== "paragraph_open" ||
+        inline?.type !== "inline" ||
+        paraClose?.type !== "paragraph_close"
+      ) {
         continue;
       }
       const marker = parseCalloutMarker(inline.content);
       if (!marker) continue;
 
       let close = i + 4;
-      while (close < tokens.length && !(tokens[close].type === "blockquote_close" && tokens[close].level === open.level)) {
+      while (
+        close < tokens.length &&
+        !(tokens[close].type === "blockquote_close" && tokens[close].level === open.level)
+      ) {
         close++;
       }
       if (close >= tokens.length) continue;
 
       const kind = resolveCalloutType(marker.type);
       open.tag = "div";
-      open.attrSet("class", `callout callout-${kind}${marker.fold ? ` is-collapsible${marker.fold === "-" ? " is-collapsed" : ""}` : ""}`);
+      open.attrSet(
+        "class",
+        `callout callout-${kind}${marker.fold ? ` is-collapsible${marker.fold === "-" ? " is-collapsed" : ""}` : ""}`,
+      );
       open.attrSet("data-callout", marker.type);
       if (marker.fold) open.attrSet("data-callout-fold", marker.fold);
       tokens[close].tag = "div";

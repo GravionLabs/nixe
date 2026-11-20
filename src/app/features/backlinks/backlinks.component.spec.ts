@@ -85,7 +85,15 @@ function render(
   });
   const fixture = TestBed.createComponent(BacklinksComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, open, refresh, preview, loadUnlinked, linkMention, fixture };
+  return {
+    el: fixture.nativeElement as HTMLElement,
+    open,
+    refresh,
+    preview,
+    loadUnlinked,
+    linkMention,
+    fixture,
+  };
 }
 
 describe("BacklinksComponent", () => {

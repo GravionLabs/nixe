@@ -15,7 +15,8 @@ function render(): HTMLElement {
   return root;
 }
 
-const hidden = (root: HTMLElement) => Array.from(root.children).map((c) => c.classList.contains("fold-hidden"));
+const hidden = (root: HTMLElement) =>
+  Array.from(root.children).map((c) => c.classList.contains("fold-hidden"));
 
 describe("applyHeadingFolds", () => {
   it("marks headings that have content and hides nothing by default", () => {

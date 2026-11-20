@@ -9,7 +9,20 @@ export interface DailyConfig {
   template: string;
 }
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 export function trimSlashes(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
@@ -54,7 +67,8 @@ function matcherFor(format: string): Matcher | null {
     else if (t === "MM") source += capture("month", "\\d{2}");
     else if (t === "M") source += capture("month", "\\d{1,2}");
     else if (t === "MMMM") source += capture("monthName", MONTHS.join("|"));
-    else if (t === "MMM") source += capture("monthName", MONTHS.map((n) => n.slice(0, 3)).join("|"));
+    else if (t === "MMM")
+      source += capture("monthName", MONTHS.map((n) => n.slice(0, 3)).join("|"));
     else if (t === "DD") source += capture("day", "\\d{2}");
     else if (t === "D") source += capture("day", "\\d{1,2}");
     else if (t === "Do") source += capture("day", "\\d{1,2}") + "(?:st|nd|rd|th)";
@@ -72,7 +86,10 @@ function matcherFor(format: string): Matcher | null {
  * The date a daily note path stands for (`folder/format.md`), or null when the path is no daily
  * note, or the format has no year, month and day to read.
  */
-export function parseDailyPath(path: string, config: Pick<DailyConfig, "folder" | "format">): Date | null {
+export function parseDailyPath(
+  path: string,
+  config: Pick<DailyConfig, "folder" | "format">,
+): Date | null {
   const matcher = matcherFor(config.format.trim() || DEFAULT_DATE_FORMAT);
   if (!matcher || !path.toLowerCase().endsWith(".md")) return null;
   const folder = trimSlashes(config.folder);
@@ -95,7 +112,12 @@ export function parseDailyPath(path: string, config: Pick<DailyConfig, "folder" 
     else day = Number(v);
   }
   const date = new Date(year, month - 1, day);
-  const valid = month >= 1 && month <= 12 && date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+  const valid =
+    month >= 1 &&
+    month <= 12 &&
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day;
   return valid ? date : null;
 }
 

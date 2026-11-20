@@ -6,11 +6,7 @@
       "request": "launch",
       "name": "Tauri Development Debug",
       "cargo": {
-        "args": [
-          "build",
-          "--manifest-path=./src-tauri/Cargo.toml",
-          "--no-default-features"
-        ]
+        "args": ["build", "--manifest-path=./src-tauri/Cargo.toml", "--no-default-features"]
       },
       "preLaunchTask": "ui:dev"
     }

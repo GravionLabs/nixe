@@ -60,22 +60,40 @@ export class ComposerService {
   /** Moves the selection of the editor into a note. */
   async extractSelection(): Promise<void> {
     const selection = this.editor.handle?.selection?.();
-    if (!this.editor.handle || !this.doc.path()) throw new Error("Open the note in the editor to extract text.");
+    if (!this.editor.handle || !this.doc.path())
+      throw new Error("Open the note in the editor to extract text.");
     if (!selection) throw new Error("Select the text to extract first.");
     await this.editor.handle.flush();
-    this.start({ kind: "extract", what: { kind: "selection", start: selection.start, end: selection.end, expected: selection.text } }, "Extract selection to…", "");
+    this.start(
+      {
+        kind: "extract",
+        what: {
+          kind: "selection",
+          start: selection.start,
+          end: selection.end,
+          expected: selection.text,
+        },
+      },
+      "Extract selection to…",
+      "",
+    );
   }
 
   /** Moves the heading at the cursor, with everything below it, into a note. */
   async extractHeading(): Promise<void> {
     const path = this.doc.path();
-    if (!this.editor.handle || !path) throw new Error("Open the note in the editor to extract a heading.");
+    if (!this.editor.handle || !path)
+      throw new Error("Open the note in the editor to extract a heading.");
     await this.editor.handle.flush();
     const text = await backend.readTextFile(path);
     const line = this.editor.handle.headingLine?.() ?? null;
     const at = line ?? headingLineAt(text, 1);
     if (at === null) throw new Error("The cursor is not below a heading.");
-    this.start({ kind: "extract", what: { kind: "heading", line: at } }, "Extract heading to…", headingTextAt(text, at));
+    this.start(
+      { kind: "extract", what: { kind: "heading", line: at } },
+      "Extract heading to…",
+      headingTextAt(text, at),
+    );
   }
 
   /** Appends the open note to another one and moves it to `.trash/`. */
@@ -117,9 +135,19 @@ export class ComposerService {
     const target = joinPath(root, option.path);
     const embed = this.settings.extractEmbed();
     const preview: ComposeChange[] =
-      job.kind === "merge" ? await backend.mergePreview(source, target) : await backend.extractPreview(source, target, job.what, embed);
-    const title = job.kind === "merge" ? `Merge into ${basename(option.path)}` : `Extract to ${basename(option.path)}`;
-    if (!(await ask(`These notes change:\n\n${describeChanges(preview)}`, { title, okLabel: job.kind === "merge" ? "Merge" : "Extract" }))) {
+      job.kind === "merge"
+        ? await backend.mergePreview(source, target)
+        : await backend.extractPreview(source, target, job.what, embed);
+    const title =
+      job.kind === "merge"
+        ? `Merge into ${basename(option.path)}`
+        : `Extract to ${basename(option.path)}`;
+    if (
+      !(await ask(`These notes change:\n\n${describeChanges(preview)}`, {
+        title,
+        okLabel: job.kind === "merge" ? "Merge" : "Extract",
+      }))
+    ) {
       return false;
     }
     await this.editor.handle?.flush();

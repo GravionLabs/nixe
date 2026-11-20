@@ -1,6 +1,13 @@
 import { Component, computed, inject, signal } from "@angular/core";
 
-import { Bookmark, ItemPath, isFile, isGroup, isSearch, labelOf } from "../../core/bookmarks/bookmarks-core";
+import {
+  Bookmark,
+  ItemPath,
+  isFile,
+  isGroup,
+  isSearch,
+  labelOf,
+} from "../../core/bookmarks/bookmarks-core";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { SearchService } from "../../core/index/search.service";
 import { ShellService } from "../../core/shell/shell.service";
@@ -31,7 +38,13 @@ export function bookmarkRows(items: readonly Bookmark[], parent: ItemPath = []):
   });
 }
 
-const ICONS: Record<BookmarkRow["kind"], string> = { note: "📄", heading: "#", search: "🔍", group: "📁", other: "•" };
+const ICONS: Record<BookmarkRow["kind"], string> = {
+  note: "📄",
+  heading: "#",
+  search: "🔍",
+  group: "📁",
+  other: "•",
+};
 
 /** Sidebar: the bookmarks of the vault; drag to reorder or to move into a group. */
 @Component({
@@ -39,12 +52,27 @@ const ICONS: Record<BookmarkRow["kind"], string> = { note: "📄", heading: "#",
   template: `
     <header>
       <span>Bookmarks</span>
-      <button type="button" class="add" (click)="bookmarks.addGroup()" title="New group" aria-label="New group">+</button>
+      <button
+        type="button"
+        class="add"
+        (click)="bookmarks.addGroup()"
+        title="New group"
+        aria-label="New group"
+      >
+        +
+      </button>
     </header>
     @if (rows().length === 0) {
-      <p class="status">No bookmarks yet. Bookmark a note, a heading or a search from the command palette.</p>
+      <p class="status">
+        No bookmarks yet. Bookmark a note, a heading or a search from the command palette.
+      </p>
     }
-    <ul role="tree" aria-label="Bookmarks" (dragover)="$event.preventDefault()" (drop)="dropAtEnd($event)">
+    <ul
+      role="tree"
+      aria-label="Bookmarks"
+      (dragover)="$event.preventDefault()"
+      (drop)="dropAtEnd($event)"
+    >
       @for (row of rows(); track row.path.join(".")) {
         <li
           role="treeitem"
@@ -57,7 +85,7 @@ const ICONS: Record<BookmarkRow["kind"], string> = { note: "📄", heading: "#",
           (drop)="drop($event, row)"
         >
           <span class="icon" aria-hidden="true">{{ icon(row) }}</span>
-          @if (editing()?.join('.') === row.path.join('.')) {
+          @if (editing()?.join(".") === row.path.join(".")) {
             <input
               #name
               class="rename"
@@ -70,26 +98,104 @@ const ICONS: Record<BookmarkRow["kind"], string> = { note: "📄", heading: "#",
               (blur)="commit(row, name.value)"
             />
           } @else {
-            <button type="button" class="label" [title]="label(row)" (click)="open(row)" (dblclick)="rename(row)">{{ label(row) }}</button>
+            <button
+              type="button"
+              class="label"
+              [title]="label(row)"
+              (click)="open(row)"
+              (dblclick)="rename(row)"
+            >
+              {{ label(row) }}
+            </button>
           }
-          <button type="button" class="remove" (click)="bookmarks.remove(row.path)" title="Remove bookmark" aria-label="Remove bookmark">×</button>
+          <button
+            type="button"
+            class="remove"
+            (click)="bookmarks.remove(row.path)"
+            title="Remove bookmark"
+            aria-label="Remove bookmark"
+          >
+            ×
+          </button>
         </li>
       }
     </ul>
   `,
   styles: `
-    :host { display: flex; flex-direction: column; flex: 1; min-width: 0; overflow-y: auto; background: var(--h-surface-frame); color: var(--h-text-color); font-size: 13px; }
-    header { display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 12px; border-bottom: 1px solid var(--h-content-border-color); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--h-text-muted-color); }
-    ul { list-style: none; margin: 0; padding: 4px 0; flex: 1; }
-    li { display: flex; align-items: center; gap: 6px; padding-right: 8px; min-height: 26px; }
-    li:hover { background: var(--h-hover-bg, rgba(127, 127, 127, 0.12)); }
-    .status { margin: 8px 12px; color: var(--h-text-muted-color); }
-    button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
-    .label { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 0; }
-    .remove { visibility: hidden; color: var(--h-text-muted-color); }
-    li:hover .remove { visibility: visible; }
-    .rename { flex: 1; min-width: 0; font: inherit; }
-    li[data-kind="group"] .label { font-weight: 600; }
+    :host {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      background: var(--h-surface-frame);
+      color: var(--h-text-color);
+      font-size: 13px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 34px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--h-content-border-color);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--h-text-muted-color);
+    }
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 4px 0;
+      flex: 1;
+    }
+    li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-right: 8px;
+      min-height: 26px;
+    }
+    li:hover {
+      background: var(--h-hover-bg, rgba(127, 127, 127, 0.12));
+    }
+    .status {
+      margin: 8px 12px;
+      color: var(--h-text-muted-color);
+    }
+    button {
+      border: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .label {
+      flex: 1;
+      min-width: 0;
+      text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 2px 0;
+    }
+    .remove {
+      visibility: hidden;
+      color: var(--h-text-muted-color);
+    }
+    li:hover .remove {
+      visibility: visible;
+    }
+    .rename {
+      flex: 1;
+      min-width: 0;
+      font: inherit;
+    }
+    li[data-kind="group"] .label {
+      font-weight: 600;
+    }
   `,
 })
 export class BookmarksComponent {

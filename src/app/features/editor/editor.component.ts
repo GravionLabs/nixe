@@ -1,10 +1,26 @@
-import { Component, ElementRef, OnDestroy, effect, inject, output, signal, untracked, viewChild } from "@angular/core";
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  effect,
+  inject,
+  output,
+  signal,
+  untracked,
+  viewChild,
+} from "@angular/core";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { countText } from "../../core/editor/text-stats";
-import { AutoSaver, ExternalChangeTracker, changedRange, clampLine, toCrlf } from "../../core/editor/editor-core";
+import {
+  AutoSaver,
+  ExternalChangeTracker,
+  changedRange,
+  clampLine,
+  toCrlf,
+} from "../../core/editor/editor-core";
 import { blocksOf, headingsOf } from "../../core/editor/completion-core";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { targetOf } from "../../core/preview/preview-core";
@@ -123,7 +139,9 @@ export class EditorComponent implements OnDestroy {
     if (!view || this.destroyed) return;
     const { from, to } = view.state.selection.main;
     this.editor.stats.set(
-      from === to ? countText(view.state.doc.toString()) : countText(view.state.sliceDoc(from, to), true),
+      from === to
+        ? countText(view.state.doc.toString())
+        : countText(view.state.sliceDoc(from, to), true),
     );
   }
 
@@ -191,13 +209,17 @@ export class EditorComponent implements OnDestroy {
           onBlur: () => void this.flush(),
           onWikilink: (value) => void this.openWikilink(value),
           onWikilinkHover: (hover) =>
-            hover ? this.preview.hover(targetOf(hover.value), hover.anchor, hover.modifier) : this.preview.leave(),
+            hover
+              ? this.preview.hover(targetOf(hover.value), hover.anchor, hover.modifier)
+              : this.preview.leave(),
           completion: this.completionData,
         }),
         folding((lines) => {
           if (this.session === session && !this.restoringFolds) this.folds.set(session.path, lines);
         }),
-        this.theme.of(editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100)),
+        this.theme.of(
+          editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100),
+        ),
         EditorView.domEventHandlers({
           paste: (event) => this.onPaste(event),
           scroll: () => this.outline.topLine.set(this.topLine()),
@@ -206,7 +228,8 @@ export class EditorComponent implements OnDestroy {
           if (update.docChanged && this.session === session) {
             this.outline.editorText.set(update.state.doc.toString());
           }
-          if ((update.docChanged || update.selectionSet) && this.session === session) this.scheduleStats();
+          if ((update.docChanged || update.selectionSet) && this.session === session)
+            this.scheduleStats();
           if (update.docChanged && !this.loading && this.session === session) {
             const text = update.state.doc.toString();
             session.saver.change(text);
@@ -316,7 +339,10 @@ export class EditorComponent implements OnDestroy {
     const session = this.session;
     const pending = session?.saver.pendingText ?? null;
     if (!session || this.conflict() === null || pending === null) return this.flush();
-    const copy = session.path.replace(/(\.[^./]+)?$/, ` (unsaved copy ${new Date().toISOString().replace(/[:.]/g, "-")}).md`);
+    const copy = session.path.replace(
+      /(\.[^./]+)?$/,
+      ` (unsaved copy ${new Date().toISOString().replace(/[:.]/g, "-")}).md`,
+    );
     try {
       await backend.writeTextFile(copy, session.crlf ? toCrlf(pending) : pending);
       session.saver.discard();
@@ -329,8 +355,17 @@ export class EditorComponent implements OnDestroy {
   private insertTemplate(template: string): void {
     const view = this.view;
     if (!view) throw new Error("Open the editor first.");
-    const { changes, cursor } = insertTemplate(view.state.doc.toString(), view.state.selection.main.head, template);
-    view.dispatch({ changes, selection: { anchor: cursor }, scrollIntoView: true, userEvent: "input.paste" });
+    const { changes, cursor } = insertTemplate(
+      view.state.doc.toString(),
+      view.state.selection.main.head,
+      template,
+    );
+    view.dispatch({
+      changes,
+      selection: { anchor: cursor },
+      scrollIntoView: true,
+      userEvent: "input.paste",
+    });
     view.focus();
   }
 
@@ -339,7 +374,9 @@ export class EditorComponent implements OnDestroy {
     const files = Array.from(event.clipboardData?.files ?? []);
     if (files.length === 0 || !this.session) return false;
     event.preventDefault();
-    void this.attachFiles(files).catch((err) => this.error.emit(`Attaching failed: ${String(err)}`));
+    void this.attachFiles(files).catch((err) =>
+      this.error.emit(`Attaching failed: ${String(err)}`),
+    );
     return true;
   }
 
@@ -348,9 +385,10 @@ export class EditorComponent implements OnDestroy {
     if (!note) return;
     const saved: string[] = [];
     for (const file of files) {
-      const name = file.type.startsWith("image/") && (!file.name || /^image\.\w+$/iu.test(file.name))
-        ? pastedImageName(new Date(), file.type)
-        : file.name || pastedImageName(new Date(), file.type);
+      const name =
+        file.type.startsWith("image/") && (!file.name || /^image\.\w+$/iu.test(file.name))
+          ? pastedImageName(new Date(), file.type)
+          : file.name || pastedImageName(new Date(), file.type);
       const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
       saved.push(await backend.saveAttachment(note, name, bytes));
     }
@@ -396,7 +434,10 @@ export class EditorComponent implements OnDestroy {
     const view = this.view;
     if (!view) return;
     const pos = view.state.doc.line(clampLine(line, view.state.doc.lines)).from;
-    view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "start" }) });
+    view.dispatch({
+      selection: { anchor: pos },
+      effects: EditorView.scrollIntoView(pos, { y: "start" }),
+    });
     this.outline.topLine.set(this.topLine());
   }
 

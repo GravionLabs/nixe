@@ -23,7 +23,7 @@ describe("Azure DevOps ::: mermaid", () => {
   it("renders indented block", () => {
     const html = render("Text\n\n::: mermaid\n graph LR;\n   A --> B;\n:::\n\nAfter\n");
     expect(html).toContain('<pre class="mermaid" data-line="2">graph LR;\n  A --&gt; B;\n</pre>');
-    expect(html).toContain("<p data-line=\"7\">After</p>");
+    expect(html).toContain('<p data-line="7">After</p>');
   });
 
   it("accepts :::mermaid without space and any case", () => {
@@ -34,7 +34,7 @@ describe("Azure DevOps ::: mermaid", () => {
 
   it("interrupts a paragraph", () => {
     const html = render("Intro line\n::: mermaid\ngraph TD\n:::\n");
-    expect(html).toContain("<p data-line=\"0\">Intro line</p>");
+    expect(html).toContain('<p data-line="0">Intro line</p>');
     expect(html).toContain('<pre class="mermaid"');
   });
 

@@ -21,15 +21,21 @@ describe("global styles in angular.json", () => {
   });
 
   it("ships a stylesheet with the tab bar rules", () => {
-    const css = readFileSync(resolve(__dirname, "../../node_modules/@gravionlabs/helix-ui/styles.css"), "utf8");
+    const css = readFileSync(
+      resolve(__dirname, "../../node_modules/@gravionlabs/helix-ui/styles.css"),
+      "utf8",
+    );
     expect(css).toContain(".hx-tab-bar");
   });
 });
 
 describe("workspace tab bar", () => {
-  const html = readFileSync(resolve(__dirname, "features/workspace/workspace.component.html"), "utf8");
+  const html = readFileSync(
+    resolve(__dirname, "features/workspace/workspace.component.html"),
+    "utf8",
+  );
 
   it("renders the new-tab button as a helix button", () => {
-    expect(html).toMatch(/<button hx-button[^>]*aria-label="New tab"/);
+    expect(html).toMatch(/<button\s+hx-button[^>]*aria-label="New tab"/);
   });
 });

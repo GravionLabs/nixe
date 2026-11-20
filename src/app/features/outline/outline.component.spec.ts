@@ -19,7 +19,10 @@ function render(text: string, editing = false) {
   const content = signal(text);
   const pendingLine = signal<number | null>(null);
   const scrollToLine = vi.fn();
-  const bookmarks = { relative: (p: string | null) => (p ? p.slice(3) : null), bookmarkHeading: vi.fn() };
+  const bookmarks = {
+    relative: (p: string | null) => (p ? p.slice(3) : null),
+    bookmarkHeading: vi.fn(),
+  };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -32,7 +35,14 @@ function render(text: string, editing = false) {
   const fixture = TestBed.createComponent(OutlineComponent);
   fixture.detectChanges();
   const outline = TestBed.inject(OutlineService);
-  return { fixture, el: fixture.nativeElement as HTMLElement, outline, pendingLine, scrollToLine, bookmarks };
+  return {
+    fixture,
+    el: fixture.nativeElement as HTMLElement,
+    outline,
+    pendingLine,
+    scrollToLine,
+    bookmarks,
+  };
 }
 
 describe("OutlineComponent", () => {
@@ -42,7 +52,9 @@ describe("OutlineComponent", () => {
 
   it("lists the headings as a nested tree", () => {
     const { el } = render("# A\n## B\n# C");
-    const items = Array.from(el.querySelectorAll("li")).map((li) => li.querySelector("button")!.textContent!.trim());
+    const items = Array.from(el.querySelectorAll("li")).map((li) =>
+      li.querySelector("button")!.textContent!.trim(),
+    );
     expect(items).toEqual(["A", "B", "C"]);
     expect(el.querySelector("li ul li button")!.textContent!.trim()).toBe("B");
   });

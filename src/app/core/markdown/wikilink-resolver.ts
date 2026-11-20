@@ -12,7 +12,10 @@ export interface WikilinkTarget {
 /** Splits the `data-target` of a wikilink into note, heading and block id. */
 export function parseWikilinkTarget(target: string): WikilinkTarget {
   const hash = target.indexOf("#");
-  const note = (hash >= 0 ? target.slice(0, hash) : target).trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  const note = (hash >= 0 ? target.slice(0, hash) : target)
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "");
   const fragment = hash >= 0 ? target.slice(hash + 1).trim() : "";
   if (fragment.startsWith("^")) return { note, heading: null, block: fragment.slice(1) || null };
   return { note, heading: fragment || null, block: null };

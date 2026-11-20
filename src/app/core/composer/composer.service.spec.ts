@@ -66,7 +66,11 @@ describe("ComposerService", () => {
   it("asks for the selection first", async () => {
     editor.handle = { flush, selection: () => null };
     await expect(composer.extractSelection()).rejects.toThrow("Select");
-    editor.handle = { flush, selection: () => ({ start: 2, end: 5, text: "abc" }), headingLine: () => 3 };
+    editor.handle = {
+      flush,
+      selection: () => ({ start: 2, end: 5, text: "abc" }),
+      headingLine: () => 3,
+    };
   });
 
   it("lists the other notes and offers a new one when extracting", async () => {
@@ -86,7 +90,9 @@ describe("ComposerService", () => {
   });
 
   it("extracts the selection after the confirmation", async () => {
-    const preview = vi.spyOn(backend, "extractPreview").mockResolvedValue([{ path: "B.md", action: "append", links: 0 }]);
+    const preview = vi
+      .spyOn(backend, "extractPreview")
+      .mockResolvedValue([{ path: "B.md", action: "append", links: 0 }]);
     const extract = vi.spyOn(backend, "extractText").mockResolvedValue([]);
     await composer.extractSelection();
     expect(await composer.choose({ path: "B.md", create: false })).toBe(true);
@@ -105,7 +111,12 @@ describe("ComposerService", () => {
     await composer.extractHeading();
     expect(composer.query()).toBe("Idea");
     await composer.choose({ path: "Idea.md", create: true });
-    expect(extract).toHaveBeenCalledWith("/v/A.md", "/v/Idea.md", { kind: "heading", line: 3 }, true);
+    expect(extract).toHaveBeenCalledWith(
+      "/v/A.md",
+      "/v/Idea.md",
+      { kind: "heading", line: 3 },
+      true,
+    );
   });
 
   it("changes nothing when the user declines", async () => {

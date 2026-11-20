@@ -22,9 +22,15 @@
   @case ("ready") {
     @if (health.report(); as report) {
       <section aria-label="Broken links">
-        <h2>Broken links <span class="count">{{ report.brokenLinks.length }}</span></h2>
+        <h2>
+          Broken links <span class="count">{{ report.brokenLinks.length }}</span>
+        </h2>
         @for (link of report.brokenLinks; track $index) {
-          <button type="button" (click)="open(link.source, link.line)" [title]="link.source + ':' + link.line">
+          <button
+            type="button"
+            (click)="open(link.source, link.line)"
+            [title]="link.source + ':' + link.line"
+          >
             <span class="name">{{ link.source }}:{{ link.line }}</span>
             <span class="detail">{{ link.context }}</span>
           </button>
@@ -34,7 +40,9 @@
       </section>
 
       <section aria-label="Orphan notes">
-        <h2>Orphan notes <span class="count">{{ report.orphans.length }}</span></h2>
+        <h2>
+          Orphan notes <span class="count">{{ report.orphans.length }}</span>
+        </h2>
         @for (note of report.orphans; track note.path) {
           <button type="button" (click)="open(note.path)" [title]="note.path">
             <span class="name">{{ note.title }}</span>
@@ -46,7 +54,9 @@
       </section>
 
       <section aria-label="Duplicate basenames">
-        <h2>Duplicate basenames <span class="count">{{ report.duplicates.length }}</span></h2>
+        <h2>
+          Duplicate basenames <span class="count">{{ report.duplicates.length }}</span>
+        </h2>
         @for (group of report.duplicates; track group.name) {
           <div class="group">
             <span class="name">{{ group.name }}</span>
@@ -62,7 +72,9 @@
       </section>
 
       <section aria-label="Unused attachments">
-        <h2>Unused attachments <span class="count">{{ report.unusedAttachments.length }}</span></h2>
+        <h2>
+          Unused attachments <span class="count">{{ report.unusedAttachments.length }}</span>
+        </h2>
         @for (path of report.unusedAttachments; track path) {
           <button type="button" (click)="open(path)" [title]="path">
             <span class="detail">{{ path }}</span>

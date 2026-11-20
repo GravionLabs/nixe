@@ -1,4 +1,9 @@
-<div class="backdrop" (click)="templates.close()" (keydown.escape)="templates.close()" role="presentation"></div>
+<div
+  class="backdrop"
+  (click)="templates.close()"
+  (keydown.escape)="templates.close()"
+  role="presentation"
+></div>
 <div class="dialog" role="dialog" aria-label="Insert template">
   <input
     #input
@@ -14,7 +19,11 @@
   />
   <ul id="templates-list" role="listbox">
     @for (entry of templates.matches(); track entry.path; let i = $index) {
-      <li role="option" [attr.aria-selected]="i === templates.selected()" [class.selected]="i === templates.selected()">
+      <li
+        role="option"
+        [attr.aria-selected]="i === templates.selected()"
+        [class.selected]="i === templates.selected()"
+      >
         <button type="button" tabindex="-1" (click)="choose(entry)" [title]="entry.path">
           <span class="name">{{ entry.name }}</span>
           <span class="path">{{ entry.path }}</span>

@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { clampRatio, layoutHasNote, sanitizeLayout } from "./layout";
 
-const tab = { view: null, path: "/v/a.md", history: ["/v/a.md"], index: 0, editing: false, line: 3 };
+const tab = {
+  view: null,
+  path: "/v/a.md",
+  history: ["/v/a.md"],
+  index: 0,
+  editing: false,
+  line: 3,
+};
 
 describe("sanitizeLayout", () => {
   it("keeps a valid layout", () => {
@@ -11,7 +18,16 @@ describe("sanitizeLayout", () => {
   });
 
   it("rejects what is not a layout", () => {
-    for (const value of [null, 3, "x", [], {}, { panes: "x" }, { panes: [] }, { panes: [{ tabs: [] }] }]) {
+    for (const value of [
+      null,
+      3,
+      "x",
+      [],
+      {},
+      { panes: "x" },
+      { panes: [] },
+      { panes: [{ tabs: [] }] },
+    ]) {
       expect(sanitizeLayout(value)).toBeNull();
     }
   });
@@ -27,7 +43,16 @@ describe("sanitizeLayout", () => {
 
   it("drops tabs of the wrong shape and repairs the fields of the others", () => {
     const layout = sanitizeLayout({
-      panes: [{ tabs: [7, { path: 5 }, { path: "/v/b.md", history: ["/v/b.md", 3, ""], index: 40, editing: "yes", line: 0 }], active: 0 }],
+      panes: [
+        {
+          tabs: [
+            7,
+            { path: 5 },
+            { path: "/v/b.md", history: ["/v/b.md", 3, ""], index: 40, editing: "yes", line: 0 },
+          ],
+          active: 0,
+        },
+      ],
     })!;
     expect(layout.panes[0].tabs).toEqual([
       { view: null, path: null, history: [], index: -1, editing: false, line: null },
@@ -37,7 +62,15 @@ describe("sanitizeLayout", () => {
 
   it("keeps a known view without a note or a history, and drops an unknown one", () => {
     const layout = sanitizeLayout({
-      panes: [{ tabs: [{ view: "health", path: "/v/a.md", history: ["/v/a.md"], editing: true }, { view: "nope" }], active: 0 }],
+      panes: [
+        {
+          tabs: [
+            { view: "health", path: "/v/a.md", history: ["/v/a.md"], editing: true },
+            { view: "nope" },
+          ],
+          active: 0,
+        },
+      ],
     })!;
     expect(layout.panes[0].tabs).toEqual([
       { view: "health", path: null, history: [], index: -1, editing: false, line: null },
@@ -46,7 +79,9 @@ describe("sanitizeLayout", () => {
   });
 
   it("does not restore the editor of an empty tab", () => {
-    const layout = sanitizeLayout({ panes: [{ tabs: [{ path: null, editing: true }], active: 0 }] })!;
+    const layout = sanitizeLayout({
+      panes: [{ tabs: [{ path: null, editing: true }], active: 0 }],
+    })!;
     expect(layout.panes[0].tabs[0].editing).toBe(false);
   });
 });
@@ -54,13 +89,19 @@ describe("sanitizeLayout", () => {
 describe("layout helpers", () => {
   it("tells whether a note is shown", () => {
     const empty = { view: null, path: null, history: [], index: -1, editing: false, line: null };
-    expect(layoutHasNote({ panes: [{ tabs: [empty], active: 0 }], focused: 0, ratio: 0.5 })).toBe(false);
-    expect(layoutHasNote({ panes: [{ tabs: [empty, tab], active: 0 }], focused: 0, ratio: 0.5 })).toBe(true);
+    expect(layoutHasNote({ panes: [{ tabs: [empty], active: 0 }], focused: 0, ratio: 0.5 })).toBe(
+      false,
+    );
+    expect(
+      layoutHasNote({ panes: [{ tabs: [empty, tab], active: 0 }], focused: 0, ratio: 0.5 }),
+    ).toBe(true);
   });
 
   it("counts a view tab as something to restore", () => {
     const view = { ...tab, view: "settings" as const, path: null, history: [], index: -1 };
-    expect(layoutHasNote({ panes: [{ tabs: [view], active: 0 }], focused: 0, ratio: 0.5 })).toBe(true);
+    expect(layoutHasNote({ panes: [{ tabs: [view], active: 0 }], focused: 0, ratio: 0.5 })).toBe(
+      true,
+    );
   });
 
   it("clamps the ratio", () => {

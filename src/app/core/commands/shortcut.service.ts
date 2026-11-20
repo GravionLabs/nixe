@@ -3,7 +3,16 @@ import { Injectable, computed, effect, inject, signal } from "@angular/core";
 import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
 import { Command, CommandRegistry, formatShortcut } from "./command-registry";
-import { Bindings, RecordedKey, bindingFromEvent, canonicalBinding, effectiveBindings, findConflicts, platformOf, toAccelerator } from "./shortcuts-core";
+import {
+  Bindings,
+  RecordedKey,
+  bindingFromEvent,
+  canonicalBinding,
+  effectiveBindings,
+  findConflicts,
+  platformOf,
+  toAccelerator,
+} from "./shortcuts-core";
 
 /**
  * The shortcuts the user chose: kept in the settings file, applied to the key handling of the
@@ -65,9 +74,18 @@ export class ShortcutService {
     this.settings.shortcuts.set(this.withoutDefaults(next));
   }
 
-  private conflictsWith(overrides: Record<string, string>, command: Command, binding: string): string[] {
+  private conflictsWith(
+    overrides: Record<string, string>,
+    command: Command,
+    binding: string,
+  ): string[] {
     const defaults = Object.fromEntries(this.registry.all().map((c) => [c.id, c.shortcut ?? ""]));
-    return findConflicts(effectiveBindings(defaults, overrides), command.id, binding, this.platform);
+    return findConflicts(
+      effectiveBindings(defaults, overrides),
+      command.id,
+      binding,
+      this.platform,
+    );
   }
 
   /** Back to the default shortcut. */
@@ -75,7 +93,8 @@ export class ShortcutService {
     const next = { ...this.settings.shortcuts() };
     delete next[command.id];
     // Another command may hold the default by now; it gives it back to this one.
-    for (const other of this.conflictsWith(next, command, this.defaultOf(command))) next[other] = "";
+    for (const other of this.conflictsWith(next, command, this.defaultOf(command)))
+      next[other] = "";
     this.settings.shortcuts.set(this.withoutDefaults(next));
   }
 
@@ -99,11 +118,22 @@ export class ShortcutService {
     const id = this.recordingId();
     const command = id === null ? undefined : this.registry.get(id);
     if (!command) return this.cancel();
-    if (event.key === "Escape" && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) return this.cancel();
+    if (
+      event.key === "Escape" &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !event.shiftKey
+    )
+      return this.cancel();
     const binding = bindingFromEvent(event, this.platform);
     if (binding === null) return;
     this.recordingId.set(null);
-    this.pending.set({ id: command.id, binding, conflicts: this.conflicts(command, binding).map((c) => c.title) });
+    this.pending.set({
+      id: command.id,
+      binding,
+      conflicts: this.conflicts(command, binding).map((c) => c.title),
+    });
   }
 
   /** Saves the pending shortcut; the commands that used it lose it. */
@@ -126,7 +156,8 @@ export class ShortcutService {
 
   /** Drops the entries that say what the default already says. */
   private withoutDefaults(overrides: Record<string, string>): Record<string, string> {
-    const same = (a: string, b: string) => canonicalBinding(a, this.platform) === canonicalBinding(b, this.platform);
+    const same = (a: string, b: string) =>
+      canonicalBinding(a, this.platform) === canonicalBinding(b, this.platform);
     const result: Record<string, string> = {};
     for (const [id, binding] of Object.entries(overrides)) {
       const command = this.registry.get(id);

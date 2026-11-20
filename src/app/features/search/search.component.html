@@ -1,9 +1,38 @@
 <header>
   <span>Search</span>
   <span class="actions">
-  <button type="button" class="toggle-replace" [class.on]="replace.enabled()" [attr.aria-pressed]="replace.enabled()" (click)="replace.toggle()" title="Replace in the vault" aria-label="Replace in the vault">⇄</button>
-  <button type="button" class="help" [class.on]="helpOpen()" [attr.aria-pressed]="helpOpen()" (click)="helpOpen.set(!helpOpen())" title="Search operators" aria-label="Search operators">?</button>
-  <button type="button" class="bookmark" [disabled]="!search.query().trim()" (click)="bookmarkSearch()" title="Bookmark this search" aria-label="Bookmark this search">☆</button>
+    <button
+      type="button"
+      class="toggle-replace"
+      [class.on]="replace.enabled()"
+      [attr.aria-pressed]="replace.enabled()"
+      (click)="replace.toggle()"
+      title="Replace in the vault"
+      aria-label="Replace in the vault"
+    >
+      ⇄
+    </button>
+    <button
+      type="button"
+      class="help"
+      [class.on]="helpOpen()"
+      [attr.aria-pressed]="helpOpen()"
+      (click)="helpOpen.set(!helpOpen())"
+      title="Search operators"
+      aria-label="Search operators"
+    >
+      ?
+    </button>
+    <button
+      type="button"
+      class="bookmark"
+      [disabled]="!search.query().trim()"
+      (click)="bookmarkSearch()"
+      title="Bookmark this search"
+      aria-label="Bookmark this search"
+    >
+      ☆
+    </button>
   </span>
 </header>
 
@@ -19,7 +48,11 @@
 @if (helpOpen()) {
   <ul class="operators" aria-label="Operators">
     @for (op of operators; track op.insert) {
-      <li><button type="button" class="operator" (click)="insertOperator(op.insert)"><code>{{ op.insert }}</code> <span>{{ op.text }}</span></button></li>
+      <li>
+        <button type="button" class="operator" (click)="insertOperator(op.insert)">
+          <code>{{ op.insert }}</code> <span>{{ op.text }}</span>
+        </button>
+      </li>
     }
   </ul>
 }
@@ -35,12 +68,39 @@
       (input)="onReplacement($event)"
     />
     <div class="options">
-      <label><input type="checkbox" [checked]="replace.regex()" (change)="replace.regex.set(!replace.regex())" /> Regex</label>
-      <label><input type="checkbox" [checked]="replace.caseSensitive()" (change)="replace.caseSensitive.set(!replace.caseSensitive())" /> Match case</label>
-      <label><input type="checkbox" [checked]="replace.wholeWord()" (change)="replace.wholeWord.set(!replace.wholeWord())" /> Whole word</label>
+      <label
+        ><input
+          type="checkbox"
+          [checked]="replace.regex()"
+          (change)="replace.regex.set(!replace.regex())"
+        />
+        Regex</label
+      >
+      <label
+        ><input
+          type="checkbox"
+          [checked]="replace.caseSensitive()"
+          (change)="replace.caseSensitive.set(!replace.caseSensitive())"
+        />
+        Match case</label
+      >
+      <label
+        ><input
+          type="checkbox"
+          [checked]="replace.wholeWord()"
+          (change)="replace.wholeWord.set(!replace.wholeWord())"
+        />
+        Whole word</label
+      >
     </div>
-    <button type="button" class="apply" [disabled]="replace.busy() || replace.totals().notes === 0" (click)="applyReplace()">
-      Replace {{ replace.totals().replacements }} in {{ replace.totals().notes }} {{ replace.totals().notes === 1 ? "note" : "notes" }}
+    <button
+      type="button"
+      class="apply"
+      [disabled]="replace.busy() || replace.totals().notes === 0"
+      (click)="applyReplace()"
+    >
+      Replace {{ replace.totals().replacements }} in {{ replace.totals().notes }}
+      {{ replace.totals().notes === 1 ? "note" : "notes" }}
     </button>
   </div>
   @if (replace.error(); as message) {
@@ -52,13 +112,24 @@
     @for (note of replace.notes(); track note.path) {
       <li class="diff-note" [class.excluded]="replace.isNoteExcluded(note.path)">
         <label class="note-row">
-          <input type="checkbox" [checked]="!replace.isNoteExcluded(note.path)" (change)="replace.toggleNote(note.path)" [attr.aria-label]="'Replace in ' + note.path" />
+          <input
+            type="checkbox"
+            [checked]="!replace.isNoteExcluded(note.path)"
+            (change)="replace.toggleNote(note.path)"
+            [attr.aria-label]="'Replace in ' + note.path"
+          />
           <span class="name">{{ note.path }}</span>
           <span class="path">{{ note.count }}</span>
         </label>
         @for (r of note.replacements; track r.index) {
           <div class="diff" [class.excluded]="replace.isMatchExcluded(note.path, r.index)">
-            <input type="checkbox" [checked]="!replace.isMatchExcluded(note.path, r.index)" [disabled]="replace.isNoteExcluded(note.path)" (change)="replace.toggleMatch(note.path, r.index)" [attr.aria-label]="'Replace line ' + r.line" />
+            <input
+              type="checkbox"
+              [checked]="!replace.isMatchExcluded(note.path, r.index)"
+              [disabled]="replace.isNoteExcluded(note.path)"
+              (change)="replace.toggleMatch(note.path, r.index)"
+              [attr.aria-label]="'Replace line ' + r.line"
+            />
             <span class="lines">
               <span class="line">{{ r.line }}</span>
               <del>{{ r.before }}</del>
@@ -73,51 +144,71 @@
     }
   </ul>
 } @else {
-@switch (search.state()) {
-  @case ("loading") {
-    <p class="status" role="status">Indexing the vault…</p>
-  }
-  @case ("error") {
-    <p class="status" role="alert">The vault index is not available.</p>
-  }
-  @case ("ready") {
-    @if (search.hits().length === 0) {
-      <p class="status">No results</p>
-    } @else {
-      <div class="summary">
-        <span class="count" role="status">{{ countLabel() }}</span>
-        <select class="sort" aria-label="Sort results" (change)="setSort($event)">
-          @for (s of sorts; track s) {
-            <option [value]="s" [selected]="s === sort()">{{ s === "relevance" ? "Relevance" : s === "name" ? "Name" : "Modified" }}</option>
-          }
-        </select>
-        <button type="button" class="collapse-all" (click)="toggleAll()" [attr.aria-label]="allCollapsed() ? 'Expand all' : 'Collapse all'" [title]="allCollapsed() ? 'Expand all' : 'Collapse all'">{{ allCollapsed() ? "⊞" : "⊟" }}</button>
-      </div>
-      <ul aria-label="Results">
-        @for (hit of sorted(); track hit.path) {
-          <li>
-            <button type="button" class="note" (click)="openHit(hit)" [title]="hit.path">
-              <span class="name">{{ hit.title }}</span>
-              <span class="path">{{ hit.path }}</span>
-            </button>
-            @if (hit.snippets.length > 0) {
-              <button type="button" class="fold" (click)="toggleNote(hit.path)" [attr.aria-expanded]="!collapsed().has(hit.path)" [attr.aria-label]="(collapsed().has(hit.path) ? 'Expand ' : 'Collapse ') + hit.path">{{ collapsed().has(hit.path) ? "▸" : "▾" }} {{ hit.snippets.length }}</button>
+  @switch (search.state()) {
+    @case ("loading") {
+      <p class="status" role="status">Indexing the vault…</p>
+    }
+    @case ("error") {
+      <p class="status" role="alert">The vault index is not available.</p>
+    }
+    @case ("ready") {
+      @if (search.hits().length === 0) {
+        <p class="status">No results</p>
+      } @else {
+        <div class="summary">
+          <span class="count" role="status">{{ countLabel() }}</span>
+          <select class="sort" aria-label="Sort results" (change)="setSort($event)">
+            @for (s of sorts; track s) {
+              <option [value]="s" [selected]="s === sort()">
+                {{ s === "relevance" ? "Relevance" : s === "name" ? "Name" : "Modified" }}
+              </option>
             }
-            @for (snippet of collapsed().has(hit.path) ? [] : hit.snippets; track snippet.line) {
-              <button type="button" class="snippet" (click)="openHit(hit, snippet)">
-                @for (part of segments(snippet.text); track $index) {
-                  @if (part.match) {
-                    <mark>{{ part.text }}</mark>
-                  } @else {
-                    {{ part.text }}
-                  }
-                }
+          </select>
+          <button
+            type="button"
+            class="collapse-all"
+            (click)="toggleAll()"
+            [attr.aria-label]="allCollapsed() ? 'Expand all' : 'Collapse all'"
+            [title]="allCollapsed() ? 'Expand all' : 'Collapse all'"
+          >
+            {{ allCollapsed() ? "⊞" : "⊟" }}
+          </button>
+        </div>
+        <ul aria-label="Results">
+          @for (hit of sorted(); track hit.path) {
+            <li>
+              <button type="button" class="note" (click)="openHit(hit)" [title]="hit.path">
+                <span class="name">{{ hit.title }}</span>
+                <span class="path">{{ hit.path }}</span>
               </button>
-            }
-          </li>
-        }
-      </ul>
+              @if (hit.snippets.length > 0) {
+                <button
+                  type="button"
+                  class="fold"
+                  (click)="toggleNote(hit.path)"
+                  [attr.aria-expanded]="!collapsed().has(hit.path)"
+                  [attr.aria-label]="
+                    (collapsed().has(hit.path) ? 'Expand ' : 'Collapse ') + hit.path
+                  "
+                >
+                  {{ collapsed().has(hit.path) ? "▸" : "▾" }} {{ hit.snippets.length }}
+                </button>
+              }
+              @for (snippet of collapsed().has(hit.path) ? [] : hit.snippets; track snippet.line) {
+                <button type="button" class="snippet" (click)="openHit(hit, snippet)">
+                  @for (part of segments(snippet.text); track $index) {
+                    @if (part.match) {
+                      <mark>{{ part.text }}</mark>
+                    } @else {
+                      {{ part.text }}
+                    }
+                  }
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      }
     }
   }
-}
 }

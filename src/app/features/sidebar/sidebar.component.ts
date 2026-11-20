@@ -1,14 +1,34 @@
-import { Component, ElementRef, computed, effect, inject, output, signal, viewChild } from "@angular/core";
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  output,
+  signal,
+  viewChild,
+} from "@angular/core";
 
 import { DocumentService } from "../../core/file/document.service";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { basename } from "../../core/markdown/paths";
 import { TabsService } from "../../core/tabs/tabs.service";
-import { FocusKey, focusTarget, parentIndex, rangeBetween, typeAheadMatch } from "../../core/workspace/tree-nav";
+import {
+  FocusKey,
+  focusTarget,
+  parentIndex,
+  rangeBetween,
+  typeAheadMatch,
+} from "../../core/workspace/tree-nav";
 import { topLevelPaths } from "../../core/workspace/file-ops";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
-import { TREE_SORTS, TREE_SORT_LABELS, TreeSort, conflictPaths } from "../../core/workspace/tree-model";
+import {
+  TREE_SORTS,
+  TREE_SORT_LABELS,
+  TreeSort,
+  conflictPaths,
+} from "../../core/workspace/tree-model";
 import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
 
 /** The context menu: where it is shown and what it acts on (`null`: the empty area, i.e. the root). */
@@ -38,7 +58,10 @@ export class SidebarComponent {
     conflictPaths(this.workspace.visible().flatMap((n) => (n.filePath ? [n.filePath] : []))),
   );
   protected readonly sortMenu = signal<{ x: number; y: number } | null>(null);
-  protected readonly sortOptions = TREE_SORTS.map((value) => ({ value, label: TREE_SORT_LABELS[value] }));
+  protected readonly sortOptions = TREE_SORTS.map((value) => ({
+    value,
+    label: TREE_SORT_LABELS[value],
+  }));
   protected readonly menu = signal<MenuState | null>(null);
   /** Path of the entry whose name is being edited. */
   protected readonly renaming = signal<string | null>(null);
@@ -57,7 +80,11 @@ export class SidebarComponent {
   protected readonly tabStop = computed(() => {
     const rows = this.workspace.visible();
     const focused = this.focused();
-    return rows.some((n) => this.path(n) === focused) ? focused : rows.length ? this.path(rows[0]) : null;
+    return rows.some((n) => this.path(n) === focused)
+      ? focused
+      : rows.length
+        ? this.path(rows[0])
+        : null;
   });
   protected readonly basename = basename;
   protected readonly revealLabel = /Mac/u.test(navigator.userAgent)
@@ -70,7 +97,11 @@ export class SidebarComponent {
     // Reveal the active note: once the expanded folders are rendered, scroll its row into view.
     effect(() => {
       if (this.workspace.revealRequest() === 0) return;
-      setTimeout(() => this.host.nativeElement.querySelector(".row.active")?.scrollIntoView?.({ block: "nearest" }));
+      setTimeout(() =>
+        this.host.nativeElement
+          .querySelector(".row.active")
+          ?.scrollIntoView?.({ block: "nearest" }),
+      );
     });
     effect(() => {
       const input = this.renameInput()?.nativeElement;
@@ -144,7 +175,9 @@ export class SidebarComponent {
     if (!node) return;
     const path = this.path(node);
     this.focused.set(path);
-    const row = [...this.host.nativeElement.querySelectorAll<HTMLElement>(".row")].find((r) => r.dataset["path"] === path);
+    const row = [...this.host.nativeElement.querySelectorAll<HTMLElement>(".row")].find(
+      (r) => r.dataset["path"] === path,
+    );
     row?.focus();
     row?.scrollIntoView?.({ block: "nearest" });
   }
@@ -177,8 +210,15 @@ export class SidebarComponent {
         return;
       case "ArrowLeft": {
         event.preventDefault();
-        if (node.dirPath && node.expanded()) void this.attempt(() => this.workspace.toggle(node, false));
-        else this.focusRow(parentIndex(rows.map((n) => n.depth), index));
+        if (node.dirPath && node.expanded())
+          void this.attempt(() => this.workspace.toggle(node, false));
+        else
+          this.focusRow(
+            parentIndex(
+              rows.map((n) => n.depth),
+              index,
+            ),
+          );
         return;
       }
       case "Enter":
@@ -201,7 +241,11 @@ export class SidebarComponent {
       const now = Date.now();
       this.typed = now - this.typedAt > 700 ? event.key : this.typed + event.key;
       this.typedAt = now;
-      const hit = typeAheadMatch(rows.map((n) => n.name), index, this.typed);
+      const hit = typeAheadMatch(
+        rows.map((n) => n.name),
+        index,
+        this.typed,
+      );
       if (hit >= 0) this.focusRow(hit);
     }
   }
@@ -210,7 +254,12 @@ export class SidebarComponent {
   private actionPaths(node: TreeNode): string[] {
     const path = this.path(node);
     const selected = this.selection();
-    return selected.has(path) ? this.workspace.visible().map((n) => this.path(n)).filter((p) => selected.has(p)) : [path];
+    return selected.has(path)
+      ? this.workspace
+          .visible()
+          .map((n) => this.path(n))
+          .filter((p) => selected.has(p))
+      : [path];
   }
 
   private trashSelection(node: TreeNode): Promise<void> {
@@ -354,7 +403,15 @@ export class SidebarComponent {
   /** The label of the bookmark entry for the note of the menu. */
   protected bookmarkLabel(node: TreeNode): string {
     const rel = this.bookmarks.relative(node.filePath);
-    return rel !== null && this.bookmarks.items().some((b) => b.type === "file" && (b as { path?: string }).path === rel && !(b as { subpath?: string }).subpath)
+    return rel !== null &&
+      this.bookmarks
+        .items()
+        .some(
+          (b) =>
+            b.type === "file" &&
+            (b as { path?: string }).path === rel &&
+            !(b as { subpath?: string }).subpath,
+        )
       ? "Remove bookmark"
       : "Bookmark";
   }

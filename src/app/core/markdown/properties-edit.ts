@@ -29,7 +29,11 @@ export function initialValue(type: PropertyType, today: string): unknown {
 
 /** The items of a list-like value as text, empty ones dropped. */
 export function listItems(value: unknown): string[] {
-  const items = Array.isArray(value) ? value : value === null || value === undefined || value === "" ? [] : [value];
+  const items = Array.isArray(value)
+    ? value
+    : value === null || value === undefined || value === ""
+      ? []
+      : [value];
   return items.map((v) => String(v ?? "").trim()).filter(Boolean);
 }
 
@@ -40,11 +44,18 @@ export function chipText(key: string, raw: string): string {
 }
 
 /** Index values that match `query` (case-insensitive, prefix matches first) and are not yet in the list. */
-export function chipSuggestions(all: readonly string[], query: string, taken: readonly string[], max = 8): string[] {
+export function chipSuggestions(
+  all: readonly string[],
+  query: string,
+  taken: readonly string[],
+  max = 8,
+): string[] {
   const q = query.trim().replace(/^#/, "").toLowerCase();
   const used = new Set(taken.map((t) => t.toLowerCase()));
   const hits = all.filter((v) => !used.has(v.toLowerCase()) && (!q || v.toLowerCase().includes(q)));
-  hits.sort((a, b) => Number(!a.toLowerCase().startsWith(q)) - Number(!b.toLowerCase().startsWith(q)));
+  hits.sort(
+    (a, b) => Number(!a.toLowerCase().startsWith(q)) - Number(!b.toLowerCase().startsWith(q)),
+  );
   return hits.slice(0, max);
 }
 
@@ -58,4 +69,5 @@ export function parseNumber(raw: string): number | null {
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Date-only values get the native date control, anything with a time stays text. */
-export const isDateOnly = (value: unknown): boolean => typeof value === "string" && DATE_ONLY.test(value);
+export const isDateOnly = (value: unknown): boolean =>
+  typeof value === "string" && DATE_ONLY.test(value);

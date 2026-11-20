@@ -120,12 +120,16 @@ export class ExternalChangeTracker {
   /** The write of `text` succeeded. */
   written(text: string): void {
     this.base = text;
-    for (const r of this.recent) if (r.text === text && r.until === Number.POSITIVE_INFINITY) r.until = this.now() + OWN_WRITE_WINDOW_MS;
+    for (const r of this.recent)
+      if (r.text === text && r.until === Number.POSITIVE_INFINITY)
+        r.until = this.now() + OWN_WRITE_WINDOW_MS;
   }
 
   /** The write of `text` failed: the disk does not have it. */
   failed(text: string): void {
-    const at = this.recent.findIndex((r) => r.text === text && r.until === Number.POSITIVE_INFINITY);
+    const at = this.recent.findIndex(
+      (r) => r.text === text && r.until === Number.POSITIVE_INFINITY,
+    );
     if (at >= 0) this.recent.splice(at, 1);
   }
 
@@ -137,7 +141,8 @@ export class ExternalChangeTracker {
 
   classify(disk: string, dirty: boolean): ExternalChange {
     const now = this.now();
-    for (let i = this.recent.length - 1; i >= 0; i--) if (this.recent[i].until < now) this.recent.splice(i, 1);
+    for (let i = this.recent.length - 1; i >= 0; i--)
+      if (this.recent[i].until < now) this.recent.splice(i, 1);
     if (disk === this.base || this.recent.some((r) => r.text === disk)) return "ignore";
     return dirty ? "conflict" : "reload";
   }
@@ -169,7 +174,10 @@ export function viewerTopLine(blocks: readonly LineBlock[], viewportTop: number)
  * The smallest single replacement that turns `from` into `to`: common start and end are kept, so
  * a cursor outside the change stays where it is. Null when the texts are equal.
  */
-export function changedRange(from: string, to: string): { from: number; to: number; insert: string } | null {
+export function changedRange(
+  from: string,
+  to: string,
+): { from: number; to: number; insert: string } | null {
   if (from === to) return null;
   const max = Math.min(from.length, to.length);
   let start = 0;
@@ -245,7 +253,9 @@ function codeSpans(line: string): Array<[number, number]> {
 
 /** The token of `kind` that covers offset `at` of the line, if any. */
 export function tokenAt(line: string, at: number, kind?: InlineTokenKind): InlineToken | null {
-  return inlineTokens(line).find((t) => at >= t.from && at <= t.to && (!kind || t.kind === kind)) ?? null;
+  return (
+    inlineTokens(line).find((t) => at >= t.from && at <= t.to && (!kind || t.kind === kind)) ?? null
+  );
 }
 
 /** CSS class of a Lezer Markdown node, or null when the node is not styled. */

@@ -1,4 +1,13 @@
-import { Component, ElementRef, computed, effect, inject, output, signal, viewChild } from "@angular/core";
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  output,
+  signal,
+  viewChild,
+} from "@angular/core";
 import { HxAppToolbar } from "@gravionlabs/helix-desktop";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
@@ -36,7 +45,9 @@ export class ToolbarComponent {
   readonly error = output<string>();
 
   /** The path of the note as segments. */
-  protected readonly crumbs = computed<Crumb[]>(() => breadcrumb(this.doc.path(), this.workspace.vaultRoot()));
+  protected readonly crumbs = computed<Crumb[]>(() =>
+    breadcrumb(this.doc.path(), this.workspace.vaultRoot()),
+  );
   /** True while the note name is edited in place. */
   protected readonly renaming = signal(false);
   private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>("renameInput");

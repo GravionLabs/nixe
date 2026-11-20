@@ -25,7 +25,11 @@ function placeholder(el: Element, message: string): void {
  * embedded (starting with the current one): a repeat is a cycle, and more than
  * `MAX_EMBED_DEPTH` levels is too deep. Both render a placeholder instead of recursing.
  */
-export async function expandEmbeds(root: ParentNode, deps: EmbedDeps, stack: readonly string[]): Promise<void> {
+export async function expandEmbeds(
+  root: ParentNode,
+  deps: EmbedDeps,
+  stack: readonly string[],
+): Promise<void> {
   const embeds = Array.from(root.querySelectorAll<HTMLElement>(".embed[data-embed]"));
   for (const el of embeds) {
     if (el.dataset["expanded"]) continue;

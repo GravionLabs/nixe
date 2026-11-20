@@ -57,8 +57,18 @@ describe("diffLines", () => {
     const a = "x\ny\nz\nw";
     const b = "x\nq\nz\nw\nv";
     const rows = diffLines(a, b);
-    expect(rows.filter((r) => r.kind !== "add").map((r) => r.text).join("\n")).toBe(a);
-    expect(rows.filter((r) => r.kind !== "del").map((r) => r.text).join("\n")).toBe(b);
+    expect(
+      rows
+        .filter((r) => r.kind !== "add")
+        .map((r) => r.text)
+        .join("\n"),
+    ).toBe(a);
+    expect(
+      rows
+        .filter((r) => r.kind !== "del")
+        .map((r) => r.text)
+        .join("\n"),
+    ).toBe(b);
   });
 
   it("copes with a large change without a table", () => {

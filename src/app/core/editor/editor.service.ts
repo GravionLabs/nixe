@@ -55,7 +55,8 @@ export class EditorService {
       return;
     }
     const handle = this.handle;
-    if (handle?.blocked()) throw new Error("The note changed on disk: choose Reload or Keep mine first.");
+    if (handle?.blocked())
+      throw new Error("The note changed on disk: choose Reload or Keep mine first.");
     const line = handle?.topLine() ?? null;
     await handle?.flush();
     this.doc.pendingLine.set(line);

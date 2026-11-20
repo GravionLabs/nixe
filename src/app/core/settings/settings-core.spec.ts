@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_SETTINGS, loadSettings, sanitizeSettings, serializeSettings } from "./settings-core";
+import {
+  DEFAULT_SETTINGS,
+  loadSettings,
+  sanitizeSettings,
+  serializeSettings,
+} from "./settings-core";
 
 describe("sanitizeSettings", () => {
   it("gives defaults for anything that is not an object", () => {
-    for (const raw of [null, undefined, 3, "x", [1]]) expect(sanitizeSettings(raw)).toEqual(DEFAULT_SETTINGS);
+    for (const raw of [null, undefined, 3, "x", [1]])
+      expect(sanitizeSettings(raw)).toEqual(DEFAULT_SETTINGS);
   });
 
   it("keeps valid values and replaces wrong types, per key", () => {
@@ -30,8 +36,20 @@ describe("sanitizeSettings", () => {
     expect(s.appearanceTheme).toBe("");
     expect(s.snippets).toEqual([]);
     expect(s.accentColor).toBe("");
-    const a = sanitizeSettings({ appearanceTheme: "sepia", snippets: ["a", 1, "a"], accentColor: "#ABC", fontText: "Inter", fontMono: "a;b" });
-    expect([a.appearanceTheme, a.snippets, a.accentColor, a.fontText, a.fontMono]).toEqual(["sepia", ["a"], "#aabbcc", "Inter", ""]);
+    const a = sanitizeSettings({
+      appearanceTheme: "sepia",
+      snippets: ["a", 1, "a"],
+      accentColor: "#ABC",
+      fontText: "Inter",
+      fontMono: "a;b",
+    });
+    expect([a.appearanceTheme, a.snippets, a.accentColor, a.fontText, a.fontMono]).toEqual([
+      "sepia",
+      ["a"],
+      "#aabbcc",
+      "Inter",
+      "",
+    ]);
     expect(sanitizeSettings({ bookmarksInVault: true }).bookmarksInVault).toBe(true);
     expect(sanitizeSettings({ bookmarksInVault: "yes" }).bookmarksInVault).toBe(false);
     expect(sanitizeSettings({ reviewBranchPrefix: "agent/" }).reviewBranchPrefix).toBe("agent/");
@@ -46,13 +64,23 @@ describe("sanitizeSettings", () => {
   });
 
   it("round-trips through the file text", () => {
-    const s = sanitizeSettings({ theme: "light", sidebar: false, recentVaults: ["/v"], dailyFormat: "YYYY" });
+    const s = sanitizeSettings({
+      theme: "light",
+      sidebar: false,
+      recentVaults: ["/v"],
+      dailyFormat: "YYYY",
+    });
     expect(sanitizeSettings(JSON.parse(serializeSettings(s)))).toEqual(s);
   });
 });
 
 describe("loadSettings (migration from the localStorage SettingsService)", () => {
-  const legacy = JSON.stringify({ theme: "dark", lastFolder: "/vault", recentVaults: ["/vault"], zoom: 120 });
+  const legacy = JSON.stringify({
+    theme: "dark",
+    lastFolder: "/vault",
+    recentVaults: ["/vault"],
+    zoom: 120,
+  });
 
   it("takes the settings file when there is one, ignoring the old entry", () => {
     const r = loadSettings(JSON.stringify({ theme: "light" }), legacy);
@@ -64,7 +92,12 @@ describe("loadSettings (migration from the localStorage SettingsService)", () =>
   it("migrates the old entry when there is no file", () => {
     const r = loadSettings(null, legacy);
     expect(r.source).toBe("legacy");
-    expect(r.settings).toMatchObject({ theme: "dark", lastFolder: "/vault", recentVaults: ["/vault"], zoom: 120 });
+    expect(r.settings).toMatchObject({
+      theme: "dark",
+      lastFolder: "/vault",
+      recentVaults: ["/vault"],
+      zoom: 120,
+    });
     expect(r.settings.math).toBe(true);
   });
 
@@ -79,7 +112,11 @@ describe("loadSettings (migration from the localStorage SettingsService)", () =>
   });
 
   it("uses the defaults when there is nothing", () => {
-    expect(loadSettings(null, null)).toEqual({ settings: DEFAULT_SETTINGS, source: "defaults", damaged: false });
+    expect(loadSettings(null, null)).toEqual({
+      settings: DEFAULT_SETTINGS,
+      source: "defaults",
+      damaged: false,
+    });
     expect(loadSettings("x", "y").source).toBe("defaults");
     expect(loadSettings("{broken", legacy).damaged).toBe(true);
     expect(loadSettings(null, legacy).damaged).toBe(false);
@@ -89,7 +126,10 @@ describe("loadSettings (migration from the localStorage SettingsService)", () =>
 describe("shortcuts setting", () => {
   it("defaults to none and keeps only string overrides", () => {
     expect(sanitizeSettings(null).shortcuts).toEqual({});
-    expect(sanitizeSettings({ shortcuts: { a: "Mod+K", b: 1, c: "" } }).shortcuts).toEqual({ a: "Mod+K", c: "" });
+    expect(sanitizeSettings({ shortcuts: { a: "Mod+K", b: 1, c: "" } }).shortcuts).toEqual({
+      a: "Mod+K",
+      c: "",
+    });
     expect(sanitizeSettings({ shortcuts: "Mod+K" }).shortcuts).toEqual({});
   });
 });

@@ -14,7 +14,8 @@ const data: CompletionData = {
   ],
   currentPath: () => "Ideas.md",
   linkFormat: async () => "shortest",
-  headings: async (note) => (note === "Roadmap" ? [{ level: 1, text: "Goals" }] : [{ level: 1, text: "Mine" }]),
+  headings: async (note) =>
+    note === "Roadmap" ? [{ level: 1, text: "Goals" }] : [{ level: 1, text: "Mine" }],
   blocks: async () => [{ id: "abc", text: "A block" }],
   tags: async () => [
     { tag: "project", count: 5 },
@@ -26,7 +27,11 @@ const data: CompletionData = {
 function setup(doc: string) {
   const pos = doc.indexOf("|");
   const text = doc.replace("|", "");
-  const state = EditorState.create({ doc: text, selection: { anchor: pos }, extensions: [markdown()] });
+  const state = EditorState.create({
+    doc: text,
+    selection: { anchor: pos },
+    extensions: [markdown()],
+  });
   const view = new EditorView({ state, parent: document.body });
   return { view, context: new CompletionContext(state, pos, true) };
 }
@@ -38,11 +43,20 @@ async function options(source: ReturnType<typeof wikilinkSource>, doc: string) {
 }
 
 /** Applies the option labelled `label` and returns the document with `|` at the cursor. */
-async function choose(source: ReturnType<typeof wikilinkSource>, doc: string, label: string): Promise<string> {
+async function choose(
+  source: ReturnType<typeof wikilinkSource>,
+  doc: string,
+  label: string,
+): Promise<string> {
   const { view, context } = setup(doc);
   const result = (await source(context)) as CompletionResult;
   const option = result.options.find((o) => o.label === label)!;
-  (option.apply as (v: EditorView, c: unknown, from: number, to: number) => void)(view, option, result.from, context.pos);
+  (option.apply as (v: EditorView, c: unknown, from: number, to: number) => void)(
+    view,
+    option,
+    result.from,
+    context.pos,
+  );
   const { head } = view.state.selection.main;
   const text = view.state.doc.toString();
   return text.slice(0, head) + "|" + text.slice(head);
@@ -86,7 +100,11 @@ describe("wikilinkSource", () => {
   it("uses the link format of the vault", async () => {
     const absolute = wikilinkSource({ ...data, linkFormat: async () => "absolute" });
     expect(await choose(absolute, "[[road|", "Roadmap")).toBe("[[Projects/Roadmap]]|");
-    const relative = wikilinkSource({ ...data, linkFormat: async () => "relative", currentPath: () => "Projects/Deep/Me.md" });
+    const relative = wikilinkSource({
+      ...data,
+      linkFormat: async () => "relative",
+      currentPath: () => "Projects/Deep/Me.md",
+    });
     expect(await choose(relative, "[[road|", "Roadmap")).toBe("[[../Roadmap]]|");
   });
 });

@@ -57,7 +57,9 @@ export class SettingsService {
    * set; they are stored per vault, so the open tab survives a restart. Both set (an old
    * setting) shows the outline.
    */
-  readonly panelTab = computed<PanelTab>(() => (this.outlineVisible() || !this.backlinksVisible() ? "outline" : "links"));
+  readonly panelTab = computed<PanelTab>(() =>
+    this.outlineVisible() || !this.backlinksVisible() ? "outline" : "links",
+  );
   readonly panelOpen = computed(() => this.outlineVisible() || this.backlinksVisible());
 
   /** Opens the panel on `tab`. */

@@ -43,17 +43,30 @@ export function foldRanges(text: string): FoldRange[] {
   if (fm !== null && fm > 2) ranges.push({ line: 1, endLine: fm, kind: "frontmatter" });
 
   // Headings and list items outside fenced code, with the indent of each line.
-  const infos: { level: number; item: boolean; indent: number; blank: boolean; code: boolean }[] = [];
+  const infos: { level: number; item: boolean; indent: number; blank: boolean; code: boolean }[] =
+    [];
   let fence: string | null = null;
   for (let i = 0; i < lines.length; i++) {
     const t = lines[i]!;
-    const info = { level: 0, item: false, indent: indentOf(t), blank: t.trim() === "", code: false };
+    const info = {
+      level: 0,
+      item: false,
+      indent: indentOf(t),
+      blank: t.trim() === "",
+      code: false,
+    };
     if (fm !== null && i < fm) {
       info.code = true;
     } else if (fence !== null) {
       info.code = true;
       const close = FENCE.exec(t);
-      if (close && close[1]![0] === fence[0] && close[1]!.length >= fence.length && t.trim() === close[1]) fence = null;
+      if (
+        close &&
+        close[1]![0] === fence[0] &&
+        close[1]!.length >= fence.length &&
+        t.trim() === close[1]
+      )
+        fence = null;
     } else {
       const open = FENCE.exec(t);
       if (open) {

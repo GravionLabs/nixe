@@ -29,7 +29,9 @@ describe("SwitcherService", () => {
   });
 
   it("uses the index, including aliases", async () => {
-    vi.spyOn(backend, "notes").mockResolvedValue([{ path: "Home.md", title: "Home", aliases: ["Start"] }]);
+    vi.spyOn(backend, "notes").mockResolvedValue([
+      { path: "Home.md", title: "Home", aliases: ["Start"] },
+    ]);
     await switcher.open();
     switcher.setQuery("start");
     expect(switcher.current()?.entry.path).toBe("Home.md");
@@ -57,7 +59,9 @@ describe("SwitcherService", () => {
   });
 
   it("lists only the recent notes of the current vault", () => {
-    const root = TestBed.inject(WorkspaceService).vaultRoot as unknown as ReturnType<typeof signal<string>>;
+    const root = TestBed.inject(WorkspaceService).vaultRoot as unknown as ReturnType<
+      typeof signal<string>
+    >;
     switcher.noteOpened("/v/Alpha.md");
     root.set("/w");
     expect(switcher.recentNotes()).toEqual([]);

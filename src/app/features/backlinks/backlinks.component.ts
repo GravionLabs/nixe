@@ -72,12 +72,18 @@ export class BacklinksComponent {
     this.preview.leave();
   }
 
-  private async open(rel: string, line: number | null, anchor: string | null, event?: MouseEvent): Promise<void> {
+  private async open(
+    rel: string,
+    line: number | null,
+    anchor: string | null,
+    event?: MouseEvent,
+  ): Promise<void> {
     const root = this.workspace.vaultRoot();
     if (!root) return;
     try {
       const options = { line, anchor: line === null ? anchor : null };
-      if (event && (event.metaKey || event.ctrlKey)) await this.tabs.openInNewTab(joinPath(root, rel), options);
+      if (event && (event.metaKey || event.ctrlKey))
+        await this.tabs.openInNewTab(joinPath(root, rel), options);
       else await this.doc.open(joinPath(root, rel), options);
     } catch (err) {
       this.error.emit(String(err));

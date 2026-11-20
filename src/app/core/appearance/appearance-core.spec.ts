@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { changed, enabledSnippets, overridesCss, sanitizeAccent, sanitizeFont, sanitizeNames } from "./appearance-core";
+import {
+  changed,
+  enabledSnippets,
+  overridesCss,
+  sanitizeAccent,
+  sanitizeFont,
+  sanitizeNames,
+} from "./appearance-core";
 
 const file = (name: string, css = "", modified = 1) => ({ name, css, modified });
 
@@ -11,7 +18,8 @@ describe("sanitizeAccent", () => {
   });
 
   it("rejects everything else", () => {
-    for (const v of ["red", "#12", "#12345g", "#4f46e5;}", "rgb(1,2,3)", 5, null, undefined]) expect(sanitizeAccent(v)).toBe("");
+    for (const v of ["red", "#12", "#12345g", "#4f46e5;}", "rgb(1,2,3)", 5, null, undefined])
+      expect(sanitizeAccent(v)).toBe("");
   });
 });
 
@@ -21,7 +29,8 @@ describe("sanitizeFont", () => {
   });
 
   it("drops what could open a new rule or declaration", () => {
-    for (const v of ["a;color:red", "a}b{", "a/*", "url(x)", "a\\", "<b>", "x".repeat(300), "", 3]) expect(sanitizeFont(v)).toBe("");
+    for (const v of ["a;color:red", "a}b{", "a/*", "url(x)", "a\\", "<b>", "x".repeat(300), "", 3])
+      expect(sanitizeFont(v)).toBe("");
   });
 });
 

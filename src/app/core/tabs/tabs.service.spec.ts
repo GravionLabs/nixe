@@ -147,7 +147,10 @@ describe("TabsService", () => {
       left.editor.editing.set(true);
       await tabs.splitRight();
       expect(tabs.split()).toBe(true);
-      expect(tabs.panes().map((p) => p.tabs.map((t) => t.doc.path()))).toEqual([["/v/b.md"], ["/v/b.md"]]);
+      expect(tabs.panes().map((p) => p.tabs.map((t) => t.doc.path()))).toEqual([
+        ["/v/b.md"],
+        ["/v/b.md"],
+      ]);
       const right = tabs.activeTab();
       expect(right).not.toBe(left);
       expect(right.editor.editing()).toBe(true);
@@ -240,7 +243,10 @@ describe("TabsService", () => {
       FILES["/v/a.md"] = "# A on disk";
       try {
         await tabs.onExternalChange("/v/a.md");
-        expect(tabs.panes().map((p) => p.tabs[0].doc.content())).toEqual(["# A on disk", "# A on disk"]);
+        expect(tabs.panes().map((p) => p.tabs[0].doc.content())).toEqual([
+          "# A on disk",
+          "# A on disk",
+        ]);
       } finally {
         FILES["/v/a.md"] = "# A";
       }
@@ -263,7 +269,11 @@ describe("TabsService", () => {
       const layout = await laidOut();
       expect(layout.panes.length).toBe(2);
       expect(layout.panes[0].tabs.map((t) => t.path)).toEqual(["/v/b.md", "/v/c.md"]);
-      expect(layout.panes[0].tabs[0]).toMatchObject({ history: ["/v/a.md", "/v/b.md"], index: 1, editing: false });
+      expect(layout.panes[0].tabs[0]).toMatchObject({
+        history: ["/v/a.md", "/v/b.md"],
+        index: 1,
+        editing: false,
+      });
       expect(layout.panes[0].tabs[1].editing).toBe(true);
       expect(layout.focused).toBe(1);
       expect(layout.ratio).toBe(0.3);
@@ -377,7 +387,9 @@ describe("TabsService", () => {
     it("restores a layout that holds only a view", async () => {
       tabs.openView("settings");
       const layout = JSON.parse(JSON.stringify(tabs.snapshot()));
-      layout.panes[0].tabs = layout.panes[0].tabs.filter((t: { view: string | null }) => t.view !== null);
+      layout.panes[0].tabs = layout.panes[0].tabs.filter(
+        (t: { view: string | null }) => t.view !== null,
+      );
       layout.panes[0].active = 0;
       expect(await tabs.restore(layout)).toBe(true);
       expect(tabs.activeTab().view()).toBe("settings");
@@ -414,7 +426,11 @@ describe("TabsService", () => {
     class Probe {
       readonly doc = inject(DocumentService);
     }
-    @Component({ selector: "app-host", imports: [NgComponentOutlet], template: "<ng-container *ngComponentOutlet=\"probe; injector: injector\" />" })
+    @Component({
+      selector: "app-host",
+      imports: [NgComponentOutlet],
+      template: '<ng-container *ngComponentOutlet="probe; injector: injector" />',
+    })
     class Host {
       probe = Probe;
       injector = tabs.panes()[0].tabs[0].injector;

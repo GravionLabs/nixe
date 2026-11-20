@@ -116,16 +116,27 @@ describe("SearchComponent", () => {
   });
 
   it("counts the results and the notes above the list", () => {
-    const other: SearchHit = { path: "a.md", title: "a", modified: 200, matches: 1, snippets: [{ line: 1, text: "\u0001quick\u0002" }] };
-    expect(render("ready", [hit, other]).el.querySelector(".count")?.textContent).toBe("6 results in 2 notes");
-    expect(render("ready", [other]).el.querySelector(".count")?.textContent).toBe("1 result in 1 note");
+    const other: SearchHit = {
+      path: "a.md",
+      title: "a",
+      modified: 200,
+      matches: 1,
+      snippets: [{ line: 1, text: "\u0001quick\u0002" }],
+    };
+    expect(render("ready", [hit, other]).el.querySelector(".count")?.textContent).toBe(
+      "6 results in 2 notes",
+    );
+    expect(render("ready", [other]).el.querySelector(".count")?.textContent).toBe(
+      "1 result in 1 note",
+    );
   });
 
   it("sorts by relevance, name or modified time and keeps the choice", () => {
     localStorage.clear();
     const a: SearchHit = { path: "z/a.md", title: "a", modified: 50, matches: 0, snippets: [] };
     const { el } = render("ready", [hit, a]);
-    const names = () => [...el.querySelectorAll("button.note .name")].map((n) => n.textContent?.trim());
+    const names = () =>
+      [...el.querySelectorAll("button.note .name")].map((n) => n.textContent?.trim());
     expect(names()).toEqual(["b", "a"]);
     const select = el.querySelector<HTMLSelectElement>("select.sort")!;
     select.value = "name";
@@ -194,7 +205,11 @@ describe("SearchComponent", () => {
 
   it("shows the replace field and the diff of each replacement", () => {
     const replace = replaceMock(true, [
-      { path: "a.md", count: 1, replacements: [{ index: 0, line: 3, before: "old", after: "new" }] },
+      {
+        path: "a.md",
+        count: 1,
+        replacements: [{ index: 0, line: 3, before: "old", after: "new" }],
+      },
     ]);
     const { el } = render("ready", [hit], replace);
     expect(el.querySelector("input.replacement")).not.toBeNull();
@@ -207,7 +222,11 @@ describe("SearchComponent", () => {
 
   it("excludes a note or a single match with its checkbox and applies with the button", () => {
     const replace = replaceMock(true, [
-      { path: "a.md", count: 1, replacements: [{ index: 0, line: 3, before: "old", after: "new" }] },
+      {
+        path: "a.md",
+        count: 1,
+        replacements: [{ index: 0, line: 3, before: "old", after: "new" }],
+      },
     ]);
     const { el } = render("ready", [], replace);
     el.querySelector<HTMLInputElement>(".note-row input")!.click();

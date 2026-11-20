@@ -21,7 +21,11 @@ import { OutlineService } from "../../core/outline/outline.service";
 
     <ng-template #nodes let-list>
       @for (node of list; track node.index) {
-        <li role="treeitem" [attr.aria-level]="node.level" [attr.aria-selected]="node.index === outline.current()">
+        <li
+          role="treeitem"
+          [attr.aria-level]="node.level"
+          [attr.aria-selected]="node.index === outline.current()"
+        >
           <button
             type="button"
             class="heading"

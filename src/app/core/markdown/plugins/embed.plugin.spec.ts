@@ -25,7 +25,9 @@ describe("embed plugin", () => {
     expect(html).toContain('height="200"');
   });
   it("renders other files as links", () => {
-    expect(render("![[doc.pdf]]")).toContain('<a class="wikilink embed-file" data-target="doc.pdf"');
+    expect(render("![[doc.pdf]]")).toContain(
+      '<a class="wikilink embed-file" data-target="doc.pdf"',
+    );
   });
   it("leaves code alone and normal images intact", () => {
     expect(render("`![[Note]]`")).not.toContain("embed");

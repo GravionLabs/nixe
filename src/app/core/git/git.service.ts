@@ -29,7 +29,9 @@ export function describeSync(report: SyncReport): string {
   ].filter(Boolean);
   const n = report.conflicts?.length ?? 0;
   const text = parts.length ? `Synced (${parts.join(", ")})` : "Already in sync";
-  return n > 0 ? `${text}; ${n} ${n === 1 ? "note" : "notes"} changed on both sides, both versions kept` : text;
+  return n > 0
+    ? `${text}; ${n} ${n === 1 ? "note" : "notes"} changed on both sides, both versions kept`
+    : text;
 }
 
 /** Git state of the vault. `status` stays null for a vault without a repository: no Git UI then. */
@@ -55,7 +57,9 @@ export class GitService {
   private promptResult: ((token: string | null) => void) | null = null;
 
   /** True when the vault is a Git repository. */
-  readonly available = computed(() => this.workspace.vaultRoot() !== null && this.status() !== null);
+  readonly available = computed(
+    () => this.workspace.vaultRoot() !== null && this.status() !== null,
+  );
 
   constructor() {
     // The vault changed on disk (or another vault was opened): read the state again.
@@ -182,7 +186,9 @@ export class GitService {
       this.syncState.set({ phase: "done", message: describeSync(report) });
     } catch (err) {
       const text = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");
-      const message = AUTH_ERROR.test(text) ? "Sync failed: GitHub needs a valid access token" : `Sync failed: ${text}`;
+      const message = AUTH_ERROR.test(text)
+        ? "Sync failed: GitHub needs a valid access token"
+        : `Sync failed: ${text}`;
       if (auto && message === this.lastError) this.syncState.set(before);
       else this.syncState.set({ phase: "error", message });
       this.lastError = message;

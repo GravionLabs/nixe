@@ -34,7 +34,8 @@ export function sanitizeTreeSort(value: unknown): TreeSort {
  */
 export function sortItems<T extends TreeItem>(items: T[], sort: TreeSort): T[] {
   if (sort === "name-asc") return items;
-  const byName = (a: T, b: T) => a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
+  const byName = (a: T, b: T) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
   const compare: (a: T, b: T) => number =
     sort === "name-desc"
       ? (a, b) => byName(b, a)

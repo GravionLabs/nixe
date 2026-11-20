@@ -18,15 +18,29 @@ import {
   serializeBookmarks,
 } from "./bookmarks-core";
 
-const note = (path: string, subpath?: string): Bookmark => ({ type: "file", path, ...(subpath ? { subpath } : {}) });
-const titles = (items: Bookmark[]) => items.map((b) => (b.type === "group" ? `[${(b as GroupBookmark).items.map(labelOf).join(",")}]` : labelOf(b)));
+const note = (path: string, subpath?: string): Bookmark => ({
+  type: "file",
+  path,
+  ...(subpath ? { subpath } : {}),
+});
+const titles = (items: Bookmark[]) =>
+  items.map((b) =>
+    b.type === "group" ? `[${(b as GroupBookmark).items.map(labelOf).join(",")}]` : labelOf(b),
+  );
 
 describe("parseBookmarks / serializeBookmarks", () => {
   it("reads Obsidian's format and keeps what it does not know", () => {
     const text = JSON.stringify({
       items: [
         { type: "file", path: "a.md", ctime: 1 },
-        { type: "group", title: "G", items: [{ type: "search", query: "todo" }, { type: "url", url: "https://x" }] },
+        {
+          type: "group",
+          title: "G",
+          items: [
+            { type: "search", query: "todo" },
+            { type: "url", url: "https://x" },
+          ],
+        },
         { type: "graph", title: "Graph" },
       ],
       other: 3,
@@ -41,8 +55,11 @@ describe("parseBookmarks / serializeBookmarks", () => {
   });
 
   it("treats missing, damaged and wrongly shaped text as empty and drops broken items", () => {
-    for (const bad of [null, "", "nope", "[1]", "null", '{"items":5}']) expect(parseBookmarks(bad).items).toEqual([]);
-    const file = parseBookmarks('{"items":[{"type":"file"},{"type":"search","query":3},7,{"type":"file","path":"a.md"}]}');
+    for (const bad of [null, "", "nope", "[1]", "null", '{"items":5}'])
+      expect(parseBookmarks(bad).items).toEqual([]);
+    const file = parseBookmarks(
+      '{"items":[{"type":"file"},{"type":"search","query":3},7,{"type":"file","path":"a.md"}]}',
+    );
     expect(file.items).toEqual([{ type: "file", path: "a.md" }]);
   });
 });
@@ -61,7 +78,10 @@ describe("add and remove", () => {
   });
 
   it("removes by position and by value, also inside a group", () => {
-    const items: Bookmark[] = [note("a.md"), { type: "group", title: "G", items: [note("b.md"), note("c.md")] }];
+    const items: Bookmark[] = [
+      note("a.md"),
+      { type: "group", title: "G", items: [note("b.md"), note("c.md")] },
+    ];
     expect(titles(removeAt(items, [1, 0]))).toEqual(["a", "[c]"]);
     expect(titles(removeMatching(items, { type: "file", path: "c.md" }))).toEqual(["a", "[b]"]);
     expect(removeAt(items, [])).toBe(items);
@@ -85,7 +105,11 @@ describe("moveItem", () => {
   });
 
   it("moves into a group and out of it", () => {
-    const items: Bookmark[] = [note("a.md"), { type: "group", title: "G", items: [] }, note("c.md")];
+    const items: Bookmark[] = [
+      note("a.md"),
+      { type: "group", title: "G", items: [] },
+      note("c.md"),
+    ];
     const into = moveItem(items, [0], [1], 0);
     expect(titles(into)).toEqual(["[a]", "c"]);
     expect(titles(moveItem(into, [0, 0], [], 1))).toEqual(["[]", "a", "c"]);
@@ -98,7 +122,11 @@ describe("moveItem", () => {
   });
 
   it("moves an item to a group that sits behind it", () => {
-    const items: Bookmark[] = [note("a.md"), note("b.md"), { type: "group", title: "G", items: [note("x.md")] }];
+    const items: Bookmark[] = [
+      note("a.md"),
+      note("b.md"),
+      { type: "group", title: "G", items: [note("x.md")] },
+    ];
     expect(titles(moveItem(items, [0], [2], 1))).toEqual(["b", "[x,a]"]);
   });
 });
@@ -126,7 +154,10 @@ describe("renamePath", () => {
 });
 
 describe("headingLine", () => {
-  const headings = [{ text: "Intro", line: 1 }, { text: "Deep Dive", line: 9 }];
+  const headings = [
+    { text: "Intro", line: 1 },
+    { text: "Deep Dive", line: 9 },
+  ];
   it("finds a heading ignoring case, null for a note, a block or a missing heading", () => {
     expect(headingLine("#deep dive", headings)).toBe(9);
     expect(headingLine(undefined, headings)).toBeNull();

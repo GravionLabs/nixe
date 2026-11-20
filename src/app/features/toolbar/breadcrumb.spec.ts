@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { breadcrumb } from "./breadcrumb";
 
-const labels = (path: string | null, root: string | null) => breadcrumb(path, root).map((c) => c.label);
+const labels = (path: string | null, root: string | null) =>
+  breadcrumb(path, root).map((c) => c.label);
 
 describe("breadcrumb", () => {
   it("is empty without a note", () => {

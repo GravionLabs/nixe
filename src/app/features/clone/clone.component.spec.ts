@@ -35,7 +35,11 @@ function render(prompt: { reason: "required" | "failed" } | null = null, cloning
     ],
   });
   TestBed.overrideComponent(CloneComponent, {
-    set: { templateUrl: undefined, styleUrl: undefined, template: readFileSync("src/app/features/clone/clone.component.html", "utf8") },
+    set: {
+      templateUrl: undefined,
+      styleUrl: undefined,
+      template: readFileSync("src/app/features/clone/clone.component.html", "utf8"),
+    },
   });
   const fixture = TestBed.createComponent(CloneComponent);
   fixture.detectChanges();

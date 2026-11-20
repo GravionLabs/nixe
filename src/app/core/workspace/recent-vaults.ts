@@ -17,7 +17,11 @@ export interface VaultState {
 export type VaultStates = Record<string, VaultState>;
 
 /** `path` first, any earlier entry of it removed, at most `max` entries. */
-export function addRecent(list: readonly string[], path: string, max = MAX_RECENT_VAULTS): string[] {
+export function addRecent(
+  list: readonly string[],
+  path: string,
+  max = MAX_RECENT_VAULTS,
+): string[] {
   return [path, ...list.filter((p) => p !== path)].slice(0, max);
 }
 

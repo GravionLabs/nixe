@@ -4,7 +4,11 @@ import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
 import { CssFile, RELOAD_MS, changed, enabledSnippets, overridesCss } from "./appearance-core";
 
-const IDS = { theme: "nixe-theme", overrides: "nixe-overrides", snippets: "nixe-snippets" } as const;
+const IDS = {
+  theme: "nixe-theme",
+  overrides: "nixe-overrides",
+  snippets: "nixe-snippets",
+} as const;
 
 /**
  * Applies the theme, the CSS snippets, the accent color and the fonts (#114). The CSS goes into
@@ -36,7 +40,14 @@ export class AppearanceService {
       this.style(IDS.snippets, on.map((f) => f.css).join("\n"));
     });
     effect(() =>
-      this.style(IDS.overrides, overridesCss(this.settings.accentColor(), this.settings.fontText(), this.settings.fontMono())),
+      this.style(
+        IDS.overrides,
+        overridesCss(
+          this.settings.accentColor(),
+          this.settings.fontText(),
+          this.settings.fontMono(),
+        ),
+      ),
     );
   }
 
@@ -50,7 +61,8 @@ export class AppearanceService {
     await this.refresh();
     if (this.timer === null) {
       this.timer = setInterval(() => {
-        if (typeof document === "undefined" || document.visibilityState !== "hidden") void this.refresh();
+        if (typeof document === "undefined" || document.visibilityState !== "hidden")
+          void this.refresh();
       }, RELOAD_MS);
     }
   }
@@ -63,7 +75,10 @@ export class AppearanceService {
   /** Reads `themes/` and `snippets/`; only a change updates the signals. */
   async refresh(): Promise<void> {
     try {
-      const [themes, snippets] = await Promise.all([backend.readAppearance("themes"), backend.readAppearance("snippets")]);
+      const [themes, snippets] = await Promise.all([
+        backend.readAppearance("themes"),
+        backend.readAppearance("snippets"),
+      ]);
       if (changed(this.themes(), themes)) this.themes.set(themes);
       if (changed(this.snippets(), snippets)) this.snippets.set(snippets);
       this.error.set(null);

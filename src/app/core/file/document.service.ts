@@ -32,7 +32,12 @@ export class DocumentService {
 
   async open(
     path: string,
-    options: { anchor?: string | null; line?: number | null; addToHistory?: boolean; watch?: boolean } = {},
+    options: {
+      anchor?: string | null;
+      line?: number | null;
+      addToHistory?: boolean;
+      watch?: boolean;
+    } = {},
   ): Promise<void> {
     const { anchor = null, line = null, addToHistory = true, watch = true } = options;
     path = toSlashes(path);

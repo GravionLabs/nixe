@@ -27,7 +27,10 @@ export function applyHeadingFolds(root: HTMLElement, folded: ReadonlySet<number>
   const blocks = Array.from(root.children) as HTMLElement[];
   const levels = blocks.map(levelOf);
   const lineOf = (i: number) => Number(blocks[i]!.dataset["line"]) + 1;
-  const foldable = (i: number) => levels[i]! > 0 && i + 1 < blocks.length && !(levels[i + 1]! > 0 && levels[i + 1]! <= levels[i]!);
+  const foldable = (i: number) =>
+    levels[i]! > 0 &&
+    i + 1 < blocks.length &&
+    !(levels[i + 1]! > 0 && levels[i + 1]! <= levels[i]!);
 
   const closed = new Set<number>();
   blocks.forEach((_, i) => {

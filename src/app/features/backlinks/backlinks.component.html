@@ -7,7 +7,9 @@
   }
   @case ("ready") {
     <section aria-label="Backlinks">
-      <h2>Backlinks <span class="count">{{ links.backlinks().length }}</span></h2>
+      <h2>
+        Backlinks <span class="count">{{ links.backlinks().length }}</span>
+      </h2>
       @if (links.backlinks().length === 0) {
         <p class="status">No backlinks</p>
       } @else {

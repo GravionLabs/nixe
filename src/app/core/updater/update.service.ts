@@ -71,7 +71,8 @@ export class UpdateService {
       if (this.editor.handle?.dirty()) throw new Error("the open note could not be saved");
       await update.downloadAndInstall((event) => {
         if (event.event === "Started") this.total.set(event.data.contentLength ?? null);
-        else if (event.event === "Progress") this.received.update((n) => n + event.data.chunkLength);
+        else if (event.event === "Progress")
+          this.received.update((n) => n + event.data.chunkLength);
       });
       await relaunch();
     } catch (err) {

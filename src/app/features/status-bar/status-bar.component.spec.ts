@@ -46,19 +46,42 @@ function render(o: Options = {}) {
   const execute = vi.fn();
   const zoom = signal(o.zoom ?? 100);
   const showPanelTab = vi.fn();
-  const backlinks = signal(Array.from({ length: o.backlinks ?? 0 }, (_, i) => ({ path: `b${i}.md` })));
+  const backlinks = signal(
+    Array.from({ length: o.backlinks ?? 0 }, (_, i) => ({ path: `b${i}.md` })),
+  );
   const key = signal("a|ready|1");
   const refresh = vi.fn();
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
-      { provide: GitService, useValue: { status: signal(o.status ?? null), sync, syncState: signal(o.syncState ?? { phase: "idle", message: "" }) } },
-      { provide: ChangesService, useValue: { pulled: signal(Array.from({ length: o.pulled ?? 0 }, (_, i) => ({ path: `n${i}.md`, kind: "modified" }))), showSync } },
+      {
+        provide: GitService,
+        useValue: {
+          status: signal(o.status ?? null),
+          sync,
+          syncState: signal(o.syncState ?? { phase: "idle", message: "" }),
+        },
+      },
+      {
+        provide: ChangesService,
+        useValue: {
+          pulled: signal(
+            Array.from({ length: o.pulled ?? 0 }, (_, i) => ({
+              path: `n${i}.md`,
+              kind: "modified",
+            })),
+          ),
+          showSync,
+        },
+      },
       { provide: ReviewService, useValue: { count: signal(o.waiting ?? 0) } },
       { provide: ShellService, useValue: { show } },
       { provide: SettingsService, useValue: { zoom, showPanelTab } },
       { provide: EditorService, useValue: { stats: signal(o.stats ?? null) } },
-      { provide: BacklinksService, useValue: { state: signal(o.linksState ?? "idle"), backlinks, key, refresh } },
+      {
+        provide: BacklinksService,
+        useValue: { state: signal(o.linksState ?? "idle"), backlinks, key, refresh },
+      },
       { provide: CommandRegistry, useValue: { execute } },
       {
         provide: UpdateService,
@@ -77,10 +100,30 @@ function render(o: Options = {}) {
   const fixture = TestBed.createComponent(StatusBarComponent);
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
-  return { el, showPanelTab, backlinks, key, refresh, show, showSync, sync, check, install, execute, zoom, fixture, text: () => el.textContent ?? "" };
+  return {
+    el,
+    showPanelTab,
+    backlinks,
+    key,
+    refresh,
+    show,
+    showSync,
+    sync,
+    check,
+    install,
+    execute,
+    zoom,
+    fixture,
+    text: () => el.textContent ?? "",
+  };
 }
 
-const repo: GitStatus = { branch: "main", changes: [{ path: "a.md", kind: "added" }], ahead: 2, behind: 3 };
+const repo: GitStatus = {
+  branch: "main",
+  changes: [{ path: "a.md", kind: "added" }],
+  ahead: 2,
+  behind: 3,
+};
 
 describe("StatusBarComponent", () => {
   beforeAll(() => {
@@ -109,16 +152,24 @@ describe("StatusBarComponent", () => {
     const r = render({ stats: countText("one two three") });
     const item = r.el.querySelector(".words")!;
     expect(item.textContent).toContain("3 words, 11 characters");
-    expect(item.querySelector("[title]")?.getAttribute("title")).toBe("Reading time: under a minute");
+    expect(item.querySelector("[title]")?.getAttribute("title")).toBe(
+      "Reading time: under a minute",
+    );
     const sel = render({ stats: countText("one", true) });
     expect(sel.el.querySelector(".words")!.textContent).toContain("1 word, 3 characters selected");
   });
 
   describe("backlinks", () => {
     it("shows the count of the open note, singular and plural", () => {
-      expect(render({ linksState: "ready", backlinks: 0 }).el.querySelector(".backlinks")!.textContent).toContain("0 backlinks");
-      expect(render({ linksState: "ready", backlinks: 1 }).el.querySelector(".backlinks")!.textContent).toContain("1 backlink");
-      expect(render({ linksState: "ready", backlinks: 4 }).el.querySelector(".backlinks")!.textContent).toContain("4 backlinks");
+      expect(
+        render({ linksState: "ready", backlinks: 0 }).el.querySelector(".backlinks")!.textContent,
+      ).toContain("0 backlinks");
+      expect(
+        render({ linksState: "ready", backlinks: 1 }).el.querySelector(".backlinks")!.textContent,
+      ).toContain("1 backlink");
+      expect(
+        render({ linksState: "ready", backlinks: 4 }).el.querySelector(".backlinks")!.textContent,
+      ).toContain("4 backlinks");
     });
 
     it("is hidden without a vault or an open note, or while the index is not ready", () => {
@@ -199,7 +250,8 @@ describe("StatusBarComponent", () => {
   });
 
   describe("zoom", () => {
-    const zoomButtons = (el: HTMLElement) => Array.from(el.querySelectorAll<HTMLButtonElement>("hx-status-zoom button"));
+    const zoomButtons = (el: HTMLElement) =>
+      Array.from(el.querySelectorAll<HTMLButtonElement>("hx-status-zoom button"));
 
     it("shows the level", () => {
       expect(render({ zoom: 120 }).text()).toContain("120%");

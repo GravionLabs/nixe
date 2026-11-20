@@ -44,7 +44,9 @@
                 @case ("select") {
                   <select [id]="'setting-' + item.id" (change)="item.set(value($event))">
                     @for (option of item.options; track option.value) {
-                      <option [value]="option.value" [selected]="option.value === item.get()">{{ option.label }}</option>
+                      <option [value]="option.value" [selected]="option.value === item.get()">
+                        {{ option.label }}
+                      </option>
                     }
                   </select>
                 }
@@ -84,21 +86,33 @@
                       </button>
                       <span class="hint">Esc cancels</span>
                     } @else if (pending && pending.id === item.commandId) {
-                      <span class="key" [id]="'setting-' + item.id">{{ shortcuts.formatBinding(pending.binding) }}</span>
+                      <span class="key" [id]="'setting-' + item.id">{{
+                        shortcuts.formatBinding(pending.binding)
+                      }}</span>
                       @if (pending.conflicts.length) {
-                        <span class="conflict" role="alert">Also used by {{ pending.conflicts.join(", ") }}; saving removes it there.</span>
+                        <span class="conflict" role="alert"
+                          >Also used by {{ pending.conflicts.join(", ") }}; saving removes it
+                          there.</span
+                        >
                       }
                       <span class="actions">
                         <button type="button" (click)="shortcuts.savePending()">Save</button>
                         <button type="button" (click)="shortcuts.cancel()">Cancel</button>
                       </span>
                     } @else {
-                      <button type="button" class="key" [id]="'setting-' + item.id" (click)="shortcuts.startRecording(item.commandId)">
+                      <button
+                        type="button"
+                        class="key"
+                        [id]="'setting-' + item.id"
+                        (click)="shortcuts.startRecording(item.commandId)"
+                      >
                         {{ shortcuts.display(item.commandId) || "Not set" }}
                       </button>
                       <span class="actions">
                         @if (shortcuts.display(item.commandId)) {
-                          <button type="button" (click)="shortcuts.assign(command, '')">Remove</button>
+                          <button type="button" (click)="shortcuts.assign(command, '')">
+                            Remove
+                          </button>
                         }
                         @if (!shortcuts.isDefault(command)) {
                           <button type="button" (click)="shortcuts.reset(command)">Reset</button>

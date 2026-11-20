@@ -19,7 +19,12 @@ import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { ToolbarComponent } from "./toolbar.component";
 
-function render(opts: { path: string | null; editing: boolean; blocked?: boolean; vault?: boolean }) {
+function render(opts: {
+  path: string | null;
+  editing: boolean;
+  blocked?: boolean;
+  vault?: boolean;
+}) {
   const execute = vi.fn().mockReturnValue(true);
   const back = vi.fn();
   const forward = vi.fn();
@@ -35,9 +40,18 @@ function render(opts: { path: string | null; editing: boolean; blocked?: boolean
       { provide: EditorService, useValue: { editing, blocked } },
       {
         provide: DocumentService,
-        useValue: { path: signal(opts.path), canGoBack: signal(false), canGoForward: signal(true), back, forward },
+        useValue: {
+          path: signal(opts.path),
+          canGoBack: signal(false),
+          canGoForward: signal(true),
+          back,
+          forward,
+        },
       },
-      { provide: WorkspaceService, useValue: { vaultRoot: signal(opts.vault === false ? null : "/v"), reveal } },
+      {
+        provide: WorkspaceService,
+        useValue: { vaultRoot: signal(opts.vault === false ? null : "/v"), reveal },
+      },
       { provide: ShellService, useValue: { show } },
       { provide: VaultOpsService, useValue: { rename } },
       {
@@ -86,12 +100,22 @@ describe("ToolbarComponent edit toggle", () => {
 });
 
 describe("ToolbarComponent content", () => {
-  const labels = (el: HTMLElement) => [...el.querySelectorAll("button")].map((b) => b.getAttribute("aria-label") ?? b.textContent?.trim());
+  const labels = (el: HTMLElement) =>
+    [...el.querySelectorAll("button")].map(
+      (b) => b.getAttribute("aria-label") ?? b.textContent?.trim(),
+    );
 
   it("keeps only back, forward, title, edit, outline and backlinks", () => {
     const { el } = render({ path: "/n.md", editing: false });
-    expect(labels(el)).toEqual(["Back", "Forward", "n.md", "Edit", "Toggle outline", "Toggle backlinks"]);
-    expect(el.querySelector(".note")?.textContent).toBe("n.md");
+    expect(labels(el)).toEqual([
+      "Back",
+      "Forward",
+      "n.md",
+      "Edit",
+      "Toggle outline",
+      "Toggle backlinks",
+    ]);
+    expect(el.querySelector(".note")?.textContent?.trim()).toBe("n.md");
     expect(el.querySelector("hx-app-toolbar")).not.toBeNull();
   });
 
@@ -118,15 +142,22 @@ describe("ToolbarComponent content", () => {
 
   it("disables outline and backlinks without a note, backlinks also without a vault", () => {
     const none = render({ path: null, editing: false }).el;
-    expect(none.querySelector<HTMLButtonElement>("[aria-label='Toggle outline']")!.disabled).toBe(true);
+    expect(none.querySelector<HTMLButtonElement>("[aria-label='Toggle outline']")!.disabled).toBe(
+      true,
+    );
     const noVault = render({ path: "/n.md", editing: false, vault: false }).el;
-    expect(noVault.querySelector<HTMLButtonElement>("[aria-label='Toggle outline']")!.disabled).toBe(false);
-    expect(noVault.querySelector<HTMLButtonElement>("[aria-label='Toggle backlinks']")!.disabled).toBe(true);
+    expect(
+      noVault.querySelector<HTMLButtonElement>("[aria-label='Toggle outline']")!.disabled,
+    ).toBe(false);
+    expect(
+      noVault.querySelector<HTMLButtonElement>("[aria-label='Toggle backlinks']")!.disabled,
+    ).toBe(true);
   });
 });
 
 describe("ToolbarComponent breadcrumb", () => {
-  const texts = (el: HTMLElement) => [...el.querySelectorAll(".crumbs .crumb")].map((c) => c.textContent?.trim());
+  const texts = (el: HTMLElement) =>
+    [...el.querySelectorAll(".crumbs .crumb")].map((c) => c.textContent?.trim());
 
   it("shows the vault-relative path as segments", () => {
     const { el } = render({ path: "/v/backend/file-watching.md", editing: false });
@@ -169,12 +200,16 @@ describe("ToolbarComponent breadcrumb", () => {
     const { el, fixture, rename } = render({ path: "/v/a/n.md", editing: false });
     el.querySelector<HTMLButtonElement>(".crumb.note")!.click();
     fixture.detectChanges();
-    el.querySelector<HTMLInputElement>("input.rename")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    el.querySelector<HTMLInputElement>("input.rename")!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape" }),
+    );
     fixture.detectChanges();
     expect(el.querySelector("input.rename")).toBeNull();
     el.querySelector<HTMLButtonElement>(".crumb.note")!.click();
     fixture.detectChanges();
-    el.querySelector<HTMLInputElement>("input.rename")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    el.querySelector<HTMLInputElement>("input.rename")!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter" }),
+    );
     expect(rename).not.toHaveBeenCalled();
   });
 });

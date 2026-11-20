@@ -42,13 +42,16 @@ describe("file tree actions of WorkspaceService", () => {
     vi.spyOn(backend, "isFile").mockResolvedValue(false);
     vi.spyOn(backend, "isDir").mockResolvedValue(true);
     vi.spyOn(backend, "listDir").mockImplementation(
-      async (d) => (tree[d] ?? []).map((e) => ({ ...e, path: `${d}/${e.name}`, hasOrder: false })) as never,
+      async (d) =>
+        (tree[d] ?? []).map((e) => ({ ...e, path: `${d}/${e.name}`, hasOrder: false })) as never,
     );
     vi.spyOn(backend, "findVaultRoot").mockImplementation(async (p) => p);
     vi.spyOn(backend, "listVaultFiles").mockResolvedValue([]);
     vi.spyOn(backend, "indexStart").mockResolvedValue(undefined as never);
     TestBed.resetTestingModule();
-    TestBed.configureTestingModule({ providers: [{ provide: DocumentService, useValue: { path, open: vi.fn() } }] });
+    TestBed.configureTestingModule({
+      providers: [{ provide: DocumentService, useValue: { path, open: vi.fn() } }],
+    });
     settings = TestBed.inject(SettingsService);
     workspace = TestBed.inject(WorkspaceService);
     await workspace.openFolder("/v", { openDefaultPage: false });

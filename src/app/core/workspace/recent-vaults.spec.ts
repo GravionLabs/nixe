@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { addRecent, pruneStates, removeRecent, sanitizeRecent, sanitizeStates } from "./recent-vaults";
+import {
+  addRecent,
+  pruneStates,
+  removeRecent,
+  sanitizeRecent,
+  sanitizeStates,
+} from "./recent-vaults";
 
 describe("recent vaults", () => {
   it("puts the newest first and moves a reopened vault to the front", () => {
@@ -35,7 +41,14 @@ describe("recent vaults", () => {
 });
 
 describe("sanitizeStates layout", () => {
-  const tab = { view: null, path: "/a/x.md", history: ["/a/x.md"], index: 0, editing: true, line: 2 };
+  const tab = {
+    view: null,
+    path: "/a/x.md",
+    history: ["/a/x.md"],
+    index: 0,
+    editing: true,
+    line: 2,
+  };
 
   it("keeps the stored tabs of a vault", () => {
     const layout = { panes: [{ tabs: [tab], active: 0 }], focused: 0, ratio: 0.5 };
@@ -43,7 +56,10 @@ describe("sanitizeStates layout", () => {
   });
 
   it("leaves a broken layout out and reads states without one", () => {
-    const states = sanitizeStates({ "/a": { note: null, layout: { panes: 5 } }, "/b": { note: null } });
+    const states = sanitizeStates({
+      "/a": { note: null, layout: { panes: 5 } },
+      "/b": { note: null },
+    });
     expect(states["/a"].layout).toBeUndefined();
     expect(states["/b"].layout).toBeUndefined();
   });

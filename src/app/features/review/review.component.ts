@@ -36,7 +36,12 @@ export class ReviewComponent {
   protected readonly rendered = computed(() => {
     const d = this.review.diff();
     if (!d) return null;
-    const ctx = { filePath: null, wikiRoot: null, math: false, vaultRoot: this.workspace.vaultRoot() };
+    const ctx = {
+      filePath: null,
+      wikiRoot: null,
+      math: false,
+      vaultRoot: this.workspace.vaultRoot(),
+    };
     return { old: this.markdown.render(d.oldText, ctx), new: this.markdown.render(d.newText, ctx) };
   });
 

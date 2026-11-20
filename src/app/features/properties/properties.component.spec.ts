@@ -13,18 +13,28 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 import { DocumentService } from "../../core/file/document.service";
 import { PropertiesComponent } from "./properties.component";
 
-const NOTE = "---\n# keep\ntitle: Hi\ncount: 2\ndone: false\nwhen: 2024-01-02\ntags:\n  - a\n---\nBody\n";
+const NOTE =
+  "---\n# keep\ntitle: Hi\ncount: 2\ndone: false\nwhen: 2024-01-02\ntags:\n  - a\n---\nBody\n";
 
 function render(text: string) {
   const content = signal(text);
   const write = vi.fn(async (_path: string, next: string) => content.set(next));
   const errors: string[] = [];
   vi.mocked(invoke).mockImplementation(async (cmd: string) =>
-    cmd === "tags" ? [{ tag: "idea", count: 2 }, { tag: "a", count: 1 }] : cmd === "notes" ? [] : null,
+    cmd === "tags"
+      ? [
+          { tag: "idea", count: 2 },
+          { tag: "a", count: 1 },
+        ]
+      : cmd === "notes"
+        ? []
+        : null,
   );
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
-    providers: [{ provide: DocumentService, useValue: { path: signal("/v/n.md"), content, write } }],
+    providers: [
+      { provide: DocumentService, useValue: { path: signal("/v/n.md"), content, write } },
+    ],
   });
   TestBed.overrideComponent(PropertiesComponent, { set: { styleUrl: undefined, styles: [] } });
   const fixture = TestBed.createComponent(PropertiesComponent);
@@ -76,7 +86,10 @@ describe("PropertiesComponent", () => {
 
   it("renames and removes a property", async () => {
     const { el, content, change, settle } = render(NOTE);
-    await change(el.querySelector<HTMLInputElement>('input[aria-label="Name of property count"]')!, "total");
+    await change(
+      el.querySelector<HTMLInputElement>('input[aria-label="Name of property count"]')!,
+      "total",
+    );
     expect(content()).toBe(NOTE.replace("count: 2", "total: 2"));
     el.querySelector<HTMLButtonElement>('button[aria-label="Remove property done"]')!.click();
     await settle();
@@ -96,7 +109,9 @@ describe("PropertiesComponent", () => {
     const { el, settle } = render(NOTE);
     el.querySelector<HTMLInputElement>(".chip-field")!.dispatchEvent(new Event("focus"));
     await settle();
-    expect([...el.querySelectorAll("datalist option")].map((o) => (o as HTMLOptionElement).value)).toEqual(["idea"]);
+    expect(
+      [...el.querySelectorAll("datalist option")].map((o) => (o as HTMLOptionElement).value),
+    ).toEqual(["idea"]);
   });
 
   it("gives a note without frontmatter one with the first property", async () => {

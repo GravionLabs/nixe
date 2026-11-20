@@ -38,10 +38,16 @@ describe("FocusService", () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: ShellService, useValue: { show } },
-        { provide: SettingsService, useValue: { panelOpen, panelTab: () => "links", showPanelTab } },
+        {
+          provide: SettingsService,
+          useValue: { panelOpen, panelTab: () => "links", showPanelTab },
+        },
         { provide: WorkspaceService, useValue: { root } },
         { provide: DocumentService, useValue: { path } },
-        { provide: TabsService, useValue: { panes: () => [{ id: 1 }], focusedPane: () => ({ id: 1 }) } },
+        {
+          provide: TabsService,
+          useValue: { panes: () => [{ id: 1 }], focusedPane: () => ({ id: 1 }) },
+        },
       ],
     });
     commands = TestBed.inject(CommandRegistry);
@@ -117,7 +123,11 @@ describe("FocusService", () => {
     for (const id of ["stop", "links"]) {
       const target = document.getElementById(id)!;
       target.focus();
-      const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      const event = new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      });
       Object.defineProperty(event, "target", { value: target });
       expect(focus.handleEscape(event)).toBe(true);
       await vi.waitFor(() => expect(document.activeElement?.id).toBe("viewer"));
@@ -128,7 +138,11 @@ describe("FocusService", () => {
     const input = document.createElement("input");
     document.querySelector("app-sidebar")!.append(input);
     const press = (target: Element) => {
-      const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      const event = new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      });
       Object.defineProperty(event, "target", { value: target });
       return focus.handleEscape(event);
     };

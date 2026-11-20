@@ -33,7 +33,13 @@ function render(state: HealthState, value: HealthReport | null) {
     providers: [
       {
         provide: HealthService,
-        useValue: { state: signal(state), report: signal(value), key: signal("k"), refresh, setExcluded },
+        useValue: {
+          state: signal(state),
+          report: signal(value),
+          key: signal("k"),
+          refresh,
+          setExcluded,
+        },
       },
       { provide: SettingsService, useValue: { healthExclude: signal(["templates"]) } },
       { provide: TabsService, useValue: { openInNewTab: open } },
@@ -60,7 +66,12 @@ describe("HealthComponent", () => {
   it("lists the four categories with their counts", () => {
     const { el, refresh } = render("ready", report);
     expect(refresh).toHaveBeenCalled();
-    for (const label of ["Broken links", "Orphan notes", "Duplicate basenames", "Unused attachments"]) {
+    for (const label of [
+      "Broken links",
+      "Orphan notes",
+      "Duplicate basenames",
+      "Unused attachments",
+    ]) {
       expect(el.querySelector(`section[aria-label="${label}"] .count`)?.textContent).toBe("1");
     }
     expect(el.textContent).toContain("see [[Gone]]");

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { foldRanges, hiddenBlocks, normalizeLines, parseFoldState, serializeFoldState } from "./fold-core";
+import {
+  foldRanges,
+  hiddenBlocks,
+  normalizeLines,
+  parseFoldState,
+  serializeFoldState,
+} from "./fold-core";
 
 describe("foldRanges", () => {
   it("folds the frontmatter", () => {
@@ -74,7 +80,9 @@ describe("fold state", () => {
   });
 
   it("round-trips and drops what is malformed", () => {
-    expect(parseFoldState(serializeFoldState({ "/a.md": [3, 1] }))).toEqual({ "/a.md": [3, 1].sort((a, b) => a - b) });
+    expect(parseFoldState(serializeFoldState({ "/a.md": [3, 1] }))).toEqual({
+      "/a.md": [3, 1].sort((a, b) => a - b),
+    });
     expect(parseFoldState(null)).toEqual({});
     expect(parseFoldState("not json")).toEqual({});
     expect(parseFoldState("[1]")).toEqual({});

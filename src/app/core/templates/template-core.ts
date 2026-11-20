@@ -4,7 +4,20 @@ import { parse, parseDocument } from "yaml";
 export const DEFAULT_DATE_FORMAT = "YYYY-MM-DD";
 export const DEFAULT_TIME_FORMAT = "HH:mm";
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const pad = (n: number, width = 2) => String(Math.abs(n)).padStart(width, "0");
@@ -16,7 +29,10 @@ function ordinal(n: number): string {
 }
 
 function dayOfYear(d: Date): number {
-  return Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 0)) / 86_400_000);
+  return Math.round(
+    (Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 0)) /
+      86_400_000,
+  );
 }
 
 /** ISO 8601 week number. */
@@ -100,11 +116,14 @@ export interface TemplateContext {
  * Other `{{…}}` text stays as it is.
  */
 export function expandTemplate(text: string, ctx: TemplateContext): string {
-  return text.replace(/\{\{\s*(title|date|time)\s*(?::([^}]*))?\}\}/g, (_m, name: string, format: string | undefined) => {
-    if (name === "title") return ctx.title;
-    const fallback = name === "date" ? DEFAULT_DATE_FORMAT : DEFAULT_TIME_FORMAT;
-    return formatMoment(ctx.now, format?.trim() ? format.trim() : fallback);
-  });
+  return text.replace(
+    /\{\{\s*(title|date|time)\s*(?::([^}]*))?\}\}/g,
+    (_m, name: string, format: string | undefined) => {
+      if (name === "title") return ctx.title;
+      const fallback = name === "date" ? DEFAULT_DATE_FORMAT : DEFAULT_TIME_FORMAT;
+      return formatMoment(ctx.now, format?.trim() ? format.trim() : fallback);
+    },
+  );
 }
 
 interface Split {
@@ -121,7 +140,10 @@ function splitAt(text: string): Split {
   const rest = text.slice(fence[0].length);
   const m = close.exec(rest);
   if (!m) return { yaml: null, bodyStart: 0 };
-  return { yaml: rest.slice(0, m.index).replace(/\r?\n$/, ""), bodyStart: fence[0].length + m.index + m[0].length };
+  return {
+    yaml: rest.slice(0, m.index).replace(/\r?\n$/, ""),
+    bodyStart: fence[0].length + m.index + m[0].length,
+  };
 }
 
 export interface TextChange {
@@ -142,7 +164,12 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isBlank(value: unknown): boolean {
-  return value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
+  return (
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    (Array.isArray(value) && value.length === 0)
+  );
 }
 
 /**
@@ -174,7 +201,11 @@ function mergeFrontmatter(yaml: string | null, add: Record<string, unknown>): st
  * the cursor is inside it); the template's frontmatter is merged into the note's instead of being
  * inserted. Throws when the frontmatter of the note is not valid YAML.
  */
-export function insertTemplate(noteText: string, cursor: number, template: string): TemplateInsertion {
+export function insertTemplate(
+  noteText: string,
+  cursor: number,
+  template: string,
+): TemplateInsertion {
   const tpl = splitAt(template);
   let data: Record<string, unknown> = {};
   let merge = false;
@@ -205,7 +236,10 @@ export function insertTemplate(noteText: string, cursor: number, template: strin
     } catch {
       valid = false;
     }
-    if (!valid) throw new Error("The frontmatter of this note is not valid YAML; fix it before inserting a template.");
+    if (!valid)
+      throw new Error(
+        "The frontmatter of this note is not valid YAML; fix it before inserting a template.",
+      );
   }
   const merged = mergeFrontmatter(note.yaml, data);
   const pos = Math.max(cursor, note.bodyStart);

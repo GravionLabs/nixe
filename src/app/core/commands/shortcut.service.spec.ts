@@ -43,13 +43,24 @@ describe("ShortcutService", () => {
     write.mockReset().mockResolvedValue(undefined);
     vi.spyOn(backend, "readAppSettings").mockResolvedValue(null);
     runs.length = 0;
-    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)");
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    );
     localStorage.clear();
-    window.matchMedia = (() => ({ matches: false, addEventListener: () => undefined })) as unknown as typeof window.matchMedia;
+    window.matchMedia = (() => ({
+      matches: false,
+      addEventListener: () => undefined,
+    })) as unknown as typeof window.matchMedia;
     TestBed.resetTestingModule();
     registry = TestBed.inject(CommandRegistry);
     settings = TestBed.inject(SettingsService);
-    registry.register({ id: "one", title: "One", shortcut: "Mod+1", keys: ["Mod+1"], run: () => runs.push("one") });
+    registry.register({
+      id: "one",
+      title: "One",
+      shortcut: "Mod+1",
+      keys: ["Mod+1"],
+      run: () => runs.push("one"),
+    });
     registry.register({ id: "two", title: "Two", shortcut: "Mod+2", run: () => runs.push("two") });
     registry.register({ id: "free", title: "Free", run: () => runs.push("free") });
     shortcuts = TestBed.inject(ShortcutService);
@@ -156,7 +167,9 @@ describe("ShortcutService", () => {
   });
 
   it("applies the shortcuts of the settings file at start", async () => {
-    vi.spyOn(backend, "readAppSettings").mockResolvedValue(serializeSettings({ ...settings["snapshot"](), shortcuts: { two: "Mod+Alt+T" } }));
+    vi.spyOn(backend, "readAppSettings").mockResolvedValue(
+      serializeSettings({ ...settings["snapshot"](), shortcuts: { two: "Mod+Alt+T" } }),
+    );
     await settings.load();
     await flush();
     expect(registry.shortcutOf(command("two"))).toBe("Mod+Alt+T");

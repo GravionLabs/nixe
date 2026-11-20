@@ -113,11 +113,20 @@ describe("GitService", () => {
       await git.sync();
       expect(seen).toBe("syncing");
       expect(sync).toHaveBeenCalledWith("Ann", "ann@example.com");
-      expect(git.syncState()).toEqual({ phase: "done", message: "Synced (committed, pulled, pushed)" });
+      expect(git.syncState()).toEqual({
+        phase: "done",
+        message: "Synced (committed, pulled, pushed)",
+      });
     });
 
     it("remembers where HEAD was before a pull that brought changes", async () => {
-      const report = { committed: false, pulled: true, pushed: false, pulledFrom: "abc", conflicts: [] };
+      const report = {
+        committed: false,
+        pulled: true,
+        pushed: false,
+        pulledFrom: "abc",
+        conflicts: [],
+      };
       const sync = vi.spyOn(backend, "gitVaultSync").mockResolvedValue(report);
       await git.sync();
       expect(git.lastPull()).toEqual({ from: "abc" });
@@ -127,7 +136,12 @@ describe("GitService", () => {
     });
 
     it("says when nothing had to be done", async () => {
-      vi.spyOn(backend, "gitVaultSync").mockResolvedValue({ committed: false, pulled: false, pushed: false, conflicts: [] });
+      vi.spyOn(backend, "gitVaultSync").mockResolvedValue({
+        committed: false,
+        pulled: false,
+        pushed: false,
+        conflicts: [],
+      });
       await git.sync();
       expect(git.syncState().message).toBe("Already in sync");
     });
@@ -136,7 +150,10 @@ describe("GitService", () => {
       vi.spyOn(backend, "gitVaultSync").mockRejectedValue("sync stopped: conflict");
       const calls = vi.mocked(backend.gitVaultStatus).mock.calls.length;
       await git.sync();
-      expect(git.syncState()).toEqual({ phase: "error", message: "Sync failed: sync stopped: conflict" });
+      expect(git.syncState()).toEqual({
+        phase: "error",
+        message: "Sync failed: sync stopped: conflict",
+      });
       expect(vi.mocked(backend.gitVaultStatus).mock.calls.length).toBeGreaterThan(calls);
     });
 
@@ -166,9 +183,15 @@ describe("GitService", () => {
 
     it("ignores a second sync while one runs and does nothing without a repository", async () => {
       let finish!: () => void;
-      const sync = vi.spyOn(backend, "gitVaultSync").mockReturnValue(
-        new Promise((resolve) => (finish = () => resolve({ committed: false, pulled: false, pushed: false, conflicts: [] }))),
-      );
+      const sync = vi
+        .spyOn(backend, "gitVaultSync")
+        .mockReturnValue(
+          new Promise(
+            (resolve) =>
+              (finish = () =>
+                resolve({ committed: false, pulled: false, pushed: false, conflicts: [] })),
+          ),
+        );
       const first = git.sync();
       await git.sync();
       finish();
@@ -252,13 +275,18 @@ describe("GitService", () => {
     });
 
     it("rethrows other errors without asking", async () => {
-      await expect(git.runRemote(() => Promise.reject("network down"))).rejects.toBe("network down");
+      await expect(git.runRemote(() => Promise.reject("network down"))).rejects.toBe(
+        "network down",
+      );
       expect(git.tokenPrompt()).toBeNull();
     });
 
     it("asks for a token when none is stored and retries with it", async () => {
       vi.spyOn(backend, "gitTokenSet").mockResolvedValue();
-      const op = vi.fn().mockRejectedValueOnce("auth-required:github.com").mockResolvedValue("done");
+      const op = vi
+        .fn()
+        .mockRejectedValueOnce("auth-required:github.com")
+        .mockResolvedValue("done");
       const run = git.runRemote(op);
       await vi.waitFor(() => expect(git.tokenPrompt()).toEqual({ reason: "required" }));
       await git.saveToken("ghp_x");
@@ -296,7 +324,9 @@ describe("GitService", () => {
 describe("describeSync", () => {
   it("names the notes that kept both versions", () => {
     const report = { committed: false, pulled: true, pushed: true, conflicts: ["a.md"] };
-    expect(describeSync(report)).toBe("Synced (pulled, pushed); 1 note changed on both sides, both versions kept");
+    expect(describeSync(report)).toBe(
+      "Synced (pulled, pushed); 1 note changed on both sides, both versions kept",
+    );
     expect(describeSync({ ...report, conflicts: ["a.md", "b.md"] })).toContain("2 notes changed");
     expect(describeSync({ ...report, conflicts: [] })).toBe("Synced (pulled, pushed)");
   });

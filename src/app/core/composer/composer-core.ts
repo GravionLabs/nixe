@@ -9,14 +9,17 @@ export function headingLineAt(text: string, line: number): number | null {
   let fence: { char: string; length: number } | null = null;
   let start = 0;
   if (lines[0]?.trimEnd() === "---") {
-    const close = lines.findIndex((l, i) => i > 0 && (l.trimEnd() === "---" || l.trimEnd() === "..."));
+    const close = lines.findIndex(
+      (l, i) => i > 0 && (l.trimEnd() === "---" || l.trimEnd() === "..."),
+    );
     if (close > 0) start = close + 1;
   }
   for (let i = start; i < Math.min(line, lines.length); i++) {
     const raw = lines[i].replace(/\r$/u, "");
     const open = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(raw);
     if (fence) {
-      if (open && open[1][0] === fence.char && open[1].length >= fence.length && !open[2].trim()) fence = null;
+      if (open && open[1][0] === fence.char && open[1].length >= fence.length && !open[2].trim())
+        fence = null;
       continue;
     }
     if (open && !(open[1][0] === "`" && open[2].includes("`"))) {
@@ -31,7 +34,10 @@ export function headingLineAt(text: string, line: number): number | null {
 /** The text of the heading on `line` of `text`, without `#` marks; "" when there is none. */
 export function headingTextAt(text: string, line: number): string {
   const raw = (text.split("\n")[line - 1] ?? "").replace(/\r$/u, "");
-  return raw.replace(/^ {0,3}#{1,6}[ \t]*/u, "").replace(/[ \t]+#+[ \t]*$/u, "").trim();
+  return raw
+    .replace(/^ {0,3}#{1,6}[ \t]*/u, "")
+    .replace(/[ \t]+#+[ \t]*$/u, "")
+    .trim();
 }
 
 const INVALID_NAME_CHARS = /[\\:*?"<>|#^[\]]/gu;
@@ -49,7 +55,8 @@ export function targetNotePath(typed: string, folder: string): string | null {
   const last = parts.pop();
   if (!last) return null;
   const name = /\.md$/iu.test(last) ? last : `${last}.md`;
-  const folders = typed.includes("/") || typed.includes("\\") ? parts : [...folder.split("/").filter(Boolean)];
+  const folders =
+    typed.includes("/") || typed.includes("\\") ? parts : [...folder.split("/").filter(Boolean)];
   return [...folders, name].join("/");
 }
 

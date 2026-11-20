@@ -10,8 +10,18 @@ const render = (src: string) => md.render(src);
 
 describe("parseCalloutMarker", () => {
   it("parses type, fold marker, title and rest", () => {
-    expect(parseCalloutMarker("[!Tip]- My title\nbody")).toEqual({ type: "tip", fold: "-", title: "My title", rest: "body" });
-    expect(parseCalloutMarker("[!note]+")).toEqual({ type: "note", fold: "+", title: "", rest: "" });
+    expect(parseCalloutMarker("[!Tip]- My title\nbody")).toEqual({
+      type: "tip",
+      fold: "-",
+      title: "My title",
+      rest: "body",
+    });
+    expect(parseCalloutMarker("[!note]+")).toEqual({
+      type: "note",
+      fold: "+",
+      title: "",
+      rest: "",
+    });
     expect(parseCalloutMarker("[!note]")).toMatchObject({ fold: null });
   });
   it("rejects ordinary quotes", () => {
@@ -39,7 +49,9 @@ describe("callouts", () => {
   });
 
   it("uses the type name as default title", () => {
-    expect(render("> [!warning]\n> careful\n")).toContain('<div class="callout-title">Warning</div>');
+    expect(render("> [!warning]\n> careful\n")).toContain(
+      '<div class="callout-title">Warning</div>',
+    );
   });
 
   it("renders folded and expanded callouts", () => {
@@ -75,7 +87,15 @@ describe("callouts", () => {
   it("survives DOMPurify unchanged", () => {
     const html = render("> [!tip]- Title\n> body\n");
     const clean = DOMPurify.sanitize(html);
-    for (const part of ['class="callout callout-tip', 'data-callout="tip"', 'data-callout-fold="-"', 'role="button"', 'aria-expanded="false"', 'class="callout-title"', 'class="callout-content"']) {
+    for (const part of [
+      'class="callout callout-tip',
+      'data-callout="tip"',
+      'data-callout-fold="-"',
+      'role="button"',
+      'aria-expanded="false"',
+      'class="callout-title"',
+      'class="callout-content"',
+    ]) {
       expect(clean).toContain(part);
     }
   });

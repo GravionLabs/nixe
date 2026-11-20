@@ -33,7 +33,12 @@ function render({ vault = null, notes = [], vaults = [], openRecent = true }: Op
   TestBed.configureTestingModule({
     providers: [
       { provide: CommandRegistry, useValue: commands },
-      { provide: ShortcutService, useValue: { display: (id: string) => ({ "quick-switcher": "Ctrl+O", "new-note": "Ctrl+N" })[id] ?? "" } },
+      {
+        provide: ShortcutService,
+        useValue: {
+          display: (id: string) => ({ "quick-switcher": "Ctrl+O", "new-note": "Ctrl+N" })[id] ?? "",
+        },
+      },
       { provide: SettingsService, useValue: { recentVaults: signal(vaults) } },
       { provide: SwitcherService, useValue: { recentNotes: signal(notes) } },
       { provide: DocumentService, useValue: doc },
@@ -41,7 +46,11 @@ function render({ vault = null, notes = [], vaults = [], openRecent = true }: Op
     ],
   });
   TestBed.overrideComponent(StartComponent, {
-    set: { templateUrl: undefined, styleUrl: undefined, template: readFileSync("src/app/features/start/start.component.html", "utf8") },
+    set: {
+      templateUrl: undefined,
+      styleUrl: undefined,
+      template: readFileSync("src/app/features/start/start.component.html", "utf8"),
+    },
   });
   const fixture = TestBed.createComponent(StartComponent);
   const errors: string[] = [];
@@ -59,13 +68,22 @@ describe("StartComponent", () => {
 
   it("without a vault offers open folder, clone vault, open file and the recent vaults", () => {
     const { buttons, el } = render({ vaults: ["/home/me/notes", "/home/me/work"] });
-    expect(buttons().map((b) => b.textContent!.trim())).toEqual(["Open folder", "Clone vault", "Open file", "notes", "work"]);
+    expect(buttons().map((b) => b.textContent!.trim())).toEqual([
+      "Open folder",
+      "Clone vault",
+      "Open file",
+      "notes",
+      "work",
+    ]);
     expect(el.textContent).toContain("Recent vaults");
     expect(el.textContent).not.toContain("Recent notes");
   });
 
   it("opens a recent vault and reports one that is gone", async () => {
-    const { buttons, workspace, errors } = render({ vaults: ["/home/me/notes"], openRecent: false });
+    const { buttons, workspace, errors } = render({
+      vaults: ["/home/me/notes"],
+      openRecent: false,
+    });
     buttons()[3].click();
     await vi.waitFor(() => expect(errors).toHaveLength(1));
     expect(workspace.openRecent).toHaveBeenCalledWith("/home/me/notes");

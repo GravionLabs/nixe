@@ -58,11 +58,17 @@ export class StartComponent {
   );
 
   protected readonly notes = computed(() =>
-    this.switcher.recentNotes().slice(0, MAX_NOTES).map((path) => ({ path, label: fileLabel(path) })),
+    this.switcher
+      .recentNotes()
+      .slice(0, MAX_NOTES)
+      .map((path) => ({ path, label: fileLabel(path) })),
   );
 
   protected readonly vaults = computed(() =>
-    this.settings.recentVaults().slice(0, MAX_VAULTS).map((path) => ({ path, name: basename(path) })),
+    this.settings
+      .recentVaults()
+      .slice(0, MAX_VAULTS)
+      .map((path) => ({ path, name: basename(path) })),
   );
 
   protected run(id: string): void {

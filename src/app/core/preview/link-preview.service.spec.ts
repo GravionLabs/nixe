@@ -54,7 +54,10 @@ describe("LinkPreviewService", () => {
     service.hover("A", anchor, true);
     expect(service.shown()).toBeNull();
     await settle(PREVIEW_DELAY_MS);
-    expect(service.shown()).toMatchObject({ html: "<p># A\n\nintro\n\n## Sec\n\nsection text</p>", path: "/v/A.md" });
+    expect(service.shown()).toMatchObject({
+      html: "<p># A\n\nintro\n\n## Sec\n\nsection text</p>",
+      path: "/v/A.md",
+    });
   });
 
   it("shows nothing without the modifier in modifier mode, and always in always mode", async () => {

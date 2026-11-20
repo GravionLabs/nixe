@@ -52,7 +52,9 @@ export class BacklinksService {
   });
 
   /** Changes whenever the lists must be read again: navigation, index state, index updates. */
-  readonly key = computed(() => `${this.notePath()}|${this.index.status().state}|${this.index.revision()}`);
+  readonly key = computed(
+    () => `${this.notePath()}|${this.index.status().state}|${this.index.revision()}`,
+  );
 
   readonly unresolvedCount = computed(() => this.outgoing().filter((l) => !l.resolved).length);
 
@@ -67,7 +69,10 @@ export class BacklinksService {
       return;
     }
     // allSettled: when both fail, neither rejection may stay unhandled.
-    const [backResult, metaResult] = await Promise.allSettled([backend.backlinks(path), backend.noteMeta(path)]);
+    const [backResult, metaResult] = await Promise.allSettled([
+      backend.backlinks(path),
+      backend.noteMeta(path),
+    ]);
     if (request !== this.request) return;
     try {
       if (backResult.status === "rejected") throw backResult.reason;
@@ -121,5 +126,11 @@ export class BacklinksService {
 function toOutgoing(link: IndexedLink): OutgoingLink {
   const name = link.target ? basename(link.target) : "";
   const label = link.target ? name.replace(/\.md$/i, "") : `#${link.heading ?? ""}`;
-  return { label, resolved: link.resolved, heading: link.heading, line: link.line, kind: link.kind };
+  return {
+    label,
+    resolved: link.resolved,
+    heading: link.heading,
+    line: link.line,
+    kind: link.kind,
+  };
 }

@@ -16,7 +16,10 @@ export interface OutlineNode extends OutlineHeading {
 /** The text of a heading without its inline Markdown markers (links, emphasis, code). */
 function plainText(text: string): string {
   return text
-    .replace(/!?\[\[([^\]|]*?)(?:\|([^\]]*))?\]\]/g, (_m, target: string, alias?: string) => alias ?? target)
+    .replace(
+      /!?\[\[([^\]|]*?)(?:\|([^\]]*))?\]\]/g,
+      (_m, target: string, alias?: string) => alias ?? target,
+    )
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[*_`~]+/g, "")
     .replace(/\s+/g, " ")
@@ -40,7 +43,8 @@ export function outlineOf(text: string): OutlineHeading[] {
       const char = f[1]![0]!;
       const size = f[1]!.length;
       if (fence === null) fence = { char, size };
-      else if (fence.char === char && size >= fence.size && /^ {0,3}[`~]+\s*$/.test(line)) fence = null;
+      else if (fence.char === char && size >= fence.size && /^ {0,3}[`~]+\s*$/.test(line))
+        fence = null;
       continue;
     }
     if (fence !== null) continue;
@@ -69,7 +73,10 @@ export function buildOutline(headings: readonly OutlineHeading[]): OutlineNode[]
  * Index of the heading the reader is in: the last one that starts at or above `topLine` (1-based).
  * -1 before the first heading or without a position.
  */
-export function currentHeading(headings: readonly OutlineHeading[], topLine: number | null): number {
+export function currentHeading(
+  headings: readonly OutlineHeading[],
+  topLine: number | null,
+): number {
   if (topLine === null) return -1;
   let current = -1;
   for (let i = 0; i < headings.length; i++) {

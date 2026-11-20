@@ -18,7 +18,8 @@ aliases: [x, y]
 text
 `;
 
-const set = (text: string, key: string, value: unknown) => editFrontmatter(text, { kind: "set", key, value });
+const set = (text: string, key: string, value: unknown) =>
+  editFrontmatter(text, { kind: "set", key, value });
 
 describe("editFrontmatter set", () => {
   it("changes only the edited value and keeps comments, order and untouched formatting", () => {
@@ -57,8 +58,12 @@ describe("editFrontmatter set", () => {
 
   it("refuses to change a value that an alias points to", () => {
     expect(() => set("---\na: &x 1\nb: *x\n---\n", "a", 3)).toThrow(/alias/);
-    expect(() => editFrontmatter("---\na: &x 1\nb: *x\n---\n", { kind: "remove", key: "a" })).toThrow(/alias/);
-    expect(editFrontmatter("---\na: &x 1\nb: *x\n---\n", { kind: "remove", key: "b" })).toBe("---\na: &x 1\n---\n");
+    expect(() =>
+      editFrontmatter("---\na: &x 1\nb: *x\n---\n", { kind: "remove", key: "a" }),
+    ).toThrow(/alias/);
+    expect(editFrontmatter("---\na: &x 1\nb: *x\n---\n", { kind: "remove", key: "b" })).toBe(
+      "---\na: &x 1\n---\n",
+    );
   });
 
   it("appends a new key at the end of the frontmatter", () => {
@@ -126,7 +131,9 @@ describe("editFrontmatter rename", () => {
   });
 
   it("refuses an existing name", () => {
-    expect(() => editFrontmatter(NOTE, { kind: "rename", from: "title", to: "count" })).toThrow(/already exists/);
+    expect(() => editFrontmatter(NOTE, { kind: "rename", from: "title", to: "count" })).toThrow(
+      /already exists/,
+    );
   });
 
   it("ignores an unknown key", () => {
@@ -136,19 +143,27 @@ describe("editFrontmatter rename", () => {
 
 describe("editFrontmatter remove", () => {
   it("removes a scalar line only", () => {
-    expect(editFrontmatter(NOTE, { kind: "remove", key: "count" })).toBe(NOTE.replace("count: 3\n", ""));
+    expect(editFrontmatter(NOTE, { kind: "remove", key: "count" })).toBe(
+      NOTE.replace("count: 3\n", ""),
+    );
   });
 
   it("removes a block list with all its items", () => {
-    expect(editFrontmatter(NOTE, { kind: "remove", key: "tags" })).toBe(NOTE.replace("tags:\n  - a\n  - b\n", ""));
+    expect(editFrontmatter(NOTE, { kind: "remove", key: "tags" })).toBe(
+      NOTE.replace("tags:\n  - a\n  - b\n", ""),
+    );
   });
 
   it("removes the last key and leaves an empty frontmatter", () => {
-    expect(editFrontmatter("---\na: 1\n---\nbody\n", { kind: "remove", key: "a" })).toBe("---\n---\nbody\n");
+    expect(editFrontmatter("---\na: 1\n---\nbody\n", { kind: "remove", key: "a" })).toBe(
+      "---\n---\nbody\n",
+    );
   });
 
   it("removes the key before the closing fence without a final newline in the block", () => {
-    expect(editFrontmatter("---\na: 1\nb: 2\n---\n", { kind: "remove", key: "b" })).toBe("---\na: 1\n---\n");
+    expect(editFrontmatter("---\na: 1\nb: 2\n---\n", { kind: "remove", key: "b" })).toBe(
+      "---\na: 1\n---\n",
+    );
   });
 
   it("leaves a note without frontmatter and unknown keys alone", () => {

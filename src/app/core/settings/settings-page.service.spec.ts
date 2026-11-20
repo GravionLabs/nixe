@@ -28,36 +28,49 @@ describe("settings page", () => {
   beforeEach(() => {
     vaultRoot.set(null);
     obsidian.mockReset();
-    window.matchMedia = (() => ({ matches: false, addEventListener: () => undefined })) as unknown as typeof window.matchMedia;
+    window.matchMedia = (() => ({
+      matches: false,
+      addEventListener: () => undefined,
+    })) as unknown as typeof window.matchMedia;
     localStorage.clear();
     TestBed.resetTestingModule();
-    TestBed.configureTestingModule({ providers: [{ provide: WorkspaceService, useValue: { vaultRoot } }] });
+    TestBed.configureTestingModule({
+      providers: [{ provide: WorkspaceService, useValue: { vaultRoot } }],
+    });
     settings = TestBed.inject(SettingsService);
-    TestBed.inject(CommandRegistry).register({ id: "x", title: "Do x", shortcut: "Mod+,", run: () => undefined });
+    TestBed.inject(CommandRegistry).register({
+      id: "x",
+      title: "Do x",
+      shortcut: "Mod+,",
+      run: () => undefined,
+    });
     TestBed.inject(CommandRegistry).register({ id: "a", title: "Do a", run: () => undefined });
     page = TestBed.inject(SettingsPageService);
   });
 
   it("registers the six sections in order", () => {
-    expect(TestBed.inject(SettingsRegistry).sections().map((s) => s.title)).toEqual([
-      "General",
-      "Editor",
-      "Files and links",
-      "Appearance",
-      "Git",
-      "Shortcuts",
-    ]);
+    expect(
+      TestBed.inject(SettingsRegistry)
+        .sections()
+        .map((s) => s.title),
+    ).toEqual(["General", "Editor", "Files and links", "Appearance", "Git", "Shortcuts"]);
   });
 
   it("shows the running version read-only in General", () => {
     TestBed.inject(UpdateService).version.set("1.4.0");
-    const item = TestBed.inject(SettingsRegistry).shown().flatMap((s) => s.items).find((i) => i.id === "version")!;
+    const item = TestBed.inject(SettingsRegistry)
+      .shown()
+      .flatMap((s) => s.items)
+      .find((i) => i.id === "version")!;
     if (item.kind !== "readonly") throw new Error("readonly expected");
     expect(item.value()).toBe("1.4.0");
   });
 
   it("changes apply to the settings at once", () => {
-    const theme = TestBed.inject(SettingsRegistry).shown().flatMap((s) => s.items).find((i) => i.id === "theme")!;
+    const theme = TestBed.inject(SettingsRegistry)
+      .shown()
+      .flatMap((s) => s.items)
+      .find((i) => i.id === "theme")!;
     if (theme.kind !== "select") throw new Error("select expected");
     theme.set("dark");
     expect(settings.themeMode()).toBe("dark");
@@ -67,8 +80,14 @@ describe("settings page", () => {
   it("lists the themes, switches a theme and each snippet, and sets accent and fonts (#114)", async () => {
     const appearance = TestBed.inject(AppearanceService);
     appearance.themes.set([{ name: "sepia", modified: 1, css: "" }]);
-    appearance.snippets.set([{ name: "wide", modified: 1, css: "" }, { name: "round", modified: 1, css: "" }]);
-    const items = () => TestBed.inject(SettingsRegistry).shown().find((s) => s.id === "appearance")!.items;
+    appearance.snippets.set([
+      { name: "wide", modified: 1, css: "" },
+      { name: "round", modified: 1, css: "" },
+    ]);
+    const items = () =>
+      TestBed.inject(SettingsRegistry)
+        .shown()
+        .find((s) => s.id === "appearance")!.items;
     const item = (id: string) => items().find((i) => i.id === id)!;
 
     const theme = item("theme-file");
@@ -88,14 +107,28 @@ describe("settings page", () => {
     (item("accent-color") as { set(v: string): void }).set("#ABCDEF");
     (item("font-text") as { set(v: string): void }).set("Inter");
     (item("font-mono") as { set(v: string): void }).set("a;b");
-    expect([settings.accentColor(), settings.fontText(), settings.fontMono()]).toEqual(["#abcdef", "Inter", ""]);
+    expect([settings.accentColor(), settings.fontText(), settings.fontMono()]).toEqual([
+      "#abcdef",
+      "Inter",
+      "",
+    ]);
   });
 
   it("shows the Obsidian settings read-only with their source", async () => {
     vaultRoot.set("/v");
     obsidian.mockResolvedValue([
-      { id: "template-folder", label: "Template folder", value: "T", source: ".obsidian/templates.json" },
-      { id: "daily-folder", label: "Daily notes folder", value: null, source: ".obsidian/daily-notes.json" },
+      {
+        id: "template-folder",
+        label: "Template folder",
+        value: "T",
+        source: ".obsidian/templates.json",
+      },
+      {
+        id: "daily-folder",
+        label: "Daily notes folder",
+        value: null,
+        source: ".obsidian/daily-notes.json",
+      },
     ]);
     await page.open();
     const items = page.sections().find((s) => s.id === "files")!.items;
@@ -120,7 +153,9 @@ describe("settings page", () => {
     page.select("git");
     expect(page.listed().map((s) => s.id)).toEqual(["git"]);
     page.query.set("dark");
-    expect(page.listed().map((s) => [s.id, s.items.map((i) => i.id)])).toEqual([["appearance", ["theme"]]]);
+    expect(page.listed().map((s) => [s.id, s.items.map((i) => i.id)])).toEqual([
+      ["appearance", ["theme"]],
+    ]);
     page.query.set("zzz");
     expect(page.listed()).toEqual([]);
   });

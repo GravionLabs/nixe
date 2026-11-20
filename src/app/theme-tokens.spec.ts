@@ -17,12 +17,17 @@ describe("helix tokens", () => {
   it("are loaded before the app styles", () => {
     const angular = JSON.parse(readFileSync(resolve(root, "angular.json"), "utf8"));
     const styles: string[] = angular.projects.nixe.architect.build.options.styles;
-    expect(styles.indexOf("node_modules/@gravionlabs/helix-ui/tokens.css")).toBeGreaterThanOrEqual(0);
-    expect(styles.indexOf("node_modules/@gravionlabs/helix-ui/tokens.css")).toBeLessThan(styles.indexOf("src/styles.scss"));
+    expect(styles.indexOf("node_modules/@gravionlabs/helix-ui/tokens.css")).toBeGreaterThanOrEqual(
+      0,
+    );
+    expect(styles.indexOf("node_modules/@gravionlabs/helix-ui/tokens.css")).toBeLessThan(
+      styles.indexOf("src/styles.scss"),
+    );
   });
 
   it("are the only colour variables: no own chrome variable, no data-theme", () => {
-    const own = /--(bg|chrome|fg|muted|border|hover|accent|on-accent|toast-bg|toast-fg|error-bg|error-border|error-fg)(?![\w-])/;
+    const own =
+      /--(bg|chrome|fg|muted|border|hover|accent|on-accent|toast-bg|toast-fg|error-bg|error-border|error-fg)(?![\w-])/;
     for (const file of sources(resolve(root, "src"))) {
       const text = readFileSync(file, "utf8");
       expect(text, file).not.toMatch(own);
@@ -36,7 +41,8 @@ function declarations(scope: "light" | "dark"): Map<string, string> {
   const out = new Map<string, string>();
   const re = scope === "dark" ? /\.app-dark\{([^}]*)\}/g : /:root,:host\{([^}]*)\}/g;
   for (const [, body] of tokens.matchAll(re)) {
-    for (const [, name, value] of body.matchAll(/(--h-[a-z0-9-]+):([^;]+);/g)) out.set(name, value.trim());
+    for (const [, name, value] of body.matchAll(/(--h-[a-z0-9-]+):([^;]+);/g))
+      out.set(name, value.trim());
   }
   return out;
 }
@@ -60,7 +66,10 @@ function flatten(scope: "light" | "dark", value: string): string {
   const top = rgb(resolveColor(scope, mix[1]));
   const under = rgb(resolveColor(scope, "--h-content-background"));
   const alpha = 1 - Number(mix[2]) / 100;
-  const channel = (i: number) => Math.round(top[i] * alpha + under[i] * (1 - alpha)).toString(16).padStart(2, "0");
+  const channel = (i: number) =>
+    Math.round(top[i] * alpha + under[i] * (1 - alpha))
+      .toString(16)
+      .padStart(2, "0");
   return `#${channel(0)}${channel(1)}${channel(2)}`;
 }
 
@@ -73,7 +82,9 @@ function rgb(hex: string): number[] {
 function luminance(hex: string): number {
   const c = hex.replace("#", "");
   const full = c.length === 3 ? [...c].map((x) => x + x).join("") : c;
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  const [r, g, b] = [0, 2, 4]
+    .map((i) => parseInt(full.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 

@@ -6,7 +6,9 @@ const render = (src: string, vaultFiles?: string[]) => md.render(src, { vaultFil
 
 describe("wikilink plugin", () => {
   it("renders the supported forms", () => {
-    const html = render("[[Note]] [[Note|Alias]] [[Note#Head]] [[Note#^b1]] [[folder/Note]] [[Note.md]]");
+    const html = render(
+      "[[Note]] [[Note|Alias]] [[Note#Head]] [[Note#^b1]] [[folder/Note]] [[Note.md]]",
+    );
     expect(html).toContain('<a class="wikilink" data-target="Note" href="#">Note</a>');
     expect(html).toContain('data-target="Note" href="#">Alias</a>');
     expect(html).toContain('data-target="Note#Head"');

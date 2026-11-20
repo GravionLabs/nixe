@@ -44,7 +44,11 @@ function render() {
     ],
   });
   TestBed.overrideComponent(ChangesComponent, {
-    set: { templateUrl: undefined, styleUrl: undefined, template: readFileSync("src/app/features/changes/changes.component.html", "utf8") },
+    set: {
+      templateUrl: undefined,
+      styleUrl: undefined,
+      template: readFileSync("src/app/features/changes/changes.component.html", "utf8"),
+    },
   });
   const fixture = TestBed.createComponent(ChangesComponent);
   fixture.detectChanges();
@@ -58,7 +62,9 @@ describe("ChangesComponent", () => {
 
   it("lists changed, added and deleted notes with the diff of the opened one", () => {
     const { el } = render();
-    const names = [...el.querySelectorAll(".entry")].map((b) => b.textContent!.replace(/\s+/g, " ").trim());
+    const names = [...el.querySelectorAll(".entry")].map((b) =>
+      b.textContent!.replace(/\s+/g, " ").trim(),
+    );
     expect(names).toEqual(["Ma.md", "Dgone.md"]);
     expect(el.querySelector(".diff")!.textContent).toContain("three");
     expect(el.querySelectorAll(".diff .row.add")).toHaveLength(1);

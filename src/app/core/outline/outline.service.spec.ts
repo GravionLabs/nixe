@@ -15,7 +15,9 @@ import { OutlineService } from "./outline.service";
 function setup(text: string) {
   const content = signal(text);
   TestBed.resetTestingModule();
-  TestBed.configureTestingModule({ providers: [{ provide: DocumentService, useValue: { content } }] });
+  TestBed.configureTestingModule({
+    providers: [{ provide: DocumentService, useValue: { content } }],
+  });
   return { outline: TestBed.inject(OutlineService), content };
 }
 

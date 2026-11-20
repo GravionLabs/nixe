@@ -15,16 +15,28 @@ describe("views registry", () => {
   it("puts the views at the top, the actions at the bottom; outline and backlinks are not in it", () => {
     const top = VIEWS.filter((v) => v.position === "top").map((v) => v.id);
     expect(top).toEqual(["files", "search", "bookmarks", "git", "history"]);
-    expect(VIEWS.filter((v) => v.position === "bottom").map((v) => v.id)).toEqual(["daily-note", "health", "settings"]);
+    expect(VIEWS.filter((v) => v.position === "bottom").map((v) => v.id)).toEqual([
+      "daily-note",
+      "health",
+      "settings",
+    ]);
     expect(findView("command-palette")).toBeUndefined();
     expect(VIEWS.filter((v) => v.position === "top").every((v) => v.kind === "view")).toBe(true);
-    expect(VIEWS.filter((v) => v.position === "bottom").every((v) => v.kind === "action")).toBe(true);
+    expect(VIEWS.filter((v) => v.position === "bottom").every((v) => v.kind === "action")).toBe(
+      true,
+    );
     expect(findView("outline")).toBeUndefined();
     expect(findView("backlinks")).toBeUndefined();
   });
 
   it("fills the sidebar with files, search, bookmarks, Git and the note history; health is a tab, the rest are actions", () => {
-    expect(VIEWS.filter((v) => isSidebarView(v.id)).map((v) => v.id)).toEqual(["files", "search", "bookmarks", "git", "history"]);
+    expect(VIEWS.filter((v) => isSidebarView(v.id)).map((v) => v.id)).toEqual([
+      "files",
+      "search",
+      "bookmarks",
+      "git",
+      "history",
+    ]);
     expect(findView("health")?.placement).toBe("tab");
     expect(findView("daily-note")?.kind).toBe("action");
     expect(findView("settings")?.command).toBe("open-settings");

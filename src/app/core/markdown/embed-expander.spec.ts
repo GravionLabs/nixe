@@ -76,8 +76,13 @@ describe("expandEmbeds", () => {
   it("records the real file line of a task, also when the block marker was stripped", async () => {
     const root = document.createElement("div");
     root.innerHTML = embed("Dup#^b1");
-    const li = { ...deps, render: () => '<ul><li class="task-list-item" data-line="0">milk</li></ul>' };
+    const li = {
+      ...deps,
+      render: () => '<ul><li class="task-list-item" data-line="0">milk</li></ul>',
+    };
     await expandEmbeds(root, li, ["Doc.md"]);
-    expect(root.querySelector<HTMLElement>("li")!.dataset["srcLine"]).toBe(taskShape("- [ ] milk ^b1"));
+    expect(root.querySelector<HTMLElement>("li")!.dataset["srcLine"]).toBe(
+      taskShape("- [ ] milk ^b1"),
+    );
   });
 });

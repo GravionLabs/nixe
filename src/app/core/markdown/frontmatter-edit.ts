@@ -53,7 +53,9 @@ function lineContentEnd(yamlText: string, end: number): number {
 function guardAnchor(pair: Pair, yamlText: string): void {
   const anchor = (pair.value as { anchor?: string } | null)?.anchor;
   if (anchor && yamlText.includes(`*${anchor}`)) {
-    throw new Error(`The value of "${String(keyOf(pair))}" is referenced by an alias and cannot be changed here.`);
+    throw new Error(
+      `The value of "${String(keyOf(pair))}" is referenced by an alias and cannot be changed here.`,
+    );
   }
 }
 
@@ -82,7 +84,8 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
   const doc = parseDocument(yamlText);
   if (doc.errors.length) throw new Error(doc.errors[0].message);
   const root = doc.contents;
-  if (root !== null && !isMap(root)) throw new Error("Frontmatter must be a YAML mapping (key: value).");
+  if (root !== null && !isMap(root))
+    throw new Error("Frontmatter must be a YAML mapping (key: value).");
   const isBlock = root === null || !root.flow;
   const pairs = root?.items ?? [];
   const find = (key: string): Pair | undefined => pairs.find((p) => keyOf(p) === key);
@@ -92,13 +95,22 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
 
   if (!isBlock) return flowFallback(text, block, doc, edit, eol);
 
-  const pair = edit.kind === "set" ? find(edit.key) : edit.kind === "rename" ? find(edit.from) : find(edit.key);
+  const pair =
+    edit.kind === "set"
+      ? find(edit.key)
+      : edit.kind === "rename"
+        ? find(edit.from)
+        : find(edit.key);
 
   switch (edit.kind) {
     case "set": {
       if (!pair) {
         const sep = yamlText === "" || /\n$/.test(yamlText) ? "" : eol;
-        return splice(yamlText.length, yamlText.length, `${sep}${lines(entry(edit.key, edit.value))}${eol}`);
+        return splice(
+          yamlText.length,
+          yamlText.length,
+          `${sep}${lines(entry(edit.key, edit.value))}${eol}`,
+        );
       }
       guardAnchor(pair, yamlText);
       const keyRange = (pair.key as { range: [number, number, number] }).range;
@@ -108,13 +120,18 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
         // `key:` without a value: replace through the colon and keep what follows (a comment).
         const end = yamlText.indexOf(":", keyRange[1]) + 1;
         const next = yamlText[end];
-        return splice(keyRange[0], end, next === undefined || /[ \t\r\n]/.test(next) ? written : `${written} `);
+        return splice(
+          keyRange[0],
+          end,
+          next === undefined || /[ \t\r\n]/.test(next) ? written : `${written} `,
+        );
       }
       return splice(keyRange[0], lineContentEnd(yamlText, valueRange[1]), written);
     }
     case "rename": {
       if (!pair) return text;
-      if (edit.to !== edit.from && find(edit.to)) throw new Error(`The property "${edit.to}" already exists.`);
+      if (edit.to !== edit.from && find(edit.to))
+        throw new Error(`The property "${edit.to}" already exists.`);
       const range = (pair.key as { range: [number, number, number] }).range;
       return splice(range[0], range[1], stringify(edit.to).replace(/\n$/, ""));
     }
@@ -132,7 +149,13 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
 }
 
 /** A flow mapping (`{a: 1}`) has no lines of its own: the document is written again. */
-function flowFallback(text: string, block: Block, doc: ReturnType<typeof parseDocument>, edit: PropertyEdit, eol: string): string {
+function flowFallback(
+  text: string,
+  block: Block,
+  doc: ReturnType<typeof parseDocument>,
+  edit: PropertyEdit,
+  eol: string,
+): string {
   switch (edit.kind) {
     case "set":
       doc.set(edit.key, edit.value);
@@ -145,7 +168,8 @@ function flowFallback(text: string, block: Block, doc: ReturnType<typeof parseDo
       if (!isMap(map)) return text;
       const pair = map.items.find((p) => keyOf(p) === edit.from);
       if (!pair) return text;
-      if (edit.to !== edit.from && map.has(edit.to)) throw new Error(`The property "${edit.to}" already exists.`);
+      if (edit.to !== edit.from && map.has(edit.to))
+        throw new Error(`The property "${edit.to}" already exists.`);
       pair.key = doc.createNode(edit.to);
       break;
     }

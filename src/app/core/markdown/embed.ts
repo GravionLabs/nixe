@@ -2,7 +2,16 @@ import { splitFrontmatter } from "./frontmatter";
 import { extname, isMarkdownPath } from "./paths";
 import { parseWikilinkTarget } from "./wikilink-resolver";
 
-const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".avif"]);
+const IMAGE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".svg",
+  ".webp",
+  ".bmp",
+  ".avif",
+]);
 
 export type EmbedKind = "note" | "image" | "file";
 
@@ -21,7 +30,11 @@ export function parseEmbed(inner: string): Embed | null {
   if (!target) return null;
   const { note } = parseWikilinkTarget(target);
   const ext = extname(note);
-  const kind: EmbedKind = IMAGE_EXTENSIONS.has(ext) ? "image" : !ext || isMarkdownPath(note) ? "note" : "file";
+  const kind: EmbedKind = IMAGE_EXTENSIONS.has(ext)
+    ? "image"
+    : !ext || isMarkdownPath(note)
+      ? "note"
+      : "file";
   let width: number | null = null;
   let height: number | null = null;
   const size = /^(\d+)(?:x(\d+))?$/.exec(parts[parts.length - 1] ?? "");
@@ -102,9 +115,11 @@ export function blockAt(text: string, id: string): NotePart | null {
       return s < 0 ? null : { text: lines.slice(b, s + 1).join("\n"), start: b };
     }
     if (!marker.test(lines[i])) continue;
-    if (/^\s*([-*+]|\d+[.)])\s/.test(lines[i])) return { text: lines[i].replace(marker, ""), start: i };
+    if (/^\s*([-*+]|\d+[.)])\s/.test(lines[i]))
+      return { text: lines[i].replace(marker, ""), start: i };
     let start = i;
-    while (start > 0 && lines[start - 1].trim() !== "" && !HEADING_RE.test(lines[start - 1])) start--;
+    while (start > 0 && lines[start - 1].trim() !== "" && !HEADING_RE.test(lines[start - 1]))
+      start--;
     const block = lines.slice(start, i + 1);
     block[block.length - 1] = lines[i].replace(marker, "");
     return { text: block.join("\n"), start };

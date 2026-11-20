@@ -40,7 +40,9 @@ export function frontmatterTags(data: Record<string, unknown>): string[] {
         ? value.split(/[,\s]+/)
         : [];
     for (const item of items) {
-      const tag = String(item ?? "").trim().replace(/^#/, "");
+      const tag = String(item ?? "")
+        .trim()
+        .replace(/^#/, "");
       if (tag) out.push(tag);
     }
   }

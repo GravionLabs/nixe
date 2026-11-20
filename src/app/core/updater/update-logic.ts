@@ -11,7 +11,10 @@ export function isOfferable(current: string, candidate: string): boolean {
 /** The step that failed, named in the message. */
 export type UpdateStep = "check" | "update";
 
-const STEP_TEXT: Record<UpdateStep, string> = { check: "Check for updates failed", update: "Update failed" };
+const STEP_TEXT: Record<UpdateStep, string> = {
+  check: "Check for updates failed",
+  update: "Update failed",
+};
 
 export function failureMessage(step: UpdateStep, err: unknown): string {
   const detail = err instanceof Error ? err.message : String(err);

@@ -70,7 +70,10 @@ describe("AutoSaver", () => {
 
   it("keeps the text dirty and reports when the write fails", async () => {
     const onError = vi.fn();
-    const write = vi.fn().mockRejectedValueOnce(new Error("disk full")).mockResolvedValue(undefined);
+    const write = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("disk full"))
+      .mockResolvedValue(undefined);
     const saver = new AutoSaver({ write, onError });
     saver.change("t");
     await saver.flush();
@@ -273,12 +276,23 @@ describe("changedRange", () => {
   });
 
   it("replaces only the middle", () => {
-    expect(changedRange("hello world", "hello brave world")).toEqual({ from: 6, to: 6, insert: "brave " });
+    expect(changedRange("hello world", "hello brave world")).toEqual({
+      from: 6,
+      to: 6,
+      insert: "brave ",
+    });
     expect(changedRange("abcd", "ad")).toEqual({ from: 1, to: 3, insert: "" });
   });
 
   it("turns one text into the other", () => {
-    for (const [a, b] of [["", "x"], ["x", ""], ["aaa", "aa"], ["aa", "aaa"], ["abc", "xyz"], ["a\nb", "a\nc\nb"]]) {
+    for (const [a, b] of [
+      ["", "x"],
+      ["x", ""],
+      ["aaa", "aa"],
+      ["aa", "aaa"],
+      ["abc", "xyz"],
+      ["a\nb", "a\nc\nb"],
+    ]) {
       expect(apply(a, b)).toBe(b);
     }
   });

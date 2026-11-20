@@ -10,8 +10,10 @@
 // The look that themes and snippets change (docs/theming.md). Colours stay the `--h-*` tokens; the
 // settings (accent colour, fonts) and a theme override these `--nixe-*` variables.
 :root {
-  --nixe-font-text: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
-  --nixe-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --nixe-font-text:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --nixe-font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --nixe-font-size: 14px;
   --nixe-line-height: 1.5;
   --nixe-radius: 6px;

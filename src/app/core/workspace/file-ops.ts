@@ -60,11 +60,13 @@ export function planMove(sources: readonly string[], dir: string): PlannedMove[]
   const moves: PlannedMove[] = [];
   const names = new Set<string>();
   for (const from of topLevelPaths(sources)) {
-    if (dir === from || dir.startsWith(from + "/")) throw new Error("A folder cannot be moved into itself.");
+    if (dir === from || dir.startsWith(from + "/"))
+      throw new Error("A folder cannot be moved into itself.");
     const slash = from.lastIndexOf("/");
     if (from.slice(0, slash) === dir) continue;
     const name = from.slice(slash + 1);
-    if (names.has(name.toLowerCase())) throw new Error(`Not moved: more than one entry is named ${name}.`);
+    if (names.has(name.toLowerCase()))
+      throw new Error(`Not moved: more than one entry is named ${name}.`);
     names.add(name.toLowerCase());
     moves.push({ from, to: `${dir}/${name}` });
   }

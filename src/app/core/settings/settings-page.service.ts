@@ -28,7 +28,11 @@ export class SettingsPageService {
     const updater = inject(UpdateService);
     const appearance = inject(AppearanceService);
     const sections = builtinSections({
-      appearance: { themes: () => appearance.themes(), snippets: () => appearance.snippets(), folder: () => appearance.folder() },
+      appearance: {
+        themes: () => appearance.themes(),
+        snippets: () => appearance.snippets(),
+        folder: () => appearance.folder(),
+      },
       settings: inject(SettingsService),
       obsidian: () => this.obsidian(),
       commands: () => commands.all(),

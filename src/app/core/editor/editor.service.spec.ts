@@ -10,7 +10,7 @@ import { EditorService } from "./editor.service";
 
 function make(path: string | null) {
   const doc = { path: signal(path), pendingLine: signal<number | null>(null) };
-    const service = Object.create(EditorService.prototype) as EditorService;
+  const service = Object.create(EditorService.prototype) as EditorService;
   Object.assign(service, {
     doc,
     editing: signal(false),
