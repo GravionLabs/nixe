@@ -1,7 +1,7 @@
 <hx-dialog
   [visible]="true"
   (hidden)="palette.close()"
-  ariaLabel="Command palette"
+  ariaLabel="Palette"
   [closable]="false"
   dismissableMask
   position="top"
@@ -10,8 +10,8 @@
   <input
     #input
     type="text"
-    placeholder="Run a command…"
-    aria-label="Find a command by title"
+    [placeholder]="placeholder()"
+    aria-label="Find a note, or type a prefix: > commands, @ headings, # tags, / templates"
     role="combobox"
     aria-expanded="true"
     aria-controls="palette-list"
@@ -20,24 +20,82 @@
     (keydown)="onKeydown($event)"
   />
   <ul id="palette-list" role="listbox">
-    @for (command of palette.matches(); track command.id; let i = $index) {
+    @for (item of palette.items(); track key(item); let i = $index) {
       <li
         role="option"
         [attr.aria-selected]="i === palette.selected()"
         [class.selected]="i === palette.selected()"
       >
-        <button type="button" tabindex="-1" (click)="palette.run(command)">
-          <span class="name">{{ command.title }}</span>
-          @if (shortcuts.keys(command.id); as keys) {
-            @if (keys.length) {
-              <hx-kbd class="shortcut" [keys]="keys" size="sm" />
-            }
+        @switch (item.kind) {
+          @case ("note") {
+            <button type="button" tabindex="-1" (click)="run(item)" [title]="item.match.entry.path">
+              <span class="name">
+                @for (part of parts(item.match.label, item.match.positions); track $index) {
+                  <span [class.hit]="part.matched">{{ part.text }}</span>
+                }
+              </span>
+              @if (item.match.isAlias) {
+                <span class="alias">alias of {{ item.match.entry.title }}</span>
+              }
+              <span class="path" [title]="item.match.entry.path">
+                @if (item.match.entry.root) {
+                  <span class="root">{{ item.match.entry.root }}</span>
+                }
+                {{ item.match.entry.path }}
+              </span>
+            </button>
           }
-        </button>
+          @case ("command") {
+            <button type="button" tabindex="-1" (click)="run(item)">
+              <span class="name">{{ item.command.title }}</span>
+              @if (shortcuts.keys(item.command.id); as keys) {
+                @if (keys.length) {
+                  <hx-kbd class="shortcut" [keys]="keys" size="sm" />
+                }
+              }
+            </button>
+          }
+          @case ("heading") {
+            <button type="button" tabindex="-1" (click)="run(item)">
+              <span class="level">H{{ item.heading.level }}</span>
+              <span class="name">{{ item.heading.text }}</span>
+            </button>
+          }
+          @case ("tag") {
+            <button type="button" tabindex="-1" (click)="run(item)">
+              <span class="name">#{{ item.tag.tag.replace("#", "") }}</span>
+              <span class="count">{{ item.tag.count }}</span>
+            </button>
+          }
+          @case ("template") {
+            <button type="button" tabindex="-1" (click)="run(item)" [title]="item.entry.path">
+              <span class="name">{{ item.entry.name }}</span>
+              <span class="path">{{ item.entry.path }}</span>
+            </button>
+          }
+          @case ("vault") {
+            <button type="button" tabindex="-1" (click)="run(item)">
+              <span class="name">{{ vaultName(item.path) }}</span>
+              <span class="path">{{ item.path }}</span>
+            </button>
+          }
+        }
       </li>
     } @empty {
-      <li class="empty">No matching command</li>
+      <li class="empty">
+        @if (palette.mode() === "notes" && palette.text().trim()) {
+          <button type="button" (click)="create()">
+            Create “{{ palette.text().trim() }}” (Enter)
+          </button>
+        } @else {
+          {{ palette.notice() ?? emptyText() }}
+        }
+      </li>
     }
   </ul>
-  <app-key-hints [hints]="hints" />
+  <div class="status" role="status" aria-live="polite">{{ announcement() }}</div>
+  @if (palette.truncated()) {
+    <div class="more">More notes match; type more to narrow the list.</div>
+  }
+  <app-key-hints [hints]="hints()" />
 </hx-dialog>

@@ -55,14 +55,11 @@ describe("helix overlays", () => {
     expect(own.map(({ path }) => rel(path))).toEqual([]);
   });
 
-  it.each(["switcher", "palette", "recent", "clone", "templates", "composer"])(
-    "shows %s in an hx-dialog",
-    (name) => {
-      const html = readFileSync(resolve(root, `features/${name}/${name}.component.html`), "utf8");
-      expect(html).toMatch(/^<hx-dialog\s/);
-      expect(html.trimEnd()).toMatch(/<\/hx-dialog>$/);
-    },
-  );
+  it.each(["palette", "clone", "composer"])("shows %s in an hx-dialog", (name) => {
+    const html = readFileSync(resolve(root, `features/${name}/${name}.component.html`), "utf8");
+    expect(html).toMatch(/^<hx-dialog\s/);
+    expect(html.trimEnd()).toMatch(/<\/hx-dialog>$/);
+  });
 
   it("has one hx-toast in the root component", () => {
     const html = readFileSync(resolve(root, "app.component.html"), "utf8");
