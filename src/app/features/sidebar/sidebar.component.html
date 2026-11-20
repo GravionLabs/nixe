@@ -47,7 +47,7 @@
       (click)="select(node, $event)"
       (focus)="focused.set(path(node))"
       (dragstart)="dragStart($event, node)"
-      (dragend)="dropTarget.set(null)"
+      (dragend)="dragEnd()"
       (dragover)="dragOver($event, node)"
       (drop)="drop($event, node)"
       (contextmenu)="openMenu($event, node)"

@@ -92,7 +92,11 @@ export class VaultOpsService {
     const moves = planMove(paths, dir);
     if (moves.length === 0) return [];
     const taken = new Set((await this.names(dir)).map((n) => n.toLowerCase()));
-    const clashes = moves.map((m) => basename(m.to)).filter((n) => taken.has(n.toLowerCase()));
+    const clashes: string[] = [];
+    for (const m of moves) {
+      const name = basename(m.to);
+      if (taken.has(name.toLowerCase()) || (await backend.pathExists(m.to))) clashes.push(name);
+    }
     if (clashes.length > 0) {
       throw new Error(`Not moved: ${clashes.join(", ")} already exist${clashes.length === 1 ? "s" : ""} in ${basename(dir)}.`);
     }

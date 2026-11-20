@@ -673,6 +673,12 @@ fn is_dir(path: String) -> bool {
     Path::new(&path).is_dir()
 }
 
+/// Whether an entry exists at `path`, also one the file tree hides.
+#[tauri::command]
+fn path_exists(path: String) -> bool {
+    fileops::entry_exists(Path::new(&path))
+}
+
 #[tauri::command]
 fn list_dir(path: String) -> Result<Vec<tree::DirEntry>, String> {
     tree::list_dir(Path::new(&path))
@@ -875,6 +881,7 @@ pub fn run() {
         is_utf8_file,
         is_file,
         is_dir,
+        path_exists,
         list_dir,
         find_wiki_root,
         find_vault_root,
@@ -958,6 +965,7 @@ pub fn run() {
         is_utf8_file,
         is_file,
         is_dir,
+        path_exists,
         list_dir,
         find_wiki_root,
         find_vault_root,

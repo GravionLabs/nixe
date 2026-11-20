@@ -43,6 +43,7 @@ describe("VaultOpsService", () => {
     vi.spyOn(backend, "createDir").mockResolvedValue(undefined);
     vi.spyOn(backend, "createFile").mockResolvedValue(undefined);
     vi.spyOn(backend, "renamePath").mockResolvedValue([]);
+    vi.spyOn(backend, "pathExists").mockResolvedValue(false);
     vi.spyOn(backend, "isDir").mockResolvedValue(false);
     vi.spyOn(backend, "relinkPreview").mockResolvedValue([]);
     vi.mocked(ask).mockReset();
@@ -191,6 +192,12 @@ describe("VaultOpsService", () => {
         { name: "A.md", path: "/v/d/A.md", isDir: false, hasOrder: false },
       ]);
       await expect(ops.move(["/v/b.md", "/v/a.md"], "/v/d")).rejects.toThrow(/a\.md already exists in d/);
+      expect(backend.renamePath).not.toHaveBeenCalled();
+    });
+
+    it("moves nothing when the name is taken by an entry the tree hides", async () => {
+      vi.mocked(backend.pathExists).mockImplementation(async (p) => p === "/v/d/b");
+      await expect(ops.move(["/v/a.md", "/v/b"], "/v/d")).rejects.toThrow(/b already exists/);
       expect(backend.renamePath).not.toHaveBeenCalled();
     });
 

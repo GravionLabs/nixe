@@ -147,6 +147,14 @@ describe("SidebarComponent tree", () => {
     expect(ops.move).toHaveBeenCalledWith(["/v/a.md", "/v/beta.md"], "/v/box");
   });
 
+  it("forgets a cancelled drag", () => {
+    sidebar.dragStart({ dataTransfer: { setData: vi.fn() } } as unknown as DragEvent, rows[1]);
+    sidebar.dragEnd();
+    const over = { stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as DragEvent;
+    sidebar.dragOver(over, rows[3]);
+    expect(over.preventDefault).not.toHaveBeenCalled();
+  });
+
   it("reports a refused move", async () => {
     const errors: string[] = [];
     sidebar.error.subscribe((e: string) => errors.push(e));

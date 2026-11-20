@@ -382,6 +382,8 @@ export const backend = {
   tags: () => invoke<TagCount[]>("tags"),
   isUtf8File: (path: string) => invoke<boolean>("is_utf8_file", { path }),
   isFile: (path: string) => invoke<boolean>("is_file", { path }),
+  /** Whether anything is at `path`, also what the file tree hides. */
+  pathExists: (path: string) => invoke<boolean>("path_exists", { path }),
   isDir: (path: string) => invoke<boolean>("is_dir", { path }),
   listDir: (path: string) => invoke<DirEntry[]>("list_dir", { path }),
   findWikiRoot: (path: string) => invoke<string>("find_wiki_root", { path }),

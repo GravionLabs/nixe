@@ -231,6 +231,11 @@ export class SidebarComponent {
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
   }
 
+  protected dragEnd(): void {
+    this.dragPaths = [];
+    this.dropTarget.set(null);
+  }
+
   /** Only a folder, or the empty area (the root), takes a drop. */
   protected dragOver(event: DragEvent, node: TreeNode | null): void {
     event.stopPropagation();
