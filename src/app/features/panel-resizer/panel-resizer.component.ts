@@ -1,6 +1,6 @@
 import { Component, Input, output } from "@angular/core";
 
-import { GRAB_WIDTH, MAX_PANEL_WIDTH, MIN_PANEL_WIDTH, clampPanelWidth, maxPanelWidth, widthAfterKey } from "../../core/panel/panel-width";
+import { GRAB_WIDTH, MIN_PANEL_WIDTH, clampPanelWidth, maxPanelWidth, widthAfterKey } from "../../core/panel/panel-width";
 
 /** The left edge of the right panel: drag it or use the arrow keys to change the width. */
 @Component({
@@ -47,7 +47,7 @@ export class PanelResizerComponent {
 
   protected readonly grab = GRAB_WIDTH;
   protected readonly min = MIN_PANEL_WIDTH;
-  protected readonly max = () => Math.min(MAX_PANEL_WIDTH, maxPanelWidth(this.windowWidth, this.sidebarWidth));
+  protected readonly max = () => maxPanelWidth(this.windowWidth, this.sidebarWidth);
 
   private drag: { x: number; width: number } | null = null;
 

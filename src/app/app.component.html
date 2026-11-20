@@ -72,7 +72,7 @@
       [style.width.px]="panelWidthShown()"
     >
       <app-panel-resizer
-        [width]="settings.panelWidth()"
+        [width]="panelWidthShown()"
         [windowWidth]="windowWidth()"
         [sidebarWidth]="sidebarShown()"
         (widthChange)="settings.panelWidth.set($event)"

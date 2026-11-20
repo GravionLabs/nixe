@@ -121,11 +121,8 @@ export class AppComponent {
   protected readonly sidebarShown = computed(() => (this.shell.shownView() === null ? 0 : this.settings.sidebarWidth()));
   /** Too narrow for the panel next to a note of 320px: the panel floats over the note. */
   protected readonly panelOverlays = computed(() => overlaysNote(this.windowWidth(), this.sidebarShown()));
-  protected readonly panelWidthShown = computed(() =>
-    this.panelOverlays()
-      ? Math.min(this.settings.panelWidth(), Math.max(0, this.windowWidth() - 48))
-      : clampPanelWidth(this.settings.panelWidth(), this.windowWidth(), this.sidebarShown()),
-  );
+  /** The stored width within what the window allows. */
+  protected readonly panelWidthShown = computed(() => clampPanelWidth(this.settings.panelWidth(), this.windowWidth(), this.sidebarShown()));
 
   protected readonly showPanel = computed(() => this.doc.path() !== null && this.settings.panelOpen());
 
