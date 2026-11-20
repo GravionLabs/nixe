@@ -646,6 +646,21 @@ mod searching {
     }
 
     #[test]
+    fn hits_count_all_matching_lines_beyond_the_snippets_shown() {
+        let (root, mut conn) = setup("s-matches");
+        write(
+            &root,
+            "many.md",
+            "needle 1\nneedle 2\nneedle 3\nneedle 4\nneedle 5",
+        );
+        run(&mut conn, &root);
+        let hit = &search(&conn, "needle").unwrap()[0];
+        assert_eq!(hit.snippets.len(), 3);
+        assert_eq!(hit.matches, 5);
+        assert_eq!(search(&conn, "tag:none").unwrap().len(), 0);
+    }
+
+    #[test]
     fn hits_carry_the_modification_time_in_milliseconds() {
         let (_r, conn) = vault("s-mtime");
         let hits = search(&conn, "lazy").unwrap();

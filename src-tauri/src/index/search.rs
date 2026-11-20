@@ -43,6 +43,8 @@ pub struct SearchHit {
     pub title: String,
     /// Modification time of the file in milliseconds since the Unix epoch (0 when unknown).
     pub modified: i64,
+    /// Lines of the note that match; `snippets` shows the first few of them.
+    pub matches: usize,
     pub snippets: Vec<SearchSnippet>,
 }
 
@@ -161,8 +163,8 @@ pub fn search(conn: &Connection, input: &str) -> rusqlite::Result<Vec<SearchHit>
         .collect::<Result<_, _>>()?;
     let mut hits = Vec::with_capacity(rows.len());
     for (id, path, title, modified) in rows {
-        let snippets = if q.terms.is_empty() {
-            Vec::new()
+        let (snippets, matches) = if q.terms.is_empty() {
+            (Vec::new(), 0)
         } else {
             let body: String =
                 conn.query_row("SELECT body FROM notes_fts WHERE rowid = ?1", [id], |r| {
@@ -174,6 +176,7 @@ pub fn search(conn: &Connection, input: &str) -> rusqlite::Result<Vec<SearchHit>
             path,
             title,
             modified,
+            matches,
             snippets,
         });
     }
@@ -187,13 +190,18 @@ fn escape_like(s: &str) -> String {
 }
 
 /// The first lines of `body` containing a term, each shortened around its first match.
-fn snippets(body: &str, terms: &[String]) -> Vec<SearchSnippet> {
+fn snippets(body: &str, terms: &[String]) -> (Vec<SearchSnippet>, usize) {
     let mut out = Vec::new();
+    let mut matches = 0;
     for (i, line) in body.lines().enumerate() {
         let chars: Vec<char> = line.chars().collect();
         let lower: Vec<char> = chars.iter().map(|c| fold(*c)).collect();
         let ranges = match_ranges(&lower, terms);
         if ranges.is_empty() {
+            continue;
+        }
+        matches += 1;
+        if out.len() == MAX_SNIPPETS {
             continue;
         }
         let start = ranges[0].0.saturating_sub(CONTEXT_CHARS);
@@ -222,11 +230,8 @@ fn snippets(body: &str, terms: &[String]) -> Vec<SearchSnippet> {
             line: i + 1,
             text: text.trim().to_string(),
         });
-        if out.len() == MAX_SNIPPETS {
-            break;
-        }
     }
-    out
+    (out, matches)
 }
 
 /// Single-char lower-casing, so char positions stay aligned with the original line.

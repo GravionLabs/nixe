@@ -22,6 +22,7 @@ const hit: SearchHit = {
   path: "work/b.md",
   title: "b",
   modified: 100,
+  matches: 5,
   snippets: [
     { line: 4, text: "a \u0001quick\u0002 note" },
     { line: 9, text: "\u0001quick\u0002ly" },
@@ -115,14 +116,14 @@ describe("SearchComponent", () => {
   });
 
   it("counts the results and the notes above the list", () => {
-    const other: SearchHit = { path: "a.md", title: "a", modified: 200, snippets: [{ line: 1, text: "\u0001quick\u0002" }] };
-    expect(render("ready", [hit, other]).el.querySelector(".count")?.textContent).toBe("3 results in 2 notes");
+    const other: SearchHit = { path: "a.md", title: "a", modified: 200, matches: 1, snippets: [{ line: 1, text: "\u0001quick\u0002" }] };
+    expect(render("ready", [hit, other]).el.querySelector(".count")?.textContent).toBe("6 results in 2 notes");
     expect(render("ready", [other]).el.querySelector(".count")?.textContent).toBe("1 result in 1 note");
   });
 
   it("sorts by relevance, name or modified time and keeps the choice", () => {
     localStorage.clear();
-    const a: SearchHit = { path: "z/a.md", title: "a", modified: 50, snippets: [] };
+    const a: SearchHit = { path: "z/a.md", title: "a", modified: 50, matches: 0, snippets: [] };
     const { el } = render("ready", [hit, a]);
     const names = () => [...el.querySelectorAll("button.note .name")].map((n) => n.textContent?.trim());
     expect(names()).toEqual(["b", "a"]);

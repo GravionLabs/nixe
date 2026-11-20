@@ -80,7 +80,7 @@ describe("SearchService", () => {
 });
 
 describe("sortHits and withOperator", () => {
-  const hit = (path: string, title: string, modified: number) => ({ path, title, modified, snippets: [] });
+  const hit = (path: string, title: string, modified: number) => ({ path, title, modified, matches: 0, snippets: [] });
   const hits = [hit("x/b.md", "b", 10), hit("a.md", "C", 30), hit("c.md", "a", 20)];
 
   it("keeps the order of the backend for relevance and does not change the input", () => {

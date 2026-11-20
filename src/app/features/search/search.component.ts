@@ -106,7 +106,7 @@ export class SearchComponent {
 
   protected countLabel(): string {
     const hits = this.search.hits();
-    const count = hits.reduce((n, h) => n + Math.max(h.snippets.length, 1), 0);
+    const count = hits.reduce((n, h) => n + Math.max(h.matches, 1), 0);
     return `${count} ${count === 1 ? "result" : "results"} in ${hits.length} ${hits.length === 1 ? "note" : "notes"}`;
   }
 
