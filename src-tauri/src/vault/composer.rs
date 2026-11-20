@@ -327,7 +327,12 @@ pub fn plan_extract(
     read: impl Fn(&str) -> Option<String>,
 ) -> Result<Plan, String> {
     check_target(source, target, files)?;
-    let source_text = read(source).ok_or_else(|| format!("cannot read {source}"))?;
+    let raw = read(source).ok_or_else(|| format!("cannot read {source}"))?;
+    // The editor counts offsets in text with `\n` line ends and without a BOM; so do we, and
+    // the source gets its own line ends and BOM back when it is written.
+    let bom = raw.starts_with('\u{feff}');
+    let crlf = raw.contains("\r\n");
+    let source_text = raw.trim_start_matches('\u{feff}').replace("\r\n", "\n");
     let target_text = if files.iter().any(|f| f == target) {
         Some(read(target).ok_or_else(|| format!("cannot read {target}"))?)
     } else {
@@ -414,6 +419,16 @@ pub fn plan_extract(
         action: Action::Update,
         links: source_links,
     });
+    let source_new = if crlf {
+        source_new.replace('\n', "\r\n")
+    } else {
+        source_new
+    };
+    let source_new = if bom {
+        format!("\u{feff}{source_new}")
+    } else {
+        source_new
+    };
     plan.writes.push((source.to_string(), source_new));
 
     let mut others: Vec<&String> = candidates
@@ -865,6 +880,26 @@ mod tests {
             .unwrap()
         };
         assert_eq!(content(&plan, "e/New.md"), "[img](../d/pic.png)\n");
+    }
+
+    #[test]
+    fn crlf_and_bom_notes_keep_their_form() {
+        // The editor sees "a\nb\nc" (no BOM, `\n` line ends).
+        let source = "\u{feff}a\r\nb\r\nc";
+        let what = What::Selection {
+            start: 4,
+            end: 5,
+            expected: "c".into(),
+        };
+        let plan = extract_plan(&[("a.md", source)], "a.md", &what, "n.md", false).unwrap();
+        assert_eq!(content(&plan, "a.md"), "\u{feff}a\r\nb\r\n[[n]]");
+        assert_eq!(content(&plan, "n.md"), "c\n");
+        let across = What::Selection {
+            start: 1,
+            end: 4,
+            expected: "\nb\n".into(),
+        };
+        assert!(extract_plan(&[("a.md", source)], "a.md", &across, "n.md", false).is_ok());
     }
 
     #[test]
