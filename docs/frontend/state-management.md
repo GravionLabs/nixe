@@ -135,3 +135,15 @@ is watched for external changes; the watcher event goes to every tab showing tha
   read from `.obsidian/` by `obsidian_settings` and shown read-only with their source file.
 - **Apply at once.** Items read and write the `SettingsService` signals, so changes need no restart.
   The search field filters items by label, description, keywords and section title.
+
+## File tree header
+
+The header of the file tree has the buttons New note, New folder, Sort, Reveal the active note and
+Collapse all; each is a command of the palette too (`new-note`, `new-folder`,
+`sort-file-tree-<order>`, `reveal-active-note`, `collapse-all-folders`). The tree is kept current by
+the file watcher, so there is no Refresh button; the command "Reload file tree" reads it again.
+
+Sort offers file name and modified time, ascending and descending (`treeSort` in `settings.json`,
+default `name-asc`). Folders stay first. Name ascending keeps the order of the backend, which honors
+an Azure DevOps `.order` file. Reveal expands the folders of the open note and scrolls its row into
+view (`WorkspaceService.revealActive`).

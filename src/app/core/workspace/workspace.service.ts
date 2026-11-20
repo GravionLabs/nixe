@@ -7,7 +7,7 @@ import { basename, joinPath, toSlashes } from "../markdown/paths";
 import { SettingsService } from "../settings/settings.service";
 import { layoutHasNote } from "../tabs/layout";
 import { TabsService } from "../tabs/tabs.service";
-import { TreeItem, buildTreeItems, defaultPage } from "./tree-model";
+import { TreeItem, TreeSort, buildTreeItems, defaultPage, sortItems } from "./tree-model";
 
 export interface TreeNode extends TreeItem {
   depth: number;
@@ -24,6 +24,8 @@ export class WorkspaceService {
   private readonly tabs = inject(TabsService);
 
   readonly root = signal<string | null>(null);
+  /** Order of the tree. */
+  readonly sort = computed(() => this.settings.treeSort());
   readonly rootName = computed(() => {
     const r = this.root();
     return r ? basename(r) : null;
@@ -203,6 +205,35 @@ export class WorkspaceService {
     return nodes;
   }
 
+  /** Counts the requests to scroll the open note into view; the sidebar acts on it. */
+  readonly revealRequest = signal(0);
+
+  /** Changes the order of the tree; it is kept across restarts. */
+  async setSort(sort: TreeSort): Promise<void> {
+    if (this.settings.treeSort() === sort) return;
+    this.settings.treeSort.set(sort);
+    await this.reloadTree();
+  }
+
+  /** Folds every folder of the tree. */
+  collapseAll(): void {
+    const fold = (nodes: TreeNode[]) => {
+      for (const n of nodes) {
+        n.expanded.set(false);
+        fold(n.children() ?? []);
+      }
+    };
+    fold(this.rootNodes());
+  }
+
+  /** Expands the folders of the open note and asks the sidebar to scroll it into view. */
+  async revealActive(): Promise<void> {
+    const current = this.doc.path();
+    if (!current) return;
+    await this.reveal(current);
+    this.revealRequest.update((n) => n + 1);
+  }
+
   async toggle(node: TreeNode, expand = !node.expanded()): Promise<void> {
     if (!node.dirPath) return;
     if (expand && node.children() === null) {
@@ -228,7 +259,7 @@ export class WorkspaceService {
 
   private async load(dir: string, hasOrder: boolean, depth: number): Promise<TreeNode[]> {
     const entries = await backend.listDir(dir);
-    return buildTreeItems(entries, hasOrder).map((item) => ({
+    return sortItems(buildTreeItems(entries, hasOrder), this.settings.treeSort()).map((item) => ({
       ...item,
       depth,
       expanded: signal(false),

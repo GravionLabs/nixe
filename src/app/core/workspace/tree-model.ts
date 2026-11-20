@@ -10,6 +10,39 @@ export interface TreeItem {
   filePath: string | null;
   /** The folder contains an Azure DevOps `.order` file. */
   hasOrder: boolean;
+  /** Last modification in milliseconds since the epoch; 0 when unknown. */
+  modified: number;
+}
+
+export const TREE_SORTS = ["name-asc", "name-desc", "modified-desc", "modified-asc"] as const;
+export type TreeSort = (typeof TREE_SORTS)[number];
+
+export const TREE_SORT_LABELS: Record<TreeSort, string> = {
+  "name-asc": "File name (A to Z)",
+  "name-desc": "File name (Z to A)",
+  "modified-desc": "Modified time (new to old)",
+  "modified-asc": "Modified time (old to new)",
+};
+
+export function sanitizeTreeSort(value: unknown): TreeSort {
+  return TREE_SORTS.find((s) => s === value) ?? "name-asc";
+}
+
+/**
+ * Orders the items of one folder; folders stay first. "name-asc" keeps the order given (the backend
+ * lists by `.order`, then by name), so a wiki's own order survives.
+ */
+export function sortItems<T extends TreeItem>(items: T[], sort: TreeSort): T[] {
+  if (sort === "name-asc") return items;
+  const byName = (a: T, b: T) => a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
+  const compare: (a: T, b: T) => number =
+    sort === "name-desc"
+      ? (a, b) => byName(b, a)
+      : sort === "modified-desc"
+        ? (a, b) => b.modified - a.modified || byName(a, b)
+        : (a, b) => a.modified - b.modified || byName(a, b);
+  const isDir = (i: T) => (i.dirPath !== null ? 0 : 1);
+  return [...items].sort((a, b) => isDir(a) - isDir(b) || compare(a, b));
 }
 
 function stem(name: string): string {
@@ -41,6 +74,7 @@ export function buildTreeItems(entries: DirEntry[], parentHasOrder: boolean): Tr
         dirPath: entry.path,
         filePath: pageFiles.get(entry.name)?.path ?? null,
         hasOrder: entry.hasOrder,
+        modified: entry.modified ?? 0,
       });
     } else if (!pageFiles.has(stem(entry.name))) {
       items.push({
@@ -48,6 +82,7 @@ export function buildTreeItems(entries: DirEntry[], parentHasOrder: boolean): Tr
         dirPath: null,
         filePath: entry.path,
         hasOrder: false,
+        modified: entry.modified ?? 0,
       });
     }
   }

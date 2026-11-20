@@ -24,6 +24,7 @@ import { ComposerService } from "./core/composer/composer.service";
 import { TemplateService } from "./core/templates/template.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
+import { TREE_SORTS, TREE_SORT_LABELS } from "./core/workspace/tree-model";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
@@ -230,6 +231,16 @@ export class AppComponent {
     const commands: Command[] = [
       { id: "command-palette", title: "Command palette", shortcut: "Mod+P", keys: ["Mod+P"], run: () => this.palette.open() },
       { id: "new-note", title: "New note", shortcut: "Mod+N", keys: ["Mod+N"], when: inVault, run: () => this.newNote() },
+      { id: "new-folder", title: "New folder", when: inVault, run: () => this.run(async () => void (await this.ops.createFolder(this.workspace.root() as string))) },
+      ...TREE_SORTS.map((sort) => ({
+        id: `sort-file-tree-${sort}`,
+        title: `Sort file tree: ${TREE_SORT_LABELS[sort]}`,
+        when: inVault,
+        run: () => this.run(() => this.workspace.setSort(sort)),
+      })),
+      { id: "reveal-active-note", title: "Reveal the active note in the file tree", when: noteOpen, run: () => this.run(() => this.workspace.revealActive()) },
+      { id: "collapse-all-folders", title: "Collapse all folders in the file tree", when: inVault, run: () => this.workspace.collapseAll() },
+      { id: "reload-file-tree", title: "Reload file tree", when: inVault, run: () => this.run(() => this.workspace.reloadTree()) },
       { id: "quick-switcher", title: "Quick switcher", shortcut: "Mod+O", keys: ["Mod+O"], when: inVault, run: () => this.switcher.open() },
       { id: "daily-note", title: "Open today's daily note", shortcut: "Mod+Shift+D", keys: ["Mod+Shift+D"], when: inVault, run: () => this.run(() => this.daily.openToday()) },
       { id: "daily-previous", title: "Open previous daily note", when: inVault, run: () => this.run(() => this.daily.previous()) },
