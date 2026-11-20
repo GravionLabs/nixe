@@ -322,6 +322,14 @@ export class AppComponent {
     });
   }
 
+  /** Export folder as site asks for the folder and for where to write the pages. */
+  private async exportSite(): Promise<void> {
+    await this.run(async () => {
+      const site = await this.exporter.exportSite();
+      if (site) this.showToast(`Exported ${site.pages} pages to ${site.out}`);
+    });
+  }
+
   /** `nixe export`: runs the request and, without a window, ends the process with its result. */
   private async runPendingExport(): Promise<ExportRequest | null> {
     let request: ExportRequest | null;
@@ -657,6 +665,12 @@ export class AppComponent {
         title: "Export as HTML",
         when: noteOpen,
         run: () => this.exportNote("html"),
+      },
+      {
+        id: "export-site",
+        title: "Export folder as site",
+        when: inVault,
+        run: () => this.exportSite(),
       },
       {
         id: "export-pdf",

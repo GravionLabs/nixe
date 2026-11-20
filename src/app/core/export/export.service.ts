@@ -1,5 +1,5 @@
 import { Injectable, inject } from "@angular/core";
-import { save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 
 import { backend, type ExportRequest } from "../file/backend";
 import { MarkdownService } from "../markdown/markdown.service";
@@ -73,6 +73,17 @@ export class ExportService {
     if (!target) return null;
     await backend.writeExportFile(target, html);
     return target;
+  }
+
+  /** A folder of the vault (ask for it, the vault by default) as a static website in a chosen folder. */
+  async exportSite(): Promise<{ out: string; pages: number } | null> {
+    const root = this.workspace.vaultRoot();
+    if (!root) throw new Error("No vault is open");
+    const folder = await open({ title: "Folder to publish", directory: true, defaultPath: root });
+    if (typeof folder !== "string") return null;
+    const out = await open({ title: "Write the site into", directory: true, defaultPath: root });
+    if (typeof out !== "string") return null;
+    return { out, pages: await backend.exportSite(folder, out) };
   }
 
   /** `nixe export`: the note of the request. HTML goes to `out`; a PDF opens the print dialog. */

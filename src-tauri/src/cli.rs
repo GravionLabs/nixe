@@ -42,6 +42,7 @@ usage: nixe <path>|-                       open the viewer
        nixe append --inbox [text] [--vault <dir>]
        nixe daily [--append <text>] [--vault <dir>]   open today's daily note, or append to it
        nixe export <note> --format html|pdf [--out <file>] [--dark|--light] [--page-size A4] [--vault <dir>]
+       nixe export <folder> --site <out> [--exclude <dir>]... [--vault <dir>]   a folder as a static website
        nixe mcp [--vault <dir>]...                MCP server over stdio (read-only)
 
 search, notes and tags also take several --vault <dir> or --workspace <name> (a saved
@@ -55,10 +56,12 @@ pub fn try_run() -> Option<i32> {
         return None;
     }
     let cwd = std::env::current_dir().unwrap_or_default();
-    if args[0] == "export" {
+    let site = args[0] == "export" && parse(&args[1..]).is_ok_and(|p| p.site.is_some());
+    if args[0] == "export" && !site {
         return export_request(&args[1..], &cwd);
     }
-    let Some(data) = app_data_dir() else {
+    // A site needs no index and no window, so it runs without the data directory too.
+    let Some(data) = app_data_dir().or_else(|| site.then(PathBuf::new)) else {
         eprintln!("nixe: cannot locate the application data directory");
         return Some(1);
     };
@@ -119,6 +122,49 @@ fn export_request(args: &[String], cwd: &Path) -> Option<i32> {
             Some(1)
         }
     }
+}
+
+/// `nixe export <folder> --site <out>`: writes the website; the answer is one line.
+fn export_site(p: &Parsed, cwd: &Path, out: &mut dyn Write) -> Result<(), CliError> {
+    let (Some(site), [folder]) = (p.site.as_deref(), p.positional.as_slice()) else {
+        return Err(CliError::Usage(
+            "`export` takes one note and --format, or one folder and --site <out>".into(),
+        ));
+    };
+    if p.format.is_some() || p.out.is_some() {
+        return Err(CliError::Usage(
+            "--site cannot be combined with --format or --out".into(),
+        ));
+    }
+    let folder = dunce::canonicalize(cwd.join(folder))
+        .map_err(|e| CliError::Failed(format!("{folder}: {e}")))?;
+    if !folder.is_dir() {
+        return Err(CliError::Failed(format!(
+            "{}: not a folder",
+            folder.display()
+        )));
+    }
+    let root = match p.vaults.as_slice() {
+        [] => find_vault_root(&folder),
+        [v] => vault_root(Some(v), cwd)?,
+        _ => return Err(CliError::Usage("`export` works on one vault".into())),
+    };
+    let summary = crate::site::export_site(&crate::site::SiteOptions {
+        root,
+        folder,
+        out: cwd.join(site),
+        exclude: p.exclude.clone(),
+    })
+    .map_err(CliError::Failed)?;
+    writeln!(
+        out,
+        "{}: {} pages, {} files, {} left out",
+        crate::path_to_string(&cwd.join(site)),
+        summary.pages,
+        summary.files,
+        summary.excluded
+    )
+    .map_err(|e| CliError::Failed(e.to_string()))
 }
 
 /// The export the arguments after `export` ask for.
@@ -194,6 +240,7 @@ pub(crate) struct Parsed {
     out: Option<String>,
     dark: Option<bool>,
     page_size: Option<String>,
+    site: Option<String>,
     positional: Vec<String>,
 }
 
@@ -218,6 +265,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Parsed, CliError> {
             "--dark" => p.dark = Some(true),
             "--light" => p.dark = Some(false),
             "--format" => p.format = Some(value(flag, inline, &mut it)?),
+            "--site" => p.site = Some(value(flag, inline, &mut it)?),
             "--out" => p.out = Some(value(flag, inline, &mut it)?),
             "--page-size" => p.page_size = Some(value(flag, inline, &mut it)?),
             "--append" => p.append = Some(value(flag, inline, &mut it)?),
@@ -353,6 +401,9 @@ pub fn execute_with(
             chrono::Local::now().fixed_offset(),
             out,
         );
+    }
+    if command == "export" {
+        return export_site(&p, cwd, out);
     }
     if command == "check" {
         if !p.positional.is_empty() {

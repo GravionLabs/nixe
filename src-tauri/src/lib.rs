@@ -64,6 +64,7 @@ mod menu;
 mod notes;
 mod review;
 mod settings;
+mod site;
 mod tree;
 mod vault;
 pub mod workspace;
@@ -182,6 +183,19 @@ fn finish_export(state: State<'_, AppState>, code: i32, message: String) {
 #[tauri::command]
 fn write_export_file(path: String, content: String) -> Result<(), String> {
     write_export(Path::new(&path), content.as_bytes()).map_err(|e| format!("{path}: {e}"))
+}
+
+/// Exports `folder` of a vault as a static website into `out`; the answer is the page count.
+#[tauri::command]
+fn export_site(folder: String, out: String, exclude: Vec<String>) -> Result<usize, String> {
+    let folder = dunce::canonicalize(&folder).map_err(|e| format!("{folder}: {e}"))?;
+    let summary = site::export_site(&site::SiteOptions {
+        root: vault::find_vault_root(&folder),
+        folder,
+        out: PathBuf::from(out),
+        exclude,
+    })?;
+    Ok(summary.pages)
 }
 
 fn write_export(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
@@ -1186,6 +1200,7 @@ pub fn run() {
         take_pending_export,
         finish_export,
         write_export_file,
+        export_site,
         read_data_uri,
         read_bundled_data_uri,
         read_text_file,
@@ -1294,6 +1309,7 @@ pub fn run() {
         take_pending_export,
         finish_export,
         write_export_file,
+        export_site,
         read_data_uri,
         read_bundled_data_uri,
         read_text_file,

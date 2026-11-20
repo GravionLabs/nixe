@@ -632,6 +632,9 @@ export const backend = {
   /** Writes an exported file to the place the user (or `--out`) chose; any path, replaces a file. */
   writeExportFile: (path: string, content: string) =>
     invoke<void>("write_export_file", { path, content }),
+  /** Writes `folder` of a vault as a static website into `out`; the number of pages. */
+  exportSite: (folder: string, out: string, exclude: string[] = []) =>
+    invoke<number>("export_site", { folder, out, exclude }),
   /** The file as a `data:` URI; null when it cannot be read. */
   readDataUri: (path: string) => invoke<string | null>("read_data_uri", { path }),
   /** A file of the frontend bundle (a KaTeX font) as a `data:` URI; null when the bundle has none. */

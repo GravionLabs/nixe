@@ -33,6 +33,7 @@ rusqlite = { version = "0.43.0", features = ["bundled"] }
 # `nixe mcp`: read-only MCP server over stdio (protocol 2026-07-28, checked against the spec).
 rmcp = { version = "3.10", default-features = false, features = ["server", "macros", "schemars", "transport-io"] }
 tokio = { version = "1", features = ["rt", "macros"] }
+pulldown-cmark = { version = "0.13.6", default-features = false, features = ["html"] }
 
 [dev-dependencies]
 rmcp = { version = "3.10", default-features = false, features = ["client", "transport-child-process"] }
