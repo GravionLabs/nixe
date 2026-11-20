@@ -20,6 +20,7 @@ import { SettingsService } from "./core/settings/settings.service";
 import { isPrerelease } from "./core/updater/update-logic";
 import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
+import { ComposerService } from "./core/composer/composer.service";
 import { TemplateService } from "./core/templates/template.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
@@ -31,6 +32,7 @@ import { OutlineComponent } from "./features/outline/outline.component";
 import { RecentComponent } from "./features/recent/recent.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
+import { ComposerComponent } from "./features/composer/composer.component";
 import { TemplatesComponent } from "./features/templates/templates.component";
 import { SwitcherComponent } from "./features/switcher/switcher.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
@@ -56,7 +58,7 @@ export class NavIconDirective {
 
 @Component({
   selector: "app-root",
-  imports: [BookmarksComponent, HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
+  imports: [BookmarksComponent, HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, ComposerComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -77,6 +79,7 @@ export class AppComponent {
   protected readonly updater = inject(UpdateService);
   protected readonly switcher = inject(SwitcherService);
   protected readonly templates = inject(TemplateService);
+  protected readonly composer = inject(ComposerService);
   private readonly daily = inject(DailyService);
   private readonly bookmarks = inject(BookmarksService);
   private readonly commands = inject(CommandRegistry);
@@ -237,6 +240,9 @@ export class AppComponent {
       { id: "bookmark-heading", title: "Bookmark the heading at the top (or remove it)", when: noteOpen, run: () => void (this.bookmarks.bookmarkCurrentHeading() || this.showToast("The note has no heading.")) },
       { id: "bookmark-search", title: "Bookmark the search (or remove it)", when: inVault, run: () => void (this.bookmarks.bookmarkSearch() || this.showToast("The search is empty.")) },
       { id: "show-bookmarks", title: "Show bookmarks", when: inVault, run: () => this.shell.show("bookmarks") },
+      { id: "extract-selection", title: "Extract selection to a note", when: () => noteOpen() && this.editor.editing(), run: () => this.run(() => this.composer.extractSelection()) },
+      { id: "extract-heading", title: "Extract heading to a note", when: () => noteOpen() && this.editor.editing(), run: () => this.run(() => this.composer.extractHeading()) },
+      { id: "merge-into", title: "Merge into…", when: noteOpen, run: () => this.run(() => this.composer.mergeInto()) },
       { id: "fold", title: "Fold at the cursor", when: noteOpen, run: () => this.foldNote("fold") },
       { id: "unfold", title: "Unfold at the cursor", when: noteOpen, run: () => this.foldNote("unfold") },
       { id: "fold-all", title: "Fold all", when: noteOpen, run: () => this.foldNote("fold-all") },

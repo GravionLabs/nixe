@@ -111,6 +111,13 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
             "Keep them in `.obsidian/bookmarks.json` (shared with Obsidian) instead of the app data. Needs a vault with an `.obsidian` folder.",
             ["bookmarks", "obsidian"],
           ),
+          toggle(
+            "extract-embed",
+            "Leave an embed when extracting",
+            s.extractEmbed,
+            "Extract selection and Extract heading leave `![[note]]` instead of `[[note]]`.",
+            ["extract", "composer", "embed"],
+          ),
         ];
       },
     },

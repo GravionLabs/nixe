@@ -24,6 +24,7 @@ import { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
 import { FoldAction, foldAction, folding, restoreFolds } from "./folding";
+import { headingLineAt } from "../../core/composer/composer-core";
 
 const BASE_FONT_PX = 16;
 
@@ -88,6 +89,8 @@ export class EditorComponent implements OnDestroy {
       insertTemplate: (template) => this.insertTemplate(template),
       attachPaths: (paths) => this.attachPaths(paths),
       fold: (action) => this.fold(action),
+      selection: () => this.selection(),
+      headingLine: () => this.headingLine(),
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
     this.doc.remoteHook = (text, saved) => this.onRemote(text, saved);
@@ -239,6 +242,20 @@ export class EditorComponent implements OnDestroy {
     } finally {
       this.restoringFolds = false;
     }
+  }
+
+  private selection(): { start: number; end: number; text: string } | null {
+    const view = this.view;
+    if (!view) return null;
+    const { from, to } = view.state.selection.main;
+    return from === to ? null : { start: from, end: to, text: view.state.sliceDoc(from, to) };
+  }
+
+  private headingLine(): number | null {
+    const view = this.view;
+    if (!view) return null;
+    const line = view.state.doc.lineAt(view.state.selection.main.head).number;
+    return headingLineAt(view.state.doc.toString(), line);
   }
 
   private fold(action: FoldAction): void {

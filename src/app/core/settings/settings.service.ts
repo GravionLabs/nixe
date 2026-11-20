@@ -88,6 +88,9 @@ export class SettingsService {
   /** Bookmarks go into `.obsidian/bookmarks.json` of the vault instead of the app data (#111). */
   readonly bookmarksInVault = signal<boolean>(this.stored.bookmarksInVault);
 
+  /** Extracting text leaves an embed instead of a link (#113). */
+  readonly extractEmbed = signal<boolean>(this.stored.extractEmbed);
+
   /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
   readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
@@ -135,6 +138,7 @@ export class SettingsService {
       autoSyncOnQuit: this.autoSyncOnQuit(),
       reviewBranchPrefix: this.reviewBranchPrefix(),
       bookmarksInVault: this.bookmarksInVault(),
+      extractEmbed: this.extractEmbed(),
       shortcuts: this.shortcuts(),
     };
   }
@@ -166,6 +170,7 @@ export class SettingsService {
     this.autoSyncOnQuit.set(s.autoSyncOnQuit);
     this.reviewBranchPrefix.set(s.reviewBranchPrefix);
     this.bookmarksInVault.set(s.bookmarksInVault);
+    this.extractEmbed.set(s.extractEmbed);
     this.shortcuts.set(s.shortcuts);
   }
 

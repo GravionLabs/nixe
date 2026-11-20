@@ -127,6 +127,22 @@ export interface RelinkChange {
   links: number;
 }
 
+/** What the note composer does to a note (#113). */
+export type ComposeAction = "create" | "append" | "update" | "trash";
+
+export interface ComposeChange {
+  /** Vault-relative path. */
+  path: string;
+  action: ComposeAction;
+  /** Number of links rewritten in the note. */
+  links: number;
+}
+
+/** The text an extraction moves: a selection (UTF-16 offsets and its text) or a heading's section. */
+export type ExtractWhat =
+  | { kind: "selection"; start: number; end: number; expected: string }
+  | { kind: "heading"; line: number };
+
 export interface NoteRecord {
   path: string;
   title: string;
@@ -270,6 +286,16 @@ export const backend = {
   createDir: (path: string) => invoke<void>("create_dir", { path }),
   /** Moves a file or folder inside the vault, fails rather than replace, and rewrites the links to it in one batch. */
   renamePath: (from: string, to: string) => invoke<RelinkChange[]>("rename_path", { from, to }),
+  /** The notes an extraction into `target` would change; changes nothing. */
+  extractPreview: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
+    invoke<ComposeChange[]>("extract_preview", { source, target, what, embed }),
+  /** Moves the text into `target` (created when missing) and leaves a link or an embed. */
+  extractText: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
+    invoke<ComposeChange[]>("extract_text", { source, target, what, embed }),
+  /** The notes a merge of `source` into `target` would change; changes nothing. */
+  mergePreview: (source: string, target: string) => invoke<ComposeChange[]>("merge_preview", { source, target }),
+  /** Appends `source` to `target`, rewrites the links to it and moves it to `.trash/`. */
+  mergeNote: (source: string, target: string) => invoke<ComposeChange[]>("merge_note", { source, target }),
   /** The notes whose links a rename would rewrite; changes nothing. */
   relinkPreview: (from: string, to: string) => invoke<RelinkChange[]>("relink_preview", { from, to }),
   /** Moves a file or folder to `.trash/` of the vault; returns the new path. */

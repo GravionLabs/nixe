@@ -20,6 +20,10 @@ export interface EditorHandle {
   insertTemplate(template: string): void;
   /** Brings dropped files into the vault and inserts `![[name]]` links at the cursor. */
   attachPaths(paths: string[]): Promise<void>;
+  /** The selected text with its UTF-16 offsets; null when nothing is selected. */
+  selection?(): { start: number; end: number; text: string } | null;
+  /** 1-based line of the heading that holds the cursor; null before the first heading. */
+  headingLine?(): number | null;
   /** Folds or unfolds at the cursor, or every foldable part of the note. */
   fold?(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void;
 }

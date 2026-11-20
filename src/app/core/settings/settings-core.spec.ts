@@ -21,6 +21,9 @@ describe("sanitizeSettings", () => {
     });
     expect(s.reviewBranchPrefix).toBe("claude/");
     expect(s.bookmarksInVault).toBe(false);
+    expect(s.extractEmbed).toBe(false);
+    expect(sanitizeSettings({ extractEmbed: true }).extractEmbed).toBe(true);
+    expect(sanitizeSettings({ extractEmbed: 1 }).extractEmbed).toBe(false);
     expect(sanitizeSettings({ bookmarksInVault: true }).bookmarksInVault).toBe(true);
     expect(sanitizeSettings({ bookmarksInVault: "yes" }).bookmarksInVault).toBe(false);
     expect(sanitizeSettings({ reviewBranchPrefix: "agent/" }).reviewBranchPrefix).toBe("agent/");

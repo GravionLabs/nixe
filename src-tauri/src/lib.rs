@@ -409,6 +409,73 @@ fn relink_preview(
     ))
 }
 
+/// The notes an extraction would change; changes nothing.
+#[tauri::command]
+fn extract_preview(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    source: String,
+    target: String,
+    what: vault::composer::What,
+    embed: bool,
+) -> Result<Vec<vault::composer::Change>, String> {
+    vault::composer::preview_extract(
+        &vault_root_of(&state)?,
+        &source,
+        &what,
+        &target,
+        embed,
+        |t| index.referrers(t),
+    )
+}
+
+/// Moves a selection or a section of `source` into the note `target` (created when missing) and
+/// leaves a link or an embed. One batch for the watcher. Returns the notes that changed.
+#[tauri::command]
+fn extract_text(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    source: String,
+    target: String,
+    what: vault::composer::What,
+    embed: bool,
+) -> Result<Vec<vault::composer::Change>, String> {
+    vault::composer::extract(
+        &vault_root_of(&state)?,
+        &source,
+        &what,
+        &target,
+        embed,
+        |t| index.referrers(t),
+    )
+}
+
+/// The notes a merge of `source` into `target` would change; changes nothing.
+#[tauri::command]
+fn merge_preview(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    source: String,
+    target: String,
+) -> Result<Vec<vault::composer::Change>, String> {
+    vault::composer::preview_merge(&vault_root_of(&state)?, &source, &target, |t| {
+        index.referrers(t)
+    })
+}
+
+/// Appends `source` to `target`, rewrites the links to it and moves it to `.trash/`.
+#[tauri::command]
+fn merge_note(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    source: String,
+    target: String,
+) -> Result<Vec<vault::composer::Change>, String> {
+    vault::composer::merge(&vault_root_of(&state)?, &source, &target, |t| {
+        index.referrers(t)
+    })
+}
+
 /// Moves a file or folder to `.trash/` in the vault; returns its new path.
 #[tauri::command]
 fn trash_path(state: State<'_, AppState>, path: String) -> Result<String, String> {
@@ -728,6 +795,10 @@ pub fn run() {
         create_dir,
         rename_path,
         relink_preview,
+        extract_preview,
+        extract_text,
+        merge_preview,
+        merge_note,
         trash_path,
         conflict_pair,
         resolve_conflict,
@@ -803,6 +874,10 @@ pub fn run() {
         create_dir,
         rename_path,
         relink_preview,
+        extract_preview,
+        extract_text,
+        merge_preview,
+        merge_note,
         trash_path,
         conflict_pair,
         resolve_conflict,
