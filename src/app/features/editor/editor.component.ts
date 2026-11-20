@@ -3,6 +3,7 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
+import { countText } from "../../core/editor/text-stats";
 import { AutoSaver, ExternalChangeTracker, changedRange, clampLine, toCrlf } from "../../core/editor/editor-core";
 import { blocksOf, headingsOf } from "../../core/editor/completion-core";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
@@ -34,6 +35,9 @@ interface Session {
   saver: AutoSaver;
   tracker: ExternalChangeTracker;
 }
+
+/** Pause after the last change before the counts are recomputed. */
+const STATS_DELAY_MS = 150;
 
 /** CodeMirror 6 editor of the open note. Lives in its own lazy chunk (loaded by `@defer`). */
 @Component({
@@ -72,6 +76,7 @@ export class EditorComponent implements OnDestroy {
   private loading = false;
   private unlistenClose: (() => void) | undefined;
   private destroyed = false;
+  private statsTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
     this.editor.handle = {
@@ -104,8 +109,25 @@ export class EditorComponent implements OnDestroy {
     void this.watchWindowClose();
   }
 
+  /** Counts after typing pauses, so a long note is not scanned on every key. */
+  private scheduleStats(): void {
+    clearTimeout(this.statsTimer);
+    this.statsTimer = setTimeout(() => this.updateStats(), STATS_DELAY_MS);
+  }
+
+  private updateStats(): void {
+    const view = this.view;
+    if (!view || this.destroyed) return;
+    const { from, to } = view.state.selection.main;
+    this.editor.stats.set(
+      from === to ? countText(view.state.doc.toString()) : countText(view.state.sliceDoc(from, to), true),
+    );
+  }
+
   ngOnDestroy(): void {
     this.destroyed = true;
+    clearTimeout(this.statsTimer);
+    this.editor.stats.set(null);
     this.unlistenClose?.();
     void this.settle();
     this.editor.handle = null;
@@ -181,6 +203,7 @@ export class EditorComponent implements OnDestroy {
           if (update.docChanged && this.session === session) {
             this.outline.editorText.set(update.state.doc.toString());
           }
+          if ((update.docChanged || update.selectionSet) && this.session === session) this.scheduleStats();
           if (update.docChanged && !this.loading && this.session === session) {
             const text = update.state.doc.toString();
             session.saver.change(text);
@@ -193,6 +216,7 @@ export class EditorComponent implements OnDestroy {
     else this.view = new EditorView({ state, parent: host });
     this.loading = false;
     this.outline.editorText.set(text);
+    this.updateStats();
     void this.restoreFolds(session);
 
     const line = this.editor.startLine();
