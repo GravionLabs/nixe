@@ -46,6 +46,7 @@ import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
 import { WorkspacesService } from "./core/workspace/workspaces.service";
+import { VaultUndoService } from "./core/workspace/vault-undo.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
 import { TREE_SORTS, TREE_SORT_LABELS } from "./core/workspace/tree-model";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
@@ -132,6 +133,7 @@ export class AppComponent {
   protected readonly composer = inject(ComposerService);
   private readonly daily = inject(DailyService);
   private readonly bookmarks = inject(BookmarksService);
+  private readonly vaultUndo = inject(VaultUndoService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
   protected readonly recent = inject(RecentPickerService);
@@ -227,6 +229,23 @@ export class AppComponent {
       untracked(() => {
         this.showToast(notice);
         this.recent.notice.set(null);
+      });
+    });
+
+    effect(() => {
+      const notice = this.vaultUndo.notice();
+      if (notice === null) return;
+      untracked(() => {
+        if (notice.error) this.showError(notice.text);
+        else if (notice.undo) {
+          this.messages.add({
+            severity: "info",
+            summary: notice.text,
+            life: 8000,
+            action: { label: "Undo", run: () => void this.vaultUndo.undo() },
+          });
+        } else this.showToast(notice.text);
+        this.vaultUndo.notice.set(null);
       });
     });
 
@@ -397,6 +416,12 @@ export class AppComponent {
         when: noteOpen,
         run: () =>
           this.run(() => this.editor.toggle(this.tabs.activeTab().viewer?.topLine() ?? null)),
+      },
+      {
+        id: "undo-vault-operation",
+        title: "Undo last vault operation",
+        when: inVault,
+        run: () => void this.vaultUndo.undo(),
       },
       {
         id: "bookmark-note",

@@ -27,6 +27,7 @@ function entry(n: number, extra: Partial<HistoryEntry> = {}): HistoryEntry {
     path: "a.md",
     parent: `c${n - 1}`,
     parentPath: "a.md",
+    operation: null,
     ...extra,
   };
 }

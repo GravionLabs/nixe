@@ -379,20 +379,76 @@ fn create_dir(state: State<'_, AppState>, path: String) -> Result<(), String> {
 }
 
 /// Renames or moves a file or folder inside the vault and rewrites the links to it in the notes
-/// that contain them (one batch). Returns the notes that were rewritten.
+/// that contain them (one batch). Returns the notes that were rewritten. In a Git vault the
+/// operation is one commit (#241).
 #[tauri::command]
 fn rename_path(
     state: State<'_, AppState>,
     index: State<'_, index::commands::IndexState>,
     from: String,
     to: String,
+    name: Option<String>,
+    email: Option<String>,
 ) -> Result<Vec<vault::relink::Change>, String> {
-    vault::relink::rename_with_links(
-        &vault_root_of(&state)?,
-        Path::new(&from),
-        Path::new(&to),
-        |targets| index.referrers(targets),
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    let (rel_from, rel_to) = (
+        vault::ops::display(&root, Path::new(&from)),
+        vault::ops::display(&root, Path::new(&to)),
+    );
+    let kind = vault::ops::rename_kind(&rel_from, &rel_to);
+    vault::ops::commit_around(
+        &root,
+        kind,
+        fallback.as_ref(),
+        || {
+            vault::relink::rename_with_links(&root, Path::new(&from), Path::new(&to), |targets| {
+                index.referrers(targets)
+            })
+        },
+        |changes| {
+            (
+                kind,
+                format!(
+                    "{kind}: {rel_from} -> {rel_to}{}",
+                    vault::ops::links_suffix(changes.len())
+                ),
+            )
+        },
     )
+}
+
+/// The Git author of the settings, when both parts are set.
+fn identity_of(name: Option<String>, email: Option<String>) -> Option<git::Identity> {
+    match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    }
+}
+
+/// The last vault operation that is not undone yet (#241); `None` without Git.
+#[tauri::command]
+async fn last_vault_operation(
+    state: State<'_, AppState>,
+) -> Result<Option<git::Operation>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::last_operation(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Reverts the last vault operation as a new commit; refused when it conflicts (#241).
+#[tauri::command]
+async fn undo_vault_operation(
+    state: State<'_, AppState>,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<git::Operation, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    tauri::async_runtime::spawn_blocking(move || git::undo_operation(&root, fallback.as_ref()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// The notes whose links a rename of `from` to `to` would rewrite; changes nothing.
@@ -441,14 +497,27 @@ fn extract_text(
     target: String,
     what: vault::composer::What,
     embed: bool,
+    name: Option<String>,
+    email: Option<String>,
 ) -> Result<Vec<vault::composer::Change>, String> {
-    vault::composer::extract(
-        &vault_root_of(&state)?,
-        &source,
-        &what,
-        &target,
-        embed,
-        |t| index.referrers(t),
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    let summary = format!("extract: {source} -> {target}");
+    vault::ops::commit_around(
+        &root,
+        "extraction",
+        fallback.as_ref(),
+        || {
+            vault::composer::extract(&root, &source, &what, &target, embed, |t| {
+                index.referrers(t)
+            })
+        },
+        |changes| {
+            (
+                "extract",
+                format!("{summary}, {} notes changed", changes.len()),
+            )
+        },
     )
 }
 
@@ -472,10 +541,26 @@ fn merge_note(
     index: State<'_, index::commands::IndexState>,
     source: String,
     target: String,
+    name: Option<String>,
+    email: Option<String>,
 ) -> Result<Vec<vault::composer::Change>, String> {
-    vault::composer::merge(&vault_root_of(&state)?, &source, &target, |t| {
-        index.referrers(t)
-    })
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    vault::ops::commit_around(
+        &root,
+        "merge",
+        fallback.as_ref(),
+        || vault::composer::merge(&root, &source, &target, |t| index.referrers(t)),
+        |changes| {
+            (
+                "merge",
+                format!(
+                    "merge: {source} -> {target}{}",
+                    vault::ops::links_suffix(changes.len())
+                ),
+            )
+        },
+    )
 }
 
 /// Every replacement a find and replace would make, per note; changes nothing (#115).
@@ -539,8 +624,22 @@ fn link_mention(
 
 /// Moves a file or folder to `.trash/` in the vault; returns its new path.
 #[tauri::command]
-fn trash_path(state: State<'_, AppState>, path: String) -> Result<String, String> {
-    fileops::trash_path(&vault_root_of(&state)?, Path::new(&path)).map(|p| path_to_string(&p))
+fn trash_path(
+    state: State<'_, AppState>,
+    path: String,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<String, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    let rel = vault::ops::display(&root, Path::new(&path));
+    vault::ops::commit_around(
+        &root,
+        "delete",
+        fallback.as_ref(),
+        || fileops::trash_path(&root, Path::new(&path)).map(|p| path_to_string(&p)),
+        |_| ("delete", format!("delete: {rel}")),
+    )
 }
 
 /// Where a new note goes, from `.obsidian/app.json` of the vault.
@@ -935,6 +1034,8 @@ pub fn run() {
         extract_text,
         merge_preview,
         merge_note,
+        last_vault_operation,
+        undo_vault_operation,
         replace_preview,
         replace_apply,
         trash_path,
@@ -1031,6 +1132,8 @@ pub fn run() {
         extract_text,
         merge_preview,
         merge_note,
+        last_vault_operation,
+        undo_vault_operation,
         replace_preview,
         replace_apply,
         trash_path,

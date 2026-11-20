@@ -20,6 +20,8 @@ export interface TimelineEntry {
   time: number;
   message: string;
   path: string;
+  /** The vault operation that wrote the commit (`rename`, `delete`, ...), if one did (#241). */
+  operation?: string | null;
 }
 
 /** The two texts a selection compares. */
