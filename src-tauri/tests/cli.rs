@@ -725,10 +725,16 @@ mod site {
         fs::create_dir_all(dir.join(".obsidian")).unwrap();
         fs::write(
             dir.join("Home.md"),
-            "[[Secret]] [[Hidden]] [[Open]] [md](private/Hidden.md) <script>x()</script>\n",
+            "[[Secret]] [[Hidden]] [[Open]] [md](private/Hidden.md) [k](private/key.txt) [o](.obsidian/app.json) ![[private/key.txt]] <script>x()</script>\n",
         )
         .unwrap();
-        fs::write(dir.join("Open.md"), "open\n").unwrap();
+        fs::write(
+            dir.join("Open.md"),
+            "open\n```sh\nif [[ -f x ]]; then 100%%d%%\n```\n",
+        )
+        .unwrap();
+        fs::write(dir.join("private/key.txt"), "k").unwrap();
+        fs::write(dir.join(".obsidian/app.json"), "{}").unwrap();
         fs::write(dir.join("Secret.md"), "---\npublish: false\n---\nsecret\n").unwrap();
         fs::write(dir.join("private/Hidden.md"), "hidden\n").unwrap();
         let out = dir.join("out");
@@ -754,6 +760,13 @@ mod site {
         assert!(home.contains("&lt;script&gt;"), "raw HTML is shown as text");
         assert!(!out.join("Secret.html").exists());
         assert!(!out.join("private").exists());
+        assert!(!out.join("_nixe/files").exists());
+        assert!(!out.join(".obsidian").exists());
+        let open = fs::read_to_string(out.join("Open.html")).unwrap();
+        assert!(
+            open.contains("if [[ -f x ]]; then 100%%d%%"),
+            "code is left alone"
+        );
         let search = fs::read_to_string(out.join("_nixe/search-index.js")).unwrap();
         assert!(!search.contains("secret") && !search.contains("hidden"));
         assert!(String::from_utf8(sink).unwrap().contains("2 left out"));

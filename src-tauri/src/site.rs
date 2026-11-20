@@ -107,11 +107,7 @@ pub fn export_site(opts: &SiteOptions) -> Result<SiteSummary, String> {
             .properties
             .iter()
             .any(|p| p.key == "publish" && is_false(&p.value));
-        let by_folder = exclude.iter().any(|e| {
-            [rel, path.as_str()]
-                .iter()
-                .any(|p| *p == e || p.starts_with(&format!("{e}/")))
-        });
+        let by_folder = in_excluded(&exclude, &prefix, path);
         if unpublished || by_folder {
             excluded += 1;
             continue;
@@ -139,6 +135,7 @@ pub fn export_site(opts: &SiteOptions) -> Result<SiteSummary, String> {
         all: &all,
         resolver: &resolver,
         pages: &pages,
+        exclude: &exclude,
     };
     let mut notes = Vec::new();
     let mut links: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
@@ -263,6 +260,17 @@ pub fn export_site(opts: &SiteOptions) -> Result<SiteSummary, String> {
     })
 }
 
+/// True when `vault` (a vault path) lies in a folder named by `--exclude`, relative to the exported
+/// folder or to the vault.
+fn in_excluded(exclude: &[String], prefix: &str, vault: &str) -> bool {
+    let rel = vault.strip_prefix(prefix).unwrap_or(vault);
+    exclude.iter().any(|e| {
+        [rel, vault]
+            .iter()
+            .any(|p| *p == e || p.starts_with(&format!("{e}/")))
+    })
+}
+
 fn write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -307,6 +315,7 @@ struct Ctx<'a> {
     all: &'a [String],
     resolver: &'a Resolver,
     pages: &'a BTreeMap<String, String>,
+    exclude: &'a [String],
 }
 
 /// A link target inside the site.
@@ -330,7 +339,12 @@ impl Ctx<'_> {
                 .get(&vault)
                 .map_or(Dest::None, |p| Dest::Page(p.clone()));
         }
-        if self.root.join(&vault).is_file() {
+        // Neither an excluded folder nor a hidden one (`.obsidian`, `.git`) is published.
+        let hidden = vault.split('/').any(|s| s.starts_with('.'));
+        if !hidden
+            && !in_excluded(self.exclude, self.prefix, &vault)
+            && self.root.join(&vault).is_file()
+        {
             Dest::File(vault)
         } else {
             Dest::None
@@ -433,6 +447,7 @@ fn render(ctx: &Ctx, vault: &str, body: &str) -> Rendered {
 
     let mut out: Vec<Event> = Vec::with_capacity(events.len());
     let mut kept: Vec<bool> = Vec::new();
+    let mut in_code = false;
     let mut used_ids: HashMap<String, usize> = HashMap::new();
     let mut i = 0;
     while i < events.len() {
@@ -515,6 +530,18 @@ fn render(ctx: &Ctx, vault: &str, body: &str) -> Rendered {
                 plain.push_str(&c);
                 plain.push(' ');
                 out.push(Event::Code(c));
+            }
+            Event::Start(Tag::CodeBlock(kind)) => {
+                in_code = true;
+                out.push(Event::Start(Tag::CodeBlock(kind)));
+            }
+            Event::End(TagEnd::CodeBlock) => {
+                in_code = false;
+                out.push(Event::End(TagEnd::CodeBlock));
+            }
+            Event::Text(text) if in_code => {
+                plain.push_str(&text);
+                out.push(Event::Text(text));
             }
             Event::Text(text) => {
                 let text = comment.replace_all(&text, "").into_owned();
