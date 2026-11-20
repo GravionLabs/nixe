@@ -85,6 +85,7 @@ export class EditorComponent implements OnDestroy {
       flush: () => this.flush(),
       dirty: () => this.session?.saver.dirty ?? false,
       blocked: () => this.conflict() !== null,
+      saveCopy: () => this.saveCopy(),
       insertTemplate: (template) => this.insertTemplate(template),
       attachPaths: (paths) => this.attachPaths(paths),
       fold: (action) => this.fold(action),
@@ -95,6 +96,12 @@ export class EditorComponent implements OnDestroy {
     this.doc.remoteHook = (text, saved) => this.onRemote(text, saved);
 
     effect(() => this.editor.blocked.set(this.conflict() !== null));
+
+    // A missing file must not be written back by the autosave: the text stays in the editor.
+    effect(() => {
+      const missing = this.doc.missing();
+      untracked(() => this.session?.saver.hold(missing || this.conflict() !== null));
+    });
 
     effect(() => {
       const path = this.doc.path();
@@ -322,16 +329,29 @@ export class EditorComponent implements OnDestroy {
     const session = this.session;
     const pending = session?.saver.pendingText ?? null;
     if (!session || this.conflict() === null || pending === null) return this.flush();
-    const copy = session.path.replace(
-      /(\.[^./]+)?$/,
-      ` (unsaved copy ${new Date().toISOString().replace(/[:.]/g, "-")}).md`,
-    );
+    const copy = unsavedCopyPath(session.path);
     try {
       await backend.writeTextFile(copy, session.crlf ? toCrlf(pending) : pending);
       session.saver.discard();
       this.failed.emit(`The note changed on disk; your edits were saved to ${copy}`);
     } catch (error) {
       this.failed.emit(`Your edits could not be saved: ${String(error)}`);
+    }
+  }
+
+  /** "Save as copy" of a note whose file is gone: the editor text goes next to where it was. */
+  private async saveCopy(): Promise<void> {
+    const session = this.session;
+    const view = this.view;
+    if (!session || !view) return;
+    const copy = unsavedCopyPath(session.path);
+    try {
+      const text = view.state.doc.toString();
+      await backend.writeTextFile(copy, session.crlf ? toCrlf(text) : text);
+      session.saver.discard();
+      this.failed.emit(`Saved a copy to ${copy}`);
+    } catch (error) {
+      this.failed.emit(`The copy could not be saved: ${String(error)}`);
     }
   }
 
@@ -483,14 +503,14 @@ export class EditorComponent implements OnDestroy {
     session.saver.discard();
     this.replaceText(session, disk);
     this.conflict.set(null);
-    session.saver.hold(false);
+    session.saver.hold(this.doc.missing());
   }
 
   protected keepMine(): void {
     const session = this.session;
     if (!session) return;
     this.conflict.set(null);
-    session.saver.hold(false);
+    session.saver.hold(this.doc.missing());
     void session.saver.flush();
   }
 
@@ -521,4 +541,12 @@ export class EditorComponent implements OnDestroy {
     await this.settle();
     await this.doc.open(path, { anchor: heading }).catch((err) => this.failed.emit(String(err)));
   }
+}
+
+/** A sibling of `path` for text that must not overwrite the note. */
+function unsavedCopyPath(path: string): string {
+  return path.replace(
+    /(\.[^./]+)?$/,
+    ` (unsaved copy ${new Date().toISOString().replace(/[:.]/g, "-")}).md`,
+  );
 }

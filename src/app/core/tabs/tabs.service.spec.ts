@@ -253,6 +253,54 @@ describe("TabsService", () => {
     });
   });
 
+  describe("missing file", () => {
+    it("is tracked per tab and cleared when the file returns", async () => {
+      await tabs.activeTab().doc.open("/v/a.md");
+      await tabs.splitRight();
+      const [left, right] = tabs.panes().map((p) => p.tabs[0]);
+      await right.doc.open("/v/b.md");
+      const read = FILES["/v/a.md"];
+      delete FILES["/v/a.md"];
+      invoke.mockImplementation(async (cmd: string, args: { path: string }) => {
+        if (cmd === "path_exists") return args.path in FILES;
+        if (cmd === "read_text_file") {
+          if (!(args.path in FILES)) throw new Error("missing");
+          return FILES[args.path];
+        }
+        return undefined;
+      });
+      try {
+        await tabs.onExternalChange("/v/a.md");
+        expect(left.doc.missing()).toBe(true);
+        expect(right.doc.missing()).toBe(false);
+      } finally {
+        FILES["/v/a.md"] = read;
+      }
+      await tabs.onExternalChange("/v/a.md");
+      expect(left.doc.missing()).toBe(false);
+    });
+  });
+
+  describe("missing file on activation", () => {
+    it("marks and clears the state of a tab that was not watched", async () => {
+      const first = tabs.activeTab();
+      await first.doc.open("/v/a.md");
+      tabs.newTab();
+      await tabs.activeTab().doc.open("/v/b.md");
+      let exists = false;
+      invoke.mockImplementation(async (cmd: string) =>
+        cmd === "path_exists" ? exists : undefined,
+      );
+      const pane = tabs.panes()[0];
+      tabs.activate(pane.id, pane.tabs[0].id);
+      await vi.waitFor(() => expect(first.doc.missing()).toBe(true));
+      exists = true;
+      tabs.activate(pane.id, pane.tabs[1].id);
+      tabs.activate(pane.id, pane.tabs[0].id);
+      await vi.waitFor(() => expect(first.doc.missing()).toBe(false));
+    });
+  });
+
   describe("restoring", () => {
     async function laidOut() {
       const first = tabs.activeTab();
