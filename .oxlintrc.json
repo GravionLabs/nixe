@@ -1,0 +1,79 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "vitest"],
+  "jsPlugins": ["@angular-eslint/eslint-plugin"],
+  "categories": { "correctness": "error" },
+  "options": { "typeAware": true },
+  "ignorePatterns": [
+    "dist/**",
+    "coverage/**",
+    "node_modules/**",
+    ".angular/**",
+    "out-tsc/**",
+    "src-tauri/**",
+    ".agents/**",
+    ".claude/**",
+    "docs/**",
+    "fixtures/**"
+  ],
+  "rules": {
+    "typescript/no-explicit-any": "error",
+    // Off: the `!` in src/ are indexed reads after a bounds or match check (`lines[i]!`, `m[1]!`)
+    // in the parsers; strictNullChecks covers the rest.
+    "typescript/no-non-null-assertion": "off",
+    "typescript/consistent-type-imports": "warn",
+    "typescript/no-floating-promises": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-misused-promises": "error",
+    "prefer-template": "warn",
+    // Off: strings are spread on purpose to iterate code points (search queries, hex colors);
+    // splitting into graphemes is not wanted there.
+    "typescript/no-misused-spread": "off",
+    "vitest/no-focused-tests": "error",
+    // Vitest's expect(value, message) takes the failure message as second argument; the specs use it.
+    "vitest/valid-expect": ["error", { "maxArgs": 2 }],
+    // vi.fn() takes its type from the implementation or from the property it replaces; a type
+    // parameter on each of the ~290 mocks adds noise and finds no bug.
+    "vitest/require-mock-type-parameters": "off",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "@angular-eslint/contextual-lifecycle": "error",
+    "@angular-eslint/no-empty-lifecycle-method": "error",
+    "@angular-eslint/no-input-rename": "error",
+    "@angular-eslint/no-inputs-metadata-property": "error",
+    "@angular-eslint/no-output-native": "error",
+    "@angular-eslint/no-output-on-prefix": "error",
+    "@angular-eslint/no-output-rename": "error",
+    "@angular-eslint/no-outputs-metadata-property": "error",
+    "@angular-eslint/prefer-inject": "error",
+    "@angular-eslint/prefer-on-push-component-change-detection": "error",
+    "@angular-eslint/prefer-standalone": "error",
+    "@angular-eslint/use-pipe-transform-interface": "error",
+    "@angular-eslint/use-lifecycle-interface": "warn",
+    // The guard against inline templates (#273): every template is a .html file, so ESLint sees it.
+    // Inline styles and animations stay allowed (no linter reads them), hence the high limits that
+    // replace the defaults of 3 (styles) and 15 (animations) lines.
+    "@angular-eslint/component-max-inline-declarations": [
+      "error",
+      { "template": 0, "styles": 1000, "animations": 1000 }
+    ],
+    "@angular-eslint/component-selector": [
+      "error",
+      { "type": "element", "prefix": "app", "style": "kebab-case" }
+    ],
+    "@angular-eslint/directive-selector": [
+      "error",
+      { "type": "attribute", "prefix": "app", "style": "camelCase" }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.spec.ts"],
+      "rules": {
+        // Test hosts declare their template inline next to the test.
+        "@angular-eslint/component-max-inline-declarations": "off",
+        // expect(service.method).toHaveBeenCalled() reads a vi.fn() mock, it never calls it unbound.
+        "typescript/unbound-method": "off"
+      }
+    }
+  ]
+}
