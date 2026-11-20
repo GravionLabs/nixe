@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 
 import type { SearchHit } from "../file/backend";
 import { backend } from "../file/backend";
+import { WorkspacesService } from "../workspace/workspaces.service";
 import { IndexService } from "./index.service";
 
 export type SearchState = "idle" | "loading" | "error" | "ready";
@@ -10,6 +11,7 @@ export type SearchState = "idle" | "loading" | "error" | "ready";
 @Injectable({ providedIn: "root" })
 export class SearchService {
   private readonly index = inject(IndexService);
+  private readonly workspaces = inject(WorkspacesService);
 
   readonly query = signal("");
   readonly hits = signal<SearchHit[]>([]);
@@ -24,7 +26,14 @@ export class SearchService {
   });
 
   /** Changes whenever the results must be read again: the index finished or was updated. */
-  readonly key = computed(() => `${this.index.status().state}|${this.index.revision()}`);
+  readonly key = computed(() =>
+    [
+      this.index.status().state,
+      this.index.revision(),
+      this.workspaces.indexRevision(),
+      this.workspaces.searchRoots()?.length ?? 0,
+    ].join("|"),
+  );
 
   /** Sets the query to run, when there is one. */
   openWith(query?: string): void {
@@ -45,7 +54,10 @@ export class SearchService {
       return;
     }
     try {
-      const hits = await backend.searchNotes(query);
+      const roots = this.workspaces.searchRoots();
+      const hits = roots
+        ? await backend.searchWorkspace(roots, query)
+        : await backend.searchNotes(query);
       if (request !== this.request) return;
       this.hits.set(hits);
       this.failed.set(false);
@@ -60,6 +72,11 @@ export class SearchService {
 export type SearchSort = "relevance" | "name" | "modified";
 
 export const SEARCH_SORTS: readonly SearchSort[] = ["relevance", "name", "modified"];
+
+/** Identifies a hit across the roots of a workspace: two roots can hold the same path. */
+export function hitKey(hit: SearchHit): string {
+  return `${hit.rootPath ?? ""}|${hit.path}`;
+}
 
 /** The hits in the chosen order; relevance keeps the order of the backend. */
 export function sortHits(hits: SearchHit[], sort: SearchSort): SearchHit[] {

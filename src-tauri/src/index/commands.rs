@@ -231,6 +231,122 @@ pub fn search_notes(state: State<'_, IndexState>, query: String) -> Result<Vec<S
     search::search(&state.conn()?, &query).map_err(|e| e.to_string())
 }
 
+/// A folder of the workspace a search or the switcher covers.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct RootArg {
+    pub path: String,
+    pub name: String,
+}
+
+/// A note of the workspace with the root it is in.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WorkspaceNote {
+    pub root: String,
+    #[serde(rename = "rootPath")]
+    pub root_path: String,
+    #[serde(flatten)]
+    pub note: NoteSummary,
+}
+
+/// Brings the index of every root up to date (the scan of the first root is the window's own
+/// `index_start`; for it this is an incremental pass). Returns when all are done.
+#[tauri::command]
+pub async fn workspace_index(
+    app: AppHandle,
+    state: State<'_, IndexState>,
+    roots: Vec<RootArg>,
+) -> Result<(), String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let scan_lock = state.scan_lock.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        for root in roots {
+            let _one_at_a_time = scan_lock.lock().unwrap_or_else(|e| e.into_inner());
+            let path = PathBuf::from(&root.path);
+            if !path.is_dir() {
+                continue;
+            }
+            let mut conn = open(&index_path(&data_dir, &path)).map_err(|e| e.to_string())?;
+            scan(&mut conn, &path, |_| {}).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Full-text search over all `roots` (#117), each hit naming its root.
+#[tauri::command]
+pub async fn search_workspace(
+    app: AppHandle,
+    roots: Vec<RootArg>,
+    query: String,
+) -> Result<Vec<SearchHit>, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        search_workspace_in(&data_dir, &roots, &query).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The notes of all `roots` for the quick switcher.
+#[tauri::command]
+pub async fn workspace_notes(
+    app: AppHandle,
+    roots: Vec<RootArg>,
+) -> Result<Vec<WorkspaceNote>, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        workspace_notes_in(&data_dir, &roots).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+pub(crate) fn search_workspace_in(
+    data_dir: &Path,
+    roots: &[RootArg],
+    query: &str,
+) -> rusqlite::Result<Vec<SearchHit>> {
+    let conns = open_roots(data_dir, roots)?;
+    let list: Vec<search::SearchRoot> = roots
+        .iter()
+        .zip(&conns)
+        .map(|(r, conn)| search::SearchRoot {
+            name: &r.name,
+            path: &r.path,
+            conn,
+        })
+        .collect();
+    search::search_roots(&list, query)
+}
+
+pub(crate) fn workspace_notes_in(
+    data_dir: &Path,
+    roots: &[RootArg],
+) -> rusqlite::Result<Vec<WorkspaceNote>> {
+    let conns = open_roots(data_dir, roots)?;
+    let mut out = Vec::new();
+    for (root, conn) in roots.iter().zip(&conns) {
+        for note in read::notes(conn)? {
+            out.push(WorkspaceNote {
+                root: root.name.clone(),
+                root_path: root.path.clone(),
+                note,
+            });
+        }
+    }
+    Ok(out)
+}
+
+/// The index of each root that exists; a root without a folder gets an empty one.
+fn open_roots(data_dir: &Path, roots: &[RootArg]) -> rusqlite::Result<Vec<rusqlite::Connection>> {
+    roots
+        .iter()
+        .map(|r| open(&index_path(data_dir, Path::new(&r.path))))
+        .collect()
+}
+
 #[tauri::command]
 pub fn vault_health(
     state: State<'_, IndexState>,

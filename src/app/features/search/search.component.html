@@ -47,7 +47,7 @@
 
 @if (helpOpen()) {
   <ul class="operators" aria-label="Operators">
-    @for (op of operators; track op.insert) {
+    @for (op of operators(); track op.insert) {
       <li>
         <button type="button" class="operator" (click)="insertOperator(op.insert)">
           <code>{{ op.insert }}</code> <span>{{ op.text }}</span>
@@ -175,26 +175,32 @@
           </button>
         </div>
         <ul aria-label="Results">
-          @for (hit of sorted(); track hit.path) {
+          @for (hit of sorted(); track hitKey(hit)) {
             <li>
               <button type="button" class="note" (click)="openHit(hit)" [title]="hit.path">
                 <span class="name">{{ hit.title }}</span>
+                @if (hit.root) {
+                  <span class="root">{{ hit.root }}</span>
+                }
                 <span class="path">{{ hit.path }}</span>
               </button>
               @if (hit.snippets.length > 0) {
                 <button
                   type="button"
                   class="fold"
-                  (click)="toggleNote(hit.path)"
-                  [attr.aria-expanded]="!collapsed().has(hit.path)"
+                  (click)="toggleNote(hitKey(hit))"
+                  [attr.aria-expanded]="!collapsed().has(hitKey(hit))"
                   [attr.aria-label]="
-                    (collapsed().has(hit.path) ? 'Expand ' : 'Collapse ') + hit.path
+                    (collapsed().has(hitKey(hit)) ? 'Expand ' : 'Collapse ') + hit.path
                   "
                 >
-                  {{ collapsed().has(hit.path) ? "▸" : "▾" }} {{ hit.snippets.length }}
+                  {{ collapsed().has(hitKey(hit)) ? "▸" : "▾" }} {{ hit.snippets.length }}
                 </button>
               }
-              @for (snippet of collapsed().has(hit.path) ? [] : hit.snippets; track snippet.line) {
+              @for (
+                snippet of collapsed().has(hitKey(hit)) ? [] : hit.snippets;
+                track snippet.line
+              ) {
                 <button type="button" class="snippet" (click)="openHit(hit, snippet)">
                   @for (part of segments(snippet.text); track $index) {
                     @if (part.match) {

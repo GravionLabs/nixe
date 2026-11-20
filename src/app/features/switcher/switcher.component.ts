@@ -94,7 +94,7 @@ export class SwitcherComponent {
   }
 
   protected async choose(match: SwitcherMatch, newTab = false): Promise<void> {
-    const root = this.workspace.vaultRoot();
+    const root = match.entry.rootPath ?? this.workspace.vaultRoot();
     if (!root) return;
     this.switcher.close();
     try {

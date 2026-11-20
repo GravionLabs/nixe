@@ -37,6 +37,15 @@ To point agents at it from a vault, put a line like this in the vault's `CLAUDE.
 Query the vault with the `nixe` MCP server (see docs/mcp.md) before reading many files.
 ```
 
+## Several folders
+
+`nixe mcp --vault a --vault b` (or `--workspace <name>` for a saved [workspace](workspaces.md))
+serves several roots. `search` then covers all of them; each hit has `root` and `rootPath`, and
+`root:name` in the query, or the argument `roots: ["name"]`, narrows it. `tags` adds up the counts
+and `notes_by_property` lists all roots (each row with its `root`); `backlinks`, `outgoing_links`,
+`read_note` and `resolve_link` need the argument `root` as soon as there are several. With one
+vault nothing changes.
+
 ## Tools
 
 All tools are read-only (`readOnlyHint`). Results are JSON text with the shapes of

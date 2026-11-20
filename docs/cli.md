@@ -68,6 +68,13 @@ like a `[[wikilink]]`. A missing or ambiguous note is an error.
 
 - `--vault <dir>`: the vault. Without it, the vault that contains the current directory (the
   topmost parent holding `.obsidian/`, else the current directory itself).
+- `--vault <dir>` more than once, or `--workspace <name>` (a workspace saved in the app, see
+  [workspaces.md](workspaces.md)): `search`, `notes` and `tags` then cover all the folders. The
+  root of a result is its folder name (`notes`, `notes (2)` for equal names; in a workspace the
+  name of the root). Text output prefixes it (`wiki:Page.md`), JSON adds `"root"` (and, for
+  `search`, `"rootPath"`). `search` takes `root:<name>` (`root:"two words"`) to keep one root.
+  `tags` adds the counts up. The other commands work on one vault and refuse several.
+  `--workspace` and `--vault` cannot be combined.
 - `--json`: machine-readable output.
 
 Before answering, the index (the one the app uses, below the app data directory) is brought up

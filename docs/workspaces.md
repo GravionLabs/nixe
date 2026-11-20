@@ -27,9 +27,24 @@ The prefix is only used when it names a root; otherwise the colon belongs to the
 (`[[Re: plan]]`). Root names are unique in a workspace (`notes`, `notes (2)`). The rule is
 implemented by `WorkspaceLinks` in `src-tauri/src/workspace.rs`.
 
+## Search and quick switcher
+
+The search panel and the quick switcher cover all roots (#117). Every result shows its root, and
+the operator `root:name` (`root:"two words"`; case-insensitive) keeps the notes of one root, in
+the panel and in the switcher alike. Opening the workspace scans the further roots into their
+own indexes in the background (`workspace_index`); the search reads all indexes
+(`search_workspace`, `workspace_notes`) and ranks the hits of all roots together by FTS rank, at
+most 50. Ten roots with 5000 notes in total answer in well under 150 ms
+(`ten_roots_with_5000_notes_answer_within_150_ms`). A further root is scanned once when the
+workspace opens; its later changes are picked up on the next opening (no file watcher on further
+roots).
+
+The command line and the MCP server take several `--vault` arguments or `--workspace <name>`
+([cli.md](cli.md), [mcp.md](mcp.md)).
+
 ## Limits
 
 File operations (create, rename, write) and the Git integration still work on the first root, the
 one the window was opened with; the further roots are for browsing and reading. Only the first root
-is scanned into the live index of the window (search, backlinks); links in notes of a further root
+is watched and in the live index of the window (backlinks); links in notes of a further root
 open through the workspace resolution above.

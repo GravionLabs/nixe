@@ -115,6 +115,31 @@ impl Workspace {
     }
 }
 
+/// The roots of a command line (`--vault` given several times): each folder named by its folder
+/// name, made unique like in a window (`notes`, `notes (2)`); the same folder twice counts once.
+pub fn name_roots(paths: &[PathBuf]) -> Vec<WorkspaceRoot> {
+    let mut ws = Workspace {
+        name: String::new(),
+        roots: Vec::new(),
+    };
+    for path in paths {
+        let key = slashes(path);
+        if ws.roots.iter().any(|r| r.path == key) {
+            continue;
+        }
+        let base = path
+            .file_name()
+            .map_or_else(|| key.clone(), |n| n.to_string_lossy().into_owned());
+        let root = WorkspaceRoot {
+            name: ws.free_name(&base),
+            kind: detect_kind(path),
+            path: key,
+        };
+        ws.roots.push(root);
+    }
+    ws.roots
+}
+
 /// A workspace name that is a safe file name: no separators, no leading dot, not empty.
 fn valid_name(name: &str) -> Result<String, String> {
     let name = name.trim();

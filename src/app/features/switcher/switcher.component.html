@@ -20,7 +20,11 @@
     (keydown)="onKeydown($event)"
   />
   <ul id="switcher-list" role="listbox">
-    @for (match of switcher.matches(); track match.entry.path; let i = $index) {
+    @for (
+      match of switcher.matches();
+      track (match.entry.rootPath ?? "") + match.entry.path;
+      let i = $index
+    ) {
       <li
         role="option"
         [attr.aria-selected]="i === switcher.selected()"
@@ -35,7 +39,12 @@
           @if (match.isAlias) {
             <span class="alias">alias of {{ match.entry.title }}</span>
           }
-          <span class="path" [title]="match.entry.path">{{ match.entry.path }}</span>
+          <span class="path" [title]="match.entry.path">
+            @if (match.entry.root) {
+              <span class="root">{{ match.entry.root }}</span>
+            }
+            {{ match.entry.path }}
+          </span>
         </button>
       </li>
     } @empty {

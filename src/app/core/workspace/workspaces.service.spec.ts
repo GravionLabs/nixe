@@ -41,6 +41,7 @@ describe("WorkspacesService", () => {
     vi.spyOn(backend, "findVaultRoot").mockImplementation(async (p) => p);
     vi.spyOn(backend, "listVaultFiles").mockResolvedValue([]);
     vi.spyOn(backend, "indexStart").mockResolvedValue(undefined);
+    vi.spyOn(backend, "workspaceIndex").mockResolvedValue(undefined);
     vi.spyOn(backend, "workspaceAddRoot").mockImplementation(async (ws, path) => ({
       ...ws,
       roots: [...ws.roots, root(path, path.split("/").pop()!)],
@@ -69,6 +70,22 @@ describe("WorkspacesService", () => {
       ["b", "/b"],
       ["c", "/c"],
     ]);
+  });
+
+  it("covers search and switcher with all roots once there are several, and indexes them (#117)", async () => {
+    await workspace.openFolder("/a", { openDefaultPage: false });
+    expect(service.searchRoots()).toBeNull();
+    await service.addFolder("/b");
+    expect(service.searchRoots()).toEqual([
+      { path: "/a", name: "a" },
+      { path: "/b", name: "b" },
+    ]);
+    expect(backend.workspaceIndex).toHaveBeenCalledWith(service.searchRoots());
+    await vi.waitFor(() => expect(service.indexRevision()).toBe(1));
+    vi.mocked(backend.workspaceIndex).mockRejectedValueOnce("boom");
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    await service.addFolder("/c");
+    await vi.waitFor(() => expect(service.indexRevision()).toBe(2));
   });
 
   it("needs an open folder before the first root", async () => {
