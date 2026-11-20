@@ -1,5 +1,3 @@
 @for (hint of hints(); track hint.label) {
-  <span class="hint"
-    ><kbd>{{ hint.keys }}</kbd> {{ hint.label }}</span
-  >
+  <span class="hint"><hx-kbd [keys]="[hint.keys]" size="sm" /> {{ hint.label }}</span>
 }

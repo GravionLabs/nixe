@@ -10,11 +10,13 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
+import { ShortcutService } from "../../core/commands/shortcut.service";
 import type { Pane, Tab } from "../../core/tabs/tabs.service";
 import { ACTIVE_TAB_PROVIDERS, TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceComponent } from "./workspace.component";
 
 type Items = {
+  menu(): Array<{ action: string; shortcut?: string }>;
   items(pane: unknown): Array<{ label: string; missing?: boolean; modified?: boolean }>;
 };
 
@@ -41,6 +43,7 @@ describe("WorkspaceComponent", () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: TabsService, useValue: {} },
+        { provide: ShortcutService, useValue: { display: () => "Ctrl+W" } },
         { provide: ElementRef, useValue: new ElementRef(document.createElement("div")) },
       ],
     });
@@ -48,6 +51,24 @@ describe("WorkspaceComponent", () => {
     const pane = { id: 1, tabs, activeId: tabs[0].id } as Pane;
     return (ws as unknown as Items).items(pane);
   }
+
+  it("shows the shortcut of close-tab in the tab menu", () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: TabsService, useValue: {} },
+        {
+          provide: ShortcutService,
+          useValue: { display: (id: string) => (id === "close-tab" ? "Ctrl+W" : "") },
+        },
+        { provide: ElementRef, useValue: new ElementRef(document.createElement("div")) },
+      ],
+    });
+    const ws = TestBed.runInInjectionContext(() => new WorkspaceComponent());
+    expect((ws as unknown as Items).menu()).toEqual([
+      { action: "close", label: "Close", shortcut: "Ctrl+W" },
+    ]);
+  });
 
   it("marks only the tabs with unsaved edits", () => {
     const a = tab(1, "A.md", true);
@@ -68,6 +89,7 @@ describe("WorkspaceComponent", () => {
     TestBed.configureTestingModule({
       providers: [
         ...ACTIVE_TAB_PROVIDERS,
+        { provide: ShortcutService, useValue: { display: () => "Ctrl+W" } },
         { provide: ElementRef, useValue: new ElementRef(document.body) },
       ],
     });

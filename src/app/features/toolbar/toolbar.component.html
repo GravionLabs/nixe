@@ -5,7 +5,8 @@
     class="icon"
     (click)="doc.back()"
     [disabled]="!doc.canGoBack()"
-    [title]="'Back (' + mod + '[)'"
+    hx-tooltip="Back"
+    [hxTooltipShortcut]="shortcuts.keys('back')"
     aria-label="Back"
   >
     <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
@@ -16,13 +17,14 @@
     class="icon"
     (click)="doc.forward()"
     [disabled]="!doc.canGoForward()"
-    [title]="'Forward (' + mod + '])'"
+    hx-tooltip="Forward"
+    [hxTooltipShortcut]="shortcuts.keys('forward')"
     aria-label="Forward"
   >
     <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg>
   </button>
 
-  <nav slot="centre" class="crumbs" aria-label="Path of the note" [title]="doc.path() ?? ''">
+  <nav slot="centre" class="crumbs" aria-label="Path of the note" [hx-tooltip]="doc.path() ?? ''">
     @for (crumb of crumbs(); track $index) {
       @if ($index > 0) {
         <span class="sep" aria-hidden="true">/</span>
@@ -48,7 +50,7 @@
               (blur)="commitRename(renameInput)"
             />
           } @else {
-            <button type="button" class="crumb note" title="Rename" (click)="startRename()">
+            <button type="button" class="crumb note" hx-tooltip="Rename" (click)="startRename()">
               {{ crumb.label }}
             </button>
           }
@@ -65,7 +67,8 @@
     [attr.aria-pressed]="editor.editing()"
     [disabled]="doc.path() === null || (editor.editing() && editor.blocked())"
     (click)="run('toggle-editor')"
-    [title]="'Toggle editor (' + mod + 'E)'"
+    hx-tooltip="Toggle editor"
+    [hxTooltipShortcut]="shortcuts.keys('toggle-editor')"
   >
     <svg viewBox="0 0 24 24">
       <path d="M12 20h9" />
@@ -81,7 +84,8 @@
     [attr.aria-pressed]="settings.outlineVisible()"
     [disabled]="doc.path() === null"
     (click)="run('toggle-outline')"
-    [title]="'Toggle outline (' + mod + '⇧L)'"
+    hx-tooltip="Toggle outline"
+    [hxTooltipShortcut]="shortcuts.keys('toggle-outline')"
     aria-label="Toggle outline"
   >
     <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13" /></svg>
@@ -94,7 +98,8 @@
     [attr.aria-pressed]="settings.backlinksVisible()"
     [disabled]="workspace.vaultRoot() === null || doc.path() === null"
     (click)="run('toggle-backlinks')"
-    [title]="'Toggle backlinks (' + mod + '⇧B)'"
+    hx-tooltip="Toggle backlinks"
+    [hxTooltipShortcut]="shortcuts.keys('toggle-backlinks')"
     aria-label="Toggle backlinks"
   >
     <svg viewBox="0 0 24 24">

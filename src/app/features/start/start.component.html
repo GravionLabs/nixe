@@ -5,8 +5,8 @@
     @for (action of actions(); track action.id) {
       <button type="button" [class.primary]="action.primary" (click)="run(action.id)">
         {{ action.label }}
-        @if (action.shortcut) {
-          <kbd>{{ action.shortcut }}</kbd>
+        @if (action.shortcut.length) {
+          <hx-kbd [keys]="action.shortcut" size="sm" />
         }
       </button>
     }

@@ -63,7 +63,5 @@ li button:hover {
 
 .shortcut {
   margin-left: auto;
-  color: var(--h-text-muted-color);
-  font-size: 11px;
   white-space: nowrap;
 }

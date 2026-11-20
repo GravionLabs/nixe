@@ -1,4 +1,5 @@
 import { Component, input } from "@angular/core";
+import { HxKbd } from "@gravionlabs/helix-ui";
 
 export interface KeyHint {
   keys: string;
@@ -14,6 +15,7 @@ export const modKey = (): string => (isMac() ? "⌘" : "Ctrl");
 /** Footer of the switcher and the palette: the keys of the dialog. */
 @Component({
   selector: "app-key-hints",
+  imports: [HxKbd],
   templateUrl: "./key-hints.component.html",
   styles: `
     :host {
@@ -24,12 +26,6 @@ export const modKey = (): string => (isMac() ? "⌘" : "Ctrl");
       border-top: 1px solid var(--h-content-border-color);
       color: var(--h-text-muted-color);
       font-size: 11px;
-    }
-    kbd {
-      padding: 0 4px;
-      border: 1px solid var(--h-content-border-color);
-      border-radius: 3px;
-      font: inherit;
     }
   `,
 })

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import "@angular/compiler";
 import { signal } from "@angular/core";
+import { By } from "@angular/platform-browser";
+import { HxTooltip } from "@gravionlabs/helix-ui";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -16,6 +18,7 @@ import { BacklinksService } from "../../core/index/backlinks.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
 import { ReviewService } from "../../core/git/review.service";
+import { ShortcutService } from "../../core/commands/shortcut.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { ShellService } from "../../core/shell/shell.service";
 import type { UpdatePhase } from "../../core/updater/update.service";
@@ -78,6 +81,13 @@ function render(o: Options = {}) {
       { provide: ReviewService, useValue: { count: signal(o.waiting ?? 0) } },
       { provide: ShellService, useValue: { show } },
       { provide: SettingsService, useValue: { zoom, showPanelTab } },
+      {
+        provide: ShortcutService,
+        useValue: {
+          keys: (id: string) => KEYS[id] ?? [],
+          display: (id: string) => (KEYS[id] ?? []).join("+"),
+        },
+      },
       { provide: EditorService, useValue: { stats: signal(o.stats ?? null) } },
       {
         provide: BacklinksService,
@@ -126,6 +136,12 @@ const repo: GitStatus = {
   behind: 3,
 };
 
+const KEYS: Record<string, string[]> = {
+  "new-note": ["Ctrl", "N"],
+  "new-folder": ["Ctrl", "Shift", "N"],
+  "toggle-editor": ["Ctrl", "E"],
+};
+
 describe("StatusBarComponent", () => {
   beforeAll(() => {
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -153,7 +169,7 @@ describe("StatusBarComponent", () => {
     const r = render({ stats: countText("one two three") });
     const item = r.el.querySelector(".words")!;
     expect(item.textContent).toContain("3 words, 11 characters");
-    expect(item.querySelector("[title]")?.getAttribute("title")).toBe(
+    expect(r.fixture.debugElement.query(By.css(".words")).injector.get(HxTooltip).text()).toBe(
       "Reading time: under a minute",
     );
     const sel = render({ stats: countText("one", true) });
@@ -295,6 +311,12 @@ describe("StatusBarComponent", () => {
       const r = render({ version: "1.3.0-rc011" });
       expect(r.text()).toContain("RC");
       expect(r.el.querySelector(".update")).toBeNull();
+    });
+
+    it("tooltips the git sync item", () => {
+      const r = render({ status: repo });
+      const tip = r.fixture.debugElement.query(By.css(".sync-button")).injector.get(HxTooltip);
+      expect(tip.text()).toBe("Commit, pull with rebase and push");
     });
 
     it("opens the commands from the ? item", () => {

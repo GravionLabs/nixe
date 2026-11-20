@@ -9,7 +9,7 @@ import {
   viewChild,
 } from "@angular/core";
 import type { HxMenuItem } from "@gravionlabs/helix-ui";
-import { HxMenu } from "@gravionlabs/helix-ui";
+import { HxMenu, HxTooltip } from "@gravionlabs/helix-ui";
 
 import { DocumentService } from "../../core/file/document.service";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
@@ -31,6 +31,7 @@ import type { TreeSort } from "../../core/workspace/tree-model";
 import { TREE_SORTS, TREE_SORT_LABELS, conflictPaths } from "../../core/workspace/tree-model";
 import { NO_DECORATION, decorate, highlightParts } from "../../core/workspace/tree-filter";
 import type { TreeNode } from "../../core/workspace/workspace.service";
+import { ShortcutService } from "../../core/commands/shortcut.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
 /** How long the row of a revealed note flashes. */
@@ -45,12 +46,13 @@ export interface MenuState {
   selector: "app-sidebar",
   templateUrl: "./sidebar.component.html",
   styleUrl: "./sidebar.component.css",
-  imports: [HxMenu],
+  imports: [HxMenu, HxTooltip],
 })
 export class SidebarComponent {
   protected readonly workspace = inject(WorkspaceService);
   protected readonly doc = inject(DocumentService);
   protected readonly changes = inject(ChangesService);
+  protected readonly shortcuts = inject(ShortcutService);
   private readonly git = inject(GitService);
   private readonly settings = inject(SettingsService);
   private readonly ops = inject(VaultOpsService);
@@ -98,8 +100,16 @@ export class SidebarComponent {
   protected readonly menuItems = computed<HxMenuItem[]>(() => {
     const node = this.menu()?.node ?? null;
     return [
-      { label: "New note", command: () => void this.newNote(node) },
-      { label: "New folder", command: () => void this.newFolder(node) },
+      {
+        label: "New note",
+        badge: this.shortcuts.display("new-note"),
+        command: () => void this.newNote(node),
+      },
+      {
+        label: "New folder",
+        badge: this.shortcuts.display("new-folder"),
+        command: () => void this.newFolder(node),
+      },
       ...(node?.filePath
         ? [{ label: this.bookmarkLabel(node), command: () => this.bookmark(node) }]
         : []),

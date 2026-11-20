@@ -5,7 +5,7 @@ import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { KeyInput } from "./command-registry";
-import { CommandRegistry, formatShortcut, matchesBinding } from "./command-registry";
+import { CommandRegistry, formatShortcut, matchesBinding, shortcutKeys } from "./command-registry";
 import { PaletteService } from "./palette.service";
 
 const key = (k: string, mods: Partial<KeyInput> = {}): KeyInput => ({
@@ -37,6 +37,12 @@ describe("matchesBinding / formatShortcut", () => {
     );
     expect(formatShortcut("Ctrl+Tab", true)).toBe("⌃Tab");
     expect(formatShortcut("Ctrl+Tab", false)).toBe("Ctrl+Tab");
+  });
+
+  it("splits a shortcut into key caps per platform", () => {
+    expect(shortcutKeys("Mod+Shift+F", true)).toEqual(["⌘", "⇧", "F"]);
+    expect(shortcutKeys("Mod+Shift+F", false)).toEqual(["Ctrl", "Shift", "F"]);
+    expect(shortcutKeys("", false)).toEqual([]);
   });
 
   it("formats per platform", () => {

@@ -81,10 +81,14 @@ const OTHER_NAMES: Record<string, string> = {
 
 /** A shortcut as shown to the user: `⌘⇧F` on macOS, `Ctrl+Shift+F` elsewhere. */
 export function formatShortcut(shortcut: string, mac: boolean): string {
-  const parts = shortcut
-    .split("+")
-    .map((p) => (mac ? MAC_SYMBOLS : OTHER_NAMES)[p.toLowerCase()] ?? p);
+  const parts = shortcutKeys(shortcut, mac);
   return mac ? parts.join("") : parts.join("+");
+}
+
+/** The key caps of a shortcut for `hx-kbd`: `["⌘", "⇧", "F"]` on macOS, `["Ctrl", "Shift", "F"]` elsewhere. */
+export function shortcutKeys(shortcut: string, mac: boolean): string[] {
+  if (!shortcut) return [];
+  return shortcut.split("+").map((p) => (mac ? MAC_SYMBOLS : OTHER_NAMES)[p.toLowerCase()] ?? p);
 }
 
 /** Every action of the app by id: menu, shortcuts and the palette all run commands from here. */

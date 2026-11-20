@@ -36,7 +36,8 @@ function render({ vault = null, notes = [], vaults = [], openRecent = true }: Op
       {
         provide: ShortcutService,
         useValue: {
-          display: (id: string) => ({ "quick-switcher": "Ctrl+O", "new-note": "Ctrl+N" })[id] ?? "",
+          keys: (id: string) =>
+            ({ "quick-switcher": ["Ctrl", "O"], "new-note": ["Ctrl", "N"] })[id] ?? [],
         },
       },
       { provide: SettingsService, useValue: { recentVaults: signal(vaults) } },
@@ -101,6 +102,17 @@ describe("StartComponent", () => {
     ]);
     expect(el.textContent).toContain("Recent notes");
     expect(el.textContent).not.toContain("Clone vault");
+  });
+
+  it("draws the shortcut of an action with hx-kbd", () => {
+    const { el } = render({ vault: "/v" });
+    const caps = [...el.querySelectorAll("hx-kbd")].map((k) =>
+      [...k.querySelectorAll("kbd")].map((c) => c.textContent),
+    );
+    expect(caps).toEqual([
+      ["Ctrl", "N"],
+      ["Ctrl", "O"],
+    ]);
   });
 
   it("runs the command of an action", () => {

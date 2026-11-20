@@ -13,6 +13,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { DocumentService } from "../../core/file/document.service";
 import { GitService } from "../../core/git/git.service";
+import { ShortcutService } from "../../core/commands/shortcut.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { TabsService } from "../../core/tabs/tabs.service";
@@ -39,6 +40,12 @@ function node(name: string, kind: "dir" | "file", depth = 0, expanded = false): 
 function key(name: string, init: KeyboardEventInit = {}): KeyboardEvent {
   return new KeyboardEvent("keydown", { key: name, cancelable: true, ...init });
 }
+
+const KEYS: Record<string, string[]> = {
+  "new-note": ["Ctrl", "N"],
+  "new-folder": ["Ctrl", "Shift", "N"],
+  "toggle-editor": ["Ctrl", "E"],
+};
 
 describe("SidebarComponent tree", () => {
   const rows = [
@@ -98,6 +105,13 @@ describe("SidebarComponent tree", () => {
         { provide: BookmarksService, useValue: { relative: () => null, items: () => [] } },
         { provide: GitService, useValue: { status: gitStatus } },
         { provide: SettingsService, useValue: { treeGitStatus } },
+        {
+          provide: ShortcutService,
+          useValue: {
+            keys: (id: string) => KEYS[id] ?? [],
+            display: (id: string) => (KEYS[id] ?? []).join("+"),
+          },
+        },
         { provide: ElementRef, useValue: new ElementRef(host) },
       ],
     });
@@ -252,6 +266,13 @@ describe("SidebarComponent tree", () => {
   });
   describe("menus", () => {
     const labels = (items: { label?: string }[]) => items.map((i) => i.label);
+
+    it("shows the shortcut of a command entry at its right", () => {
+      sidebar.menu.set({ node: rows[1] });
+      const items = sidebar.menuItems() as { label?: string; badge?: string }[];
+      expect(items.find((i) => i.label === "New note")?.badge).toBe("Ctrl+N");
+      expect(items.find((i) => i.label === "New folder")?.badge).toBe("Ctrl+Shift+N");
+    });
 
     it("offers the folder and file entries of the node the menu opened on", () => {
       sidebar.menu.set({ node: rows[1] });

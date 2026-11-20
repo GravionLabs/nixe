@@ -72,10 +72,8 @@ h2 {
   color: var(--h-primary-contrast-color);
 }
 
-kbd {
-  font-family: var(--nixe-font-mono, monospace);
-  font-size: 12px;
-  opacity: 0.75;
+hx-kbd {
+  margin-left: 6px;
 }
 
 .recent {

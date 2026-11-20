@@ -3,7 +3,7 @@ import { Injectable, computed, effect, inject, signal } from "@angular/core";
 import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
 import type { Command } from "./command-registry";
-import { CommandRegistry, formatShortcut } from "./command-registry";
+import { CommandRegistry, formatShortcut, shortcutKeys } from "./command-registry";
 import type { Bindings, RecordedKey } from "./shortcuts-core";
 import {
   bindingFromEvent,
@@ -13,6 +13,8 @@ import {
   platformOf,
   toAccelerator,
 } from "./shortcuts-core";
+
+const NO_KEYS: readonly string[] = [];
 
 /**
  * The shortcuts the user chose: kept in the settings file, applied to the key handling of the
@@ -149,6 +151,21 @@ export class ShortcutService {
     const binding = this.bindings()[id];
     return binding ? formatShortcut(binding, this.platform === "mac") : "";
   }
+
+  /** The key caps of the shortcut of a command for `hx-kbd`; empty when it has none. */
+  keys(id: string): readonly string[] {
+    return this.keyCaps()[id] ?? NO_KEYS;
+  }
+
+  /** The key caps by command id; one array per binding, so a template binding stays stable. */
+  private readonly keyCaps = computed(() =>
+    Object.fromEntries(
+      Object.entries(this.bindings()).map(([id, binding]) => [
+        id,
+        shortcutKeys(binding, this.platform === "mac"),
+      ]),
+    ),
+  );
 
   formatBinding(binding: string): string {
     return formatShortcut(binding, this.platform === "mac");

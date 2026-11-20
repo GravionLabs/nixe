@@ -2,6 +2,8 @@
 import "@angular/compiler";
 import { readFileSync } from "node:fs";
 import { signal } from "@angular/core";
+import { By } from "@angular/platform-browser";
+import { HxTooltip } from "@gravionlabs/helix-ui";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -14,6 +16,7 @@ import { CommandRegistry } from "../../core/commands/command-registry";
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
 import { ShellService } from "../../core/shell/shell.service";
+import { ShortcutService } from "../../core/commands/shortcut.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -37,6 +40,13 @@ function render(opts: {
   TestBed.configureTestingModule({
     providers: [
       { provide: CommandRegistry, useValue: { execute } },
+      {
+        provide: ShortcutService,
+        useValue: {
+          keys: (id: string) => KEYS[id] ?? [],
+          display: (id: string) => (KEYS[id] ?? []).join("+"),
+        },
+      },
       { provide: EditorService, useValue: { editing, blocked } },
       {
         provide: DocumentService,
@@ -74,6 +84,12 @@ function render(opts: {
   return { fixture, button, execute, editing, blocked, el, back, forward, show, reveal, rename };
 }
 
+const KEYS: Record<string, string[]> = {
+  "new-note": ["Ctrl", "N"],
+  "new-folder": ["Ctrl", "Shift", "N"],
+  "toggle-editor": ["Ctrl", "E"],
+};
+
 describe("ToolbarComponent edit toggle", () => {
   beforeAll(() => {
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -83,7 +99,9 @@ describe("ToolbarComponent edit toggle", () => {
     const { fixture, button, execute, editing } = render({ path: "/n.md", editing: false });
     expect(button.getAttribute("aria-pressed")).toBe("false");
     expect(button.classList.contains("active")).toBe(false);
-    expect(button.title).toMatch(/^Toggle editor \((⌘|Ctrl\+)E\)$/);
+    const tip = fixture.debugElement.query(By.css("button.toggle")).injector.get(HxTooltip);
+    expect(tip.text()).toBe("Toggle editor");
+    expect(tip.shortcut()).toEqual(["Ctrl", "E"]);
     button.click();
     expect(execute).toHaveBeenCalledWith("toggle-editor");
     editing.set(true);

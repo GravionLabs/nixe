@@ -8,10 +8,12 @@ import {
   getHxPlatform,
   getHxPlatformKind,
 } from "@gravionlabs/helix-desktop";
+import { HxTooltip } from "@gravionlabs/helix-ui";
 
 import { EditorService } from "../../core/editor/editor.service";
 import { readingTime } from "../../core/editor/text-stats";
 import { CommandRegistry } from "../../core/commands/command-registry";
+import { ShortcutService } from "../../core/commands/shortcut.service";
 import { BacklinksService } from "../../core/index/backlinks.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
@@ -28,7 +30,7 @@ import { UpdateService } from "../../core/updater/update.service";
  */
 @Component({
   selector: "app-status-bar",
-  imports: [HxStatusBar, HxStatusItem, HxStatusPopover, HxStatusVersion, HxStatusZoom],
+  imports: [HxStatusBar, HxStatusItem, HxStatusPopover, HxStatusVersion, HxStatusZoom, HxTooltip],
   templateUrl: "./status-bar.component.html",
   styles: `
     :host {
@@ -43,6 +45,7 @@ import { UpdateService } from "../../core/updater/update.service";
   `,
 })
 export class StatusBarComponent {
+  protected readonly shortcuts = inject(ShortcutService);
   protected readonly git = inject(GitService);
   protected readonly changes = inject(ChangesService);
   protected readonly review = inject(ReviewService);
