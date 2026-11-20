@@ -136,6 +136,14 @@ export class DocumentService {
     await this.goTo(this.historyIndex() + 1);
   }
 
+  /** Looks whether the file is still there: the watcher only follows one note at a time. */
+  async checkMissing(): Promise<void> {
+    const path = this.path();
+    if (!path) return;
+    const exists = await backend.pathExists(path).catch(() => true);
+    if (this.path() === path) this.missing.set(!exists);
+  }
+
   /** Called by the file watcher. */
   async onExternalChange(path: string): Promise<void> {
     if (toSlashes(path) !== this.path()) return;

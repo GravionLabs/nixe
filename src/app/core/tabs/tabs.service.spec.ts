@@ -281,6 +281,26 @@ describe("TabsService", () => {
     });
   });
 
+  describe("missing file on activation", () => {
+    it("marks and clears the state of a tab that was not watched", async () => {
+      const first = tabs.activeTab();
+      await first.doc.open("/v/a.md");
+      tabs.newTab();
+      await tabs.activeTab().doc.open("/v/b.md");
+      let exists = false;
+      invoke.mockImplementation(async (cmd: string) =>
+        cmd === "path_exists" ? exists : undefined,
+      );
+      const pane = tabs.panes()[0];
+      tabs.activate(pane.id, pane.tabs[0].id);
+      await vi.waitFor(() => expect(first.doc.missing()).toBe(true));
+      exists = true;
+      tabs.activate(pane.id, pane.tabs[1].id);
+      tabs.activate(pane.id, pane.tabs[0].id);
+      await vi.waitFor(() => expect(first.doc.missing()).toBe(false));
+    });
+  });
+
   describe("restoring", () => {
     async function laidOut() {
       const first = tabs.activeTab();

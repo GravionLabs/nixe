@@ -492,6 +492,8 @@ export class TabsService {
   private watch(): void {
     const path = this.activeTab().doc.path();
     if (path) backend.watchFile(path).catch(() => undefined);
+    // Only the watched note reports a deletion: look at the others when the focus moves.
+    for (const tab of this.allTabs()) void tab.doc.checkMissing();
   }
 
   /** Typing or saving in one tab reaches the other tabs showing the same note. */
