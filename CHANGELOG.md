@@ -5,6 +5,31 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.6.1] — 2026-11-20
+
+### Bug Fixes
+- **capture**: Command stubs for mobile builds (#118)
+- History panel flickers and loses its selection on every save (#289) (#306)
+- Tauri build fails on mismatched clipboard-manager versions (#312) (#311)
+- **deps**: Align tauri-plugin-clipboard-manager with the npm package (#309) (#310)
+
+
+### Documentation
+- ADR 0003, Nixe as a vault app with editing and Git sync (#44) (#45)
+
+
+### Features
+- **workspace**: Open several folders in one window (#116) (#292)
+- **search**: Search and quick switcher across all folders of the workspace (#117) (#294)
+- **capture**: Global shortcut with a capture window (#118)
+- **palette**: One input for notes, commands, headings, tags and templates (#239) (#302)
+- **panel**: Related notes of the open note (#240) (#303)
+- **git**: Every structural operation is one commit that can be undone (#241) (#304)
+- **sync**: Merge a sync conflict side by side (#242) (#305)
+- **properties**: Fold the properties panel with a summary line (#290) (#307)
+- **export**: Export a folder as a static site (#120) (#308)
+
+
 ## [1.6.0] — 2026-11-20
 
 ### Bug Fixes
@@ -14,6 +39,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Templates move to .html files, lint findings fixed (#273)
 - **tabs**: Check the file of every tab when the focus moves (#283)
 - **editor**: Compare opens when the editor text is empty (#247)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.6.0 [skip ci]
 
 
 ### Features
