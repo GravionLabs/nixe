@@ -92,7 +92,7 @@ main {
 
 .shortcuts dt {
   text-align: right;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--nixe-font-mono, monospace);
 }
 
 .shortcuts dd {

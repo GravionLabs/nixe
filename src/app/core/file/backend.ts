@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { CssFile } from "../appearance/appearance-core";
 
 export interface DirEntry {
   name: string;
@@ -309,6 +310,10 @@ export const backend = {
   /** The app settings file (`settings.json` in the app config directory); null before the first save. */
   readAppSettings: () => invoke<string | null>("read_app_settings"),
   writeAppSettings: (content: string) => invoke<void>("write_app_settings", { content }),
+  /** The `.css` files of `themes` or `snippets` in the app config directory (#114). */
+  readAppearance: (kind: "themes" | "snippets") => invoke<CssFile[]>("read_appearance", { kind }),
+  /** The app config directory, which holds `themes/` and `snippets/`. */
+  appearanceDir: () => invoke<string>("appearance_dir"),
   /** The fold state (`folds.json` in the app data directory, not in the vault); null before the first save. */
   readFolds: () => invoke<string | null>("read_folds"),
   writeFolds: (content: string) => invoke<void>("write_folds", { content }),

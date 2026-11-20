@@ -7,6 +7,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
+import { AppearanceService } from "../appearance/appearance.service";
 import { CommandRegistry } from "../commands/command-registry";
 import { backend } from "../file/backend";
 import { UpdateService } from "../updater/update.service";
@@ -63,6 +64,33 @@ describe("settings page", () => {
     expect(theme.get()).toBe("dark");
   });
 
+  it("lists the themes, switches a theme and each snippet, and sets accent and fonts (#114)", async () => {
+    const appearance = TestBed.inject(AppearanceService);
+    appearance.themes.set([{ name: "sepia", modified: 1, css: "" }]);
+    appearance.snippets.set([{ name: "wide", modified: 1, css: "" }, { name: "round", modified: 1, css: "" }]);
+    const items = () => TestBed.inject(SettingsRegistry).shown().find((s) => s.id === "appearance")!.items;
+    const item = (id: string) => items().find((i) => i.id === id)!;
+
+    const theme = item("theme-file");
+    if (theme.kind !== "select") throw new Error("select expected");
+    expect(theme.options.map((o) => o.value)).toEqual(["", "sepia"]);
+    theme.set("sepia");
+    expect(settings.appearanceTheme()).toBe("sepia");
+
+    const wide = item("snippet-wide");
+    if (wide.kind !== "toggle") throw new Error("toggle expected");
+    wide.set(true);
+    (item("snippet-round") as { set(v: boolean): void }).set(true);
+    wide.set(false);
+    expect(settings.snippets()).toEqual(["round"]);
+    expect(wide.get()).toBe(false);
+
+    (item("accent-color") as { set(v: string): void }).set("#ABCDEF");
+    (item("font-text") as { set(v: string): void }).set("Inter");
+    (item("font-mono") as { set(v: string): void }).set("a;b");
+    expect([settings.accentColor(), settings.fontText(), settings.fontMono()]).toEqual(["#abcdef", "Inter", ""]);
+  });
+
   it("shows the Obsidian settings read-only with their source", async () => {
     vaultRoot.set("/v");
     obsidian.mockResolvedValue([
@@ -91,7 +119,7 @@ describe("settings page", () => {
     expect(page.listed().map((s) => s.id)).toEqual(["general"]);
     page.select("git");
     expect(page.listed().map((s) => s.id)).toEqual(["git"]);
-    page.query.set("theme");
+    page.query.set("dark");
     expect(page.listed().map((s) => [s.id, s.items.map((i) => i.id)])).toEqual([["appearance", ["theme"]]]);
     page.query.set("zzz");
     expect(page.listed()).toEqual([]);

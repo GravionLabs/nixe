@@ -87,15 +87,15 @@ header {
 }
 
 .add {
-  color: #2da44e;
+  color: var(--nixe-added-color, #2da44e);
 }
 
 .del {
-  color: #cf222e;
+  color: var(--nixe-removed-color, #cf222e);
 }
 
 .diff {
-  font-family: ui-monospace, monospace;
+  font-family: var(--nixe-font-mono, monospace);
   font-size: 12px;
   overflow: auto;
 }

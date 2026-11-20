@@ -24,6 +24,11 @@ describe("sanitizeSettings", () => {
     expect(s.extractEmbed).toBe(false);
     expect(sanitizeSettings({ extractEmbed: true }).extractEmbed).toBe(true);
     expect(sanitizeSettings({ extractEmbed: 1 }).extractEmbed).toBe(false);
+    expect(s.appearanceTheme).toBe("");
+    expect(s.snippets).toEqual([]);
+    expect(s.accentColor).toBe("");
+    const a = sanitizeSettings({ appearanceTheme: "sepia", snippets: ["a", 1, "a"], accentColor: "#ABC", fontText: "Inter", fontMono: "a;b" });
+    expect([a.appearanceTheme, a.snippets, a.accentColor, a.fontText, a.fontMono]).toEqual(["sepia", ["a"], "#aabbcc", "Inter", ""]);
     expect(sanitizeSettings({ bookmarksInVault: true }).bookmarksInVault).toBe(true);
     expect(sanitizeSettings({ bookmarksInVault: "yes" }).bookmarksInVault).toBe(false);
     expect(sanitizeSettings({ reviewBranchPrefix: "agent/" }).reviewBranchPrefix).toBe("agent/");

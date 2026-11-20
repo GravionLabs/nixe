@@ -91,6 +91,13 @@ export class SettingsService {
   /** Extracting text leaves an embed instead of a link (#113). */
   readonly extractEmbed = signal<boolean>(this.stored.extractEmbed);
 
+  /** Appearance (#114): the theme file, the enabled snippets, the accent color and the fonts. */
+  readonly appearanceTheme = signal<string>(this.stored.appearanceTheme);
+  readonly snippets = signal<string[]>(this.stored.snippets);
+  readonly accentColor = signal<string>(this.stored.accentColor);
+  readonly fontText = signal<string>(this.stored.fontText);
+  readonly fontMono = signal<string>(this.stored.fontMono);
+
   /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
   readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
@@ -139,6 +146,11 @@ export class SettingsService {
       reviewBranchPrefix: this.reviewBranchPrefix(),
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
+      appearanceTheme: this.appearanceTheme(),
+      snippets: this.snippets(),
+      accentColor: this.accentColor(),
+      fontText: this.fontText(),
+      fontMono: this.fontMono(),
       shortcuts: this.shortcuts(),
     };
   }
@@ -171,6 +183,11 @@ export class SettingsService {
     this.reviewBranchPrefix.set(s.reviewBranchPrefix);
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
+    this.appearanceTheme.set(s.appearanceTheme);
+    this.snippets.set(s.snippets);
+    this.accentColor.set(s.accentColor);
+    this.fontText.set(s.fontText);
+    this.fontMono.set(s.fontMono);
     this.shortcuts.set(s.shortcuts);
   }
 

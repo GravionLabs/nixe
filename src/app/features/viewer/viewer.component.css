@@ -7,9 +7,9 @@
 
 .properties-host {
   box-sizing: border-box;
-  max-width: 980px;
+  max-width: var(--nixe-content-width, 980px);
   margin: 0 auto;
-  padding: 24px 40px 0;
+  padding: 24px var(--nixe-content-padding-x, 40px) 0;
 }
 
 :host .properties-host + .markdown-body {
@@ -19,9 +19,9 @@
 /* `:host article` outranks github-markdown-css (`:root:not(.app-dark) .markdown-body`), which sets `margin: 0`. */
 :host article.markdown-body {
   box-sizing: border-box;
-  max-width: 980px;
+  max-width: var(--nixe-content-width, 980px);
   margin: 0 auto;
-  padding: 32px 40px 80px;
+  padding: var(--nixe-content-padding-top, 32px) var(--nixe-content-padding-x, 40px) var(--nixe-content-padding-bottom, 80px);
   background: transparent;
 }
 

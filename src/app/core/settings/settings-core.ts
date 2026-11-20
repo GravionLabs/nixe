@@ -1,3 +1,4 @@
+import { sanitizeAccent, sanitizeFont, sanitizeNames } from "../appearance/appearance-core";
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
 import { LinkPreviewMode, sanitizeMode } from "../preview/preview-core";
@@ -43,6 +44,15 @@ export interface StoredSettings {
   bookmarksInVault: boolean;
   /** Extracting text leaves an embed (`![[note]]`) instead of a link (#113). */
   extractEmbed: boolean;
+  /** Name of the theme file (without `.css`) in `themes/` of the app config directory; "" is the built-in look (#114). */
+  appearanceTheme: string;
+  /** Names of the enabled snippets of `snippets/` (#114). */
+  snippets: string[];
+  /** Accent color as `#rrggbb`; "" keeps the default (#114). */
+  accentColor: string;
+  /** Font families of the text and of the code; "" keeps the default (#114). */
+  fontText: string;
+  fontMono: string;
   /** Shortcut of a command id that differs from its default; "" means removed. */
   shortcuts: Record<string, string>;
 }
@@ -74,6 +84,11 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   reviewBranchPrefix: "claude/",
   bookmarksInVault: false,
   extractEmbed: false,
+  appearanceTheme: "",
+  snippets: [],
+  accentColor: "",
+  fontText: "",
+  fontMono: "",
   shortcuts: {},
 };
 
@@ -113,6 +128,11 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     reviewBranchPrefix: text(o["reviewBranchPrefix"], d.reviewBranchPrefix),
     bookmarksInVault: o["bookmarksInVault"] === true,
     extractEmbed: o["extractEmbed"] === true,
+    appearanceTheme: text(o["appearanceTheme"], d.appearanceTheme),
+    snippets: sanitizeNames(o["snippets"]),
+    accentColor: sanitizeAccent(o["accentColor"]),
+    fontText: sanitizeFont(o["fontText"]),
+    fontMono: sanitizeFont(o["fontMono"]),
     shortcuts: sanitizeShortcuts(o["shortcuts"]),
   };
 }

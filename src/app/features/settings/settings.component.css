@@ -136,7 +136,7 @@ button.key {
 
 .conflict {
   max-width: 260px;
-  color: #c0392b;
+  color: var(--nixe-danger-color, #c0392b);
   text-align: right;
 }
 
@@ -146,7 +146,7 @@ button.key {
 
 .source {
   color: var(--h-text-muted-color);
-  font-family: monospace;
+  font-family: var(--nixe-font-mono, monospace);
   font-size: 11px;
 }
 

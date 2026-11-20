@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
+import { AppearanceService } from "../appearance/appearance.service";
 import { CommandRegistry } from "../commands/command-registry";
 import { ObsidianSetting, backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
@@ -25,7 +26,9 @@ export class SettingsPageService {
   constructor() {
     const commands = inject(CommandRegistry);
     const updater = inject(UpdateService);
+    const appearance = inject(AppearanceService);
     const sections = builtinSections({
+      appearance: { themes: () => appearance.themes(), snippets: () => appearance.snippets(), folder: () => appearance.folder() },
       settings: inject(SettingsService),
       obsidian: () => this.obsidian(),
       commands: () => commands.all(),
