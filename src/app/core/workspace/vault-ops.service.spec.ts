@@ -161,7 +161,7 @@ describe("VaultOpsService", () => {
   });
 
   it("refuses an invalid name before it calls the backend", async () => {
-    await expect(ops.rename("/v/a.md", "x/y")).rejects.toThrow();
+    await expect(ops.rename("/v/a.md", "x/y")).rejects.toThrow("That is not a valid name.");
     expect(backend.renamePath).not.toHaveBeenCalled();
   });
 

@@ -1,11 +1,10 @@
 import { Component, computed, inject, signal } from "@angular/core";
 
-import { GitChange, ReviewHunk } from "../../core/file/backend";
+import type { GitChange, ReviewHunk } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { diffLines, diffStat } from "../../core/git/line-diff";
 import { ReviewService } from "../../core/git/review.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
-import { joinPath } from "../../core/markdown/paths";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { formatCommitTime } from "../history/history.component";
 

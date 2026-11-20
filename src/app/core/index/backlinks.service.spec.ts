@@ -6,7 +6,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { IndexStatus, backend } from "../file/backend";
+import type { IndexStatus } from "../file/backend";
+import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { BacklinksService } from "./backlinks.service";

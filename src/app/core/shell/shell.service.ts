@@ -5,14 +5,8 @@ import { CommandRegistry, formatShortcut } from "../commands/command-registry";
 import { GitService } from "../git/git.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
-import {
-  NixeView,
-  ViewContext,
-  availableViews,
-  findView,
-  isSidebarView,
-  resolveView,
-} from "./views";
+import type { NixeView, ViewContext } from "./views";
+import { availableViews, findView, isSidebarView, resolveView } from "./views";
 
 /** The activity bar and the sidebar: one active view, shown or collapsed. */
 @Injectable({ providedIn: "root" })

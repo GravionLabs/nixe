@@ -25,7 +25,7 @@ function render(copy: boolean, withPair = true) {
   TestBed.configureTestingModule({ providers: [{ provide: ConflictService, useValue: service }] });
   const fixture = TestBed.createComponent(ConflictBarComponent);
   const errors: string[] = [];
-  fixture.componentInstance.error.subscribe((e) => errors.push(e));
+  fixture.componentInstance.failed.subscribe((e) => errors.push(e));
   fixture.detectChanges();
   return { el: fixture.nativeElement as HTMLElement, service, errors, fixture };
 }

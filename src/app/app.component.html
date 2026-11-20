@@ -1,34 +1,34 @@
-<ng-template navIcon="files"
+<ng-template appNavIcon="files"
   ><svg viewBox="0 0 24 24">
     <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg
 ></ng-template>
-<ng-template navIcon="search"
+<ng-template appNavIcon="search"
   ><svg viewBox="0 0 24 24">
     <circle cx="11" cy="11" r="7" />
     <path d="M21 21l-4.35-4.35" /></svg
 ></ng-template>
-<ng-template navIcon="bookmark"
+<ng-template appNavIcon="bookmark"
   ><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z" /></svg
 ></ng-template>
-<ng-template navIcon="git"
+<ng-template appNavIcon="git"
   ><svg viewBox="0 0 24 24">
     <circle cx="6" cy="6" r="2.5" />
     <circle cx="6" cy="18" r="2.5" />
     <circle cx="18" cy="9" r="2.5" />
     <path d="M6 8.5v7M18 11.5c0 4-6 3-11 5" /></svg
 ></ng-template>
-<ng-template navIcon="history"
+<ng-template appNavIcon="history"
   ><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" /></svg
 ></ng-template>
-<ng-template navIcon="health"
+<ng-template appNavIcon="health"
   ><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4" /></svg
 ></ng-template>
-<ng-template navIcon="calendar"
+<ng-template appNavIcon="calendar"
   ><svg viewBox="0 0 24 24">
     <rect x="3" y="5" width="18" height="16" rx="2" />
     <path d="M3 10h18M8 3v4M16 3v4" /></svg
 ></ng-template>
-<ng-template navIcon="settings"
+<ng-template appNavIcon="settings"
   ><svg viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="3" />
     <path
@@ -43,7 +43,7 @@
   (collapsedChange)="settings.sidebarVisible.set(!$event)"
   [activeId]="shell.activeView()"
 >
-  <app-toolbar slot="toolbar" (error)="showError($event)" />
+  <app-toolbar slot="toolbar" (failed)="showError($event)" />
 
   <hx-activity-bar
     slot="activity"
@@ -56,10 +56,10 @@
 
   @switch (shell.shownView()) {
     @case ("files") {
-      <app-sidebar slot="sidebar" (error)="showError($event)" />
+      <app-sidebar slot="sidebar" (failed)="showError($event)" />
     }
     @case ("search") {
-      <app-search slot="sidebar" (error)="showError($event)" />
+      <app-search slot="sidebar" (failed)="showError($event)" />
     }
     @case ("bookmarks") {
       <app-bookmarks slot="sidebar" />
@@ -68,7 +68,7 @@
       <app-history slot="sidebar" />
     }
     @case ("git") {
-      <app-git slot="sidebar" (error)="showError($event)" (committed)="showToast('Committed')" />
+      <app-git slot="sidebar" (failed)="showError($event)" (committed)="showToast('Committed')" />
     }
   }
 
@@ -81,14 +81,14 @@
     }
 
     @if (doc.path()) {
-      <app-conflict-bar (error)="showError($event)" />
+      <app-conflict-bar (failed)="showError($event)" />
     }
 
     <main>
       @if (tabs.showWorkspace()) {
         <app-workspace class="pane" />
       } @else {
-        <app-start class="pane" (error)="showError($event)" />
+        <app-start class="pane" (failed)="showError($event)" />
       }
     </main>
   </div>
@@ -141,7 +141,7 @@
         @if (panelTab() === "outline") {
           <app-outline />
         } @else {
-          <app-backlinks (error)="showError($event)" />
+          <app-backlinks (failed)="showError($event)" />
         }
       </div>
     </div>
@@ -151,15 +151,15 @@
 </hx-app-shell>
 
 @if (showSwitcher()) {
-  <app-switcher (error)="showError($event)" />
+  <app-switcher (failed)="showError($event)" />
 }
 
 @if (composer.visible()) {
-  <app-composer (error)="showError($event)" />
+  <app-composer (failed)="showError($event)" />
 }
 
 @if (templates.visible()) {
-  <app-templates (error)="showError($event)" />
+  <app-templates (failed)="showError($event)" />
 }
 
 @if (cloneVault.visible()) {

@@ -2,7 +2,8 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 
 import { backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { SwitcherEntry, SwitcherMatch, fileLabel, rank } from "./fuzzy";
+import type { SwitcherEntry, SwitcherMatch } from "./fuzzy";
+import { fileLabel, rank } from "./fuzzy";
 
 const MAX_RECENT = 50;
 const MAX_RESULTS = 50;
@@ -61,7 +62,7 @@ export class SwitcherService {
   /** Records an opened note (absolute path); notes outside the vault are ignored. */
   noteOpened(absolutePath: string): void {
     const root = this.workspace.vaultRoot();
-    if (!root || !absolutePath.startsWith(root + "/")) return;
+    if (!root || !absolutePath.startsWith(`${root}/`)) return;
     const rel = absolutePath.slice(root.length + 1);
     this.opened.update((r) =>
       [{ root, rel }, ...r.filter((o) => o.root !== root || o.rel !== rel)].slice(0, MAX_RECENT),

@@ -57,7 +57,7 @@ describe("TabsService", () => {
 
   it("drops the new tab again when the note cannot be opened", async () => {
     await tabs.activeTab().doc.open("/v/a.md");
-    await expect(tabs.openInNewTab("/v/missing.md")).rejects.toThrow();
+    await expect(tabs.openInNewTab("/v/missing.md")).rejects.toThrow("missing");
     expect(tabs.panes()[0].tabs.length).toBe(1);
     expect(shown()).toBe("/v/a.md");
   });
@@ -416,7 +416,7 @@ describe("TabsService", () => {
       expect(tabs.panes()[1].tabs[0]).toBe(moving);
       expect(tabs.panes()[1].activeId).toBe(moving.id);
       expect(tabs.focusedPane().id).toBe(right.id);
-      for (const t of [...tabs.panes()[0].tabs]) tabs.moveTabToPane(left.id, t.id, right.id, 0);
+      for (const t of tabs.panes()[0].tabs) tabs.moveTabToPane(left.id, t.id, right.id, 0);
       expect(tabs.panes().length).toBe(1);
     });
   });

@@ -213,7 +213,7 @@ export interface InlineToken {
   value: string;
 }
 
-const WIKILINK = /\[\[([^\[\]\n]+?)\]\]/g;
+const WIKILINK = /\[\[([^[\]\n]+?)\]\]/g;
 const TAG_CHAR = /[\p{L}\p{N}_\-/]/u;
 
 /** `[[wikilinks]]` and `#tags` of one line, in order of appearance. Code spans are skipped. */

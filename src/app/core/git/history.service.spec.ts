@@ -9,7 +9,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { GitStatus, HistoryEntry, backend } from "../file/backend";
+import type { GitStatus, HistoryEntry } from "../file/backend";
+import { backend } from "../file/backend";
 import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
 import { IndexService } from "../index/index.service";

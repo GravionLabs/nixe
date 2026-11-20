@@ -2,7 +2,8 @@ import { Injectable, effect, inject, signal } from "@angular/core";
 
 import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
-import { CssFile, RELOAD_MS, changed, enabledSnippets, overridesCss } from "./appearance-core";
+import type { CssFile } from "./appearance-core";
+import { RELOAD_MS, changed, enabledSnippets, overridesCss } from "./appearance-core";
 
 const IDS = {
   theme: "nixe-theme",

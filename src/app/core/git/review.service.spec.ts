@@ -9,7 +9,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { GitChange, ReviewBranch, ReviewHunk, backend } from "../file/backend";
+import type { GitChange, ReviewBranch, ReviewHunk } from "../file/backend";
+import { backend } from "../file/backend";
 import { IndexService } from "../index/index.service";
 import { SettingsService } from "../settings/settings.service";
 import { GitService } from "./git.service";

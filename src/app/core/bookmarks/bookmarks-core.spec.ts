@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { Bookmark, GroupBookmark } from "./bookmarks-core";
 import {
-  Bookmark,
-  GroupBookmark,
   addBookmark,
   addGroup,
   contains,

@@ -56,7 +56,7 @@ export function targetNotePath(typed: string, folder: string): string | null {
   if (!last) return null;
   const name = /\.md$/iu.test(last) ? last : `${last}.md`;
   const folders =
-    typed.includes("/") || typed.includes("\\") ? parts : [...folder.split("/").filter(Boolean)];
+    typed.includes("/") || typed.includes("\\") ? parts : folder.split("/").filter(Boolean);
   return [...folders, name].join("/");
 }
 

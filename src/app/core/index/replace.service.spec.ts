@@ -11,7 +11,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn() }));
 import { invoke } from "@tauri-apps/api/core";
 
 import { EditorService } from "../editor/editor.service";
-import { NoteReplacements } from "../file/backend";
+import type { NoteReplacements } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";

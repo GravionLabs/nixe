@@ -1,13 +1,6 @@
 import { DEFAULT_PANEL_WIDTH } from "../panel/panel-width";
-import {
-  Injectable,
-  WritableSignal,
-  computed,
-  effect,
-  inject,
-  signal,
-  untracked,
-} from "@angular/core";
+import type { WritableSignal } from "@angular/core";
+import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { backend } from "../file/backend";
@@ -17,7 +10,8 @@ import { SettingsService } from "../settings/settings.service";
 import { layoutHasNote } from "../tabs/layout";
 import { TabsService } from "../tabs/tabs.service";
 import { filterTree, matchesFilter } from "./tree-filter";
-import { TreeItem, TreeSort, buildTreeItems, defaultPage, sortItems } from "./tree-model";
+import type { TreeItem, TreeSort } from "./tree-model";
+import { buildTreeItems, defaultPage, sortItems } from "./tree-model";
 
 export interface TreeNode extends TreeItem {
   depth: number;
@@ -57,7 +51,7 @@ export class WorkspaceService {
       this.tabs.panes();
       this.tabs.focusedId();
       // Closing every note stores the empty layout too, so the old tabs do not come back.
-      if (root && !this.opening && (note === null || note.startsWith(root + "/"))) {
+      if (root && !this.opening && (note === null || note.startsWith(`${root}/`))) {
         untracked(() => this.rememberState(root, note));
       }
     });
@@ -183,7 +177,7 @@ export class WorkspaceService {
 
   private noteIn(root: string): string | null {
     const note = this.doc.path();
-    return note && note.startsWith(root + "/") ? note : null;
+    return note && note.startsWith(`${root}/`) ? note : null;
   }
 
   private rememberState(root: string, note: string | null): void {
@@ -293,12 +287,12 @@ export class WorkspaceService {
   /** Expands the folders leading to `filePath` so it is visible in the tree. */
   async reveal(filePath: string): Promise<void> {
     const root = this.root();
-    if (!root || !filePath.startsWith(root + "/")) return;
+    if (!root || !filePath.startsWith(`${root}/`)) return;
 
     let nodes = this.rootNodes();
     for (;;) {
       if (nodes.some((n) => n.filePath === filePath)) return;
-      const parent = nodes.find((n) => n.dirPath && filePath.startsWith(n.dirPath + "/"));
+      const parent = nodes.find((n) => n.dirPath && filePath.startsWith(`${n.dirPath}/`));
       if (!parent) return;
       await this.toggle(parent, true);
       nodes = parent.children() ?? [];

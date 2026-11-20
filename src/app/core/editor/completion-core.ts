@@ -1,6 +1,7 @@
-import { LinkFormat } from "../file/backend";
+import type { LinkFormat } from "../file/backend";
 import { dirname } from "../markdown/paths";
-import { SwitcherEntry, fuzzyScore, rank } from "../switcher/fuzzy";
+import type { SwitcherEntry } from "../switcher/fuzzy";
+import { fuzzyScore, rank } from "../switcher/fuzzy";
 
 /** Pure parts of the `[[` and `#` autocomplete: where a completion starts, and what it offers. */
 
@@ -71,7 +72,7 @@ export function linkTarget(
   const segments = target.split("/");
   for (let n = 1; n < segments.length; n++) {
     const candidate = segments.slice(-n).join("/").toLowerCase();
-    if (!others.some((o) => o === candidate || o.endsWith("/" + candidate)))
+    if (!others.some((o) => o === candidate || o.endsWith(`/${candidate}`)))
       return segments.slice(-n).join("/");
   }
   return target;

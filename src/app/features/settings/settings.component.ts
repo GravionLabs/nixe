@@ -1,8 +1,9 @@
-import { Component, ElementRef, OnDestroy, effect, inject, viewChild } from "@angular/core";
+import type { ElementRef, OnDestroy } from "@angular/core";
+import { Component, effect, inject, viewChild } from "@angular/core";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { ShortcutService } from "../../core/commands/shortcut.service";
-import { SettingItem } from "../../core/settings/settings-registry";
+import type { SettingItem } from "../../core/settings/settings-registry";
 import { SettingsPageService } from "../../core/settings/settings-page.service";
 
 /** The settings page: sections on the left, the settings of the section (or the search matches) on the right. */

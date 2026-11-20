@@ -2,7 +2,8 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 
 import { EditorService } from "../editor/editor.service";
-import { ComposeChange, ExtractWhat, backend } from "../file/backend";
+import type { ComposeChange, ExtractWhat } from "../file/backend";
+import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { basename, joinPath } from "../markdown/paths";
 import { SettingsService } from "../settings/settings.service";
@@ -174,6 +175,6 @@ export class ComposerService {
 
   private relative(path: string | null): string | null {
     const root = this.workspace.vaultRoot();
-    return path && root && path.startsWith(root + "/") ? path.slice(root.length + 1) : null;
+    return path && root && path.startsWith(`${root}/`) ? path.slice(root.length + 1) : null;
   }
 }

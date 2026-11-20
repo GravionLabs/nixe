@@ -1,9 +1,8 @@
+import type { Provider, WritableSignal } from "@angular/core";
 import {
   Injectable,
   InjectionToken,
   Injector,
-  Provider,
-  WritableSignal,
   computed,
   inject,
   isSignal,
@@ -15,7 +14,8 @@ import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { OutlineService } from "../outline/outline.service";
 import { toSlashes } from "../markdown/paths";
-import { LayoutState, MAX_TABS, TabState, TabView, clampRatio } from "./layout";
+import type { LayoutState, TabState, TabView } from "./layout";
+import { MAX_TABS, clampRatio } from "./layout";
 
 /** What the viewer of a tab offers to the app. */
 export interface ViewerHandle {

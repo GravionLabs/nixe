@@ -108,7 +108,7 @@ describe("editFrontmatter set", () => {
   });
 
   it("refuses invalid frontmatter", () => {
-    expect(() => set("---\na: [1\n---\n", "b", 1)).toThrow();
+    expect(() => set("---\na: [1\n---\n", "b", 1)).toThrow(/flow sequence/i);
     expect(() => set("---\n- a\n- b\n---\n", "b", 1)).toThrow(/mapping/);
   });
 });

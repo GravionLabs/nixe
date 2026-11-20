@@ -1,13 +1,16 @@
-import { Component, ElementRef, OnDestroy, signal, ViewChild } from "@angular/core";
+import type { ElementRef, OnDestroy } from "@angular/core";
+import { Component, signal, ViewChild } from "@angular/core";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { Compartment, EditorState, Extension } from "@codemirror/state";
+import type { Extension } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, drawSelection, keymap } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { open as pickFile } from "@tauri-apps/plugin-dialog";
 
-import { CHECKLIST_ITEMS, Rating, checklistMarkdown, clampFontSize } from "./decoration-logic";
+import type { Rating } from "./decoration-logic";
+import { CHECKLIST_ITEMS, checklistMarkdown, clampFontSize } from "./decoration-logic";
 import { livePreviewSpike } from "./decorations";
 
 const FONT_KEY = "nixe.editorSpike.fontSize";
@@ -49,40 +52,7 @@ export function editorExtensions(theme: Compartment, size: number): Extension[] 
 /** Temporary prototype for #59 (CodeMirror 6 on iOS). Dev builds only; remove after the spike. */
 @Component({
   selector: "app-editor-spike",
-  template: `
-    <details class="spike">
-      <summary>Editor spike (#59)</summary>
-      <div class="row">
-        <select #pick (change)="open(pick.value)">
-          <option value="">choose a note</option>
-          @for (n of names(); track n) {
-            <option [value]="n">{{ n }}</option>
-          }
-        </select>
-        <button type="button" (click)="refresh()">Reload list</button>
-        <button type="button" (click)="resize(-1)">A-</button>
-        <span>{{ fontSize() }}px</span>
-        <button type="button" (click)="resize(1)">A+</button>
-        <button type="button" (click)="openExternal()">Open external file (iCloud)</button>
-        <button type="button" (click)="save()" [disabled]="!current()">Save</button>
-      </div>
-      <p style="white-space: pre-wrap">{{ status() }}</p>
-      <div #host class="host"></div>
-      <h4>Checklist</h4>
-      @for (item of items; track item) {
-        <div class="item">
-          <span>{{ item }}</span>
-          @for (r of ratingsList; track r) {
-            <button type="button" [class.on]="ratings()[item] === r" (click)="rate(item, r)">
-              {{ r }}
-            </button>
-          }
-          <input placeholder="note" (input)="note(item, $any($event.target).value)" />
-        </div>
-      }
-      <button type="button" (click)="copy()">Copy result as markdown</button>
-    </details>
-  `,
+  templateUrl: "./editor-spike.component.html",
   styles: `
     .spike {
       padding: 0.5rem 1rem;

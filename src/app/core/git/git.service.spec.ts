@@ -9,7 +9,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { GitStatus, backend } from "../file/backend";
+import type { GitStatus } from "../file/backend";
+import { backend } from "../file/backend";
 import { IndexService } from "../index/index.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
@@ -265,7 +266,7 @@ describe("GitService", () => {
 
     it("refuses an empty token", async () => {
       const set = vi.spyOn(backend, "gitTokenSet").mockResolvedValue();
-      await expect(git.saveToken("  ")).rejects.toThrow();
+      await expect(git.saveToken("  ")).rejects.toThrow("the token is empty");
       expect(set).not.toHaveBeenCalled();
     });
 

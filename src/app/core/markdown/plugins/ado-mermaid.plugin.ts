@@ -62,5 +62,5 @@ export function dedent(text: string): string {
     .filter((l) => l.trim().length > 0)
     .map((l) => l.match(/^[ \t]*/)![0].length);
   const min = indents.length ? Math.min(...indents) : 0;
-  return lines.map((l) => l.slice(min)).join("\n") + "\n";
+  return `${lines.map((l) => l.slice(min)).join("\n")}\n`;
 }

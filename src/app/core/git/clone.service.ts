@@ -2,7 +2,8 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import { CLONE_CANCELLED, CLONE_PROGRESS_EVENT, CloneProgress, backend } from "../file/backend";
+import type { CloneProgress } from "../file/backend";
+import { CLONE_CANCELLED, CLONE_PROGRESS_EVENT, backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { GitService } from "./git.service";
 

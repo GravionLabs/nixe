@@ -1,0 +1,8 @@
+@if (conflict() !== null) {
+  <div class="bar" role="alert">
+    <span>This note changed on disk while you were editing.</span>
+    <button type="button" (click)="reloadFromDisk()">Reload</button>
+    <button type="button" (click)="keepMine()">Keep mine</button>
+  </div>
+}
+<div #host class="host"></div>

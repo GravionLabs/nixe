@@ -1,4 +1,5 @@
-import { Component, ElementRef, effect, inject, viewChild } from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import { Component, effect, inject, viewChild } from "@angular/core";
 import { HxDialog } from "@gravionlabs/helix-ui";
 
 import { basename } from "../../core/markdown/paths";

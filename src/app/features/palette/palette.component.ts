@@ -1,8 +1,11 @@
-import { Component, ElementRef, effect, inject, viewChild } from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import { Component, effect, inject, viewChild } from "@angular/core";
 import { HxDialog } from "@gravionlabs/helix-ui";
 
-import { KeyHintsComponent, KeyHint } from "../switcher/key-hints.component";
-import { Command, CommandRegistry, formatShortcut } from "../../core/commands/command-registry";
+import type { KeyHint } from "../switcher/key-hints.component";
+import { KeyHintsComponent } from "../switcher/key-hints.component";
+import type { Command } from "../../core/commands/command-registry";
+import { CommandRegistry, formatShortcut } from "../../core/commands/command-registry";
 import { PaletteService } from "../../core/commands/palette.service";
 
 /** Command palette overlay: type to filter, arrow keys to choose, Enter to run. */

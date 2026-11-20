@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/* oxlint-disable typescript/no-explicit-any -- the spec calls protected members of the component under test through `as any` */
 import "@angular/compiler";
 import { ElementRef, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
@@ -17,7 +18,8 @@ import { ChangesService } from "../../core/git/changes.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { TREE_SORTS } from "../../core/workspace/tree-model";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
-import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
+import type { TreeNode } from "../../core/workspace/workspace.service";
+import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { SidebarComponent } from "./sidebar.component";
 
 function node(name: string, kind: "dir" | "file", depth = 0, expanded = false): TreeNode {
@@ -165,7 +167,7 @@ describe("SidebarComponent tree", () => {
     sidebar.selection.set(new Set(["/v/a.md", "/v/beta.md"]));
     const start = { dataTransfer: { setData: vi.fn(), effectAllowed: "" } } as unknown as DragEvent;
     sidebar.dragStart(start, rows[2]);
-    const over = (target: TreeNode) =>
+    const over = (_target: TreeNode) =>
       ({
         stopPropagation: vi.fn(),
         preventDefault: vi.fn(),
@@ -192,7 +194,7 @@ describe("SidebarComponent tree", () => {
 
   it("reports a refused move", async () => {
     const errors: string[] = [];
-    sidebar.error.subscribe((e: string) => errors.push(e));
+    sidebar.failed.subscribe((e: string) => errors.push(e));
     ops.move.mockRejectedValue(new Error("Not moved: a.md already exists in box."));
     sidebar.dragStart({ dataTransfer: { setData: vi.fn() } } as unknown as DragEvent, rows[1]);
     await sidebar.drop(
@@ -219,9 +221,9 @@ describe("SidebarComponent tree", () => {
     expect(sidebar.decoration().files.size).toBe(0);
   });
 
-  it("shows the filtered rows and Escape clears the field", async () => {
+  it("shows the filtered rows and Escape clears the field", () => {
     workspace.filteredRows.set([rows[2]]);
-    await sidebar.setFilter("bet");
+    sidebar.setFilter("bet");
     expect(workspace.setTreeFilter).toHaveBeenCalledWith("bet");
     expect(sidebar.rows()).toEqual([rows[2]]);
     expect(sidebar.isOpen(rows[3])).toBe(true);

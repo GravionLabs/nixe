@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
-import { HealthReport, backend } from "../file/backend";
+import type { HealthReport } from "../file/backend";
+import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
 import { IndexService } from "./index.service";
 

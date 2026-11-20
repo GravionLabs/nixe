@@ -8,7 +8,8 @@ import {
   signal,
   viewChild,
 } from "@angular/core";
-import { HxMenu, HxMenuItem } from "@gravionlabs/helix-ui";
+import type { HxMenuItem } from "@gravionlabs/helix-ui";
+import { HxMenu } from "@gravionlabs/helix-ui";
 
 import { DocumentService } from "../../core/file/document.service";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
@@ -17,8 +18,8 @@ import { GitService } from "../../core/git/git.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { basename } from "../../core/markdown/paths";
 import { TabsService } from "../../core/tabs/tabs.service";
+import type { FocusKey } from "../../core/workspace/tree-nav";
 import {
-  FocusKey,
   focusTarget,
   parentIndex,
   rangeBetween,
@@ -26,14 +27,11 @@ import {
 } from "../../core/workspace/tree-nav";
 import { topLevelPaths } from "../../core/workspace/file-ops";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
-import {
-  TREE_SORTS,
-  TREE_SORT_LABELS,
-  TreeSort,
-  conflictPaths,
-} from "../../core/workspace/tree-model";
+import type { TreeSort } from "../../core/workspace/tree-model";
+import { TREE_SORTS, TREE_SORT_LABELS, conflictPaths } from "../../core/workspace/tree-model";
 import { NO_DECORATION, decorate, highlightParts } from "../../core/workspace/tree-filter";
-import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
+import type { TreeNode } from "../../core/workspace/workspace.service";
+import { WorkspaceService } from "../../core/workspace/workspace.service";
 
 /** How long the row of a revealed note flashes. */
 export const FLASH_MS = 2000;
@@ -59,7 +57,7 @@ export class SidebarComponent {
   private readonly tabs = inject(TabsService);
   private readonly bookmarks = inject(BookmarksService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  readonly error = output<string>();
+  readonly failed = output<string>();
 
   /** The rows of the tree: all of it, or with a filter the matches and their folders (#248). */
   protected readonly rows = computed(() =>
@@ -230,7 +228,7 @@ export class SidebarComponent {
         await this.workspace.toggle(node);
       }
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
@@ -415,7 +413,7 @@ export class SidebarComponent {
     try {
       await action();
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 

@@ -1,6 +1,6 @@
 import { Component, computed, inject } from "@angular/core";
 
-import { GitChange } from "../../core/file/backend";
+import type { GitChange } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { diffLines, diffStat } from "../../core/git/line-diff";

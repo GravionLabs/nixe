@@ -11,10 +11,12 @@ import {
   unfoldCode,
   unfoldEffect,
 } from "@codemirror/language";
-import { EditorState, Extension, Text } from "@codemirror/state";
-import { EditorView, ViewUpdate, keymap } from "@codemirror/view";
+import type { EditorState, Extension, Text } from "@codemirror/state";
+import type { ViewUpdate } from "@codemirror/view";
+import { EditorView, keymap } from "@codemirror/view";
 
-import { FoldRange, foldRanges } from "../../core/fold/fold-core";
+import type { FoldRange } from "../../core/fold/fold-core";
+import { foldRanges } from "../../core/fold/fold-core";
 
 const cache = new WeakMap<Text, Map<number, FoldRange>>();
 

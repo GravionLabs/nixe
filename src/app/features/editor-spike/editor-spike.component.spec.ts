@@ -1,3 +1,4 @@
+/* oxlint-disable typescript/no-explicit-any -- the spec calls protected members of the component under test through `as any` */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const invoke = vi.hoisted(() => vi.fn());

@@ -3,12 +3,14 @@ import { Injectable, inject, signal } from "@angular/core";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { notePart } from "../markdown/embed";
-import { MarkdownService, RenderContext } from "../markdown/markdown.service";
+import type { RenderContext } from "../markdown/markdown.service";
+import { MarkdownService } from "../markdown/markdown.service";
 import { isMarkdownPath, joinPath } from "../markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../markdown/wikilink-resolver";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { Anchor, PreviewCache, previewAllowed } from "./preview-core";
+import type { Anchor } from "./preview-core";
+import { PreviewCache, previewAllowed } from "./preview-core";
 
 export const PREVIEW_DELAY_MS = 350;
 export const PREVIEW_HIDE_MS = 250;

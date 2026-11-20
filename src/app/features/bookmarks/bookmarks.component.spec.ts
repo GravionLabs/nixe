@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Bookmark } from "../../core/bookmarks/bookmarks-core";
+import type { Bookmark } from "../../core/bookmarks/bookmarks-core";
 import { bookmarkRows } from "./bookmarks.component";
 
 describe("bookmarkRows", () => {

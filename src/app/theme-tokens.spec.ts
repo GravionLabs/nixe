@@ -151,14 +151,14 @@ describe("focus and motion rules", () => {
   it("fail on an outline: none without a focus-visible replacement", () => {
     const hasRing = /:focus-visible\s*\{[^}]*outline\s*:\s*var\(--h-focus-ring-/.test(stylesheet);
     expect(hasRing).toBe(true);
-    for (const file of files) {
-      const text = readFileSync(file, "utf8");
-      if (/outline\s*:\s*["']?(none|0)\b/.test(text)) {
-        expect(
-          /:focus-visible|\[data-keyboard-focus\]/.test(text),
-          `${file} removes the outline without a replacement`,
-        ).toBe(true);
-      }
+    const removers = files
+      .map((file) => ({ file, text: readFileSync(file, "utf8") }))
+      .filter(({ text }) => /outline\s*:\s*["']?(none|0)\b/.test(text));
+    for (const { file, text } of removers) {
+      expect(
+        /:focus-visible|\[data-keyboard-focus\]/.test(text),
+        `${file} removes the outline without a replacement`,
+      ).toBe(true);
     }
   });
 

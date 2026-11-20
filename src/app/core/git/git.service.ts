@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 
-import { GitStatus, SyncReport, backend } from "../file/backend";
+import type { GitStatus, SyncReport } from "../file/backend";
+import { backend } from "../file/backend";
 import { IndexService } from "../index/index.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";

@@ -1,14 +1,5 @@
-import {
-  Component,
-  ElementRef,
-  OnDestroy,
-  effect,
-  inject,
-  output,
-  signal,
-  untracked,
-  viewChild,
-} from "@angular/core";
+import type { ElementRef, OnDestroy } from "@angular/core";
+import { Component, effect, inject, output, signal, untracked, viewChild } from "@angular/core";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -36,10 +27,11 @@ import { fileLabel } from "../../core/switcher/fuzzy";
 import { SettingsService } from "../../core/settings/settings.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
-import { CompletionData } from "./completion";
+import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
-import { FoldAction, foldAction, folding, restoreFolds } from "./folding";
+import type { FoldAction } from "./folding";
+import { foldAction, folding, restoreFolds } from "./folding";
 import { headingLineAt } from "../../core/composer/composer-core";
 
 const BASE_FONT_PX = 16;
@@ -59,20 +51,11 @@ const STATS_DELAY_MS = 150;
 /** CodeMirror 6 editor of the open note. Lives in its own lazy chunk (loaded by `@defer`). */
 @Component({
   selector: "app-editor",
-  template: `
-    @if (conflict() !== null) {
-      <div class="bar" role="alert">
-        <span>This note changed on disk while you were editing.</span>
-        <button type="button" (click)="reloadFromDisk()">Reload</button>
-        <button type="button" (click)="keepMine()">Keep mine</button>
-      </div>
-    }
-    <div #host class="host"></div>
-  `,
+  templateUrl: "./editor.component.html",
   styleUrl: "./editor.component.css",
 })
 export class EditorComponent implements OnDestroy {
-  readonly error = output<string>();
+  readonly failed = output<string>();
 
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
@@ -184,7 +167,7 @@ export class EditorComponent implements OnDestroy {
     }
     if (!(await backend.isUtf8File(current))) {
       this.session = null;
-      this.error.emit("This note is not valid UTF-8; editing it would damage it.");
+      this.failed.emit("This note is not valid UTF-8; editing it would damage it.");
       this.editor.editing.set(false);
       return;
     }
@@ -195,7 +178,7 @@ export class EditorComponent implements OnDestroy {
       tracker: new ExternalChangeTracker(text),
       saver: new AutoSaver({
         write: (t) => this.write(session, t),
-        onError: (e) => this.error.emit(`Saving failed: ${String(e)}`),
+        onError: (e) => this.failed.emit(`Saving failed: ${String(e)}`),
       }),
     };
     this.session = session;
@@ -306,7 +289,7 @@ export class EditorComponent implements OnDestroy {
 
   private relativePath(path: string | null): string | null {
     const root = this.workspace.vaultRoot();
-    return path && root && path.startsWith(root + "/") ? path.slice(root.length + 1) : null;
+    return path && root && path.startsWith(`${root}/`) ? path.slice(root.length + 1) : null;
   }
 
   /** The text of the note a link target names; the open note (as typed) for an empty target. */
@@ -346,9 +329,9 @@ export class EditorComponent implements OnDestroy {
     try {
       await backend.writeTextFile(copy, session.crlf ? toCrlf(pending) : pending);
       session.saver.discard();
-      this.error.emit(`The note changed on disk; your edits were saved to ${copy}`);
+      this.failed.emit(`The note changed on disk; your edits were saved to ${copy}`);
     } catch (error) {
-      this.error.emit(`Your edits could not be saved: ${String(error)}`);
+      this.failed.emit(`Your edits could not be saved: ${String(error)}`);
     }
   }
 
@@ -375,7 +358,7 @@ export class EditorComponent implements OnDestroy {
     if (files.length === 0 || !this.session) return false;
     event.preventDefault();
     void this.attachFiles(files).catch((err) =>
-      this.error.emit(`Attaching failed: ${String(err)}`),
+      this.failed.emit(`Attaching failed: ${String(err)}`),
     );
     return true;
   }
@@ -483,7 +466,7 @@ export class EditorComponent implements OnDestroy {
       if (this.session === session) this.replaceText(session, text);
       return true;
     }
-    this.error.emit("The note is no longer valid UTF-8; editing stopped.");
+    this.failed.emit("The note is no longer valid UTF-8; editing stopped.");
     session.saver.discard();
     this.editor.editing.set(false);
     return false;
@@ -494,7 +477,7 @@ export class EditorComponent implements OnDestroy {
     const disk = this.conflict();
     if (!session || disk === null) return;
     if (!(await backend.isUtf8File(session.path))) {
-      this.error.emit("The note on disk is not valid UTF-8; keep yours or fix the file first.");
+      this.failed.emit("The note on disk is not valid UTF-8; keep yours or fix the file first.");
       return;
     }
     session.saver.discard();
@@ -530,12 +513,12 @@ export class EditorComponent implements OnDestroy {
     if (!root || !files || !note) return;
     if (!resolved) {
       await this.settle();
-      await this.ops.createNoteForLink(value).catch((err) => this.error.emit(String(err)));
+      await this.ops.createNoteForLink(value).catch((err) => this.failed.emit(String(err)));
       return;
     }
     const path = joinPath(root, resolved);
     if (!isMarkdownPath(path)) return;
     await this.settle();
-    await this.doc.open(path, { anchor: heading }).catch((err) => this.error.emit(String(err)));
+    await this.doc.open(path, { anchor: heading }).catch((err) => this.failed.emit(String(err)));
   }
 }

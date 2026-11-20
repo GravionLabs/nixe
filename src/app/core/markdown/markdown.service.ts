@@ -70,7 +70,7 @@ export class MarkdownService {
   async expandEmbeds(root: HTMLElement, ctx: RenderContext): Promise<void> {
     const { vaultRoot, vaultFiles } = ctx;
     if (!vaultRoot || !vaultFiles || !root.querySelector(".embed[data-embed]")) return;
-    const prefix = vaultRoot.endsWith("/") ? vaultRoot : vaultRoot + "/";
+    const prefix = vaultRoot.endsWith("/") ? vaultRoot : `${vaultRoot}/`;
     const current = ctx.filePath?.startsWith(prefix) ? ctx.filePath.slice(prefix.length) : "";
     await expandEmbeds(
       root,

@@ -2,13 +2,13 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 
 import { EditorService } from "../editor/editor.service";
-import {
+import type {
   NoteReplacements,
   ReplaceApplied,
   ReplaceExclusions,
   ReplaceOptions,
-  backend,
 } from "../file/backend";
+import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";

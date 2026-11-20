@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
-import { SearchHit, backend } from "../file/backend";
+import type { SearchHit } from "../file/backend";
+import { backend } from "../file/backend";
 import { IndexService } from "./index.service";
 
 export type SearchState = "idle" | "loading" | "error" | "ready";
@@ -84,6 +85,7 @@ export interface Segment {
 export function segments(text: string): Segment[] {
   const out: Segment[] = [];
   let match = false;
+  // oxlint-disable-next-line no-control-regex -- \u0001 and \u0002 are the match markers of the backend
   for (const part of text.split(/[\u0001\u0002]/u)) {
     // split drops the separators, so the kind alternates: text, match, text, …
     if (part) out.push({ text: part, match });

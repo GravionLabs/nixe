@@ -38,13 +38,13 @@ export function renamedName(oldName: string, typed: string): string | null {
 /** `path` after `from` was renamed to `to`; unchanged when it is not `from` or below it. */
 export function remapPath(path: string, from: string, to: string): string {
   if (path === from) return to;
-  return path.startsWith(from + "/") ? to + path.slice(from.length) : path;
+  return path.startsWith(`${from}/`) ? to + path.slice(from.length) : path;
 }
 
 /** The entries to move: those inside another selected folder travel with it and are dropped. */
 export function topLevelPaths(paths: readonly string[]): string[] {
   const unique = [...new Set(paths)];
-  return unique.filter((p) => !unique.some((q) => q !== p && p.startsWith(q + "/")));
+  return unique.filter((p) => !unique.some((q) => q !== p && p.startsWith(`${q}/`)));
 }
 
 export interface PlannedMove {
@@ -60,7 +60,7 @@ export function planMove(sources: readonly string[], dir: string): PlannedMove[]
   const moves: PlannedMove[] = [];
   const names = new Set<string>();
   for (const from of topLevelPaths(sources)) {
-    if (dir === from || dir.startsWith(from + "/"))
+    if (dir === from || dir.startsWith(`${from}/`))
       throw new Error("A folder cannot be moved into itself.");
     const slash = from.lastIndexOf("/");
     if (from.slice(0, slash) === dir) continue;

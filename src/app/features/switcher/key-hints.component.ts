@@ -14,13 +14,7 @@ export const modKey = (): string => (isMac() ? "⌘" : "Ctrl");
 /** Footer of the switcher and the palette: the keys of the dialog. */
 @Component({
   selector: "app-key-hints",
-  template: `
-    @for (hint of hints(); track hint.label) {
-      <span class="hint"
-        ><kbd>{{ hint.keys }}</kbd> {{ hint.label }}</span
-      >
-    }
-  `,
+  templateUrl: "./key-hints.component.html",
   styles: `
     :host {
       display: flex;

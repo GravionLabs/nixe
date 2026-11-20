@@ -1,4 +1,5 @@
-import { KeyInput, physicalKey } from "./command-registry";
+import type { KeyInput } from "./command-registry";
+import { physicalKey } from "./command-registry";
 
 export type Platform = "mac" | "windows" | "linux";
 

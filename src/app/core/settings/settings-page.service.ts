@@ -2,7 +2,8 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 
 import { AppearanceService } from "../appearance/appearance.service";
 import { CommandRegistry } from "../commands/command-registry";
-import { ObsidianSetting, backend } from "../file/backend";
+import type { ObsidianSetting } from "../file/backend";
+import { backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { UpdateService } from "../updater/update.service";
 import { builtinSections } from "./builtin-sections";

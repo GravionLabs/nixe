@@ -105,7 +105,7 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
   switch (edit.kind) {
     case "set": {
       if (!pair) {
-        const sep = yamlText === "" || /\n$/.test(yamlText) ? "" : eol;
+        const sep = yamlText === "" || yamlText.endsWith("\n") ? "" : eol;
         return splice(
           yamlText.length,
           yamlText.length,

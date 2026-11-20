@@ -1,11 +1,13 @@
-import { CssFile, sanitizeAccent, sanitizeFont } from "../appearance/appearance-core";
-import { ObsidianSetting } from "../file/backend";
-import { Command } from "../commands/command-registry";
+import type { CssFile } from "../appearance/appearance-core";
+import { sanitizeAccent, sanitizeFont } from "../appearance/appearance-core";
+import type { ObsidianSetting } from "../file/backend";
+import type { Command } from "../commands/command-registry";
 import { clampMinutes } from "../git/auto-sync";
 import { sanitizeMode } from "../preview/preview-core";
-import { SettingItem, SettingsSection } from "./settings-registry";
-import { SettingsService, ZOOM_MAX, ZOOM_MIN } from "./settings.service";
-import { ThemeMode } from "./settings-core";
+import type { SettingItem, SettingsSection } from "./settings-registry";
+import type { SettingsService } from "./settings.service";
+import { ZOOM_MAX, ZOOM_MIN } from "./settings.service";
+import type { ThemeMode } from "./settings-core";
 
 /** What the built-in sections read besides the settings themselves. */
 export interface SectionSources {

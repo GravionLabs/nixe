@@ -10,7 +10,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { Comparison, HistoryService, TimelineEntry } from "../../core/git/history.service";
+import type { Comparison, TimelineEntry } from "../../core/git/history.service";
+import { HistoryService } from "../../core/git/history.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { HistoryComponent, formatCommitTime } from "./history.component";

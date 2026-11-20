@@ -55,8 +55,10 @@ const esc = (s: string): string =>
 function scalarText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toISOString();
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint")
+    return String(value);
+  return JSON.stringify(value);
 }
 
 /** Text with `[[target|alias]]` converted to wikilink anchors; everything else escaped. */

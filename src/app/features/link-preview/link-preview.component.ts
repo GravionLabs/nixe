@@ -1,6 +1,6 @@
+import type { ElementRef } from "@angular/core";
 import {
   Component,
-  ElementRef,
   HostListener,
   computed,
   effect,
@@ -32,24 +32,7 @@ const HEIGHT = 320;
  */
 @Component({
   selector: "app-link-preview",
-  template: `
-    @if (preview.shown(); as shown) {
-      <div
-        class="link-preview"
-        [style.left.px]="place()?.left"
-        [style.top.px]="place()?.top"
-        [style.bottom.px]="place()?.bottom"
-        [style.width.px]="width"
-        [style.max-height.px]="height"
-        (mouseenter)="preview.keep()"
-        (mouseleave)="preview.leave()"
-        (mousedown)="$event.preventDefault()"
-        (click)="onClick($event)"
-      >
-        <article #body class="markdown-body"></article>
-      </div>
-    }
-  `,
+  templateUrl: "./link-preview.component.html",
   styleUrl: "./link-preview.component.css",
 })
 export class LinkPreviewComponent {
