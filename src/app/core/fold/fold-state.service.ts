@@ -1,5 +1,7 @@
 import { Injectable } from "@angular/core";
 
+import { getCurrentWindow } from "@tauri-apps/api/window";
+
 import { backend } from "../file/backend";
 import { FoldState, normalizeLines, parseFoldState, serializeFoldState } from "./fold-core";
 
@@ -54,6 +56,24 @@ export class FoldStateService {
     if (clean.length) this.state[path] = clean;
     else delete this.state[path];
     void this.load().then(() => this.schedule());
+    this.watchClose();
+  }
+
+  private watching = false;
+
+  /** A pending change is written before the window closes. */
+  private watchClose(): void {
+    if (this.watching) return;
+    this.watching = true;
+    try {
+      void getCurrentWindow()
+        .onCloseRequested(async () => {
+          await this.flush();
+        })
+        .catch(() => undefined);
+    } catch {
+      // No window API (tests): the timer still writes.
+    }
   }
 
   /** Writes at once what is pending. */
