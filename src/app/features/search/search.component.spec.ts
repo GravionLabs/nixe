@@ -13,6 +13,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { SearchHit } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
+import { ReplaceService } from "../../core/index/replace.service";
 import { SearchService, SearchState, segments } from "../../core/index/search.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { SearchComponent } from "./search.component";
@@ -26,7 +27,28 @@ const hit: SearchHit = {
   ],
 };
 
-function render(state: SearchState, hits: SearchHit[]) {
+function replaceMock(enabled: boolean, notes: unknown[] = []) {
+  return {
+    enabled: signal(enabled),
+    replacement: signal(""),
+    regex: signal(false),
+    caseSensitive: signal(false),
+    wholeWord: signal(false),
+    notes: signal(notes),
+    error: signal<string | null>(null),
+    busy: signal(false),
+    totals: signal({ notes: notes.length, replacements: notes.length }),
+    isNoteExcluded: vi.fn().mockReturnValue(false),
+    isMatchExcluded: vi.fn().mockReturnValue(false),
+    toggleNote: vi.fn(),
+    toggleMatch: vi.fn(),
+    toggle: vi.fn(),
+    refresh: vi.fn(),
+    apply: vi.fn().mockResolvedValue(null),
+  };
+}
+
+function render(state: SearchState, hits: SearchHit[], replace = replaceMock(false)) {
   const open = vi.fn().mockResolvedValue(undefined);
   const setQuery = vi.fn();
   const close = vi.fn();
@@ -47,6 +69,7 @@ function render(state: SearchState, hits: SearchHit[]) {
           close,
         },
       },
+      { provide: ReplaceService, useValue: replace },
       { provide: DocumentService, useValue: { open } },
       { provide: BookmarksService, useValue: { bookmarkSearch } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
@@ -104,5 +127,42 @@ describe("SearchComponent", () => {
     expect(render("ready", []).el.textContent).toContain("No results");
     expect(render("loading", []).el.textContent).toContain("Indexing the vault");
     expect(render("error", []).el.textContent).toContain("not available");
+  });
+
+  it("shows the replace field and the diff of each replacement", () => {
+    const replace = replaceMock(true, [
+      { path: "a.md", count: 1, replacements: [{ index: 0, line: 3, before: "old", after: "new" }] },
+    ]);
+    const { el } = render("ready", [hit], replace);
+    expect(el.querySelector("input.replacement")).not.toBeNull();
+    expect(el.querySelector("del")?.textContent).toBe("old");
+    expect(el.querySelector("ins")?.textContent).toBe("new");
+    expect(el.querySelector("button.apply")?.textContent).toContain("Replace 1 in 1 note");
+    expect(el.querySelector("button.snippet")).toBeNull();
+    expect(replace.refresh).toHaveBeenCalledWith("quick");
+  });
+
+  it("excludes a note or a single match with its checkbox and applies with the button", () => {
+    const replace = replaceMock(true, [
+      { path: "a.md", count: 1, replacements: [{ index: 0, line: 3, before: "old", after: "new" }] },
+    ]);
+    const { el } = render("ready", [], replace);
+    el.querySelector<HTMLInputElement>(".note-row input")!.click();
+    expect(replace.toggleNote).toHaveBeenCalledWith("a.md");
+    el.querySelector<HTMLInputElement>(".diff input")!.click();
+    expect(replace.toggleMatch).toHaveBeenCalledWith("a.md", 0);
+    el.querySelector<HTMLButtonElement>("button.apply")!.click();
+    expect(replace.apply).toHaveBeenCalledWith("quick");
+  });
+
+  it("types the replacement into the service and toggles the replace mode", () => {
+    const replace = replaceMock(true);
+    const { el } = render("ready", [], replace);
+    const field = el.querySelector<HTMLInputElement>("input.replacement")!;
+    field.value = "x";
+    field.dispatchEvent(new Event("input"));
+    expect(replace.replacement()).toBe("x");
+    el.querySelector<HTMLButtonElement>("button.toggle-replace")!.click();
+    expect(replace.toggle).toHaveBeenCalled();
   });
 });

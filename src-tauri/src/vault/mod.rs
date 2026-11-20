@@ -10,6 +10,7 @@ pub mod composer;
 #[allow(dead_code)]
 pub mod meta;
 pub mod relink;
+pub mod replace;
 #[allow(dead_code)]
 pub mod resolve;
 

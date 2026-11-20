@@ -26,6 +26,7 @@ dunce = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 serde_yaml_ng = "0.10"
 ignore = "0.4"
+regex = "1"
 git2 = { version = "0.21.0", features = ["https", "vendored-libgit2", "vendored-openssl"] }
 rusqlite = { version = "0.43.0", features = ["bundled"] }
 # `nixe mcp`: read-only MCP server over stdio (protocol 2026-07-28, checked against the spec).

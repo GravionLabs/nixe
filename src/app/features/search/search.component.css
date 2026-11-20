@@ -109,3 +109,79 @@ header .bookmark:disabled {
   opacity: 0.4;
   cursor: default;
 }
+
+.actions {
+  display: flex;
+  gap: 4px;
+}
+
+.toggle-replace.on {
+  color: var(--h-text-color);
+}
+
+.replace {
+  display: flex;
+  flex-direction: column;
+}
+
+.replace .options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 12px 4px;
+  color: var(--h-text-muted-color);
+  font-size: 12px;
+}
+
+.replace .options input {
+  margin: 0 2px 0 0;
+}
+
+.apply {
+  margin: 4px 12px 8px;
+  padding: 5px 8px;
+}
+
+.note-row,
+.diff {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 12px;
+}
+
+.note-row input,
+.diff input {
+  margin: 0;
+}
+
+.excluded {
+  opacity: 0.5;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.lines del,
+.lines ins {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  text-decoration: none;
+}
+
+.lines del {
+  background: color-mix(in srgb, #e5484d 25%, transparent);
+}
+
+.lines ins {
+  background: color-mix(in srgb, #30a46c 25%, transparent);
+}
+
+.line {
+  color: var(--h-text-muted-color);
+}

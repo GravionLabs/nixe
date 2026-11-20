@@ -131,6 +131,43 @@ export interface RelinkChange {
 /** What the note composer does to a note (#113). */
 export type ComposeAction = "create" | "append" | "update" | "trash";
 
+export interface ReplaceOptions {
+  find: string;
+  replace: string;
+  regex: boolean;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+}
+
+export interface Replacement {
+  /** 0-based number of the match in its note. */
+  index: number;
+  /** 1-based line where the match starts. */
+  line: number;
+  before: string;
+  after: string;
+}
+
+export interface NoteReplacements {
+  /** Vault-relative path. */
+  path: string;
+  /** Matches in the note, also those beyond the listed ones. */
+  count: number;
+  replacements: Replacement[];
+}
+
+export interface ReplaceExclusions {
+  notes: string[];
+  /** `[note, match index]`. */
+  matches: [string, number][];
+}
+
+export interface ReplaceApplied {
+  notes: number;
+  replacements: number;
+  paths: string[];
+}
+
 export interface ComposeChange {
   /** Vault-relative path. */
   path: string;
@@ -297,6 +334,11 @@ export const backend = {
   mergePreview: (source: string, target: string) => invoke<ComposeChange[]>("merge_preview", { source, target }),
   /** Appends `source` to `target`, rewrites the links to it and moves it to `.trash/`. */
   mergeNote: (source: string, target: string) => invoke<ComposeChange[]>("merge_note", { source, target }),
+  /** Every replacement a find and replace would make, per note; changes nothing. */
+  replacePreview: (options: ReplaceOptions) => invoke<NoteReplacements[]>("replace_preview", { options }),
+  /** Replaces in the vault as one batch; in a Git repository the open changes are committed first. */
+  replaceApply: (options: ReplaceOptions, exclusions: ReplaceExclusions, name: string | null, email: string | null) =>
+    invoke<ReplaceApplied>("replace_apply", { options, exclusions, name, email }),
   /** The notes whose links a rename would rewrite; changes nothing. */
   relinkPreview: (from: string, to: string) => invoke<RelinkChange[]>("relink_preview", { from, to }),
   /** Moves a file or folder to `.trash/` of the vault; returns the new path. */
