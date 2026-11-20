@@ -415,6 +415,15 @@ export const backend = {
   /** The Daily notes settings of `.obsidian/daily-notes.json`. */
   dailyNotesConfig: () => invoke<DailyNotesConfig>("daily_notes_config"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
+  /** Writes the captured text to the daily note or the inbox (#118); returns the note. */
+  captureSave: (text: string) => invoke<string>("capture_save", { text }),
+  /** Note names of the vault for the `[[` completion of the capture window. */
+  captureNoteNames: () => invoke<string[]>("capture_note_names"),
+  /** The title of the page at a URL; null when it cannot be fetched within two seconds. */
+  captureLinkTitle: (url: string) => invoke<string | null>("capture_link_title", { url }),
+  captureHide: () => invoke<void>("capture_hide"),
+  /** Registers the global shortcut of the settings file and creates or removes the window. */
+  captureApply: () => invoke<void>("capture_apply"),
   /** The app settings file (`settings.json` in the app config directory); null before the first save. */
   readAppSettings: () => invoke<string | null>("read_app_settings"),
   writeAppSettings: (content: string) => invoke<void>("write_app_settings", { content }),

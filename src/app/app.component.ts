@@ -1,3 +1,4 @@
+import { CaptureShortcutService } from "./core/capture/capture-shortcut.service";
 import {
   Component,
   Directive,
@@ -121,6 +122,7 @@ export class AppComponent {
   protected readonly doc = inject(DocumentService);
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
+  private readonly captureShortcut = inject(CaptureShortcutService);
   private readonly index = inject(IndexService);
   private readonly ops = inject(VaultOpsService);
   protected readonly editor = inject(EditorService);
@@ -209,6 +211,11 @@ export class AppComponent {
     effect(() => {
       const path = this.doc.path();
       if (path) void this.workspace.reveal(path);
+    });
+
+    effect(() => {
+      const error = this.captureShortcut.error();
+      if (error !== null) untracked(() => this.showToast(`Capture shortcut: ${error}`));
     });
 
     effect(() => {

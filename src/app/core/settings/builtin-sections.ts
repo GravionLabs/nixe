@@ -285,6 +285,45 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       },
     },
     {
+      id: "capture",
+      title: "Capture",
+      order: 35,
+      items: () => [
+        text(
+          "capture-shortcut",
+          "Global shortcut",
+          s.captureShortcut,
+          "Opens the capture window from anywhere on the desktop, also without a Nixe window. Leave empty to turn capture off. With a shortcut set, Nixe keeps running in the tray when its window closes; quit it there.",
+          "CommandOrControl+Shift+Space",
+        ),
+        {
+          kind: "select",
+          id: "capture-target",
+          label: "Save captures to",
+          options: [
+            { value: "daily", label: "Today's daily note" },
+            { value: "inbox", label: "A new note in the inbox folder" },
+          ],
+          get: () => s.captureTarget(),
+          set: (v) => s.captureTarget.set(v === "inbox" ? "inbox" : "daily"),
+        },
+        text(
+          "capture-inbox",
+          "Inbox folder",
+          s.captureInbox,
+          "Vault-relative. Empty uses the new-note folder of the vault, else `Inbox`.",
+          "Inbox",
+        ),
+        text(
+          "capture-template",
+          "Inbox note template",
+          s.captureTemplate,
+          "A note of the vault; `{{content}}` marks where the text goes, `{{title}}`, `{{date}}` and `{{time}}` work too. The daily note keeps its own template.",
+          "Templates/Capture",
+        ),
+      ],
+    },
+    {
       id: "appearance",
       title: "Appearance",
       order: 40,

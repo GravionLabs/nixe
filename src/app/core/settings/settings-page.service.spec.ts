@@ -48,12 +48,20 @@ describe("settings page", () => {
     page = TestBed.inject(SettingsPageService);
   });
 
-  it("registers the six sections in order", () => {
+  it("registers the seven sections in order", () => {
     expect(
       TestBed.inject(SettingsRegistry)
         .sections()
         .map((s) => s.title),
-    ).toEqual(["General", "Editor", "Files and links", "Appearance", "Git", "Shortcuts"]);
+    ).toEqual([
+      "General",
+      "Editor",
+      "Files and links",
+      "Capture",
+      "Appearance",
+      "Git",
+      "Shortcuts",
+    ]);
   });
 
   it("shows the running version read-only in General", () => {

@@ -61,7 +61,7 @@ fn default_folder(root: &Path) -> String {
     }
 }
 
-fn inbox_folder(root: &Path) -> String {
+pub(crate) fn inbox_folder(root: &Path) -> String {
     let folder = default_folder(root);
     if folder.is_empty() {
         DEFAULT_INBOX.to_string()
