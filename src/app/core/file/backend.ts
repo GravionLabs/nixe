@@ -69,6 +69,8 @@ export interface SearchHit {
   /** Vault-relative path. */
   path: string;
   title: string;
+  /** Modification time of the file, milliseconds since the Unix epoch. */
+  modified: number;
   snippets: SearchSnippet[];
 }
 

@@ -185,3 +185,50 @@ header .bookmark:disabled {
 .line {
   color: var(--h-text-muted-color);
 }
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 6px;
+  color: var(--h-text-muted-color);
+}
+
+.summary .count {
+  flex: 1;
+}
+
+.summary select {
+  font: inherit;
+  color: inherit;
+  background: var(--h-content-background);
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+}
+
+.summary .collapse-all {
+  width: auto;
+  padding: 0 6px;
+}
+
+button.fold {
+  flex-direction: row;
+  width: auto;
+  padding: 2px 12px;
+  color: var(--h-text-muted-color);
+  font-size: 11px;
+}
+
+.operators li {
+  padding: 0;
+  border: 0;
+}
+
+.operators button {
+  flex-direction: row;
+  gap: 8px;
+}
+
+.operators span {
+  color: var(--h-text-muted-color);
+}

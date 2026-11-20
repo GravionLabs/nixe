@@ -646,6 +646,15 @@ mod searching {
     }
 
     #[test]
+    fn hits_carry_the_modification_time_in_milliseconds() {
+        let (_r, conn) = vault("s-mtime");
+        let hits = search(&conn, "lazy").unwrap();
+        // A file written just now: after 2020, not in nanoseconds.
+        assert!(hits.iter().all(|h| h.modified > 1_577_836_800_000));
+        assert!(hits.iter().all(|h| h.modified < 100_000_000_000_000));
+    }
+
+    #[test]
     fn long_lines_are_shortened_around_the_match() {
         let (root, mut conn) = setup("s-long");
         write(

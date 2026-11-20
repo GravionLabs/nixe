@@ -56,6 +56,23 @@ export class SearchService {
   }
 }
 
+export type SearchSort = "relevance" | "name" | "modified";
+
+export const SEARCH_SORTS: readonly SearchSort[] = ["relevance", "name", "modified"];
+
+/** The hits in the chosen order; relevance keeps the order of the backend. */
+export function sortHits(hits: SearchHit[], sort: SearchSort): SearchHit[] {
+  if (sort === "name") return [...hits].sort((a, b) => a.title.localeCompare(b.title) || a.path.localeCompare(b.path));
+  if (sort === "modified") return [...hits].sort((a, b) => b.modified - a.modified || a.path.localeCompare(b.path));
+  return hits;
+}
+
+/** Appends an operator to a query, separated by a space. */
+export function withOperator(query: string, operator: string): string {
+  const base = query.trimEnd();
+  return base ? `${base} ${operator}` : operator;
+}
+
 export interface Segment {
   text: string;
   match: boolean;

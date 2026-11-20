@@ -41,6 +41,8 @@ pub struct SearchSnippet {
 pub struct SearchHit {
     pub path: String,
     pub title: String,
+    /// Modification time of the file in milliseconds since the Unix epoch (0 when unknown).
+    pub modified: i64,
     pub snippets: Vec<SearchSnippet>,
 }
 
@@ -118,7 +120,10 @@ pub fn search(conn: &Connection, input: &str) -> rusqlite::Result<Vec<SearchHit>
     if q.is_empty() {
         return Ok(Vec::new());
     }
-    let mut sql = String::from("SELECT n.id, n.path, n.title FROM notes n");
+    let mut sql = String::from(
+        "SELECT n.id, n.path, n.title, COALESCE(f.mtime_ns / 1000000, 0) FROM notes n \
+         LEFT JOIN files f ON f.path = n.path",
+    );
     let mut args: Vec<Sql> = Vec::new();
     let mut wheres: Vec<String> = Vec::new();
     if let Some(fts) = &q.fts {
@@ -148,14 +153,14 @@ pub fn search(conn: &Connection, input: &str) -> rusqlite::Result<Vec<SearchHit>
     });
     sql.push_str(&format!(" LIMIT {MAX_HITS}"));
 
-    let rows: Vec<(i64, String, String)> = conn
+    let rows: Vec<(i64, String, String, i64)> = conn
         .prepare_cached(&sql)?
         .query_map(params_from_iter(args), |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
         })?
         .collect::<Result<_, _>>()?;
     let mut hits = Vec::with_capacity(rows.len());
-    for (id, path, title) in rows {
+    for (id, path, title, modified) in rows {
         let snippets = if q.terms.is_empty() {
             Vec::new()
         } else {
@@ -168,6 +173,7 @@ pub fn search(conn: &Connection, input: &str) -> rusqlite::Result<Vec<SearchHit>
         hits.push(SearchHit {
             path,
             title,
+            modified,
             snippets,
         });
     }
