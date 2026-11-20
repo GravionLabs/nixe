@@ -56,6 +56,7 @@ export class MermaidRenderer {
       const figure = document.createElement("div");
       figure.className = "mermaid-diagram";
       if (node.dataset["line"]) figure.dataset["line"] = node.dataset["line"];
+      figure.dataset["source"] = source;
       figure.innerHTML = svg;
       node.replaceWith(figure);
     }

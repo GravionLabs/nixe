@@ -572,3 +572,69 @@ body {
   outline: 2px solid var(--h-primary-color);
   outline-offset: -2px;
 }
+
+// ---------------------------------------------------------------------------
+// Code blocks: copy button and language label (#245)
+// ---------------------------------------------------------------------------
+.markdown-body .code-block {
+  position: relative;
+
+  > pre {
+    margin-bottom: 16px;
+  }
+
+  // the tools are never part of a selection, so they are not copied with it
+  .code-tools {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+    font-size: 12px;
+    font-family: var(--nixe-note-text);
+  }
+
+  .code-lang {
+    color: var(--h-text-muted-color, #888);
+  }
+
+  .code-copy {
+    cursor: pointer;
+    font: inherit;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--h-border-color, #8885);
+    background: var(--h-surface-color, canvas);
+    color: inherit;
+    opacity: 0;
+  }
+
+  &:hover .code-copy,
+  .code-copy:focus-visible {
+    opacity: 1;
+  }
+
+  @media (hover: none) {
+    .code-copy {
+      opacity: 1;
+    }
+  }
+
+  &.code-block-source .code-tools {
+    top: 2px;
+    right: 2px;
+  }
+}
+
+.markdown-body.wrap-code pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+
+  code {
+    white-space: pre-wrap;
+  }
+}
