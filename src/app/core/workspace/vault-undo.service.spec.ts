@@ -8,6 +8,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 import { backend } from "../file/backend";
+import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
 import { SettingsService } from "../settings/settings.service";
 import { VaultUndoService } from "./vault-undo.service";
@@ -18,6 +19,7 @@ const op = { id: "c1", kind: "rename", message: "rename: a.md -> b.md, links in 
 describe("VaultUndoService", () => {
   const workspace = { reloadTree: vi.fn() };
   const doc = { path: signal<string | null>("/v/a.md"), reload: vi.fn(), close: vi.fn() };
+  const editor = { handle: { flush: vi.fn() } };
   let undo: VaultUndoService;
 
   beforeAll(() => {
@@ -34,6 +36,7 @@ describe("VaultUndoService", () => {
       providers: [
         { provide: WorkspaceService, useValue: workspace },
         { provide: DocumentService, useValue: doc },
+        { provide: EditorService, useValue: editor },
         {
           provide: SettingsService,
           useValue: { gitAuthorName: () => " Ann ", gitAuthorEmail: () => "" },
@@ -68,6 +71,7 @@ describe("VaultUndoService", () => {
   it("reverts, reloads the tree and the open note and says so", async () => {
     const revert = vi.spyOn(backend, "undoVaultOperation").mockResolvedValue(op);
     await expect(undo.undo()).resolves.toEqual(op);
+    expect(editor.handle.flush).toHaveBeenCalled();
     expect(revert).toHaveBeenCalledWith({ name: "Ann", email: null });
     expect(workspace.reloadTree).toHaveBeenCalled();
     expect(doc.reload).toHaveBeenCalled();

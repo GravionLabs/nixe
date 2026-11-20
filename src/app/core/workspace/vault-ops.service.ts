@@ -118,8 +118,8 @@ export class VaultOpsService {
       for (const m of moves) await this.apply(m.from, m.to);
     } finally {
       await this.changed();
+      await this.undo.offer();
     }
-    await this.undo.offer();
     return moves.map((m) => m.to);
   }
 

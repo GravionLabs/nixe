@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from "@angular/core";
 
 import type { GitAuthor, VaultOperation } from "../file/backend";
 import { backend } from "../file/backend";
+import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "./workspace.service";
@@ -23,6 +24,7 @@ export class VaultUndoService {
   private readonly settings = inject(SettingsService);
   private readonly workspace = inject(WorkspaceService);
   private readonly doc = inject(DocumentService);
+  private readonly editor = inject(EditorService);
 
   /** Set to show a toast; the app clears it. */
   readonly notice = signal<UndoNotice | null>(null);
@@ -44,6 +46,7 @@ export class VaultUndoService {
   /** Reverts the last operation; a conflict is refused with a message and changes nothing. */
   async undo(): Promise<VaultOperation | null> {
     try {
+      await this.editor.handle?.flush();
       const op = await backend.undoVaultOperation(this.author());
       await this.workspace.reloadTree();
       if (this.doc.path()) await this.doc.reload().catch(() => this.doc.close());

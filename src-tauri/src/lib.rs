@@ -502,7 +502,11 @@ fn extract_text(
 ) -> Result<Vec<vault::composer::Change>, String> {
     let root = vault_root_of(&state)?;
     let fallback = identity_of(name, email);
-    let summary = format!("extract: {source} -> {target}");
+    let summary = format!(
+        "extract: {} -> {}",
+        vault::ops::display(&root, Path::new(&source)),
+        vault::ops::display(&root, Path::new(&target))
+    );
     vault::ops::commit_around(
         &root,
         "extraction",
@@ -546,6 +550,10 @@ fn merge_note(
 ) -> Result<Vec<vault::composer::Change>, String> {
     let root = vault_root_of(&state)?;
     let fallback = identity_of(name, email);
+    let (rel_source, rel_target) = (
+        vault::ops::display(&root, Path::new(&source)),
+        vault::ops::display(&root, Path::new(&target)),
+    );
     vault::ops::commit_around(
         &root,
         "merge",
@@ -555,7 +563,7 @@ fn merge_note(
             (
                 "merge",
                 format!(
-                    "merge: {source} -> {target}{}",
+                    "merge: {rel_source} -> {rel_target}{}",
                     vault::ops::links_suffix(changes.len())
                 ),
             )
