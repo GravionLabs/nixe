@@ -119,3 +119,5 @@ With a vault and an open note the status bar shows `n backlinks` (`BacklinksServ
 ## Start page
 
 `StartComponent` (`features/start`) is the page of the empty tab, in the shell while there is only one empty tab and in the pane of every other empty tab. Without a vault it shows Open folder, Clone vault, Open file and the recent vaults; in a vault it shows the daily note, New note and Quick switcher, each with its current shortcut (`ShortcutService.display`), and the recently opened notes. The actions run commands of the `CommandRegistry`; the palette lists the other shortcuts.
+
+The conflict bar (`ConflictBarComponent`, #242) above a note with a sync conflict offers *Merge* next to *Keep this one* and *Keep the other*. *Merge* (`ConflictMergeComponent`, an `hx-dialog`) shows both versions as shared lines and hunks marked like the review's hunk view; each hunk is taken from this note, the other one or both, and the result can be edited. *Save* writes the original, moves the copy to `.trash/` (which clears the conflict mark) and opens the original; *Cancel* changes nothing. No new command: it uses `write_text_file` and `resolve_conflict`.

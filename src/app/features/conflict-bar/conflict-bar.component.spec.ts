@@ -10,6 +10,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 import { ConflictService } from "../../core/git/conflict.service";
 import { ConflictBarComponent } from "./conflict-bar.component";
+import { ConflictMergeComponent } from "./conflict-merge.component";
 
 const pair = { original: "/v/Note.md", copy: "/v/Note (conflict 2026-11-16 mac).md" };
 
@@ -20,9 +21,16 @@ function render(copy: boolean, withPair = true) {
     other: () => (copy ? pair.original : pair.copy),
     openOther: vi.fn().mockResolvedValue(undefined),
     keep: vi.fn().mockResolvedValue(undefined),
+    startMerge: vi.fn().mockResolvedValue(undefined),
+    merging: signal<{ mine: string; theirs: string } | null>(null),
+    cancelMerge: vi.fn(),
+    saveMerge: vi.fn().mockResolvedValue(undefined),
   };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({ providers: [{ provide: ConflictService, useValue: service }] });
+  TestBed.overrideComponent(ConflictMergeComponent, {
+    set: { templateUrl: undefined, styleUrl: undefined, template: "" },
+  });
   const fixture = TestBed.createComponent(ConflictBarComponent);
   const errors: string[] = [];
   fixture.componentInstance.failed.subscribe((e) => errors.push(e));
@@ -50,16 +58,23 @@ describe("ConflictBarComponent", () => {
     const { el, service } = render(false);
     el.querySelector("a")!.click();
     expect(service.openOther).toHaveBeenCalled();
-    const [keepThis, keepOther] = Array.from(el.querySelectorAll("button"));
+    const [, keepThis, keepOther] = Array.from(el.querySelectorAll("button"));
     keepThis.click();
     keepOther.click();
     expect(service.keep.mock.calls).toEqual([["this"], ["other"]]);
   });
 
+  it("starts the merge", () => {
+    const { el, service } = render(false);
+    const merge = Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Merge")!;
+    merge.click();
+    expect(service.startMerge).toHaveBeenCalled();
+  });
+
   it("reports a failed action", async () => {
     const { el, service, errors } = render(false);
     service.keep.mockRejectedValue("boom");
-    el.querySelector("button")!.click();
+    el.querySelectorAll("button")[1].click();
     await new Promise((r) => setTimeout(r));
     expect(errors).toEqual(["boom"]);
   });

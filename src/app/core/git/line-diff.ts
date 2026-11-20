@@ -130,3 +130,50 @@ export function diffStat(rows: readonly DiffRow[]): { added: number; removed: nu
     removed: rows.filter((r) => r.kind === "del").length,
   };
 }
+
+/** A run of lines both versions share, or a hunk where they differ. */
+export type MergePart =
+  | { kind: "same"; lines: string[] }
+  | { kind: "hunk"; index: number; mine: string[]; theirs: string[] };
+
+/** Which side of a hunk goes into the merged note. */
+export type MergeChoice = "this" | "other" | "both";
+
+/** Splits the difference of two texts into shared runs and hunks (`mine` is `a`, `theirs` is `b`). */
+export function mergeParts(a: string, b: string): MergePart[] {
+  const parts: MergePart[] = [];
+  let hunks = 0;
+  for (const row of diffLines(a, b)) {
+    const last = parts[parts.length - 1];
+    if (row.kind === "same") {
+      if (last?.kind === "same") last.lines.push(row.text);
+      else parts.push({ kind: "same", lines: [row.text] });
+    } else {
+      let hunk = last?.kind === "hunk" ? last : null;
+      if (!hunk) {
+        hunk = { kind: "hunk", index: hunks++, mine: [], theirs: [] };
+        parts.push(hunk);
+      }
+      (row.kind === "del" ? hunk.mine : hunk.theirs).push(row.text);
+    }
+  }
+  return parts;
+}
+
+/** The merged text; a hunk without a choice takes `a`'s side. A line break ends it if `a` has one. */
+export function mergeText(
+  parts: readonly MergePart[],
+  choices: Readonly<Record<number, MergeChoice>>,
+  endsWithBreak: boolean,
+): string {
+  const lines: string[] = [];
+  for (const part of parts) {
+    if (part.kind === "same") lines.push(...part.lines);
+    else {
+      const choice = choices[part.index] ?? "this";
+      if (choice !== "other") lines.push(...part.mine);
+      if (choice !== "this") lines.push(...part.theirs);
+    }
+  }
+  return lines.length > 0 && endsWithBreak ? `${lines.join("\n")}\n` : lines.join("\n");
+}
