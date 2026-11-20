@@ -9,6 +9,7 @@ use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 mod attachments;
+mod bookmarks;
 #[cfg(desktop)]
 pub mod cli;
 #[cfg(target_os = "macos")]
@@ -492,6 +493,32 @@ fn write_folds(app: AppHandle, content: String) -> Result<(), String> {
     folds::write_folds(&dir, &content)
 }
 
+/// `.obsidian/bookmarks.json` of the open vault; `None` when it has none.
+#[tauri::command]
+fn read_vault_bookmarks(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    bookmarks::read_vault(&vault_root_of(&state)?)
+}
+
+/// Replaces `.obsidian/bookmarks.json` of the open vault (it must have an `.obsidian` folder).
+#[tauri::command]
+fn write_vault_bookmarks(state: State<'_, AppState>, content: String) -> Result<(), String> {
+    bookmarks::write_vault(&vault_root_of(&state)?, &content)
+}
+
+/// The bookmarks file of the app data directory; `None` when there is none yet.
+#[tauri::command]
+fn read_app_bookmarks(app: AppHandle) -> Result<Option<String>, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    bookmarks::read_app(&dir)
+}
+
+/// Replaces the bookmarks file of the app data directory.
+#[tauri::command]
+fn write_app_bookmarks(app: AppHandle, content: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    bookmarks::write_app(&dir, &content)
+}
+
 /// Shows the user's shortcuts in the native menu: the accelerator per menu item id, `null` for none.
 #[tauri::command]
 fn set_menu_shortcuts(
@@ -712,6 +739,10 @@ pub fn run() {
         write_app_settings,
         read_folds,
         write_folds,
+        read_vault_bookmarks,
+        write_vault_bookmarks,
+        read_app_bookmarks,
+        write_app_bookmarks,
         set_menu_shortcuts,
         obsidian_settings,
         save_attachment,
@@ -783,6 +814,10 @@ pub fn run() {
         write_app_settings,
         read_folds,
         write_folds,
+        read_vault_bookmarks,
+        write_vault_bookmarks,
+        read_app_bookmarks,
+        write_app_bookmarks,
         set_menu_shortcuts,
         obsidian_settings,
         save_attachment,

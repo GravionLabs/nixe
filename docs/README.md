@@ -24,6 +24,7 @@ links and Mermaid rendering all at once.
 - [frontend/README.md](frontend/README.md) — the Angular app (`src/`)
   - [frontend/markdown-pipeline.md](frontend/markdown-pipeline.md) — Markdown → HTML
   - [frontend/editor.md](frontend/editor.md) — CodeMirror editor and saving
+  - [frontend/bookmarks.md](frontend/bookmarks.md) — bookmarks of notes, headings and searches
   - [frontend/state-management.md](frontend/state-management.md) — signals & navigation
 
 ## System at a glance

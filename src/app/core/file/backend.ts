@@ -286,6 +286,13 @@ export const backend = {
   /** The fold state (`folds.json` in the app data directory, not in the vault); null before the first save. */
   readFolds: () => invoke<string | null>("read_folds"),
   writeFolds: (content: string) => invoke<void>("write_folds", { content }),
+  /** `.obsidian/bookmarks.json` of the vault; null when it has none. */
+  readVaultBookmarks: () => invoke<string | null>("read_vault_bookmarks"),
+  /** Replaces `.obsidian/bookmarks.json`; rejects for a vault without `.obsidian/`. */
+  writeVaultBookmarks: (content: string) => invoke<void>("write_vault_bookmarks", { content }),
+  /** The bookmarks of all vaults in the app data directory; null before the first save. */
+  readAppBookmarks: () => invoke<string | null>("read_app_bookmarks"),
+  writeAppBookmarks: (content: string) => invoke<void>("write_app_bookmarks", { content }),
   /** Shows shortcuts in the native menu: accelerator per menu item id, null for none. */
   setMenuShortcuts: (shortcuts: Record<string, string | null>) => invoke<number>("set_menu_shortcuts", { shortcuts }),
   /** The Obsidian settings of the open vault with the file each one comes from. */

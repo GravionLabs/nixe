@@ -104,6 +104,13 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
             get: () => s.healthExclude().join(", "),
             set: (v) => s.healthExclude.set(parseList(v)),
           },
+          toggle(
+            "bookmarks-in-vault",
+            "Write bookmarks into the vault",
+            s.bookmarksInVault,
+            "Keep them in `.obsidian/bookmarks.json` (shared with Obsidian) instead of the app data. Needs a vault with an `.obsidian` folder.",
+            ["bookmarks", "obsidian"],
+          ),
         ];
       },
     },

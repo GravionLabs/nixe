@@ -85,6 +85,9 @@ export class SettingsService {
   /** Branches with this prefix that are ahead of the working branch wait for review (#108). */
   readonly reviewBranchPrefix = signal<string>(this.stored.reviewBranchPrefix);
 
+  /** Bookmarks go into `.obsidian/bookmarks.json` of the vault instead of the app data (#111). */
+  readonly bookmarksInVault = signal<boolean>(this.stored.bookmarksInVault);
+
   /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
   readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
@@ -131,6 +134,7 @@ export class SettingsService {
       autoSyncOnFocus: this.autoSyncOnFocus(),
       autoSyncOnQuit: this.autoSyncOnQuit(),
       reviewBranchPrefix: this.reviewBranchPrefix(),
+      bookmarksInVault: this.bookmarksInVault(),
       shortcuts: this.shortcuts(),
     };
   }
@@ -161,6 +165,7 @@ export class SettingsService {
     this.autoSyncOnFocus.set(s.autoSyncOnFocus);
     this.autoSyncOnQuit.set(s.autoSyncOnQuit);
     this.reviewBranchPrefix.set(s.reviewBranchPrefix);
+    this.bookmarksInVault.set(s.bookmarksInVault);
     this.shortcuts.set(s.shortcuts);
   }
 

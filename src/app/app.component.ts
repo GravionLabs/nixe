@@ -10,6 +10,7 @@ import { Command, CommandRegistry } from "./core/commands/command-registry";
 import { PaletteService } from "./core/commands/palette.service";
 import { ShortcutService } from "./core/commands/shortcut.service";
 import { DocumentService } from "./core/file/document.service";
+import { BookmarksService } from "./core/bookmarks/bookmarks.service";
 import { IndexService } from "./core/index/index.service";
 import { AutoSyncService } from "./core/git/auto-sync.service";
 import { CloneService } from "./core/git/clone.service";
@@ -36,6 +37,7 @@ import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { CloneComponent } from "./features/clone/clone.component";
 import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
 import { GitComponent } from "./features/git/git.component";
+import { BookmarksComponent } from "./features/bookmarks/bookmarks.component";
 import { HistoryComponent } from "./features/history/history.component";
 import { StatusBarComponent } from "./features/status-bar/status-bar.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
@@ -54,7 +56,7 @@ export class NavIconDirective {
 
 @Component({
   selector: "app-root",
-  imports: [HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
+  imports: [BookmarksComponent, HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -76,6 +78,7 @@ export class AppComponent {
   protected readonly switcher = inject(SwitcherService);
   protected readonly templates = inject(TemplateService);
   private readonly daily = inject(DailyService);
+  private readonly bookmarks = inject(BookmarksService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
   protected readonly recent = inject(RecentPickerService);
@@ -131,6 +134,15 @@ export class AppComponent {
     });
 
     effect(() => {
+      const notice = this.bookmarks.notice();
+      if (notice === null) return;
+      untracked(() => {
+        this.showToast(notice);
+        this.bookmarks.notice.set(null);
+      });
+    });
+
+    effect(() => {
       const notice = this.recent.notice();
       if (notice === null) return;
       untracked(() => {
@@ -151,6 +163,7 @@ export class AppComponent {
       await listen<string>(FILE_CHANGED_EVENT, (e) => this.tabs.onExternalChange(e.payload));
       await this.updater.init();
       await this.index.init();
+      await this.bookmarks.init();
       await this.autoSync.listenWindow();
       await listen<string>(MENU_EVENT, (e) => this.commands.execute(e.payload));
 
@@ -220,6 +233,10 @@ export class AppComponent {
       { id: "daily-next", title: "Open next daily note", when: inVault, run: () => this.run(() => this.daily.next()) },
       { id: "insert-template", title: "Insert template", when: () => noteOpen() && this.editor.editing(), run: () => this.run(() => this.templates.open()) },
       { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.tabs.activeTab().viewer?.topLine() ?? null)) },
+      { id: "bookmark-note", title: "Bookmark the note (or remove it)", when: noteOpen, run: () => this.bookmarks.toggleNote() },
+      { id: "bookmark-heading", title: "Bookmark the heading at the top (or remove it)", when: noteOpen, run: () => void (this.bookmarks.bookmarkCurrentHeading() || this.showToast("The note has no heading.")) },
+      { id: "bookmark-search", title: "Bookmark the search (or remove it)", when: inVault, run: () => void (this.bookmarks.bookmarkSearch() || this.showToast("The search is empty.")) },
+      { id: "show-bookmarks", title: "Show bookmarks", when: inVault, run: () => this.shell.show("bookmarks") },
       { id: "fold", title: "Fold at the cursor", when: noteOpen, run: () => this.foldNote("fold") },
       { id: "unfold", title: "Unfold at the cursor", when: noteOpen, run: () => this.foldNote("unfold") },
       { id: "fold-all", title: "Fold all", when: noteOpen, run: () => this.foldNote("fold-all") },

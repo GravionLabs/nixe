@@ -70,6 +70,9 @@
     <li role="none"><button type="button" role="menuitem" (click)="newNote()">New note</button></li>
     <li role="none"><button type="button" role="menuitem" (click)="newFolder()">New folder</button></li>
     @if (m.node) {
+      @if (m.node.filePath) {
+        <li role="none"><button type="button" role="menuitem" (click)="bookmark()">{{ bookmarkLabel(m.node) }}</button></li>
+      }
       <li role="none"><button type="button" role="menuitem" (click)="startRename()">Rename</button></li>
       <li role="none"><button type="button" role="menuitem" (click)="trash()">Delete</button></li>
     }

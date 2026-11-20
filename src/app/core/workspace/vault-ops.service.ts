@@ -5,6 +5,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { NewNoteLocation, RelinkChange, backend } from "../file/backend";
 import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
+import { BookmarksService } from "../bookmarks/bookmarks.service";
 import { basename, dirname, joinPath } from "../markdown/paths";
 import { noteFromLinkTarget, remapPath, renamedName, uniqueName } from "./file-ops";
 import { WorkspaceService } from "./workspace.service";
@@ -15,6 +16,7 @@ export class VaultOpsService {
   private readonly workspace = inject(WorkspaceService);
   private readonly doc = inject(DocumentService);
   private readonly editor = inject(EditorService);
+  private readonly bookmarks = inject(BookmarksService);
 
   /** The folder a new note goes to: `.obsidian/app.json`, else the vault root. */
   async newNoteFolder(): Promise<string> {
@@ -77,6 +79,8 @@ export class VaultOpsService {
       if (changes.length > 0 && !(await this.confirmRelink(changes))) return path;
     }
     await backend.renamePath(path, to);
+    const [relFrom, relTo] = [this.bookmarks.relative(path), this.bookmarks.relative(to)];
+    if (relFrom !== null && relTo !== null) this.bookmarks.renamed(relFrom, relTo);
     const open = this.doc.path();
     const moved = open ? remapPath(open, path, to) : null;
     if (open && moved && moved !== open) await this.doc.open(moved, { addToHistory: false });

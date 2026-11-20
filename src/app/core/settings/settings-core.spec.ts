@@ -20,6 +20,9 @@ describe("sanitizeSettings", () => {
       reviewBranchPrefix: 5,
     });
     expect(s.reviewBranchPrefix).toBe("claude/");
+    expect(s.bookmarksInVault).toBe(false);
+    expect(sanitizeSettings({ bookmarksInVault: true }).bookmarksInVault).toBe(true);
+    expect(sanitizeSettings({ bookmarksInVault: "yes" }).bookmarksInVault).toBe(false);
     expect(sanitizeSettings({ reviewBranchPrefix: "agent/" }).reviewBranchPrefix).toBe("agent/");
     expect(s.theme).toBe("dark");
     expect(s.math).toBe(true);

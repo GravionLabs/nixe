@@ -1,6 +1,7 @@
 import { Component, ElementRef, computed, effect, inject, output, signal, viewChild } from "@angular/core";
 
 import { DocumentService } from "../../core/file/document.service";
+import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { basename } from "../../core/markdown/paths";
 import { TabsService } from "../../core/tabs/tabs.service";
@@ -26,6 +27,7 @@ export class SidebarComponent {
   protected readonly changes = inject(ChangesService);
   private readonly ops = inject(VaultOpsService);
   private readonly tabs = inject(TabsService);
+  private readonly bookmarks = inject(BookmarksService);
   readonly error = output<string>();
 
   /** Files of a sync conflict: the copies and the originals next to them. */
@@ -160,6 +162,20 @@ export class SidebarComponent {
     this.closeMenu();
     if (!node) return Promise.resolve();
     return this.attempt(() => this.ops.trash(this.path(node)));
+  }
+
+  /** The label of the bookmark entry for the note of the menu. */
+  protected bookmarkLabel(node: TreeNode): string {
+    const rel = this.bookmarks.relative(node.filePath);
+    return rel !== null && this.bookmarks.items().some((b) => b.type === "file" && (b as { path?: string }).path === rel && !(b as { subpath?: string }).subpath)
+      ? "Remove bookmark"
+      : "Bookmark";
+  }
+
+  protected bookmark(): void {
+    const node = this.menu()?.node;
+    this.closeMenu();
+    if (node?.filePath) this.bookmarks.toggleNote(node.filePath);
   }
 
   protected reveal(): Promise<void> {

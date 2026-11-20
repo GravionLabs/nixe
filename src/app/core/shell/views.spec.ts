@@ -12,17 +12,17 @@ describe("views registry", () => {
     }
   });
 
-  it("puts files, search, Git, history and health at the top, settings at the bottom; outline and backlinks are not in it", () => {
+  it("puts files, search, bookmarks, Git, history and health at the top, settings at the bottom; outline and backlinks are not in it", () => {
     const top = VIEWS.filter((v) => v.position === "top").map((v) => v.id);
-    expect(top.slice(0, 5)).toEqual(["files", "search", "git", "history", "health"]);
+    expect(top.slice(0, 6)).toEqual(["files", "search", "bookmarks", "git", "history", "health"]);
     expect(top).toEqual(expect.arrayContaining(["daily-note", "command-palette"]));
     expect(VIEWS.filter((v) => v.position === "bottom").map((v) => v.id)).toEqual(["settings"]);
     expect(findView("outline")).toBeUndefined();
     expect(findView("backlinks")).toBeUndefined();
   });
 
-  it("fills the sidebar with files, search, Git and the note history; health is a tab, the rest are actions", () => {
-    expect(VIEWS.filter((v) => isSidebarView(v.id)).map((v) => v.id)).toEqual(["files", "search", "git", "history"]);
+  it("fills the sidebar with files, search, bookmarks, Git and the note history; health is a tab, the rest are actions", () => {
+    expect(VIEWS.filter((v) => isSidebarView(v.id)).map((v) => v.id)).toEqual(["files", "search", "bookmarks", "git", "history"]);
     expect(findView("health")?.placement).toBe("tab");
     expect(findView("daily-note")?.kind).toBe("action");
     expect(findView("settings")?.command).toBe("open-settings");
@@ -31,6 +31,7 @@ describe("views registry", () => {
   it("offers only what the vault allows", () => {
     const ids = (vault: boolean, git: boolean) => availableViews({ vault, git }).map((v) => v.id);
     expect(ids(false, false)).toEqual(["files", "command-palette", "settings"]);
+    expect(ids(true, false)).toContain("bookmarks");
     expect(ids(true, false)).not.toContain("git");
     expect(ids(true, false)).not.toContain("history");
     expect(ids(true, true)).toContain("history");
