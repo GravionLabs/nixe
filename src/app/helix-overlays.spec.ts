@@ -59,7 +59,7 @@ describe("helix overlays", () => {
     "shows %s in an hx-dialog",
     (name) => {
       const html = readFileSync(resolve(root, `features/${name}/${name}.component.html`), "utf8");
-      expect(html).toMatch(/^<hx-dialog /);
+      expect(html).toMatch(/^<hx-dialog\s/);
       expect(html.trimEnd()).toMatch(/<\/hx-dialog>$/);
     },
   );
@@ -71,6 +71,6 @@ describe("helix overlays", () => {
 
   it("opens the file tree menus with hx-menu", () => {
     const html = readFileSync(resolve(root, "features/sidebar/sidebar.component.html"), "utf8");
-    expect(html.match(/<hx-menu /g)).toHaveLength(2);
+    expect(html.match(/<hx-menu\s/g)).toHaveLength(2);
   });
 });
