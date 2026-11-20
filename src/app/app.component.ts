@@ -49,6 +49,7 @@ import { ToolbarComponent } from "./features/toolbar/toolbar.component";
 import { StartComponent } from "./features/start/start.component";
 import { WorkspaceComponent } from "./features/workspace/workspace.component";
 import { TabsService } from "./core/tabs/tabs.service";
+import { FocusService } from "./core/shell/focus.service";
 import { ShellService } from "./core/shell/shell.service";
 
 /** Marks the template of an activity bar icon with the icon name of the views registry. */
@@ -75,6 +76,8 @@ export class AppComponent {
   protected readonly tabs = inject(TabsService);
   /** Registers the commands that select a view (toggle sidebar, search, files, Git). */
   protected readonly shell = inject(ShellService);
+  /** Registers the commands that move the focus between file tree, note and panel. */
+  private readonly focus = inject(FocusService);
   protected readonly git = inject(GitService);
   protected readonly cloneVault = inject(CloneService);
   private readonly autoSync = inject(AutoSyncService);
@@ -329,6 +332,10 @@ export class AppComponent {
 
   /** Keys the webview handles itself; the native menu accelerators cover the other shortcuts. */
   protected onKeydown(event: KeyboardEvent): void {
+    if (this.focus.handleEscape(event)) {
+      event.preventDefault();
+      return;
+    }
     const command = this.commands.findByKey(event);
     if (command && this.commands.execute(command.id)) event.preventDefault();
   }
