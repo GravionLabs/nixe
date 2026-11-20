@@ -1,5 +1,4 @@
-<div class="backdrop" (click)="picker.close()" role="presentation"></div>
-<div class="dialog" role="dialog" aria-label="Open recent vault">
+<hx-dialog [visible]="true" (hidden)="picker.close()" ariaLabel="Open recent vault" [closable]="false" dismissableMask position="top" width="min(560px, 90vw)">
   <ul #list id="recent-list" role="listbox" tabindex="0" aria-label="Recent vaults" (keydown)="onKeydown($event)">
     @for (path of picker.vaults(); track path; let i = $index) {
       <li role="option" [attr.aria-selected]="i === picker.selected()" [class.selected]="i === picker.selected()">
@@ -12,4 +11,4 @@
       <li class="empty">No recent vaults</li>
     }
   </ul>
-</div>
+</hx-dialog>

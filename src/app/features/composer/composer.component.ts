@@ -1,4 +1,5 @@
 import { Component, ElementRef, effect, inject, output, viewChild } from "@angular/core";
+import { HxDialog } from "@gravionlabs/helix-ui";
 
 import { ComposerService, TargetOption } from "../../core/composer/composer.service";
 
@@ -7,6 +8,7 @@ import { ComposerService, TargetOption } from "../../core/composer/composer.serv
   selector: "app-composer",
   templateUrl: "./composer.component.html",
   styleUrl: "../switcher/switcher.component.css",
+  imports: [HxDialog],
 })
 export class ComposerComponent {
   protected readonly composer = inject(ComposerService);

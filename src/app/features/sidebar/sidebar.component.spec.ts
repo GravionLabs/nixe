@@ -15,6 +15,7 @@ import { GitService } from "../../core/git/git.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { TabsService } from "../../core/tabs/tabs.service";
+import { TREE_SORTS } from "../../core/workspace/tree-model";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
 import { SidebarComponent } from "./sidebar.component";
@@ -48,6 +49,8 @@ describe("SidebarComponent tree", () => {
     vaultRoot: signal<string | null>("/v"),
     toggle: vi.fn(),
     revealRequest: signal(0),
+    sort: signal(TREE_SORTS[0]),
+    setSort: vi.fn(),
   };
   const gitStatus = signal<{ changes: { path: string; kind: string; untracked?: boolean }[] } | null>(null);
   const treeGitStatus = signal(true);
@@ -81,7 +84,7 @@ describe("SidebarComponent tree", () => {
         { provide: ChangesService, useValue: { unseenPaths: signal(new Set()) } },
         { provide: VaultOpsService, useValue: ops },
         { provide: TabsService, useValue: tabs },
-        { provide: BookmarksService, useValue: {} },
+        { provide: BookmarksService, useValue: { relative: () => null, items: () => [] } },
         { provide: GitService, useValue: { status: gitStatus } },
         { provide: SettingsService, useValue: { treeGitStatus } },
         { provide: ElementRef, useValue: new ElementRef(host) },
@@ -227,5 +230,36 @@ describe("SidebarComponent tree", () => {
       workspace.revealRequest.set(0);
       vi.useRealTimers();
     }
+  });
+  describe("menus", () => {
+    const labels = (items: { label?: string }[]) => items.map((i) => i.label);
+
+    it("offers the folder and file entries of the node the menu opened on", () => {
+      sidebar.menu.set({ node: rows[1] });
+      expect(labels(sidebar.menuItems())).toEqual(["New note", "New folder", "Bookmark", "Rename", "Delete", sidebar.revealLabel]);
+      sidebar.menu.set({ node: rows[0] });
+      expect(labels(sidebar.menuItems())).toEqual(["New note", "New folder", "Rename", "Delete", sidebar.revealLabel]);
+    });
+
+    it("offers only the creating and revealing entries on the empty area", () => {
+      sidebar.menu.set({ node: null });
+      expect(labels(sidebar.menuItems())).toEqual(["New note", "New folder", sidebar.revealLabel]);
+    });
+
+    it("deletes the node of the menu even after the menu state is cleared", () => {
+      sidebar.menu.set({ node: rows[2] });
+      const del = sidebar.menuItems().find((i: { label?: string }) => i.label === "Delete");
+      sidebar.menu.set(null);
+      del.command({});
+      expect(ops.trash).toHaveBeenCalled();
+    });
+
+    it("marks the current sort order and sets another one", () => {
+      const items = sidebar.sortItems();
+      expect(items.filter((i: { label: string }) => i.label.startsWith("✓ "))).toHaveLength(1);
+      const other = items.find((i: { label: string }) => !i.label.startsWith("✓ "));
+      other.command({});
+      expect(workspace.setSort).toHaveBeenCalled();
+    });
   });
 });

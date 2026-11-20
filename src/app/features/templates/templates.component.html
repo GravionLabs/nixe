@@ -1,5 +1,4 @@
-<div class="backdrop" (click)="templates.close()" (keydown.escape)="templates.close()" role="presentation"></div>
-<div class="dialog" role="dialog" aria-label="Insert template">
+<hx-dialog [visible]="true" (hidden)="templates.close()" ariaLabel="Insert template" [closable]="false" dismissableMask position="top" width="min(560px, 90vw)">
   <input
     #input
     type="text"
@@ -24,4 +23,4 @@
       <li class="empty">No matching template</li>
     }
   </ul>
-</div>
+</hx-dialog>

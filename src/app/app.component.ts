@@ -1,5 +1,6 @@
 import { Component, Directive, TemplateRef, computed, effect, inject, input, isDevMode, signal, untracked, viewChildren } from "@angular/core";
 import { HxActivityBar, HxAppShell } from "@gravionlabs/helix-desktop";
+import { HxMessageService, HxToast } from "@gravionlabs/helix-ui";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -63,7 +64,7 @@ export class NavIconDirective {
 
 @Component({
   selector: "app-root",
-  imports: [PanelResizerComponent, BookmarksComponent, HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, ComposerComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, StartComponent, WorkspaceComponent],
+  imports: [HxToast, PanelResizerComponent, BookmarksComponent, HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, ComposerComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, StartComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)", "(window:resize)": "onResize()" },
@@ -97,8 +98,7 @@ export class AppComponent {
   private readonly shortcuts = inject(ShortcutService);
 
   protected readonly gitSpike = isDevMode();
-  protected readonly toast = signal<string | null>(null);
-  private toastTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly messages = inject(HxMessageService);
 
   private readonly icons = viewChildren(NavIconDirective);
 
@@ -231,17 +231,21 @@ export class AppComponent {
     });
   }
 
+  /** A short notice; messages stack and go away by themselves. */
   protected showToast(message: string): void {
-    clearTimeout(this.toastTimer);
-    this.toast.set(message);
-    this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
+    this.messages.add({ severity: "info", summary: message, life: 4000 });
+  }
+
+  /** An error stays until the user closes it. */
+  protected showError(message: string): void {
+    this.messages.add({ severity: "error", summary: message, sticky: true });
   }
 
   protected async run(action: () => Promise<unknown>): Promise<void> {
     try {
       await action();
     } catch (err) {
-      this.showToast(String(err));
+      this.showError(String(err));
     }
   }
 

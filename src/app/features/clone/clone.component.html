@@ -1,6 +1,5 @@
-<div class="backdrop" (click)="clone.close()" role="presentation"></div>
-<form class="dialog" role="dialog" aria-label="Clone vault" (submit)="submit($event)" (keydown.escape)="clone.close()">
-  <h2>Clone vault</h2>
+<hx-dialog [visible]="true" (hidden)="onHidden()" header="Clone vault" dismissableMask position="top" width="min(520px, 90vw)">
+<form (submit)="submit($event)">
   <label>
     Repository URL
     <input
@@ -46,3 +45,4 @@
     <button type="submit" class="primary" [disabled]="!clone.canStart()">Clone</button>
   </div>
 </form>
+</hx-dialog>

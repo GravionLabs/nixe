@@ -1,4 +1,5 @@
 import { Component, ElementRef, effect, inject, viewChild } from "@angular/core";
+import { HxDialog } from "@gravionlabs/helix-ui";
 
 import { basename } from "../../core/markdown/paths";
 import { RecentPickerService } from "../../core/workspace/recent-picker.service";
@@ -8,6 +9,7 @@ import { RecentPickerService } from "../../core/workspace/recent-picker.service"
   selector: "app-recent",
   templateUrl: "./recent.component.html",
   styleUrl: "./recent.component.css",
+  imports: [HxDialog],
 })
 export class RecentComponent {
   protected readonly picker = inject(RecentPickerService);

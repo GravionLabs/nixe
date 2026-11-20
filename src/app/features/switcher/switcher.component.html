@@ -1,5 +1,4 @@
-<div class="backdrop" (click)="switcher.close()" (keydown.escape)="switcher.close()" role="presentation"></div>
-<div class="dialog" role="dialog" aria-label="Quick switcher">
+<hx-dialog [visible]="true" (hidden)="switcher.close()" ariaLabel="Quick switcher" [closable]="false" dismissableMask position="top" width="min(560px, 90vw)">
   <input
     #input
     type="text"
@@ -38,4 +37,4 @@
     <div class="more">More notes match; type more to narrow the list.</div>
   }
   <app-key-hints [hints]="hints()" />
-</div>
+</hx-dialog>

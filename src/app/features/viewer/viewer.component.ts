@@ -10,6 +10,7 @@ import {
   untracked,
   viewChild,
 } from "@angular/core";
+import { HxMenu, HxMenuItem } from "@gravionlabs/helix-ui";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 import { viewerTopLine } from "../../core/editor/editor-core";
@@ -130,15 +131,10 @@ const DIALOG_ZOOM_STEP = 1.1;
       </div>
     </div>
 
-    @if (imageMenu(); as m) {
-      <div class="menu-backdrop" (click)="imageMenu.set(null)" (contextmenu)="$event.preventDefault(); imageMenu.set(null)" role="presentation"></div>
-      <ul class="menu" role="menu" [style.left.px]="m.x" [style.top.px]="m.y" (keydown.escape)="imageMenu.set(null)">
-        <li role="none"><button type="button" role="menuitem" (click)="openMenuImage()">Open image</button></li>
-      </ul>
-    }
+    <hx-menu #imageMenu popup ariaLabel="Image" [model]="imageMenuItems" />
   `,
   styleUrl: "./viewer.component.css",
-  imports: [PropertiesComponent],
+  imports: [HxMenu, PropertiesComponent],
   host: { "(scroll)": "trackScroll()" },
 })
 export class ViewerComponent {
@@ -174,7 +170,10 @@ export class ViewerComponent {
   /** File of the image in the dialog (offers "Open with default app" and reveal); null for diagrams and remote images. */
   protected readonly dialogFile = signal<string | null>(null);
   /** The "Open image" menu of an image that sits inside a link. */
-  protected readonly imageMenu = signal<{ x: number; y: number; img: HTMLImageElement } | null>(null);
+  private readonly imageMenu = viewChild<HxMenu>("imageMenu");
+  /** The image the context menu was opened on. */
+  private menuImage: HTMLImageElement | null = null;
+  protected readonly imageMenuItems: HxMenuItem[] = [{ label: "Open image", command: () => this.openMenuImage() }];
   protected readonly revealText = revealLabel(navigator.userAgent);
   protected readonly panning = signal(false);
   private pan: { x: number; y: number; left: number; top: number } | null = null;
@@ -579,12 +578,13 @@ export class ViewerComponent {
     const target = event.target;
     if (!(target instanceof HTMLImageElement) || !target.closest("a")) return;
     event.preventDefault();
-    this.imageMenu.set({ x: event.clientX, y: event.clientY, img: target });
+    this.menuImage = target;
+    this.imageMenu()?.showAt({ x: event.clientX, y: event.clientY }, this.content().nativeElement);
   }
 
-  protected openMenuImage(): void {
-    const img = this.imageMenu()?.img;
-    this.imageMenu.set(null);
+  private openMenuImage(): void {
+    const img = this.menuImage;
+    this.menuImage = null;
     if (img) this.openImage(img);
   }
 

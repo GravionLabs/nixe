@@ -1,4 +1,5 @@
 import { Component, ElementRef, effect, inject, viewChild } from "@angular/core";
+import { HxDialog } from "@gravionlabs/helix-ui";
 
 import { KeyHintsComponent, KeyHint } from "../switcher/key-hints.component";
 import { Command, CommandRegistry, formatShortcut } from "../../core/commands/command-registry";
@@ -9,7 +10,7 @@ import { PaletteService } from "../../core/commands/palette.service";
   selector: "app-palette",
   templateUrl: "./palette.component.html",
   styleUrl: "./palette.component.css",
-  imports: [KeyHintsComponent],
+  imports: [HxDialog, KeyHintsComponent],
 })
 export class PaletteComponent {
   protected readonly palette = inject(PaletteService);
