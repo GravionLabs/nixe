@@ -58,6 +58,14 @@ describe("GitService", () => {
     expect(git.available()).toBe(true);
   });
 
+  it("keeps the status object when a refresh reads the same state (#289)", async () => {
+    await git.refresh();
+    const first = git.status();
+    vi.spyOn(backend, "gitVaultStatus").mockResolvedValue(structuredClone(status));
+    await git.refresh();
+    expect(git.status()).toBe(first);
+  });
+
   it("shows no Git for a vault without a repository", async () => {
     vi.spyOn(backend, "gitVaultStatus").mockResolvedValue(null);
     await git.refresh();

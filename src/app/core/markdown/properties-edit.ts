@@ -10,6 +10,26 @@ export const NEW_PROPERTY_TYPES: readonly { type: PropertyType; label: string }[
   { type: "tags", label: "Tags" },
 ];
 
+const SUMMARY_PROPS = 2;
+const SUMMARY_VALUE = 24;
+
+function summaryValue(value: unknown): string {
+  const text = Array.isArray(value)
+    ? value.map((v) => String(v)).join(", ")
+    : typeof value === "object" && value !== null
+      ? JSON.stringify(value)
+      : typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+        ? String(value)
+        : "";
+  return text.length > SUMMARY_VALUE ? `${text.slice(0, SUMMARY_VALUE - 1)}…` : text;
+}
+
+/** The one line of a folded panel: `Properties · 6 · tags: rust, idea · status: draft`. */
+export function propertiesSummary(props: readonly { key: string; value: unknown }[]): string {
+  const first = props.slice(0, SUMMARY_PROPS).map((p) => `${p.key}: ${summaryValue(p.value)}`);
+  return ["Properties", String(props.length), ...first].join(" · ");
+}
+
 /** The first value of a new property; `today` is `YYYY-MM-DD`. */
 export function initialValue(type: PropertyType, today: string): unknown {
   switch (type) {

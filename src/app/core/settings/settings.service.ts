@@ -6,7 +6,7 @@ import type { TreeSort } from "../workspace/tree-model";
 import type { LinkPreviewMode } from "../preview/preview-core";
 import type { VaultState, VaultStates } from "../workspace/recent-vaults";
 import { addRecent, pruneStates, removeRecent } from "../workspace/recent-vaults";
-import type { CaptureTarget, StoredSettings, ThemeMode } from "./settings-core";
+import type { CaptureTarget, PropertiesDisplay, StoredSettings, ThemeMode } from "./settings-core";
 import {
   LEGACY_STORAGE_KEY,
   ZOOM_MAX,
@@ -18,7 +18,7 @@ import {
 
 export { ZOOM_MAX, ZOOM_MIN };
 export type { ThemeMode };
-export type PanelTab = "outline" | "links";
+export type PanelTab = "outline" | "links" | "related";
 
 const ZOOM_STEP = 10;
 
@@ -53,15 +53,22 @@ export class SettingsService {
    * set; they are stored per vault, so the open tab survives a restart. Both set (an old
    * setting) shows the outline.
    */
-  readonly panelTab = computed<PanelTab>(() =>
-    this.outlineVisible() || !this.backlinksVisible() ? "outline" : "links",
-  );
+  readonly panelTab = computed<PanelTab>(() => {
+    if (this.outlineVisible() || !this.backlinksVisible()) return "outline";
+    return this.relatedSelected() ? "related" : "links";
+  });
+  /**
+   * The Related tab shares the stored `backlinksVisible` flag with Links: it is open when that
+   * flag is set and this one too. Not stored, so a restart reopens the panel on Links.
+   */
+  private readonly relatedSelected = signal(false);
   readonly panelOpen = computed(() => this.outlineVisible() || this.backlinksVisible());
 
   /** Opens the panel on `tab`. */
   showPanelTab(tab: PanelTab): void {
     this.outlineVisible.set(tab === "outline");
-    this.backlinksVisible.set(tab === "links");
+    this.backlinksVisible.set(tab !== "outline");
+    this.relatedSelected.set(tab === "related");
   }
 
   /** Opens the panel on `tab`; closes it when that tab is the open one. */
@@ -115,6 +122,9 @@ export class SettingsService {
 
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   readonly wrapCode = signal<boolean>(this.stored.wrapCode);
+
+  /** How the properties show in the document; folding the panel switches between visible and folded (#290). */
+  readonly propertiesDisplay = signal<PropertiesDisplay>(this.stored.propertiesDisplay);
 
   /** Appearance (#114): the theme file, the enabled snippets, the accent color and the fonts. */
   readonly appearanceTheme = signal<string>(this.stored.appearanceTheme);
@@ -185,6 +195,7 @@ export class SettingsService {
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
       wrapCode: this.wrapCode(),
+      propertiesDisplay: this.propertiesDisplay(),
       appearanceTheme: this.appearanceTheme(),
       snippets: this.snippets(),
       accentColor: this.accentColor(),
@@ -230,6 +241,7 @@ export class SettingsService {
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
     this.wrapCode.set(s.wrapCode);
+    this.propertiesDisplay.set(s.propertiesDisplay);
     this.appearanceTheme.set(s.appearanceTheme);
     this.snippets.set(s.snippets);
     this.accentColor.set(s.accentColor);
@@ -328,6 +340,11 @@ export class SettingsService {
 
   zoomOut(): void {
     this.zoom.update((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP));
+  }
+
+  /** Folds or unfolds the properties; hidden properties come back unfolded. */
+  toggleProperties(): void {
+    this.propertiesDisplay.update((m) => (m === "visible" ? "folded" : "visible"));
   }
 
   resetZoom(): void {

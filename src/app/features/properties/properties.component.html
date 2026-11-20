@@ -1,7 +1,33 @@
-@if (parsed().error; as error) {
+@if (display() === "hidden") {
+  <!-- nothing: the properties are switched off in the settings -->
+} @else if (parsed().error; as error) {
   <div class="frontmatter-warning" role="alert">Invalid frontmatter: {{ error }}</div>
+} @else if (display() === "folded") {
+  @if (props().length) {
+    <button
+      type="button"
+      class="properties-summary"
+      aria-expanded="false"
+      aria-label="Unfold properties"
+      (click)="toggle()"
+    >
+      <span class="fold-icon" aria-hidden="true">▸</span>
+      <span class="summary-text">{{ summary() }}</span>
+    </button>
+  }
 } @else {
   <section class="properties-panel" aria-label="Properties">
+    @if (props().length) {
+      <button
+        type="button"
+        class="properties-header"
+        aria-expanded="true"
+        aria-label="Fold properties"
+        (click)="toggle()"
+      >
+        <span class="fold-icon" aria-hidden="true">▾</span> Properties
+      </button>
+    }
     @for (p of props(); track p.key) {
       <div class="prop" [attr.data-type]="p.type">
         <input

@@ -86,7 +86,7 @@ default page from disk rather than restoring exact scroll/expand state.
 (`core/workspace/recent-vaults.ts`). `WorkspaceService.openFolder` saves the state of the vault it
 leaves and restores that of the vault it opens (a vault opened for the first time keeps the current
 panels and shows its default page). `File → Open Recent…` and the command `open-recent` show the
-picker (`RecentPickerService`); a vault whose folder no longer exists is removed from the list and a
+recent vaults in the palette (`~` mode; `RecentPickerService` holds the list and opens a vault); a vault whose folder no longer exists is removed from the list and a
 message tells so, also at startup.
 
 ### Tabs and split view

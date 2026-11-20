@@ -19,6 +19,14 @@ import { HistoryComponent, formatCommitTime } from "./history.component";
 const timeline: TimelineEntry[] = [
   { id: null, author: "", time: 0, message: "Uncommitted changes", path: "a.md" },
   { id: "abc1234", author: "Ann", time: 86_400, message: "edit", path: "a.md" },
+  {
+    id: "def5678",
+    author: "Ann",
+    time: 86_400,
+    message: "rename: a.md -> b.md, links in 2 notes",
+    path: "b.md",
+    operation: "rename",
+  },
 ];
 
 function render(comparison: Comparison | null, notePath: string | null = "a.md") {
@@ -94,6 +102,14 @@ describe("HistoryComponent", () => {
     expect(rows[1]).toContain("edit");
     expect(rows[1]).toContain("1970-01-02 00:00 · Ann");
     expect(el.querySelector("button.selected")?.textContent).toContain("edit");
+  });
+
+  it("names the operation of a commit that a vault operation wrote", () => {
+    const { el } = render(null);
+    const rows = el.querySelectorAll(".timeline li");
+    expect(rows[1].querySelector(".operation")).toBeNull();
+    expect(rows[2].querySelector(".operation")?.textContent).toBe("rename");
+    expect(rows[2].textContent).toContain("rename: a.md -> b.md, links in 2 notes");
   });
 
   it("selects an entry on click and loads older entries near the end of the list", () => {

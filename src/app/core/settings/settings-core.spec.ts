@@ -49,6 +49,10 @@ describe("sanitizeSettings", () => {
       captureTarget: "daily",
       captureShortcut: "",
     });
+    expect(s.propertiesDisplay).toBe("visible");
+    expect(sanitizeSettings({ propertiesDisplay: "folded" }).propertiesDisplay).toBe("folded");
+    expect(sanitizeSettings({ propertiesDisplay: "hidden" }).propertiesDisplay).toBe("hidden");
+    expect(sanitizeSettings({ propertiesDisplay: "x" }).propertiesDisplay).toBe("visible");
     expect(s.treeSort).toBe("name-asc");
     expect(sanitizeSettings({ treeSort: "modified-desc" }).treeSort).toBe("modified-desc");
     expect(sanitizeSettings({ treeSort: "bogus" }).treeSort).toBe("name-asc");
