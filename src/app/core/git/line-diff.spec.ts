@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { diffLines, diffStat, splitLines, tokenize, wordDiff } from "./line-diff";
+import {
+  diffLines,
+  diffStat,
+  mergeParts,
+  mergeText,
+  splitLines,
+  tokenize,
+  wordDiff,
+} from "./line-diff";
 
 describe("splitLines", () => {
   it("ignores the trailing line break and reads CRLF", () => {
@@ -88,5 +96,32 @@ describe("wordDiff", () => {
     const w = wordDiff("abc", "xyz");
     expect(w.old).toEqual([{ text: "abc", changed: true }]);
     expect(w.new).toEqual([{ text: "xyz", changed: true }]);
+  });
+});
+
+describe("mergeParts and mergeText", () => {
+  const a = "one\nmine\nthree\n";
+  const b = "one\ntheirs\nthree\nextra\n";
+
+  it("splits into shared runs and hunks", () => {
+    expect(mergeParts(a, b)).toEqual([
+      { kind: "same", lines: ["one"] },
+      { kind: "hunk", index: 0, mine: ["mine"], theirs: ["theirs"] },
+      { kind: "same", lines: ["three"] },
+      { kind: "hunk", index: 1, mine: [], theirs: ["extra"] },
+    ]);
+  });
+
+  it("builds the text from the choices", () => {
+    const parts = mergeParts(a, b);
+    expect(mergeText(parts, {}, true)).toBe(a);
+    expect(mergeText(parts, { 0: "other", 1: "other" }, true)).toBe(b);
+    expect(mergeText(parts, { 0: "both" }, true)).toBe("one\nmine\ntheirs\nthree\n");
+    expect(mergeText(parts, { 0: "both" }, false)).toBe("one\nmine\ntheirs\nthree");
+  });
+
+  it("has no hunk for equal texts", () => {
+    expect(mergeParts("x\n", "x\n")).toEqual([{ kind: "same", lines: ["x"] }]);
+    expect(mergeText([], {}, true)).toBe("");
   });
 });

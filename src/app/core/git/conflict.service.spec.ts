@@ -24,6 +24,7 @@ describe("ConflictService", () => {
   const open = vi.fn();
   const reloadTree = vi.fn();
   const flush = vi.fn();
+  const write = vi.fn();
   const editing = signal(true);
   let service: ConflictService;
 
@@ -37,11 +38,12 @@ describe("ConflictService", () => {
     vi.restoreAllMocks();
     open.mockReset().mockResolvedValue(undefined);
     reloadTree.mockReset().mockResolvedValue(undefined);
+    write.mockReset().mockResolvedValue(undefined);
     flush.mockReset().mockResolvedValue(undefined);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        { provide: DocumentService, useValue: { path, open } },
+        { provide: DocumentService, useValue: { path, open, write } },
         { provide: EditorService, useValue: { handle: { flush }, editing } },
         { provide: IndexService, useValue: { revision } },
         { provide: WorkspaceService, useValue: { reloadTree } },
@@ -98,5 +100,35 @@ describe("ConflictService", () => {
     const resolve = vi.spyOn(backend, "resolveConflict");
     await service.keep("this");
     expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("opens a merge with both texts and cancel changes nothing", async () => {
+    await service.refresh();
+    const read = vi
+      .spyOn(backend, "readTextFile")
+      .mockImplementation(async (p) => (p === pair.original ? "a\n" : "b\n"));
+    const resolve = vi.spyOn(backend, "resolveConflict");
+    await service.startMerge();
+    expect(flush).toHaveBeenCalled();
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(service.merging()).toEqual({ mine: "a\n", theirs: "b\n" });
+    service.cancelMerge();
+    expect(service.merging()).toBeNull();
+    expect(write).not.toHaveBeenCalled();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("saves a merge: writes the original, removes the copy and clears the mark", async () => {
+    await service.refresh();
+    path.set(pair.copy);
+    const resolve = vi.spyOn(backend, "resolveConflict").mockResolvedValue(pair.original);
+    vi.spyOn(backend, "conflictPair").mockResolvedValue(null);
+    service.merging.set({ mine: "a", theirs: "b" });
+    await service.saveMerge("a\nb");
+    expect(write).toHaveBeenCalledWith(pair.original, "a\nb");
+    expect(resolve).toHaveBeenCalledWith(pair.original, "this");
+    expect(service.merging()).toBeNull();
+    expect(open).toHaveBeenCalledWith(pair.original, { addToHistory: false });
+    expect(service.pair()).toBeNull();
   });
 });

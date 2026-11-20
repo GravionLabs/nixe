@@ -1,0 +1,73 @@
+@if (conflict.merging()) {
+  <hx-dialog
+    [visible]="true"
+    (hidden)="onHidden()"
+    header="Merge the two versions"
+    position="top"
+    width="min(1100px, 94vw)"
+  >
+    <div class="merge">
+      <div class="head">
+        <span class="count">{{ hunkCount() }} {{ hunkCount() === 1 ? "change" : "changes" }}</span>
+        <button type="button" (click)="cancel()">Cancel</button>
+        <button type="button" class="primary" [disabled]="saving()" (click)="save()">Save</button>
+      </div>
+      <div class="columns">
+        <div class="titles"><span>This note</span><span>The other note</span></div>
+        <div class="hunks" aria-label="Hunks">
+          @for (part of parts(); track $index) {
+            @if (part.kind === "same") {
+              <div class="same">
+                <pre>{{ part.lines.join("\n") }}</pre>
+              </div>
+            } @else {
+              <div class="hunk" [attr.data-choice]="choice(part.index)">
+                <div class="hunk-head">
+                  <span>Change {{ part.index + 1 }}</span>
+                  <button
+                    type="button"
+                    [class.on]="choice(part.index) === 'this'"
+                    (click)="pick(part.index, 'this')"
+                  >
+                    Take this
+                  </button>
+                  <button
+                    type="button"
+                    [class.on]="choice(part.index) === 'other'"
+                    (click)="pick(part.index, 'other')"
+                  >
+                    Take the other
+                  </button>
+                  <button
+                    type="button"
+                    [class.on]="choice(part.index) === 'both'"
+                    (click)="pick(part.index, 'both')"
+                  >
+                    Take both
+                  </button>
+                </div>
+                <div class="sides">
+                  <pre class="del" [class.taken]="choice(part.index) !== 'other'">{{
+                    part.mine.join("\n")
+                  }}</pre>
+                  <pre class="add" [class.taken]="choice(part.index) !== 'this'">{{
+                    part.theirs.join("\n")
+                  }}</pre>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </div>
+      <label class="result">
+        <span>Result</span>
+        <textarea
+          aria-label="Result"
+          rows="8"
+          [value]="result()"
+          (input)="typed.set($any($event.target).value)"
+        ></textarea>
+      </label>
+    </div>
+  </hx-dialog>
+}
