@@ -81,7 +81,7 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
       "&": { height: "100%", fontSize: `${fontSizePx}px`, color: "var(--h-text-color)", backgroundColor: "var(--h-content-background)" },
       "&.cm-focused": { outline: "none" },
       ".cm-scroller": { overflow: "auto", fontFamily: "inherit", lineHeight: "1.6" },
-      ".cm-content": { maxWidth: "980px", margin: "0 auto", padding: "32px 40px 80px", caretColor: "var(--h-text-color)" },
+      ".cm-content": { maxWidth: "var(--nixe-content-width, 980px)", margin: "0 auto", padding: "var(--nixe-content-padding-top, 32px) var(--nixe-content-padding-x, 40px) var(--nixe-content-padding-bottom, 80px)", caretColor: "var(--h-text-color)" },
       ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--h-text-color)" },
       "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground": {
         background: dark ? "rgb(63 184 194 / 0.3)" : "rgb(14 124 134 / 0.25)",

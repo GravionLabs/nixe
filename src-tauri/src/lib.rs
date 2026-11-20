@@ -8,6 +8,7 @@ use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+mod appearance;
 mod attachments;
 mod bookmarks;
 #[cfg(desktop)]
@@ -546,6 +547,21 @@ fn write_app_settings(app: AppHandle, content: String) -> Result<(), String> {
     settings::write_settings(&dir, &content)
 }
 
+/// The `.css` files of `kind` (`themes` or `snippets`) in the app config directory (#114); creates the folders.
+#[tauri::command]
+fn read_appearance(app: AppHandle, kind: String) -> Result<Vec<appearance::CssFile>, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    appearance::ensure_folders(&dir)?;
+    appearance::read_css(&dir, &kind)
+}
+
+/// The app config directory, where `themes/` and `snippets/` live.
+#[tauri::command]
+fn appearance_dir(app: AppHandle) -> Result<String, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
 /// The fold state file of the app data directory; `None` when there is none yet.
 #[tauri::command]
 fn read_folds(app: AppHandle) -> Result<Option<String>, String> {
@@ -808,6 +824,8 @@ pub fn run() {
         link_format,
         read_app_settings,
         write_app_settings,
+        read_appearance,
+        appearance_dir,
         read_folds,
         write_folds,
         read_vault_bookmarks,
@@ -887,6 +905,8 @@ pub fn run() {
         link_format,
         read_app_settings,
         write_app_settings,
+        read_appearance,
+        appearance_dir,
         read_folds,
         write_folds,
         read_vault_bookmarks,

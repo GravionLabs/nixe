@@ -1,3 +1,4 @@
+import { CssFile, sanitizeAccent, sanitizeFont } from "../appearance/appearance-core";
 import { ObsidianSetting } from "../file/backend";
 import { Command } from "../commands/command-registry";
 import { clampMinutes } from "../git/auto-sync";
@@ -14,6 +15,12 @@ export interface SectionSources {
   commands: () => readonly Command[];
   /** The running app version; empty until known. */
   version: () => string;
+  /** The theme and snippet files and the folder they live in (#114); none without the appearance service. */
+  appearance?: {
+    themes: () => readonly CssFile[];
+    snippets: () => readonly CssFile[];
+    folder: () => string;
+  };
 }
 
 /** Comma-separated list as typed in a text field. */
@@ -36,6 +43,72 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
   const text = (id: string, label: string, signal: { (): string; set(v: string): void }, description?: string, placeholder?: string): SettingItem => ({
     kind: "text", id, label, description, placeholder, get: () => signal(), set: (v) => signal.set(v.trim()),
   });
+
+  /** Theme file, accent color, fonts and one switch per snippet (#114). */
+  const appearanceItems = (): SettingItem[] => {
+    const a = src.appearance;
+    if (!a) return [];
+    const snippets: SettingItem[] = a.snippets().map((f) => ({
+      kind: "toggle" as const,
+      id: `snippet-${f.name}`,
+      label: f.name,
+      description: "CSS snippet; reloads when the file changes.",
+      keywords: ["css", "snippet"],
+      get: () => s.snippets().includes(f.name),
+      set: (on: boolean) => s.snippets.update((l) => (on ? [...l.filter((n) => n !== f.name), f.name] : l.filter((n) => n !== f.name))),
+    }));
+    return [
+      {
+        kind: "select",
+        id: "theme-file",
+        label: "Custom theme",
+        description: "A CSS file in the themes folder. It changes the look at once.",
+        keywords: ["css", "look", "skin"],
+        options: [{ value: "", label: "None" }, ...a.themes().map((t) => ({ value: t.name, label: t.name }))],
+        get: () => s.appearanceTheme(),
+        set: (v) => s.appearanceTheme.set(v),
+      },
+      {
+        kind: "text",
+        id: "accent-color",
+        label: "Accent color",
+        description: "A color like #4f46e5. Empty keeps the default.",
+        placeholder: "#4f46e5",
+        keywords: ["colour", "primary", "highlight"],
+        get: () => s.accentColor(),
+        set: (v) => s.accentColor.set(sanitizeAccent(v)),
+      },
+      {
+        kind: "text",
+        id: "font-text",
+        label: "Text font",
+        description: "A CSS font-family list. Empty keeps the default.",
+        placeholder: "Inter, sans-serif",
+        keywords: ["font", "typeface"],
+        get: () => s.fontText(),
+        set: (v) => s.fontText.set(sanitizeFont(v)),
+      },
+      {
+        kind: "text",
+        id: "font-mono",
+        label: "Code font",
+        description: "A CSS font-family list for code. Empty keeps the default.",
+        placeholder: "JetBrains Mono, monospace",
+        keywords: ["font", "monospace", "typeface"],
+        get: () => s.fontMono(),
+        set: (v) => s.fontMono.set(sanitizeFont(v)),
+      },
+      {
+        kind: "readonly",
+        id: "appearance-folder",
+        label: "Themes and snippets folder",
+        description: "Put theme files into `themes/` and snippets into `snippets/` of this folder. Obsidian themes and snippets are not loaded.",
+        keywords: ["css", "folder", "directory", "obsidian"],
+        value: () => a.folder() || "Unknown",
+      },
+      ...snippets,
+    ];
+  };
 
   return [
     {
@@ -129,7 +202,7 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
         {
           kind: "select",
           id: "theme",
-          label: "Theme",
+          label: "Color mode",
           keywords: ["dark", "light", "color"],
           options: [
             { value: "system", label: "System" },
@@ -163,6 +236,7 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           get: () => s.linkPreview(),
           set: (v) => s.linkPreview.set(sanitizeMode(v)),
         },
+        ...appearanceItems(),
       ],
     },
     {
