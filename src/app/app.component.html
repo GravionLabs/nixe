@@ -14,7 +14,7 @@
   (collapsedChange)="settings.sidebarVisible.set(!$event)"
   [activeId]="shell.activeView()"
 >
-  <app-toolbar slot="toolbar" />
+  <app-toolbar slot="toolbar" (error)="showToast($event)" />
 
   <hx-activity-bar
     slot="activity"
