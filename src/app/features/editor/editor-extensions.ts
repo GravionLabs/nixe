@@ -84,7 +84,7 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
       ".cm-content": { maxWidth: "var(--nixe-content-width, 980px)", margin: "0 auto", padding: "var(--nixe-content-padding-top, 32px) var(--nixe-content-padding-x, 40px) var(--nixe-content-padding-bottom, 80px)", caretColor: "var(--h-text-color)" },
       ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--h-text-color)" },
       "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground": {
-        background: dark ? "rgb(63 184 194 / 0.3)" : "rgb(14 124 134 / 0.25)",
+        background: "var(--nixe-selection-background)",
       },
       ".cm-md-h1": heading(1.8),
       ".cm-md-h2": heading(1.5),
@@ -95,7 +95,7 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
       ".cm-md-strong": { fontWeight: "700" },
       ".cm-md-em": { fontStyle: "italic" },
       ".cm-md-code": {
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        fontFamily: "var(--nixe-font-mono)",
         backgroundColor: "var(--h-surface-frame)",
         borderRadius: "3px",
       },

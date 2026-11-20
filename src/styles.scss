@@ -23,6 +23,9 @@
   --nixe-link-color: var(--nixe-accent);
   --nixe-selection-background: color-mix(in srgb, var(--nixe-accent) 30%, transparent);
   --nixe-callout-radius: var(--nixe-radius);
+  --nixe-added-color: #2da44e;
+  --nixe-removed-color: #cf222e;
+  --nixe-danger-color: #c0392b;
   --nixe-note-text: var(--nixe-font-text);
 }
 
@@ -518,7 +521,7 @@ body {
     display: inline-block;
     padding: 0 8px;
     border-radius: 999px;
-    background: rgb(14 124 134 / 0.14);
+    background: color-mix(in srgb, var(--nixe-accent) 14%, transparent);
     color: var(--h-primary-color);
     text-decoration: none;
     cursor: default;

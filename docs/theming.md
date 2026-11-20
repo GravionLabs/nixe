@@ -46,6 +46,9 @@ Set them on `:root`:
 | `--nixe-link-color` | `var(--nixe-accent)` | Links in the note. |
 | `--nixe-selection-background` | accent at 30% | Selected text. |
 | `--nixe-callout-radius` | `var(--nixe-radius)` | Corners of callouts. |
+| `--nixe-added-color` | `#2da44e` | Added lines and files in history. |
+| `--nixe-removed-color` | `#cf222e` | Removed lines and files in history. |
+| `--nixe-danger-color` | `#c0392b` | Destructive and error text in settings. |
 
 ### Colors
 
@@ -72,7 +75,7 @@ The code highlighting and the Markdown colors (`.markdown-body`) come from the G
 
 ### Spacing
 
-Spacing is set by `--nixe-content-*` for the note and by the `--h-*` spacing tokens of the components. The sizes of the chrome (sidebar width, panel layout) are settings of the app, not CSS.
+The spacing of the note is `--nixe-content-width` and `--nixe-content-padding-*`, its line height `--nixe-line-height`, the corners `--nixe-radius`. The paddings of the Helix components (buttons, lists, dialogs) are the `--h-*` tokens such as `--h-form-field-padding-x` and `--h-list-option-padding`. The width of the sidebar is a setting of the app (drag its edge), not CSS.
 
 ## From Obsidian
 

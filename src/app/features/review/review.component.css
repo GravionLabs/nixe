@@ -78,7 +78,7 @@ ul {
 }
 
 .diff {
-  font-family: ui-monospace, monospace;
+  font-family: var(--nixe-font-mono, monospace);
   font-size: 12px;
   overflow: auto;
 }
@@ -134,7 +134,7 @@ ul {
 .hunk pre { margin: 0.25rem 0; white-space: pre-wrap; }
 .hunk pre.del { background: rgba(248, 81, 73, 0.15); }
 .hunk pre.add { background: rgba(46, 160, 67, 0.15); }
-.hunk textarea { width: 100%; font-family: monospace; }
+.hunk textarea { width: 100%; font-family: var(--nixe-font-mono, monospace); }
 .conflicts { border: 1px solid #bf8700; border-radius: 4px; padding: 0.5rem; margin: 0.5rem 0; }
 .conflict pre { white-space: pre-wrap; margin: 0; }
 .finish { margin: 0.5rem 0; }
