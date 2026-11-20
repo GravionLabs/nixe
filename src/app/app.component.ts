@@ -46,6 +46,7 @@ import { StatusBarComponent } from "./features/status-bar/status-bar.component";
 import { EditorSpikeComponent } from "./features/editor-spike/editor-spike.component";
 import { GitSpikeComponent } from "./features/git-spike/git-spike.component";
 import { ToolbarComponent } from "./features/toolbar/toolbar.component";
+import { StartComponent } from "./features/start/start.component";
 import { WorkspaceComponent } from "./features/workspace/workspace.component";
 import { TabsService } from "./core/tabs/tabs.service";
 import { ShellService } from "./core/shell/shell.service";
@@ -59,7 +60,7 @@ export class NavIconDirective {
 
 @Component({
   selector: "app-root",
-  imports: [BookmarksComponent, HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, ComposerComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, WorkspaceComponent],
+  imports: [BookmarksComponent, HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, ComposerComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, StartComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
   host: { "(document:keydown)": "onKeydown($event)" },
@@ -90,7 +91,6 @@ export class AppComponent {
   /** Applies the user's shortcuts to the key handling and the native menu. */
   private readonly shortcuts = inject(ShortcutService);
 
-  protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
   protected readonly gitSpike = isDevMode();
   protected readonly toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | undefined;

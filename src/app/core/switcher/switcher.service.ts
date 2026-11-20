@@ -18,6 +18,8 @@ export class SwitcherService {
   private readonly entries = signal<SwitcherEntry[]>([]);
   /** Vault-relative paths of opened notes, newest first. */
   private readonly recent = signal<string[]>([]);
+  /** The recently opened notes (vault-relative paths), newest first. */
+  readonly recentNotes = this.recent.asReadonly();
 
   readonly matches = computed<SwitcherMatch[]>(() =>
     rank(this.entries(), this.query(), this.recent()).slice(0, MAX_RESULTS),

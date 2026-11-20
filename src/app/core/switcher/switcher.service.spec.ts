@@ -45,6 +45,9 @@ describe("SwitcherService", () => {
     vi.spyOn(backend, "notes").mockRejectedValue("no index");
     switcher.noteOpened("/v/Beta.md");
     switcher.noteOpened("/elsewhere/Alpha.md");
+    switcher.noteOpened("/v/Alpha.md");
+    switcher.noteOpened("/v/Beta.md");
+    expect(switcher.recentNotes()).toEqual(["Beta.md", "Alpha.md"]);
     await switcher.open();
     expect(switcher.matches().map((m) => m.entry.path)).toEqual(["Beta.md", "Alpha.md"]);
     switcher.move(-1);
