@@ -30,4 +30,6 @@ implemented by `WorkspaceLinks` in `src-tauri/src/workspace.rs`.
 ## Limits
 
 File operations (create, rename, write) and the Git integration still work on the first root, the
-one the window was opened with; the further roots are for browsing and reading.
+one the window was opened with; the further roots are for browsing and reading. Only the first root
+is scanned into the live index of the window (search, backlinks); links in notes of a further root
+open through the workspace resolution above.

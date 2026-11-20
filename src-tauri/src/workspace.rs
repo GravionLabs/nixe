@@ -121,6 +121,8 @@ fn valid_name(name: &str) -> Result<String, String> {
     let bad = name.is_empty()
         || name.starts_with('.')
         || name.len() > 100
+        || name.ends_with('.')
+        || is_reserved(name)
         || name
             .chars()
             .any(|c| c.is_control() || "/\\:*?\"<>|".contains(c));
@@ -129,6 +131,20 @@ fn valid_name(name: &str) -> Result<String, String> {
     } else {
         Ok(name.to_string())
     }
+}
+
+/// Names that Windows keeps for devices (`CON`, `NUL`, `COM1` …), with or without an extension.
+fn is_reserved(name: &str) -> bool {
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or(name)
+        .trim()
+        .to_ascii_uppercase();
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.ends_with(|c: char| c.is_ascii_digit() && c != '0'))
 }
 
 fn file_of(dir: &Path, name: &str) -> Result<PathBuf, String> {
@@ -352,7 +368,9 @@ mod tests {
 
     #[test]
     fn refuses_names_that_are_no_file_names() {
-        for name in ["", " ", "../x", "a/b", "a\\b", ".hidden", "a:b"] {
+        for name in [
+            "", " ", "../x", "a/b", "a\\b", ".hidden", "a:b", "nul", "Com1.x", "end.",
+        ] {
             assert!(Workspace::new(name).is_err(), "{name}");
         }
         let app = temp_dir("names");

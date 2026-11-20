@@ -107,6 +107,31 @@ describe("WorkspacesService", () => {
     expect(workspace.extraRoots().map((n) => n.dirPath)).toEqual(["/c"]);
   });
 
+  it("ends the workspace when another folder opens", async () => {
+    await workspace.openFolder("/a", { openDefaultPage: false });
+    await service.addFolder("/b");
+    await workspace.openFolder("/z", { openDefaultPage: false });
+    TestBed.tick();
+    expect(service.current()).toBeNull();
+  });
+
+  it("resolves a root-prefixed link and links inside a further root, not ordinary ones", async () => {
+    const resolve = vi
+      .spyOn(backend, "workspaceResolveLinks")
+      .mockResolvedValue([{ root: "/b", path: "Todo.md" }]);
+    expect(await service.resolveLink("b:Todo", "/a/x.md")).toBeUndefined();
+    await workspace.openFolder("/a", { openDefaultPage: false });
+    await service.addFolder("/b");
+    expect(await service.resolveLink("Todo", "/a/x.md")).toBeUndefined();
+    expect(await service.resolveLink("Unknown:Todo", "/a/x.md")).toBeUndefined();
+    expect(await service.resolveLink("b:Todo", "/a/x.md")).toBe("/b/Todo.md");
+    expect(resolve).toHaveBeenLastCalledWith(service.current(), "/a", ["b:Todo"]);
+    expect(await service.resolveLink("Todo", "/b/y.md")).toBe("/b/Todo.md");
+    expect(resolve).toHaveBeenLastCalledWith(service.current(), "/b", ["Todo"]);
+    resolve.mockResolvedValue([null]);
+    expect(await service.resolveLink("b:Nope", "/a/x.md")).toBeNull();
+  });
+
   it("forgets a workspace and its command", async () => {
     await workspace.openFolder("/a", { openDefaultPage: false });
     await service.addFolder("/b");

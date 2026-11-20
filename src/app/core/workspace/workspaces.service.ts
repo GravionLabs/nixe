@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from "@angular/core";
+import { Injectable, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import type { Workspace } from "../file/backend";
@@ -36,6 +36,17 @@ export class WorkspacesService {
   readonly saved = signal<string[]>([]);
   private unregister: (() => void)[] = [];
 
+  constructor() {
+    // Another folder in the window ends the workspace: its extra roots are dropped with it.
+    effect(() => {
+      const first = this.workspace.root();
+      untracked(() => {
+        const ws = this.current();
+        if (ws && !ws.roots.some((r) => r.path === first)) this.current.set(null);
+      });
+    });
+  }
+
   /** Asks for a folder and adds it as a root. */
   async addFolderWithDialog(): Promise<void> {
     const selected = await open({ directory: true, multiple: false });
@@ -53,6 +64,24 @@ export class WorkspacesService {
     ws = await backend.workspaceAddRoot(ws, path);
     this.current.set(ws);
     this.show(ws);
+  }
+
+  /**
+   * The note a `[[Root name:Note]]` link or a link inside a further root points to, as an absolute
+   * path; `undefined` when the workspace does not decide (no workspace, or an ordinary link of the
+   * first root), `null` when it finds no note.
+   */
+  async resolveLink(target: string, notePath: string | null): Promise<string | null | undefined> {
+    const ws = this.current();
+    if (!ws) return undefined;
+    const prefix = target.includes(":") ? target.slice(0, target.indexOf(":")).trim() : null;
+    const named = prefix
+      ? ws.roots.some((r) => r.name.toLowerCase() === prefix.toLowerCase())
+      : false;
+    const from = notePath ? ws.roots.find((r) => notePath.startsWith(`${r.path}/`)) : undefined;
+    if (!named && (!from || from.path === this.workspace.vaultRoot())) return undefined;
+    const [hit] = await backend.workspaceResolveLinks(ws, from?.path ?? ws.roots[0].path, [target]);
+    return hit ? `${hit.root}/${hit.path}` : null;
   }
 
   /** Saves the workspace under `name` (default: the root names) and lists it as a command. */

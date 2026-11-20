@@ -43,6 +43,7 @@ import { TabsService } from "../../core/tabs/tabs.service";
 import { PropertiesComponent } from "../properties/properties.component";
 import { SearchService } from "../../core/index/search.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
+import { WorkspacesService } from "../../core/workspace/workspaces.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { SettingsService } from "../../core/settings/settings.service";
 
@@ -69,6 +70,7 @@ export class ViewerComponent {
   private readonly tabs = inject(TabsService);
   private readonly shell = inject(ShellService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly workspaces = inject(WorkspacesService);
   private readonly ops = inject(VaultOpsService);
   private readonly search = inject(SearchService);
   protected readonly settings = inject(SettingsService);
@@ -719,9 +721,14 @@ export class ViewerComponent {
       if (heading) this.scrollToAnchor(heading);
       return;
     }
+    const other = await this.workspaces.resolveLink(target, this.doc.path());
+    if (other) {
+      await this.openNote(other, { anchor: heading }, newTab);
+      return;
+    }
     const root = this.workspace.vaultRoot();
     const files = this.workspace.vaultFiles();
-    const resolved = root && files ? resolveWikilink(target, files) : null;
+    const resolved = root && files && other === undefined ? resolveWikilink(target, files) : null;
     if (!root || !files) return;
     if (!resolved) {
       await this.ops.createNoteForLink(target).catch((err) => this.notify.emit(String(err)));
