@@ -6,7 +6,6 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { KeyInput } from "./command-registry";
 import { CommandRegistry, formatShortcut, matchesBinding, shortcutKeys } from "./command-registry";
-import { PaletteService } from "./palette.service";
 
 const key = (k: string, mods: Partial<KeyInput> = {}): KeyInput => ({
   key: k,
@@ -94,51 +93,6 @@ describe("CommandRegistry", () => {
     registry.register({ id: "q", title: "Q", shortcut: "Mod+Q", run: () => {} });
     expect(registry.findByKey(key("p", { metaKey: true }))?.id).toBe("p");
     expect(registry.findByKey(key("q", { metaKey: true }))).toBeUndefined();
-  });
-});
-
-describe("PaletteService", () => {
-  let registry: CommandRegistry;
-  let palette: PaletteService;
-
-  beforeEach(() => {
-    TestBed.resetTestingModule();
-    registry = TestBed.inject(CommandRegistry);
-    palette = TestBed.inject(PaletteService);
-    registry.register({ id: "toggle-sidebar", title: "Toggle sidebar", run: () => {} });
-    registry.register({ id: "zoom-in", title: "Zoom in", run: () => {} });
-    registry.register({ id: "hidden", title: "Zoom hidden", when: () => false, run: () => {} });
-  });
-
-  it("lists available commands alphabetically without a query", () => {
-    palette.open();
-    expect(palette.matches().map((c) => c.id)).toEqual(["toggle-sidebar", "zoom-in"]);
-  });
-
-  it("filters fuzzily by title and skips unavailable commands", () => {
-    palette.open();
-    palette.setQuery("zi");
-    expect(palette.matches().map((c) => c.id)).toEqual(["zoom-in"]);
-    palette.setQuery("tsb");
-    expect(palette.matches().map((c) => c.id)).toEqual(["toggle-sidebar"]);
-  });
-
-  it("runs the selected command and closes", () => {
-    const run = vi.fn();
-    registry.register({ id: "x", title: "Xylophone", run });
-    palette.open();
-    palette.setQuery("xylo");
-    palette.run(palette.current()!);
-    expect(run).toHaveBeenCalledOnce();
-    expect(palette.visible()).toBe(false);
-  });
-
-  it("wraps the selection", () => {
-    palette.open();
-    palette.move(-1);
-    expect(palette.selected()).toBe(1);
-    palette.move(1);
-    expect(palette.selected()).toBe(0);
   });
 });
 

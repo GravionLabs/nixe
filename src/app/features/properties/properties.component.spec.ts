@@ -10,6 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
+import { SettingsService } from "../../core/settings/settings.service";
 import { DocumentService } from "../../core/file/document.service";
 import { PropertiesComponent } from "./properties.component";
 
@@ -55,6 +56,7 @@ function render(text: string) {
 
 describe("PropertiesComponent", () => {
   beforeAll(() => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn() });
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
   });
 
@@ -144,5 +146,47 @@ describe("PropertiesComponent", () => {
     const { el } = render("---\na: [1\n---\n");
     expect(el.querySelector("[role=alert]")?.textContent).toContain("Invalid frontmatter");
     expect(el.querySelector(".prop-add")).toBeNull();
+  });
+
+  describe("folding", () => {
+    const summary = (el: HTMLElement) => el.querySelector(".properties-summary");
+
+    it("folds with the header and unfolds with the summary line", async () => {
+      const { el, fixture, settle } = render(NOTE);
+      const settings = TestBed.inject(SettingsService);
+      settings.propertiesDisplay.set("visible");
+      el.querySelector<HTMLButtonElement>(".properties-header")!.click();
+      await settle();
+      expect(settings.propertiesDisplay()).toBe("folded");
+      expect(el.querySelector(".prop")).toBeNull();
+      expect(summary(el)?.textContent).toContain("Properties · 5 · title: Hi · count: 2");
+      expect(summary(el)?.getAttribute("aria-expanded")).toBe("false");
+      el.querySelector<HTMLButtonElement>(".properties-summary")!.click();
+      fixture.detectChanges();
+      expect(settings.propertiesDisplay()).toBe("visible");
+      expect(el.querySelector(".prop")).not.toBeNull();
+    });
+
+    it("shows nothing when hidden", () => {
+      const { el, fixture } = render(NOTE);
+      TestBed.inject(SettingsService).propertiesDisplay.set("hidden");
+      fixture.detectChanges();
+      expect(el.textContent!.trim()).toBe("");
+    });
+
+    it("shows no summary for a note without frontmatter", () => {
+      const { el, fixture } = render("# Title\n");
+      TestBed.inject(SettingsService).propertiesDisplay.set("folded");
+      fixture.detectChanges();
+      expect(summary(el)).toBeNull();
+      expect(el.textContent!.trim()).toBe("");
+    });
+
+    it("keeps the warning of invalid frontmatter when folded", () => {
+      const { el, fixture } = render("---\na: [1\n---\n");
+      TestBed.inject(SettingsService).propertiesDisplay.set("folded");
+      fixture.detectChanges();
+      expect(el.querySelector("[role=alert]")?.textContent).toContain("Invalid frontmatter");
+    });
   });
 });

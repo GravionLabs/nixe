@@ -7,6 +7,7 @@ import {
   isDateOnly,
   listItems,
   parseNumber,
+  propertiesSummary,
 } from "./properties-edit";
 
 describe("properties-edit", () => {
@@ -49,5 +50,20 @@ describe("properties-edit", () => {
     expect(isDateOnly("2024-01-02")).toBe(true);
     expect(isDateOnly("2024-01-02T10:00")).toBe(false);
     expect(isDateOnly(5)).toBe(false);
+  });
+});
+
+describe("propertiesSummary", () => {
+  it("counts and shows the first properties, lists joined and long values truncated", () => {
+    expect(
+      propertiesSummary([
+        { key: "tags", value: ["rust", "idea"] },
+        { key: "status", value: "draft" },
+        { key: "x", value: 1 },
+      ]),
+    ).toBe("Properties · 3 · tags: rust, idea · status: draft");
+    expect(propertiesSummary([{ key: "a", value: "x".repeat(40) }])).toBe(
+      `Properties · 1 · a: ${"x".repeat(23)}…`,
+    );
   });
 });

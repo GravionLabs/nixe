@@ -140,7 +140,8 @@ export class GitService {
       status = null;
     }
     if (request !== this.request) return;
-    this.status.set(status);
+    // An unchanged status keeps its object, so nothing downstream reloads (#289).
+    if (JSON.stringify(status) !== JSON.stringify(this.status())) this.status.set(status);
   }
 
   /**

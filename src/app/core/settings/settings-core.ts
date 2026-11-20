@@ -12,6 +12,12 @@ import { sanitizeRecent, sanitizeStates } from "../workspace/recent-vaults";
 
 export type ThemeMode = "system" | "light" | "dark";
 
+export type PropertiesDisplay = "visible" | "folded" | "hidden";
+
+export function sanitizePropertiesDisplay(value: unknown): PropertiesDisplay {
+  return value === "folded" || value === "hidden" ? value : "visible";
+}
+
 /** Key of the settings in `localStorage` before they moved to the app config directory. */
 export const LEGACY_STORAGE_KEY = "nixe.settings";
 
@@ -60,6 +66,8 @@ export interface StoredSettings {
   exportDark: boolean;
   /** Page size of a PDF or print: A3, A4, A5, Letter or Legal (#119). */
   exportPageSize: string;
+  /** How the properties of a note show in the document: all, one summary line or not at all (#290). */
+  propertiesDisplay: PropertiesDisplay;
   /** Name of the theme file (without `.css`) in `themes/` of the app config directory; "" is the built-in look (#114). */
   appearanceTheme: string;
   /** Names of the enabled snippets of `snippets/` (#114). */
@@ -109,6 +117,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   exportPageBreaks: true,
   exportDark: false,
   exportPageSize: "A4",
+  propertiesDisplay: "visible",
   appearanceTheme: "",
   snippets: [],
   accentColor: "",
@@ -170,6 +179,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     exportPageBreaks: bool(o["exportPageBreaks"], d.exportPageBreaks),
     exportDark: o["exportDark"] === true,
     exportPageSize: sanitizePageSize(o["exportPageSize"]),
+    propertiesDisplay: sanitizePropertiesDisplay(o["propertiesDisplay"]),
     appearanceTheme: text(o["appearanceTheme"], d.appearanceTheme),
     snippets: sanitizeNames(o["snippets"]),
     accentColor: sanitizeAccent(o["accentColor"]),

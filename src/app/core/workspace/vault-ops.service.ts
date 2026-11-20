@@ -9,6 +9,7 @@ import { DocumentService } from "../file/document.service";
 import { BookmarksService } from "../bookmarks/bookmarks.service";
 import { basename, dirname, joinPath } from "../markdown/paths";
 import { noteFromLinkTarget, planMove, remapPath, renamedName, uniqueName } from "./file-ops";
+import { VaultUndoService } from "./vault-undo.service";
 import { WorkspaceService } from "./workspace.service";
 
 /** Creating, renaming and deleting notes and folders of the vault, and keeping the UI in step. */
@@ -18,6 +19,7 @@ export class VaultOpsService {
   private readonly doc = inject(DocumentService);
   private readonly editor = inject(EditorService);
   private readonly bookmarks = inject(BookmarksService);
+  private readonly undo = inject(VaultUndoService);
 
   /** The folder a new note goes to: `.obsidian/app.json`, else the vault root. */
   async newNoteFolder(): Promise<string> {
@@ -66,8 +68,9 @@ export class VaultOpsService {
   }
 
   /**
-   * Renames or moves a note or folder; links to it are rewritten by the backend. A folder rename
-   * lists the notes that change first. Returns the new path, or `path` when the user declines.
+   * Renames or moves a note or folder; links to it are rewritten by the backend. The notes that
+   * change are listed first. In a Git vault the rename is one commit that Undo takes back.
+   * Returns the new path, or `path` when the user declines.
    */
   async rename(path: string, typed: string): Promise<string> {
     const name = renamedName(basename(path), typed);
@@ -75,12 +78,12 @@ export class VaultOpsService {
     const to = joinPath(dirname(path), name);
     if (to === path) return path;
     await this.editor.handle?.flush();
-    if (await backend.isDir(path)) {
-      const changes = await backend.relinkPreview(path, to).catch(() => [] as RelinkChange[]);
-      if (changes.length > 0 && !(await this.confirmRelink(changes))) return path;
-    }
+    const folder = await backend.isDir(path);
+    const changes = await backend.relinkPreview(path, to).catch(() => [] as RelinkChange[]);
+    if (changes.length > 0 && !(await this.confirmRelink(changes, "Rename", folder))) return path;
     await this.apply(path, to);
     await this.changed();
+    await this.undo.offer();
     return to;
   }
 
@@ -115,13 +118,14 @@ export class VaultOpsService {
       for (const m of moves) await this.apply(m.from, m.to);
     } finally {
       await this.changed();
+      await this.undo.offer();
     }
     return moves.map((m) => m.to);
   }
 
   /** Renames on disk and brings the bookmarks and the open note along. */
   private async apply(path: string, to: string): Promise<void> {
-    await backend.renamePath(path, to);
+    await backend.renamePath(path, to, this.undo.author());
     const [relFrom, relTo] = [this.bookmarks.relative(path), this.bookmarks.relative(to)];
     if (relFrom !== null && relTo !== null) this.bookmarks.renamed(relFrom, relTo);
     const open = this.doc.path();
@@ -134,19 +138,20 @@ export class VaultOpsService {
     const affected = open !== null && remapPath(open, path, "") !== open;
     // Pending text is written first, so closing the editor cannot recreate the note afterwards.
     if (affected) await this.editor.handle?.flush();
-    await backend.trashPath(path);
+    await backend.trashPath(path, this.undo.author());
     if (affected) {
       this.editor.editing.set(false);
       this.doc.close();
     }
     await this.changed();
+    await this.undo.offer();
   }
 
-  private confirmRelink(changes: RelinkChange[], verb = "Rename"): Promise<boolean> {
+  private confirmRelink(changes: RelinkChange[], verb = "Rename", folder = true): Promise<boolean> {
     const shown = changes.slice(0, 10).map((c) => `• ${c.path} (${c.links})`);
     if (changes.length > shown.length) shown.push(`… and ${changes.length - shown.length} more`);
     return ask(`Links in ${changes.length} note(s) will be updated:\n\n${shown.join("\n")}`, {
-      title: verb === "Move" ? "Move" : "Rename folder",
+      title: verb === "Move" ? "Move" : folder ? "Rename folder" : "Rename note",
       okLabel: verb,
     });
   }

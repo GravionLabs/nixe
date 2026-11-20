@@ -48,22 +48,20 @@ import { isPrerelease } from "./core/updater/update-logic";
 import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
-import { TemplateService } from "./core/templates/template.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
 import { WorkspacesService } from "./core/workspace/workspaces.service";
+import { VaultUndoService } from "./core/workspace/vault-undo.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
 import { TREE_SORTS, TREE_SORT_LABELS } from "./core/workspace/tree-model";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
+import { RelatedComponent } from "./features/related/related.component";
 import { LinkPreviewComponent } from "./features/link-preview/link-preview.component";
 import { OutlineComponent } from "./features/outline/outline.component";
-import { RecentComponent } from "./features/recent/recent.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
 import { ComposerComponent } from "./features/composer/composer.component";
-import { TemplatesComponent } from "./features/templates/templates.component";
-import { SwitcherComponent } from "./features/switcher/switcher.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { CloneComponent } from "./features/clone/clone.component";
 import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
@@ -99,16 +97,14 @@ export class NavIconDirective {
     LinkPreviewComponent,
     OutlineComponent,
     BacklinksComponent,
+    RelatedComponent,
     CloneComponent,
     ConflictBarComponent,
     GitComponent,
     HistoryComponent,
     StatusBarComponent,
     PaletteComponent,
-    RecentComponent,
     SearchComponent,
-    SwitcherComponent,
-    TemplatesComponent,
     ComposerComponent,
     EditorSpikeComponent,
     GitSpikeComponent,
@@ -139,10 +135,10 @@ export class AppComponent {
   private readonly autoSync = inject(AutoSyncService);
   protected readonly updater = inject(UpdateService);
   protected readonly switcher = inject(SwitcherService);
-  protected readonly templates = inject(TemplateService);
   protected readonly composer = inject(ComposerService);
   private readonly daily = inject(DailyService);
   private readonly bookmarks = inject(BookmarksService);
+  private readonly vaultUndo = inject(VaultUndoService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
   protected readonly recent = inject(RecentPickerService);
@@ -192,11 +188,9 @@ export class AppComponent {
   );
 
   protected readonly panelTab = computed<PanelTab>(() =>
-    this.settings.panelTab() === "links" && this.linksAvailable() ? "links" : "outline",
-  );
-
-  protected readonly showSwitcher = computed(
-    () => this.workspace.vaultRoot() !== null && this.switcher.visible(),
+    this.settings.panelTab() !== "outline" && this.linksAvailable()
+      ? this.settings.panelTab()
+      : "outline",
   );
 
   constructor() {
@@ -240,6 +234,23 @@ export class AppComponent {
       untracked(() => {
         this.showToast(notice);
         this.recent.notice.set(null);
+      });
+    });
+
+    effect(() => {
+      const notice = this.vaultUndo.notice();
+      if (notice === null) return;
+      untracked(() => {
+        if (notice.error) this.showError(notice.text);
+        else if (notice.undo) {
+          this.messages.add({
+            severity: "info",
+            summary: notice.text,
+            life: 8000,
+            action: { label: "Undo", run: () => void this.vaultUndo.undo() },
+          });
+        } else this.showToast(notice.text);
+        this.vaultUndo.notice.set(null);
       });
     });
 
@@ -362,7 +373,7 @@ export class AppComponent {
         title: "Command palette",
         shortcut: "Mod+P",
         keys: ["Mod+P"],
-        run: () => this.palette.open(),
+        run: () => this.palette.open(">"),
       },
       {
         id: "new-note",
@@ -409,7 +420,7 @@ export class AppComponent {
         shortcut: "Mod+O",
         keys: ["Mod+O"],
         when: inVault,
-        run: () => this.switcher.open(),
+        run: () => this.palette.open(),
       },
       {
         id: "daily-note",
@@ -435,7 +446,7 @@ export class AppComponent {
         id: "insert-template",
         title: "Insert template",
         when: () => noteOpen() && this.editor.editing(),
-        run: () => this.run(() => this.templates.open()),
+        run: () => this.run(() => this.palette.openTemplates()),
       },
       {
         id: "toggle-editor",
@@ -444,6 +455,12 @@ export class AppComponent {
         when: noteOpen,
         run: () =>
           this.run(() => this.editor.toggle(this.tabs.activeTab().viewer?.topLine() ?? null)),
+      },
+      {
+        id: "undo-vault-operation",
+        title: "Undo last vault operation",
+        when: inVault,
+        run: () => void this.vaultUndo.undo(),
       },
       {
         id: "bookmark-note",
@@ -595,7 +612,7 @@ export class AppComponent {
       {
         id: "open-recent",
         title: "Open recent vault…",
-        run: () => this.run(() => this.recent.open()),
+        run: () => this.palette.open("~"),
       },
       { id: "clone-vault", title: "Clone vault…", run: () => this.cloneVault.open() },
       {
@@ -664,11 +681,24 @@ export class AppComponent {
         run: () => this.settings.togglePanelTab("links"),
       },
       {
+        id: "toggle-related",
+        title: "Toggle related notes panel",
+        when: inVault,
+        run: () => this.settings.togglePanelTab("related"),
+      },
+      {
         id: "toggle-outline",
         title: "Toggle outline panel",
         shortcut: "Mod+Shift+L",
         when: noteOpen,
         run: () => this.settings.togglePanelTab("outline"),
+      },
+      {
+        id: "toggle-properties",
+        title: "Toggle properties",
+        shortcut: "Mod+Alt+P",
+        when: noteOpen,
+        run: () => this.settings.toggleProperties(),
       },
       {
         id: "toggle-link-preview",

@@ -32,6 +32,16 @@ export interface Backlink {
   context: string;
 }
 
+/** A note close to another one, ranked in the Rust index. */
+export interface RelatedNote {
+  /** Vault-relative path. */
+  path: string;
+  title: string;
+  score: number;
+  /** Why it is related, strongest first: `links here`, `2 shared tags`, `both linked from X`. */
+  reasons: string[];
+}
+
 /** A plain-text mention of the title or an alias of a note in another note. */
 export interface UnlinkedMention {
   /** Vault-relative path of the note holding the mention. */
@@ -337,6 +347,22 @@ export interface HistoryEntry {
   parent: string | null;
   /** The note's path in the parent commit. */
   parentPath: string;
+  /** The kind of vault operation (`rename`, `move`, `delete`, `merge`, `extract`) that wrote the commit. */
+  operation: string | null;
+}
+
+/** The Git author of the settings, used when the Git config names none. */
+export interface GitAuthor {
+  name: string | null;
+  email: string | null;
+}
+
+/** A vault operation that one Git commit holds (#241). */
+export interface VaultOperation {
+  id: string;
+  kind: string;
+  /** First line of the commit message, e.g. `rename: A -> B, links in 9 notes`. */
+  message: string;
 }
 
 /** A note that a recent commit deleted. */
@@ -381,19 +407,30 @@ export const backend = {
   /** Creates a folder and its missing parents inside the vault. */
   createDir: (path: string) => invoke<void>("create_dir", { path }),
   /** Moves a file or folder inside the vault, fails rather than replace, and rewrites the links to it in one batch. */
-  renamePath: (from: string, to: string) => invoke<RelinkChange[]>("rename_path", { from, to }),
+  renamePath: (from: string, to: string, author?: GitAuthor) =>
+    invoke<RelinkChange[]>("rename_path", { from, to, ...author }),
+  /** The last vault operation that is not undone yet; null without Git (#241). */
+  lastVaultOperation: () => invoke<VaultOperation | null>("last_vault_operation"),
+  /** Reverts the last vault operation as a new commit; rejects when it conflicts with later changes. */
+  undoVaultOperation: (author?: GitAuthor) =>
+    invoke<VaultOperation>("undo_vault_operation", { ...author }),
   /** The notes an extraction into `target` would change; changes nothing. */
   extractPreview: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
     invoke<ComposeChange[]>("extract_preview", { source, target, what, embed }),
   /** Moves the text into `target` (created when missing) and leaves a link or an embed. */
-  extractText: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
-    invoke<ComposeChange[]>("extract_text", { source, target, what, embed }),
+  extractText: (
+    source: string,
+    target: string,
+    what: ExtractWhat,
+    embed: boolean,
+    author?: GitAuthor,
+  ) => invoke<ComposeChange[]>("extract_text", { source, target, what, embed, ...author }),
   /** The notes a merge of `source` into `target` would change; changes nothing. */
   mergePreview: (source: string, target: string) =>
     invoke<ComposeChange[]>("merge_preview", { source, target }),
   /** Appends `source` to `target`, rewrites the links to it and moves it to `.trash/`. */
-  mergeNote: (source: string, target: string) =>
-    invoke<ComposeChange[]>("merge_note", { source, target }),
+  mergeNote: (source: string, target: string, author?: GitAuthor) =>
+    invoke<ComposeChange[]>("merge_note", { source, target, ...author }),
   /** Every replacement a find and replace would make, per note; changes nothing. */
   replacePreview: (options: ReplaceOptions) =>
     invoke<NoteReplacements[]>("replace_preview", { options }),
@@ -408,7 +445,8 @@ export const backend = {
   relinkPreview: (from: string, to: string) =>
     invoke<RelinkChange[]>("relink_preview", { from, to }),
   /** Moves a file or folder to `.trash/` of the vault; returns the new path. */
-  trashPath: (path: string) => invoke<string>("trash_path", { path }),
+  trashPath: (path: string, author?: GitAuthor) =>
+    invoke<string>("trash_path", { path, ...author }),
   newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),
   /** The template folder of `.obsidian/templates.json` (vault-relative); null when it names none. */
   templateFolder: () => invoke<string | null>("template_folder"),
@@ -471,6 +509,8 @@ export const backend = {
   indexStatus: () => invoke<IndexStatus>("index_status"),
   notes: () => invoke<NoteSummary[]>("notes"),
   backlinks: (path: string) => invoke<Backlink[]>("backlinks", { path }),
+  /** Notes close to the note, nearest first, each with the reasons. */
+  relatedNotes: (path: string) => invoke<RelatedNote[]>("related_notes", { path }),
   /** Plain-text mentions of the title or an alias of the note, computed on demand. */
   unlinkedMentions: (path: string) => invoke<UnlinkedMention[]>("unlinked_mentions", { path }),
   /** Turns a mention into a `[[link]]` to `target` (both vault-relative paths). */

@@ -187,6 +187,20 @@ describe("SettingsService right panel tabs", () => {
     expect(settings.panelOpen()).toBe(false);
   });
 
+  it("has a Related tab that is open next to Links and toggles like the others", () => {
+    const settings = TestBed.inject(SettingsService);
+    settings.togglePanelTab("related");
+    expect([settings.panelOpen(), settings.panelTab()]).toEqual([true, "related"]);
+    settings.showPanelTab("links");
+    expect(settings.panelTab()).toBe("links");
+    settings.showPanelTab("related");
+    settings.togglePanelTab("related");
+    expect(settings.panelOpen()).toBe(false);
+    settings.showPanelTab("related");
+    settings.showPanelTab("outline");
+    expect(settings.panelTab()).toBe("outline");
+  });
+
   it("shows the outline when an old setting has both panels on", () => {
     const settings = TestBed.inject(SettingsService);
     settings.outlineVisible.set(true);

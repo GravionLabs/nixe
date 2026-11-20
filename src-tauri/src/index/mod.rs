@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::Connection;
 
-pub use read::{Backlink, NoteRecord, NoteSummary, TagCount};
+pub use read::{Backlink, NoteRecord, NoteSummary, RelatedNote, TagCount};
 pub use scan::scan;
 pub use search::SearchHit;
 

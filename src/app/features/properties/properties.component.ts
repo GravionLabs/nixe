@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from "@angular/common";
 import { Component, computed, inject, output, signal } from "@angular/core";
 
 import { backend } from "../../core/file/backend";
+import { SettingsService } from "../../core/settings/settings.service";
 import { DocumentService } from "../../core/file/document.service";
 import { editFrontmatter, type PropertyEdit } from "../../core/markdown/frontmatter-edit";
 import { splitFrontmatter } from "../../core/markdown/frontmatter";
@@ -11,6 +12,7 @@ import {
   chipSuggestions,
   chipText,
   initialValue,
+  propertiesSummary,
   isDateOnly,
   listItems,
   parseNumber,
@@ -33,6 +35,11 @@ export class PropertiesComponent {
   readonly failed = output<string>();
 
   private readonly doc = inject(DocumentService);
+  private readonly settings = inject(SettingsService);
+
+  protected readonly display = this.settings.propertiesDisplay;
+  protected readonly summary = computed(() => propertiesSummary(this.props()));
+  protected readonly toggle = (): void => this.settings.toggleProperties();
 
   protected readonly types = NEW_PROPERTY_TYPES;
   protected readonly adding = signal(false);

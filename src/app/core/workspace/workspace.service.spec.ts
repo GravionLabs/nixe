@@ -174,13 +174,12 @@ describe("recent vaults in WorkspaceService", () => {
     expect(settings.vaultStates()["/a"]).toBeUndefined();
   });
 
-  it("prunes every missing vault when the picker opens", async () => {
+  it("prunes every missing vault", async () => {
     for (const p of ["/a", "/b", "/c"]) await workspace.openFolder(p, { openDefaultPage: false });
     dirs.delete("/a");
     dirs.delete("/c");
     const picker = TestBed.inject(RecentPickerService);
-    await picker.open();
-    expect(picker.visible()).toBe(true);
+    await picker.prune();
     expect(settings.recentVaults()).toEqual(["/b"]);
     expect(picker.notice()).toBe(missingMessage(["/c", "/a"]));
   });
@@ -189,25 +188,13 @@ describe("recent vaults in WorkspaceService", () => {
     await workspace.openFolder("/a", { openDefaultPage: false });
     await workspace.openFolder("/b", { openDefaultPage: false });
     const picker = TestBed.inject(RecentPickerService);
-    await picker.open();
     await picker.choose("/a");
     expect(workspace.root()).toBe("/a");
-    expect(picker.visible()).toBe(false);
 
     dirs.delete("/b");
     await picker.choose("/b");
     expect(workspace.root()).toBe("/a");
     expect(picker.notice()).toBe(missingMessage(["/b"]));
     expect(settings.recentVaults()).toEqual(["/a"]);
-  });
-
-  it("moves the selection with wrap-around", async () => {
-    await workspace.openFolder("/a", { openDefaultPage: false });
-    await workspace.openFolder("/b", { openDefaultPage: false });
-    const picker = TestBed.inject(RecentPickerService);
-    picker.move(-1);
-    expect(picker.current()).toBe("/a");
-    picker.move(1);
-    expect(picker.current()).toBe("/b");
   });
 });

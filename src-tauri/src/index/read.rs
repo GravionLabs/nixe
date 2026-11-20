@@ -1,5 +1,7 @@
 //! Read side of the index: what the commands return.
 
+use std::collections::{BTreeSet, HashMap};
+
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use serde_json::Value;
@@ -198,6 +200,140 @@ pub fn backlinks(conn: &Connection, path: &str) -> rusqlite::Result<Vec<Backlink
         })
     })?;
     rows.collect()
+}
+
+/// A note close to the open one, with the reasons it is.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RelatedNote {
+    pub path: String,
+    pub title: String,
+    pub score: u32,
+    /// Why the note is related, strongest first: `links both ways`, `links here`, `linked from
+    /// here`, `both linked from X`, `2 shared tags`.
+    pub reasons: Vec<String>,
+}
+
+const SCORE_BOTH_WAYS: u32 = 100;
+const SCORE_BACKLINK: u32 = 60;
+const SCORE_OUTGOING: u32 = 50;
+const SCORE_CO_LINKED: u32 = 15;
+const SCORE_SHARED_TAG: u32 = 5;
+/// Most entries `related` returns.
+pub const RELATED_LIMIT: usize = 50;
+
+#[derive(Default)]
+struct Closeness {
+    backlink: bool,
+    outgoing: bool,
+    /// Notes that link to both the open note and this one.
+    co_linkers: BTreeSet<String>,
+    shared_tags: u32,
+}
+
+/// Notes close to `path`, nearest first: linked in both directions, backlinks, outgoing links,
+/// notes linked from the same notes as `path`, notes sharing tags. Each carries its score and the
+/// reasons; ties are ordered by path. At most `RELATED_LIMIT` entries.
+pub fn related(conn: &Connection, path: &str) -> rusqlite::Result<Vec<RelatedNote>> {
+    let mut found: HashMap<String, Closeness> = HashMap::new();
+
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT l.resolved FROM links l JOIN notes n ON n.id = l.source_id
+         WHERE n.path = ?1 AND l.resolved IS NOT NULL AND l.resolved <> ?1",
+    )?;
+    for row in stmt.query_map([path], |r| r.get::<_, String>(0))? {
+        found.entry(row?).or_default().outgoing = true;
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT n.path FROM links l JOIN notes n ON n.id = l.source_id
+         WHERE l.resolved = ?1 AND n.path <> ?1",
+    )?;
+    for row in stmt.query_map([path], |r| r.get::<_, String>(0))? {
+        found.entry(row?).or_default().backlink = true;
+    }
+
+    // Notes that a linking note points to besides this one.
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT n.path, l2.resolved
+         FROM links l1 JOIN notes n ON n.id = l1.source_id
+         JOIN links l2 ON l2.source_id = l1.source_id
+         WHERE l1.resolved = ?1 AND n.path <> ?1
+           AND l2.resolved IS NOT NULL AND l2.resolved <> ?1
+         ORDER BY n.path",
+    )?;
+    for row in stmt.query_map([path], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })? {
+        let (linker, other) = row?;
+        found.entry(other).or_default().co_linkers.insert(linker);
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT n2.path, COUNT(DISTINCT t2.tag)
+         FROM notes n1 JOIN tags t1 ON t1.note_id = n1.id
+         JOIN tags t2 ON t2.tag = t1.tag
+         JOIN notes n2 ON n2.id = t2.note_id
+         WHERE n1.path = ?1 AND n2.path <> ?1
+         GROUP BY n2.path",
+    )?;
+    for row in stmt.query_map([path], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+    })? {
+        let (other, count) = row?;
+        found.entry(other).or_default().shared_tags = count as u32;
+    }
+
+    let mut title_stmt = conn.prepare_cached("SELECT title FROM notes WHERE path = ?1")?;
+    let mut title_of = |p: &str| -> rusqlite::Result<Option<String>> {
+        title_stmt.query_row([p], |r| r.get(0)).optional()
+    };
+
+    let mut out = Vec::new();
+    for (other, c) in found {
+        // A link target that is no note (an attachment, say) has no title: not listed.
+        let Some(title) = title_of(&other)? else {
+            continue;
+        };
+        let mut score = 0;
+        let mut reasons = Vec::new();
+        if c.backlink && c.outgoing {
+            score += SCORE_BOTH_WAYS;
+            reasons.push("links both ways".to_string());
+        } else if c.backlink {
+            score += SCORE_BACKLINK;
+            reasons.push("links here".to_string());
+        } else if c.outgoing {
+            score += SCORE_OUTGOING;
+            reasons.push("linked from here".to_string());
+        }
+        if let Some(first) = c.co_linkers.iter().next() {
+            score += SCORE_CO_LINKED * c.co_linkers.len().min(3) as u32;
+            let name = title_of(first)?.unwrap_or_else(|| first.clone());
+            reasons.push(match c.co_linkers.len() {
+                1 => format!("both linked from {name}"),
+                n => format!("both linked from {name} and {} more", n - 1),
+            });
+        }
+        if c.shared_tags > 0 {
+            score += SCORE_SHARED_TAG * c.shared_tags.min(5);
+            reasons.push(match c.shared_tags {
+                1 => "1 shared tag".to_string(),
+                n => format!("{n} shared tags"),
+            });
+        }
+        if reasons.is_empty() {
+            continue;
+        }
+        out.push(RelatedNote {
+            path: other,
+            title,
+            score,
+            reasons,
+        });
+    }
+    out.sort_by(|a, b| b.score.cmp(&a.score).then_with(|| a.path.cmp(&b.path)));
+    out.truncate(RELATED_LIMIT);
+    Ok(out)
 }
 
 /// A plain-text mention of a note's title or alias in another note.
