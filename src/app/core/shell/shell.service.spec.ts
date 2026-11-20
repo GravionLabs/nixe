@@ -81,7 +81,7 @@ describe("ShellService", () => {
     });
 
     it("lists the items of the vault, with the Git view only for a repository", () => {
-      expect(shell.items().map((i) => i.id)).toEqual(["files", "search", "git", "history", "health", "daily-note", "command-palette", "settings"]);
+      expect(shell.items().map((i) => i.id)).toEqual(["files", "search", "bookmarks", "git", "history", "health", "daily-note", "command-palette", "settings"]);
       available.set(false);
       expect(shell.items().map((i) => i.id)).not.toContain("history");
       expect(shell.items().map((i) => i.id)).not.toContain("git");

@@ -1,5 +1,6 @@
 <header>
   <span>Search</span>
+  <button type="button" class="bookmark" [disabled]="!search.query().trim()" (click)="bookmarkSearch()" title="Bookmark this search" aria-label="Bookmark this search">☆</button>
 </header>
 
 <input

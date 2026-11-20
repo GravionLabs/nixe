@@ -39,6 +39,8 @@ export interface StoredSettings {
   autoSyncOnQuit: boolean;
   /** Branches with this prefix that are ahead of the working branch wait for review (#108); empty turns it off. */
   reviewBranchPrefix: string;
+  /** Bookmarks are written into `.obsidian/bookmarks.json` of the vault (#111); off keeps them in the app data. */
+  bookmarksInVault: boolean;
   /** Shortcut of a command id that differs from its default; "" means removed. */
   shortcuts: Record<string, string>;
 }
@@ -68,6 +70,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   autoSyncOnFocus: false,
   autoSyncOnQuit: false,
   reviewBranchPrefix: "claude/",
+  bookmarksInVault: false,
   shortcuts: {},
 };
 
@@ -105,6 +108,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     autoSyncOnFocus: o["autoSyncOnFocus"] === true,
     autoSyncOnQuit: o["autoSyncOnQuit"] === true,
     reviewBranchPrefix: text(o["reviewBranchPrefix"], d.reviewBranchPrefix),
+    bookmarksInVault: o["bookmarksInVault"] === true,
     shortcuts: sanitizeShortcuts(o["shortcuts"]),
   };
 }

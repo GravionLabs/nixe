@@ -10,6 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
+import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { SearchHit } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { SearchService, SearchState, segments } from "../../core/index/search.service";
@@ -29,6 +30,7 @@ function render(state: SearchState, hits: SearchHit[]) {
   const open = vi.fn().mockResolvedValue(undefined);
   const setQuery = vi.fn();
   const close = vi.fn();
+  const bookmarkSearch = vi.fn();
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -46,6 +48,7 @@ function render(state: SearchState, hits: SearchHit[]) {
         },
       },
       { provide: DocumentService, useValue: { open } },
+      { provide: BookmarksService, useValue: { bookmarkSearch } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
     ],
   });
@@ -58,7 +61,7 @@ function render(state: SearchState, hits: SearchHit[]) {
   });
   const fixture = TestBed.createComponent(SearchComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, open, setQuery, close };
+  return { el: fixture.nativeElement as HTMLElement, open, setQuery, close, bookmarkSearch };
 }
 
 describe("SearchComponent", () => {
@@ -81,6 +84,12 @@ describe("SearchComponent", () => {
     expect(open).toHaveBeenLastCalledWith("/vault/work/b.md", { line: 9 });
     el.querySelector<HTMLButtonElement>("button.note")!.click();
     expect(open).toHaveBeenLastCalledWith("/vault/work/b.md", { line: null });
+  });
+
+  it("bookmarks the search with the star", () => {
+    const { el, bookmarkSearch } = render("ready", []);
+    el.querySelector<HTMLButtonElement>("button.bookmark")!.click();
+    expect(bookmarkSearch).toHaveBeenCalled();
   });
 
   it("forwards typing to the search", () => {

@@ -11,6 +11,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
 
 import { ask } from "@tauri-apps/plugin-dialog";
 
+import { BookmarksService } from "../bookmarks/bookmarks.service";
 import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
@@ -22,6 +23,7 @@ describe("VaultOpsService", () => {
   const doc = { path, open: vi.fn(), close: vi.fn() };
   const workspace = { vaultRoot: signal("/v"), reloadTree: vi.fn() };
   const editor = { editing: signal(false), handle: null };
+  const bookmarks = { relative: (p: string) => (p.startsWith("/v/") ? p.slice(3) : null), renamed: vi.fn() };
   let ops: VaultOpsService;
 
   beforeAll(() => {
@@ -34,6 +36,7 @@ describe("VaultOpsService", () => {
     doc.close = vi.fn();
     workspace.reloadTree = vi.fn().mockResolvedValue(undefined);
     path.set(null);
+    bookmarks.renamed.mockReset();
     editor.editing.set(false);
     vi.spyOn(backend, "newNoteLocation").mockResolvedValue({ location: "root", folder: "" });
     vi.spyOn(backend, "listDir").mockResolvedValue([]);
@@ -51,9 +54,15 @@ describe("VaultOpsService", () => {
         { provide: WorkspaceService, useValue: workspace },
         { provide: DocumentService, useValue: doc },
         { provide: EditorService, useValue: editor },
+        { provide: BookmarksService, useValue: bookmarks },
       ],
     });
     ops = TestBed.inject(VaultOpsService);
+  });
+
+  it("tells the bookmarks about a rename, with vault-relative paths", async () => {
+    await ops.rename("/v/dir/a.md", "b.md");
+    expect(bookmarks.renamed).toHaveBeenCalledWith("dir/a.md", "dir/b.md");
   });
 
   it("creates Untitled.md in the vault root and opens it", async () => {

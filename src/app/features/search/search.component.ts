@@ -1,5 +1,6 @@
 import { Component, ElementRef, effect, inject, output, untracked, viewChild } from "@angular/core";
 
+import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { SearchHit, SearchSnippet } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { SearchService, segments } from "../../core/index/search.service";
@@ -16,6 +17,7 @@ export class SearchComponent {
   protected readonly search = inject(SearchService);
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly bookmarks = inject(BookmarksService);
 
   readonly error = output<string>();
   protected readonly segments = segments;
@@ -32,6 +34,10 @@ export class SearchComponent {
       const el = this.input()?.nativeElement;
       if (el) el.focus();
     });
+  }
+
+  protected bookmarkSearch(): void {
+    this.bookmarks.bookmarkSearch();
   }
 
   protected onInput(event: Event): void {

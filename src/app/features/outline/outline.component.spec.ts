@@ -9,6 +9,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
+import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
 import { OutlineService } from "../../core/outline/outline.service";
@@ -18,10 +19,12 @@ function render(text: string, editing = false) {
   const content = signal(text);
   const pendingLine = signal<number | null>(null);
   const scrollToLine = vi.fn();
+  const bookmarks = { relative: (p: string | null) => (p ? p.slice(3) : null), bookmarkHeading: vi.fn() };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
-      { provide: DocumentService, useValue: { content, pendingLine } },
+      { provide: DocumentService, useValue: { content, pendingLine, path: signal("/v/n.md") } },
+      { provide: BookmarksService, useValue: bookmarks },
       { provide: EditorService, useValue: { editing: signal(editing), handle: { scrollToLine } } },
     ],
   });
@@ -29,7 +32,7 @@ function render(text: string, editing = false) {
   const fixture = TestBed.createComponent(OutlineComponent);
   fixture.detectChanges();
   const outline = TestBed.inject(OutlineService);
-  return { fixture, el: fixture.nativeElement as HTMLElement, outline, pendingLine, scrollToLine };
+  return { fixture, el: fixture.nativeElement as HTMLElement, outline, pendingLine, scrollToLine, bookmarks };
 }
 
 describe("OutlineComponent", () => {
@@ -55,6 +58,14 @@ describe("OutlineComponent", () => {
     el.querySelectorAll("button")[1]!.click();
     expect(pendingLine()).toBe(3);
     expect(scrollToLine).not.toHaveBeenCalled();
+  });
+
+  it("bookmarks a heading from its context menu", () => {
+    const { el, bookmarks } = render("# A\ntext\n## B");
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    el.querySelectorAll("button")[1]!.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(bookmarks.bookmarkHeading).toHaveBeenCalledWith("n.md", "B");
   });
 
   it("scrolls the editor to the heading on click while editing", () => {
