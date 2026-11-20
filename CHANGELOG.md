@@ -5,10 +5,29 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.5.0] — 2026-11-20
+
+### Bug Fixes
+- **shell**: Helix desktop shell is not fully styled, tab bar renders unstyled (#222) (#224)
+
+
+### Features
+- **viewer**: Center the note content like Obsidian (#223) (#226)
+- **git**: History of a note with a diff between versions (#105) (#227)
+- **git**: Restore an older version of a note (#106) (#228)
+- **git**: Show what changed since the last sync (#107) (#254)
+- **review**: List branches waiting for review and show their changes per note (#108) (#255)
+- **review**: Accept or reject changes per note and hunk and merge the result (#109) (#256)
+
+
 ## [1.4.0] — 2026-11-19
 
 ### Bug Fixes
 - **deps**: Exempt the helix packages from the minimum release age (#212)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.4.0 [skip ci]
 
 
 ### Features
