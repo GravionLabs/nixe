@@ -7,6 +7,7 @@ import { basename, joinPath, toSlashes } from "../markdown/paths";
 import { SettingsService } from "../settings/settings.service";
 import { layoutHasNote } from "../tabs/layout";
 import { TabsService } from "../tabs/tabs.service";
+import { filterTree, matchesFilter } from "./tree-filter";
 import { TreeItem, TreeSort, buildTreeItems, defaultPage, sortItems } from "./tree-model";
 
 export interface TreeNode extends TreeItem {
@@ -69,6 +70,33 @@ export class WorkspaceService {
     walk(this.rootNodes());
     return rows;
   });
+
+  /** The text the file tree is narrowed to by name (#248); empty shows the whole tree. */
+  readonly treeFilter = signal("");
+
+  /** With a filter: the loaded notes and folders that match, with the folders leading to them. */
+  readonly filteredRows = computed(() => filterTree(this.rootNodes(), this.treeFilter()));
+
+  /** Sets the filter and expands the folders of the matches that are not loaded yet. */
+  async setTreeFilter(text: string): Promise<void> {
+    this.treeFilter.set(text);
+    const vaultRoot = this.vaultRoot();
+    if (text.trim() === "" || !vaultRoot) return;
+    const targets = new Set<string>();
+    for (const rel of this.vaultFiles() ?? []) {
+      const parts = rel.split("/");
+      parts.forEach((part, i) => {
+        if (!matchesFilter(part, text)) return;
+        const last = i === parts.length - 1;
+        targets.add(joinPath(vaultRoot, last ? rel : `${parts.slice(0, i + 1).join("/")}/.`));
+      });
+      if (targets.size > 500) break;
+    }
+    for (const target of targets) {
+      if (this.treeFilter() !== text) return;
+      await this.reveal(target);
+    }
+  }
 
   /** True while a folder is being opened: the state stored for it must not be overwritten yet. */
   private opening = false;
@@ -230,6 +258,8 @@ export class WorkspaceService {
   async revealActive(): Promise<void> {
     const current = this.doc.path();
     if (!current) return;
+    // A filter that hides the note would hide the reveal too.
+    if (this.treeFilter() !== "") await this.setTreeFilter("");
     await this.reveal(current);
     this.revealRequest.update((n) => n + 1);
   }

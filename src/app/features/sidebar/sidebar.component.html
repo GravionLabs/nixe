@@ -17,6 +17,20 @@
   </button>
 </header>
 
+<div class="filter-box">
+  <input
+    class="filter"
+    type="search"
+    placeholder="Filter files"
+    aria-label="Filter file tree"
+    autocomplete="off"
+    spellcheck="false"
+    [value]="workspace.treeFilter()"
+    (input)="setFilter($any($event.target).value)"
+    (keydown)="onFilterKeydown($event)"
+  />
+</div>
+
 <nav
   class="tree"
   role="tree"
@@ -27,7 +41,7 @@
   (dragleave)="dropTarget.set(null)"
   (drop)="drop($event, null)"
 >
-  @for (node of workspace.visible(); track node.dirPath ?? node.filePath) {
+  @for (node of rows(); track node.dirPath ?? node.filePath) {
     <div
       class="row"
       role="treeitem"
@@ -40,8 +54,12 @@
       [class.drop-target]="dropTarget() === node.dirPath && node.dirPath !== null"
       [class.active]="node.filePath !== null && node.filePath === doc.path()"
       [class.conflict]="node.filePath !== null && conflicted().has(node.filePath)"
+      [class.flash]="flashed() === path(node)"
+      [class.git-m]="decoration().files.get(path(node)) === 'M'"
+      [class.git-a]="decoration().files.get(path(node)) === 'A'"
+      [class.git-u]="decoration().files.get(path(node)) === 'U'"
       [class.pulled]="node.filePath !== null && changes.unseenPaths().has(node.filePath)"
-      [attr.aria-expanded]="node.dirPath ? node.expanded() : null"
+      [attr.aria-expanded]="node.dirPath ? isOpen(node) : null"
       [style.padding-left.px]="8 + node.depth * 14"
       [title]="node.filePath ?? node.dirPath ?? ''"
       (click)="select(node, $event)"
@@ -54,7 +72,7 @@
       (keydown)="onKeydown(node, $event)"
     >
       @if (node.dirPath) {
-        <span class="chevron" [class.open]="node.expanded()" (click)="toggle(node, $event)">
+        <span class="chevron" [class.open]="isOpen(node)" (click)="toggle(node, $event)">
           <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
         </span>
       } @else {
@@ -79,12 +97,17 @@
           (blur)="commitRename(node, renameInput)"
         />
       } @else {
-        <span class="label">{{ node.name }}</span>
+        <span class="label">@for (part of highlightParts(node.name, workspace.treeFilter()); track $index) {@if (part.match) {<mark>{{ part.text }}</mark>} @else {{{ part.text }}}}</span>
         @if (node.filePath !== null && conflicted().has(node.filePath)) {
           <span class="badge" title="Sync conflict: both versions were kept">conflict</span>
         }
         @if (node.filePath !== null && changes.unseenPaths().has(node.filePath)) {
           <span class="dot" title="Changed by the last sync" aria-label="Changed by the last sync"></span>
+        }
+        @if (decoration().files.get(path(node)); as letter) {
+          <span class="git-status" [title]="gitTitle(letter)" [attr.aria-label]="gitTitle(letter)">{{ letter }}</span>
+        } @else if (node.dirPath !== null && decoration().folders.has(node.dirPath)) {
+          <span class="git-status git-folder" title="Contains changed notes" aria-label="Contains changed notes">●</span>
         }
       }
     </div>

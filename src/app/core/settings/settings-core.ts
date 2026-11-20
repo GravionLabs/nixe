@@ -58,6 +58,8 @@ export interface StoredSettings {
   fontMono: string;
   /** Order of the file tree (#230). */
   treeSort: TreeSort;
+  /** The file tree shows the Git status of the notes (#248). */
+  treeGitStatus: boolean;
   /** Shortcut of a command id that differs from its default; "" means removed. */
   shortcuts: Record<string, string>;
 }
@@ -96,6 +98,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   fontText: "",
   fontMono: "",
   treeSort: "name-asc",
+  treeGitStatus: true,
   shortcuts: {},
 };
 
@@ -142,6 +145,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     fontText: sanitizeFont(o["fontText"]),
     fontMono: sanitizeFont(o["fontMono"]),
     treeSort: sanitizeTreeSort(o["treeSort"]),
+    treeGitStatus: o["treeGitStatus"] !== false,
     shortcuts: sanitizeShortcuts(o["shortcuts"]),
   };
 }

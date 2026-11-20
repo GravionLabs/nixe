@@ -3,13 +3,19 @@ import { Component, ElementRef, computed, effect, inject, output, signal, viewCh
 import { DocumentService } from "../../core/file/document.service";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { ChangesService } from "../../core/git/changes.service";
+import { GitService } from "../../core/git/git.service";
+import { SettingsService } from "../../core/settings/settings.service";
 import { basename } from "../../core/markdown/paths";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { FocusKey, focusTarget, parentIndex, rangeBetween, typeAheadMatch } from "../../core/workspace/tree-nav";
 import { topLevelPaths } from "../../core/workspace/file-ops";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { TREE_SORTS, TREE_SORT_LABELS, TreeSort, conflictPaths } from "../../core/workspace/tree-model";
+import { NO_DECORATION, decorate, highlightParts } from "../../core/workspace/tree-filter";
 import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
+
+/** How long the row of a revealed note flashes. */
+export const FLASH_MS = 2000;
 
 /** The context menu: where it is shown and what it acts on (`null`: the empty area, i.e. the root). */
 export interface MenuState {
@@ -27,15 +33,30 @@ export class SidebarComponent {
   protected readonly workspace = inject(WorkspaceService);
   protected readonly doc = inject(DocumentService);
   protected readonly changes = inject(ChangesService);
+  private readonly git = inject(GitService);
+  private readonly settings = inject(SettingsService);
   private readonly ops = inject(VaultOpsService);
   private readonly tabs = inject(TabsService);
   private readonly bookmarks = inject(BookmarksService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly error = output<string>();
 
+  /** The rows of the tree: all of it, or with a filter the matches and their folders (#248). */
+  protected readonly rows = computed(() => (this.workspace.treeFilter() === "" ? this.workspace.visible() : this.workspace.filteredRows()));
+  /** The Git status of the notes and the folders that hold changed notes; empty when the setting is off. */
+  protected readonly decoration = computed(() => {
+    const status = this.git.status();
+    const root = this.workspace.vaultRoot();
+    return this.settings.treeGitStatus() && status && root ? decorate(status.changes, root) : NO_DECORATION;
+  });
+  /** The row that flashes after "Reveal the active note". */
+  protected readonly flashed = signal<string | null>(null);
+  private flashTimer: ReturnType<typeof setTimeout> | undefined;
+  protected readonly highlightParts = highlightParts;
+
   /** Files of a sync conflict: the copies and the originals next to them. */
   protected readonly conflicted = computed(() =>
-    conflictPaths(this.workspace.visible().flatMap((n) => (n.filePath ? [n.filePath] : []))),
+    conflictPaths(this.rows().flatMap((n) => (n.filePath ? [n.filePath] : []))),
   );
   protected readonly sortMenu = signal<{ x: number; y: number } | null>(null);
   protected readonly sortOptions = TREE_SORTS.map((value) => ({ value, label: TREE_SORT_LABELS[value] }));
@@ -55,7 +76,7 @@ export class SidebarComponent {
   private typed = "";
   private typedAt = 0;
   protected readonly tabStop = computed(() => {
-    const rows = this.workspace.visible();
+    const rows = this.rows();
     const focused = this.focused();
     return rows.some((n) => this.path(n) === focused) ? focused : rows.length ? this.path(rows[0]) : null;
   });
@@ -70,7 +91,15 @@ export class SidebarComponent {
     // Reveal the active note: once the expanded folders are rendered, scroll its row into view.
     effect(() => {
       if (this.workspace.revealRequest() === 0) return;
-      setTimeout(() => this.host.nativeElement.querySelector(".row.active")?.scrollIntoView?.({ block: "nearest" }));
+      setTimeout(() => {
+        const row = this.host.nativeElement.querySelector<HTMLElement>(".row.active");
+        row?.scrollIntoView?.({ block: "nearest" });
+        if (!row?.dataset["path"]) return;
+        // Only a request (button or command) flashes the row; the reveal on a tab switch stays quiet.
+        this.flashed.set(row.dataset["path"]);
+        clearTimeout(this.flashTimer);
+        this.flashTimer = setTimeout(() => this.flashed.set(null), FLASH_MS);
+      });
     });
     effect(() => {
       const input = this.renameInput()?.nativeElement;
@@ -79,6 +108,31 @@ export class SidebarComponent {
       const dot = input.value.lastIndexOf(".");
       input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
     });
+  }
+
+  protected setFilter(text: string): void {
+    void this.attempt(() => this.workspace.setTreeFilter(text));
+  }
+
+  /** Escape clears the field; the arrow down goes to the first row. */
+  protected onFilterKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.setFilter("");
+    } else if (event.key === "ArrowDown" && this.rows().length > 0) {
+      event.preventDefault();
+      this.focusRow(0);
+    }
+  }
+
+  protected gitTitle(letter: string): string {
+    return letter === "M" ? "Modified" : letter === "A" ? "Added" : "Untracked";
+  }
+
+  /** A folder shows as open while a filter shows its matches. */
+  protected isOpen(node: TreeNode): boolean {
+    return this.workspace.treeFilter() !== "" || node.expanded();
   }
 
   protected openSortMenu(event: MouseEvent): void {
@@ -133,14 +187,14 @@ export class SidebarComponent {
   }
 
   private selectRange(from: string, to: string): void {
-    const paths = this.workspace.visible().map((n) => this.path(n));
+    const paths = this.rows().map((n) => this.path(n));
     const [a, b] = [paths.indexOf(from), paths.indexOf(to)];
     if (a < 0 || b < 0) return;
     this.selection.set(new Set(rangeBetween(a, b).map((i) => paths[i])));
   }
 
   private focusRow(index: number): void {
-    const node = this.workspace.visible()[index];
+    const node = this.rows()[index];
     if (!node) return;
     const path = this.path(node);
     this.focused.set(path);
@@ -153,7 +207,7 @@ export class SidebarComponent {
   protected onKeydown(node: TreeNode, event: KeyboardEvent): void {
     const path = this.path(node);
     if (this.renaming() === path) return;
-    const rows = this.workspace.visible();
+    const rows = this.rows();
     const index = rows.indexOf(node);
     switch (event.key) {
       case "ArrowDown":
@@ -210,7 +264,7 @@ export class SidebarComponent {
   private actionPaths(node: TreeNode): string[] {
     const path = this.path(node);
     const selected = this.selection();
-    return selected.has(path) ? this.workspace.visible().map((n) => this.path(n)).filter((p) => selected.has(p)) : [path];
+    return selected.has(path) ? this.rows().map((n) => this.path(n)).filter((p) => selected.has(p)) : [path];
   }
 
   private trashSelection(node: TreeNode): Promise<void> {

@@ -91,6 +91,21 @@ describe("file tree actions of WorkspaceService", () => {
     expect(workspace.revealRequest()).toBe(0);
   });
 
+  it("filters by name, loads the folders of matches and clears the filter on a reveal", async () => {
+    vi.spyOn(backend, "listVaultFiles").mockResolvedValue(["a.md", "b.md", "docs/deep/note.md", "docs/x.md"]);
+    await workspace.openFolder("/v", { openDefaultPage: false });
+    await workspace.setTreeFilter("note");
+    expect(workspace.filteredRows().map((n) => n.name)).toEqual(["docs", "deep", "note.md"]);
+    await workspace.setTreeFilter("DOCS");
+    expect(workspace.filteredRows().map((n) => n.name)).toEqual(["docs"]);
+    await workspace.setTreeFilter("");
+    expect(workspace.filteredRows().map((n) => n.name)).toContain("a.md");
+    await workspace.setTreeFilter("x.md");
+    path.set("/v/a.md");
+    await workspace.revealActive();
+    expect(workspace.treeFilter()).toBe("");
+  });
+
   it("collapses every folder", async () => {
     await workspace.reveal("/v/docs/deep/note.md");
     expect(names()).toContain("note.md");

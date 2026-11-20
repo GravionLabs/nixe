@@ -31,7 +31,7 @@ describe("FocusService", () => {
     show.mockClear();
     showPanelTab.mockClear();
     document.body.innerHTML = `
-      <app-sidebar><div class="row" tabindex="-1" id="first"></div><div class="row" tabindex="0" id="stop"></div></app-sidebar>
+      <app-sidebar><input class="filter" id="filter"><div class="row" tabindex="-1" id="first"></div><div class="row" tabindex="0" id="stop"></div></app-sidebar>
       <app-workspace><section class="pane"><div class="markdown-body" tabindex="-1" id="viewer"></div></section></app-workspace>
       <div class="panel"><div class="panel-tabs"><button id="outline">Outline</button><button class="active" id="links">Links</button></div></div>`;
     TestBed.resetTestingModule();
@@ -69,6 +69,15 @@ describe("FocusService", () => {
     expect(show).toHaveBeenCalledWith("files");
     expect(document.activeElement?.id).toBe("stop");
     expect(document.documentElement.hasAttribute(KEYBOARD_FOCUS_ATTRIBUTE)).toBe(true);
+  });
+
+  it("focuses the filter field of the tree with a command that has a shortcut", async () => {
+    const command = commands.all().find((c) => c.id === "filter-file-tree")!;
+    expect(command.title).toBe("Filter file tree");
+    expect(command.shortcut).toBeTruthy();
+    await focus.focusFilter();
+    expect(show).toHaveBeenCalledWith("files");
+    expect(document.activeElement?.id).toBe("filter");
   });
 
   it("focuses the note", async () => {

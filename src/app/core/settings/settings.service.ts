@@ -128,6 +128,9 @@ export class SettingsService {
   /** Order of the file tree (#230). */
   readonly treeSort = signal<TreeSort>(this.stored.treeSort);
 
+  /** The file tree marks changed notes with their Git status (#248). */
+  readonly treeGitStatus = signal<boolean>(this.stored.treeGitStatus);
+
   /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
   readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
@@ -183,6 +186,7 @@ export class SettingsService {
       fontText: this.fontText(),
       fontMono: this.fontMono(),
       treeSort: this.treeSort(),
+      treeGitStatus: this.treeGitStatus(),
       shortcuts: this.shortcuts(),
     };
   }
@@ -222,6 +226,7 @@ export class SettingsService {
     this.fontText.set(s.fontText);
     this.fontMono.set(s.fontMono);
     this.treeSort.set(s.treeSort);
+    this.treeGitStatus.set(s.treeGitStatus);
     this.shortcuts.set(s.shortcuts);
   }
 

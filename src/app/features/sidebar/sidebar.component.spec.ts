@@ -11,6 +11,8 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
 
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { DocumentService } from "../../core/file/document.service";
+import { GitService } from "../../core/git/git.service";
+import { SettingsService } from "../../core/settings/settings.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
@@ -37,7 +39,18 @@ function key(name: string, init: KeyboardEventInit = {}): KeyboardEvent {
 
 describe("SidebarComponent tree", () => {
   const rows = [node("alpha", "dir", 0, true), node("a.md", "file", 1), node("beta.md", "file", 0), node("box", "dir", 0)];
-  const workspace = { visible: signal(rows), root: signal("/v"), toggle: vi.fn(), revealRequest: signal(0) };
+  const workspace = {
+    visible: signal(rows),
+    filteredRows: signal<TreeNode[]>([]),
+    treeFilter: signal(""),
+    setTreeFilter: vi.fn(async (text: string) => workspace.treeFilter.set(text)),
+    root: signal("/v"),
+    vaultRoot: signal<string | null>("/v"),
+    toggle: vi.fn(),
+    revealRequest: signal(0),
+  };
+  const gitStatus = signal<{ changes: { path: string; kind: string; untracked?: boolean }[] } | null>(null);
+  const treeGitStatus = signal(true);
   const ops = { trash: vi.fn(), move: vi.fn() };
   const tabs = { openInNewTab: vi.fn() };
   const doc = { path: signal<string | null>(null), open: vi.fn() };
@@ -50,6 +63,9 @@ describe("SidebarComponent tree", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    workspace.treeFilter.set("");
+    gitStatus.set(null);
+    treeGitStatus.set(true);
     host = document.createElement("div");
     host.innerHTML = rows.map((r) => `<div class="row" data-path="${r.dirPath ?? r.filePath}" tabindex="-1"></div>`).join("");
     document.body.append(host);
@@ -66,6 +82,8 @@ describe("SidebarComponent tree", () => {
         { provide: VaultOpsService, useValue: ops },
         { provide: TabsService, useValue: tabs },
         { provide: BookmarksService, useValue: {} },
+        { provide: GitService, useValue: { status: gitStatus } },
+        { provide: SettingsService, useValue: { treeGitStatus } },
         { provide: ElementRef, useValue: new ElementRef(host) },
       ],
     });
@@ -162,5 +180,52 @@ describe("SidebarComponent tree", () => {
     sidebar.dragStart({ dataTransfer: { setData: vi.fn() } } as unknown as DragEvent, rows[1]);
     await sidebar.drop({ stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as DragEvent, rows[3]);
     expect(errors[0]).toContain("already exists");
+  });
+
+  it("decorates changed notes and their folders, and not when the setting is off", () => {
+    gitStatus.set({
+      changes: [
+        { path: "alpha/a.md", kind: "modified" },
+        { path: "beta.md", kind: "added", untracked: true },
+      ],
+    });
+    expect(sidebar.decoration().files.get("/v/alpha/a.md")).toBe("M");
+    expect(sidebar.decoration().files.get("/v/beta.md")).toBe("U");
+    expect(sidebar.decoration().folders.has("/v/alpha")).toBe(true);
+    treeGitStatus.set(false);
+    expect(sidebar.decoration().files.size).toBe(0);
+    treeGitStatus.set(true);
+    gitStatus.set(null);
+    expect(sidebar.decoration().files.size).toBe(0);
+  });
+
+  it("shows the filtered rows and Escape clears the field", async () => {
+    workspace.filteredRows.set([rows[2]]);
+    await sidebar.setFilter("bet");
+    expect(workspace.setTreeFilter).toHaveBeenCalledWith("bet");
+    expect(sidebar.rows()).toEqual([rows[2]]);
+    expect(sidebar.isOpen(rows[3])).toBe(true);
+    const escape = key("Escape");
+    sidebar.onFilterKeydown(escape);
+    expect(escape.defaultPrevented).toBe(true);
+    expect(workspace.setTreeFilter).toHaveBeenLastCalledWith("");
+    expect(sidebar.rows()).toEqual(rows);
+  });
+
+  it("flashes the active row for 2 s after a reveal request, not without one", () => {
+    vi.useFakeTimers();
+    try {
+      host.innerHTML = '<div class="row active" data-path="/v/a.md"></div>';
+      TestBed.runInInjectionContext(() => TestBed.flushEffects?.());
+      workspace.revealRequest.set(1);
+      TestBed.flushEffects?.();
+      vi.advanceTimersByTime(1);
+      expect(sidebar.flashed()).toBe("/v/a.md");
+      vi.advanceTimersByTime(2000);
+      expect(sidebar.flashed()).toBeNull();
+    } finally {
+      workspace.revealRequest.set(0);
+      vi.useRealTimers();
+    }
   });
 });

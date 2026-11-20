@@ -27,6 +27,9 @@ describe("sanitizeSettings", () => {
     expect(s.wrapCode).toBe(false);
     expect(sanitizeSettings({ wrapCode: true }).wrapCode).toBe(true);
     expect(sanitizeSettings({ wrapCode: "yes" }).wrapCode).toBe(false);
+    expect(s.treeGitStatus).toBe(true);
+    expect(sanitizeSettings({ treeGitStatus: false }).treeGitStatus).toBe(false);
+    expect(sanitizeSettings({ treeGitStatus: "no" }).treeGitStatus).toBe(true);
     expect(s.treeSort).toBe("name-asc");
     expect(sanitizeSettings({ treeSort: "modified-desc" }).treeSort).toBe("modified-desc");
     expect(sanitizeSettings({ treeSort: "bogus" }).treeSort).toBe("name-asc");
