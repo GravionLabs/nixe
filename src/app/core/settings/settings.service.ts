@@ -116,6 +116,11 @@ export class SettingsService {
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   readonly wrapCode = signal<boolean>(this.stored.wrapCode);
 
+  /** Export and print (#119): breaks before top-level headings, the dark look, the page size. */
+  readonly exportPageBreaks = signal<boolean>(this.stored.exportPageBreaks);
+  readonly exportDark = signal<boolean>(this.stored.exportDark);
+  readonly exportPageSize = signal<string>(this.stored.exportPageSize);
+
   /** Appearance (#114): the theme file, the enabled snippets, the accent color and the fonts. */
   readonly appearanceTheme = signal<string>(this.stored.appearanceTheme);
   readonly snippets = signal<string[]>(this.stored.snippets);
@@ -179,6 +184,9 @@ export class SettingsService {
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
       wrapCode: this.wrapCode(),
+      exportPageBreaks: this.exportPageBreaks(),
+      exportDark: this.exportDark(),
+      exportPageSize: this.exportPageSize(),
       appearanceTheme: this.appearanceTheme(),
       snippets: this.snippets(),
       accentColor: this.accentColor(),
@@ -220,6 +228,9 @@ export class SettingsService {
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
     this.wrapCode.set(s.wrapCode);
+    this.exportPageBreaks.set(s.exportPageBreaks);
+    this.exportDark.set(s.exportDark);
+    this.exportPageSize.set(s.exportPageSize);
     this.appearanceTheme.set(s.appearanceTheme);
     this.snippets.set(s.snippets);
     this.accentColor.set(s.accentColor);

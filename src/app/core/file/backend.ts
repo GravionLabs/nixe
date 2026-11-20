@@ -580,9 +580,37 @@ export const backend = {
   /** Stops the running clone. */
   gitCloneCancel: () => invoke<void>("git_clone_cancel"),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
+  /** Writes an exported file to the place the user (or `--out`) chose; any path, replaces a file. */
+  writeExportFile: (path: string, content: string) =>
+    invoke<void>("write_export_file", { path, content }),
+  /** The file as a `data:` URI; null when it cannot be read. */
+  readDataUri: (path: string) => invoke<string | null>("read_data_uri", { path }),
+  /** A file of the frontend bundle (a KaTeX font) as a `data:` URI; null when the bundle has none. */
+  readBundledDataUri: (path: string) => invoke<string | null>("read_bundled_data_uri", { path }),
+  /** The export `nixe export` asked for, once. */
+  takePendingExport: () => invoke<ExportRequest | null>("take_pending_export"),
+  /** Ends a headless `nixe export`: the message goes to stdout (code 0) or stderr, then the process exits. */
+  finishExport: (code: number, message: string) => invoke<void>("finish_export", { code, message }),
 };
 
+/** `nixe export <note> --format html|pdf` (cli.rs `ExportRequest`). */
+export interface ExportRequest {
+  /** Absolute path of the note. */
+  note: string;
+  /** Absolute vault root of the note. */
+  vaultRoot: string;
+  format: "html" | "pdf";
+  /** Absolute path of the HTML file. */
+  out: string | null;
+  dark: boolean | null;
+  pageSize: string | null;
+  /** No window: the command waits for the file and the process ends with `finishExport`. */
+  headless: boolean;
+}
+
 export const OPEN_FILE_EVENT = "open-file-requested";
+/** A `nixe export` reached the running window; `takePendingExport` holds it. */
+export const EXPORT_EVENT = "export-requested";
 /** Piped content (`nixe -`) lives in this temp file, see `stdin_file_path` in lib.rs. */
 export const STDIN_FILE_SUFFIX = "/nixe-stdin/stdin.md";
 /** Emitted with an `IndexStatus` while the vault index is built. */

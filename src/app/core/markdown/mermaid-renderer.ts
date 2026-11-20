@@ -25,8 +25,9 @@ export class MermaidRenderer {
 
     const mermaid = await loadMermaid();
     const theme = dark ? "dark" : "default";
+    // Mermaid keeps one global theme that another renderer (an export) may have changed.
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme });
     if (theme !== this.theme) {
-      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme });
       this.theme = theme;
       this.cache.clear();
     }
