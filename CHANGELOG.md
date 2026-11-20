@@ -5,10 +5,56 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.6.0] — 2026-11-20
+
+### Bug Fixes
+- **appearance**: Themes and CSS snippets (#114) (#262)
+- **panel**: Tabs for outline and links, and unlinked mentions (#235) (#269)
+- **panel**: Resizable right panel and collapse the outline to a level (#250) (#280)
+- Templates move to .html files, lint findings fixed (#273)
+- **tabs**: Check the file of every tab when the focus moves (#283)
+- **editor**: Compare opens when the editor text is empty (#247)
+
+
+### Features
+- **editor**: Fold headings and lists (#110) (#257)
+- **workspace**: Bookmarks for notes, headings and searches (#111) (#259)
+- **editor**: Word count and reading time in the status bar (#112) (#260)
+- **vault**: Merge notes and extract a selection into a new note (#113) (#261)
+- **appearance**: Themes and CSS snippets (#114) (#262)
+- **sidebar**: Header actions for the file tree (#230) (#264)
+- **sidebar**: Arrow keys, multi-select and drag to move in the file tree (#231) (#265)
+- **shell**: Start page with recent notes and the daily note (#232) (#266)
+- **shell**: Separate views from actions in the activity bar (#233) (#267)
+- **toolbar**: Path of the note as breadcrumb (#234) (#268)
+- **panel**: Tabs for outline and links, and unlinked mentions (#235) (#269)
+- **search**: Result count, sorting and collapsible results (#236) (#270)
+- **status-bar**: Backlink count of the open note (#237) (#271)
+- **shell**: Commands to move the focus between file tree, note and panel (#238) (#272)
+- **viewer**: Copy button and language label on code blocks (#245) (#274)
+- **viewer**: Open an image in a zoom dialog (#246) (#276)
+- **sidebar**: Git status and a name filter in the file tree (#248) (#278)
+- **switcher**: Highlighted matches and key hints in the quick switcher (#249) (#279)
+- **panel**: Resizable right panel and collapse the outline to a level (#250) (#280)
+- **a11y**: Reduced motion and one focus ring (#253) (#282)
+- **tabs**: Missing-file state on a tab (#283)
+- **editor**: Compare before choosing in the external-change bar (#247)
+- **ui**: Shortcuts in menus and helix tooltips (#252) (#288)
+
+
+### Refactoring
+- **ui**: Dialogs, context menu and toast from helix-ui (#251) (#281)
+- Templates move to .html files, lint findings fixed (#273)
+
+
 ## [1.5.0] — 2026-11-20
 
 ### Bug Fixes
 - **shell**: Helix desktop shell is not fully styled, tab bar renders unstyled (#222) (#224)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.5.0 [skip ci]
 
 
 ### Features
