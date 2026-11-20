@@ -16,8 +16,11 @@ The toolbar button shows `editing()` as `active`/`aria-pressed` and is disabled 
   root, or the folder of the open note). CRLF notes keep CRLF; notes with invalid UTF-8 are not editable.
 - **External changes**: the watcher cannot tell who wrote, so every text about to be written is
   tracked: the text editor and disk agree on, plus writes in flight or finished within 2 s, are ignored; anything else (even an older text restored by `git checkout`) is foreign. A foreign change is loaded at once
-  when nothing is unsaved; otherwise a bar offers *Reload* or *Keep mine*, and saving is paused
-  until one is chosen. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
+  when nothing is unsaved; otherwise a bar (`role="alert"`) offers *Reload* (discards the unsaved edits), *Keep mine*
+  (the next save replaces the version on disk) and *Compare*, and saving is paused until one is
+  chosen. *Compare* opens a dialog (`app-external-compare`) with the line diff of the disk version
+  against the editor text and the same two choices. After a reload from the bar a toast offers
+  *Undo* for 10 s, which puts the discarded text back as an ordinary edit that is saved. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
 - **Scroll**: the viewer's top block (`data-line`) becomes the editor's first line and back.
 
 ## Folding

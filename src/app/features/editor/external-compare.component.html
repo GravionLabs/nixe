@@ -1,0 +1,37 @@
+<hx-dialog
+  [visible]="true"
+  (hidden)="closed.emit()"
+  ariaLabel="Compare the version on disk with your text"
+  header="Compare"
+  width="min(760px, 92vw)"
+>
+  <p class="legend">
+    <span class="del">− Version on disk</span>
+    <span class="add">+ Your text in the editor</span>
+    <span class="stat">+{{ stat().added }} −{{ stat().removed }}</span>
+  </p>
+  <div class="diff" role="region" aria-label="Difference" tabindex="0">
+    @for (row of rows(); track $index) {
+      <div class="row" [class]="row.kind">
+        <span class="sign">{{ row.kind === "add" ? "+" : row.kind === "del" ? "−" : " " }}</span>
+        <span class="text">
+          @if (row.segments; as segments) {
+            @for (seg of segments; track $index) {
+              <span [class.word]="seg.changed">{{ seg.text }}</span>
+            }
+          } @else {
+            {{ row.text }}
+          }
+        </span>
+      </div>
+    } @empty {
+      <p class="status">No difference</p>
+    }
+  </div>
+  <div class="choices">
+    <button type="button" class="reload" (click)="reload.emit()">Reload</button>
+    <span class="hint">Discards your unsaved edits and shows the version on disk.</span>
+    <button type="button" class="keep" (click)="keep.emit()">Keep mine</button>
+    <span class="hint">Replaces the version on disk with your next save.</span>
+  </div>
+</hx-dialog>

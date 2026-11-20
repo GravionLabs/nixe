@@ -1,0 +1,89 @@
+.legend {
+  display: flex;
+  gap: 14px;
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.legend .stat {
+  margin-left: auto;
+  color: var(--h-text-muted-color);
+}
+
+.add {
+  color: var(--nixe-added-color, #2da44e);
+}
+
+.del {
+  color: var(--nixe-removed-color, #cf222e);
+}
+
+.diff {
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--h-content-border-color);
+  font-family: var(--nixe-font-mono, monospace);
+  font-size: 12px;
+}
+
+.row {
+  display: flex;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.row .sign {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: var(--h-text-muted-color);
+}
+
+.row.add {
+  background: rgba(46, 160, 67, 0.15);
+}
+
+.row.del {
+  background: rgba(248, 81, 73, 0.15);
+}
+
+.row.add .word {
+  background: rgba(46, 160, 67, 0.4);
+}
+
+.row.del .word {
+  background: rgba(248, 81, 73, 0.4);
+}
+
+.status {
+  margin: 8px;
+  color: var(--h-text-muted-color);
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.choices button {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 6px;
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+.choices button:hover {
+  background: var(--h-surface-hover);
+}
+
+.hint {
+  color: var(--h-text-muted-color);
+  font-size: 12px;
+}

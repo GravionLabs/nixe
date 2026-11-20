@@ -5,8 +5,10 @@ import {
   ExternalChangeTracker,
   OWN_WRITE_WINDOW_MS,
   SAVE_IDLE_MS,
+  UNDO_RELOAD_MS,
   changedRange,
   clampLine,
+  discardedByReload,
   inlineTokens,
   nodeClass,
   toCrlf,
@@ -300,5 +302,25 @@ describe("changedRange", () => {
   it("does not split a surrogate pair", () => {
     const r = changedRange("a😀b", "a😁b")!;
     expect(r).toEqual({ from: 1, to: 3, insert: "😁" });
+  });
+});
+
+describe("discardedByReload", () => {
+  it("is the editor text that the reload replaced", () => {
+    expect(discardedByReload("my edit", "disk")).toBe("my edit");
+  });
+
+  it("is null when the reload loses nothing", () => {
+    expect(discardedByReload("same", "same")).toBeNull();
+  });
+
+  it("offers the undo for 10 s", () => {
+    expect(UNDO_RELOAD_MS).toBe(10_000);
+  });
+
+  it("puts the discarded text back with a change from the reloaded text", () => {
+    const range = changedRange("disk v2\n", "disk v1\nmy edit")!;
+    const restored = "disk v2\n".slice(0, range.from) + range.insert + "disk v2\n".slice(range.to);
+    expect(restored).toBe("disk v1\nmy edit");
   });
 });

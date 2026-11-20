@@ -2,14 +2,17 @@ import type { ElementRef, OnDestroy } from "@angular/core";
 import { Component, effect, inject, output, signal, untracked, viewChild } from "@angular/core";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { HxMessageService } from "@gravionlabs/helix-ui";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { countText } from "../../core/editor/text-stats";
 import {
   AutoSaver,
   ExternalChangeTracker,
+  UNDO_RELOAD_MS,
   changedRange,
   clampLine,
+  discardedByReload,
   toCrlf,
 } from "../../core/editor/editor-core";
 import { blocksOf, headingsOf } from "../../core/editor/completion-core";
@@ -30,6 +33,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
+import { ExternalCompareComponent } from "./external-compare.component";
 import type { FoldAction } from "./folding";
 import { foldAction, folding, restoreFolds } from "./folding";
 import { headingLineAt } from "../../core/composer/composer-core";
@@ -53,6 +57,7 @@ const STATS_DELAY_MS = 150;
   selector: "app-editor",
   templateUrl: "./editor.component.html",
   styleUrl: "./editor.component.css",
+  imports: [ExternalCompareComponent],
 })
 export class EditorComponent implements OnDestroy {
   readonly failed = output<string>();
@@ -65,10 +70,17 @@ export class EditorComponent implements OnDestroy {
   private readonly editor = inject(EditorService);
   private readonly outline = inject(OutlineService);
   private readonly folds = inject(FoldStateService);
+  private readonly messages = inject(HxMessageService);
   private readonly host = viewChild.required<ElementRef<HTMLElement>>("host");
 
   /** The disk text that conflicts with unsaved changes; null when there is no conflict. */
   protected readonly conflict = signal<string | null>(null);
+
+  /** The editor text shown in the compare dialog; null while the dialog is closed. */
+  protected readonly comparing = signal<string | null>(null);
+
+  /** The toast that offers to undo the last reload from the bar. */
+  private undoToast: number | null = null;
 
   private readonly theme = new Compartment();
   private view: EditorView | undefined;
@@ -133,6 +145,7 @@ export class EditorComponent implements OnDestroy {
     clearTimeout(this.statsTimer);
     this.editor.stats.set(null);
     this.unlistenClose?.();
+    this.dropUndo();
     void this.settle();
     this.editor.handle = null;
     this.outline.editorText.set(null);
@@ -159,6 +172,8 @@ export class EditorComponent implements OnDestroy {
   private async openNote(path: string | null, host: HTMLElement): Promise<void> {
     await this.settle();
     this.conflict.set(null);
+    this.comparing.set(null);
+    this.dropUndo();
     const current = this.doc.path();
     if (!current || current !== path) {
       // A newer switch is on its way; it opens the note.
@@ -480,10 +495,60 @@ export class EditorComponent implements OnDestroy {
       this.failed.emit("The note on disk is not valid UTF-8; keep yours or fix the file first.");
       return;
     }
+    const discarded = this.view?.state.doc.toString() ?? "";
     session.saver.discard();
     this.replaceText(session, disk);
     this.conflict.set(null);
+    this.comparing.set(null);
     session.saver.hold(false);
+    this.offerUndo(session, discarded);
+  }
+
+  /** Reload discards the unsaved edits: a toast puts them back for a while. */
+  private offerUndo(session: Session, before: string): void {
+    this.dropUndo();
+    const discarded = discardedByReload(before, this.view?.state.doc.toString() ?? "");
+    if (discarded === null) return;
+    this.undoToast = this.messages.add({
+      severity: "info",
+      summary: "Reloaded from disk; your unsaved edits were discarded.",
+      life: UNDO_RELOAD_MS,
+      action: { label: "Undo", run: () => this.undoReload(session, discarded) },
+    });
+  }
+
+  private dropUndo(): void {
+    if (this.undoToast !== null) this.messages.remove(this.undoToast);
+    this.undoToast = null;
+  }
+
+  /** Puts the discarded text back as an ordinary edit, so it is saved over the disk version. */
+  private undoReload(session: Session, discarded: string): void {
+    this.undoToast = null;
+    const view = this.view;
+    if (!view || this.session !== session || this.conflict() !== null) return;
+    const range = changedRange(view.state.doc.toString(), discarded);
+    if (range) view.dispatch({ changes: range, userEvent: "input.undo-reload" });
+  }
+
+  protected compare(): void {
+    if (this.conflict() === null || !this.view) return;
+    this.comparing.set(this.view.state.doc.toString());
+  }
+
+  protected closeCompare(): void {
+    this.comparing.set(null);
+    this.view?.focus();
+  }
+
+  protected chooseReload(): void {
+    this.comparing.set(null);
+    void this.reloadFromDisk();
+  }
+
+  protected chooseKeep(): void {
+    this.comparing.set(null);
+    this.keepMine();
   }
 
   protected keepMine(): void {

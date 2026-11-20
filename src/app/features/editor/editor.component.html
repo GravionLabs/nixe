@@ -1,8 +1,24 @@
 @if (conflict() !== null) {
   <div class="bar" role="alert">
-    <span>This note changed on disk while you were editing.</span>
+    <span class="message">
+      This note changed on disk while you were editing.
+      <span class="hints">
+        <b>Reload</b> discards your unsaved edits. <b>Keep mine</b> replaces the version on disk
+        with your next save.
+      </span>
+    </span>
     <button type="button" (click)="reloadFromDisk()">Reload</button>
     <button type="button" (click)="keepMine()">Keep mine</button>
+    <button type="button" (click)="compare()">Compare</button>
   </div>
+}
+@if (comparing(); as mine) {
+  <app-external-compare
+    [disk]="conflict() ?? ''"
+    [mine]="mine"
+    (reload)="chooseReload()"
+    (keep)="chooseKeep()"
+    (closed)="closeCompare()"
+  />
 }
 <div #host class="host"></div>
