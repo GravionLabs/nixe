@@ -12,10 +12,10 @@
     <button type="button" (click)="compare()">Compare</button>
   </div>
 }
-@if (comparing(); as mine) {
+@if (comparing() !== null) {
   <app-external-compare
     [disk]="conflict() ?? ''"
-    [mine]="mine"
+    [mine]="comparing() ?? ''"
     (reload)="chooseReload()"
     (keep)="chooseKeep()"
     (closed)="closeCompare()"

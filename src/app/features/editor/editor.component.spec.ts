@@ -27,6 +27,8 @@ describe("external change bar (template)", () => {
   it("opens the compare dialog with the same two choices", () => {
     expect(bar).toContain('(click)="compare()"');
     expect(html).toContain("<app-external-compare");
+    // An empty editor text is falsy: the dialog must test for null, not truthiness.
+    expect(html).toContain("@if (comparing() !== null)");
     expect(html).toContain('(reload)="chooseReload()"');
     expect(html).toContain('(keep)="chooseKeep()"');
   });
