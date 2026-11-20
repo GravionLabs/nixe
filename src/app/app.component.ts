@@ -16,6 +16,8 @@ import { AutoSyncService } from "./core/git/auto-sync.service";
 import { CloneService } from "./core/git/clone.service";
 import { GitService } from "./core/git/git.service";
 import { SettingsPageService } from "./core/settings/settings-page.service";
+import { overlaysNote, clampPanelWidth } from "./core/panel/panel-width";
+import { PanelResizerComponent } from "./features/panel-resizer/panel-resizer.component";
 import { PanelTab, SettingsService } from "./core/settings/settings.service";
 import { isPrerelease } from "./core/updater/update-logic";
 import { UpdateService } from "./core/updater/update.service";
@@ -61,10 +63,10 @@ export class NavIconDirective {
 
 @Component({
   selector: "app-root",
-  imports: [BookmarksComponent, HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, ComposerComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, StartComponent, WorkspaceComponent],
+  imports: [PanelResizerComponent, BookmarksComponent, HxActivityBar, HxAppShell, NavIconDirective, LinkPreviewComponent, OutlineComponent, BacklinksComponent, CloneComponent, ConflictBarComponent, GitComponent, HistoryComponent, StatusBarComponent, PaletteComponent, RecentComponent, SearchComponent, SwitcherComponent, TemplatesComponent, ComposerComponent, EditorSpikeComponent, GitSpikeComponent, ToolbarComponent, SidebarComponent, StartComponent, WorkspaceComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
-  host: { "(document:keydown)": "onKeydown($event)" },
+  host: { "(document:keydown)": "onKeydown($event)", "(window:resize)": "onResize()" },
 })
 export class AppComponent {
   protected readonly doc = inject(DocumentService);
@@ -108,6 +110,19 @@ export class AppComponent {
 
   /** The Links tab needs a vault; outside one the panel only has the outline. */
   protected readonly linksAvailable = computed(() => this.workspace.vaultRoot() !== null);
+
+  protected readonly windowWidth = signal(window.innerWidth);
+
+  protected onResize(): void {
+    this.windowWidth.set(window.innerWidth);
+  }
+
+  /** Width the sidebar takes right now. */
+  protected readonly sidebarShown = computed(() => (this.shell.shownView() === null ? 0 : this.settings.sidebarWidth()));
+  /** Too narrow for the panel next to a note of 320px: the panel floats over the note. */
+  protected readonly panelOverlays = computed(() => overlaysNote(this.windowWidth(), this.sidebarShown()));
+  /** The stored width within what the window allows. */
+  protected readonly panelWidthShown = computed(() => clampPanelWidth(this.settings.panelWidth(), this.windowWidth(), this.sidebarShown()));
 
   protected readonly showPanel = computed(() => this.doc.path() !== null && this.settings.panelOpen());
 

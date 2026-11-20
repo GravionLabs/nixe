@@ -15,6 +15,36 @@ ul {
   color: var(--h-text-muted-color);
 }
 
+li {
+  position: relative;
+}
+
+.levels {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+button.level {
+  width: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+button.fold {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  width: 14px;
+  padding: 4px 0;
+  border: 0;
+  color: var(--h-text-muted-color);
+  font-size: 10px;
+  text-align: center;
+}
+
 button {
   display: block;
   width: 100%;

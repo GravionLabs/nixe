@@ -65,7 +65,18 @@
   </div>
 
   @if (tabs.showWorkspace() && showPanel()) {
-    <div slot="panel" class="panel">
+    <div
+      slot="panel"
+      class="panel"
+      [class.overlay]="panelOverlays()"
+      [style.width.px]="panelWidthShown()"
+    >
+      <app-panel-resizer
+        [width]="panelWidthShown()"
+        [windowWidth]="windowWidth()"
+        [sidebarWidth]="sidebarShown()"
+        (widthChange)="settings.panelWidth.set($event)"
+      />
       <div class="panel-tabs" role="tablist" aria-label="Note panel">
         <button
           type="button"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOutline, currentHeading, outlineOf } from "./outline-core";
+import { buildOutline, collapseToLevel, currentHeading, foldable, markedHeading, outlineOf } from "./outline-core";
 
 describe("outlineOf", () => {
   it("lists ATX headings with their 1-based line", () => {
@@ -71,5 +71,29 @@ describe("currentHeading", () => {
     expect(currentHeading(headings, 1)).toBe(-1);
     expect(currentHeading(headings, null)).toBe(-1);
     expect(currentHeading([], 5)).toBe(-1);
+  });
+});
+
+describe("folding", () => {
+  const tree = () => buildOutline(outlineOf("# A\n## B\n### C\n## D\n# E\n## F"));
+
+  it("lists the headings that have children", () => {
+    expect(foldable(tree())).toEqual([0, 1, 4]);
+  });
+
+  it("folds everything from a level down", () => {
+    expect([...collapseToLevel(tree(), 1)]).toEqual([0, 1, 4]);
+    expect([...collapseToLevel(tree(), 2)]).toEqual([1]);
+    expect([...collapseToLevel(tree(), 3)]).toEqual([]);
+  });
+
+  it("marks the current heading, or its outermost folded ancestor", () => {
+    const t = tree();
+    expect(markedHeading(t, 2, new Set())).toBe(2);
+    expect(markedHeading(t, 2, new Set([1]))).toBe(1);
+    expect(markedHeading(t, 2, new Set([0, 1]))).toBe(0);
+    expect(markedHeading(t, 1, new Set([1]))).toBe(1);
+    expect(markedHeading(t, 5, new Set([0]))).toBe(5);
+    expect(markedHeading(t, -1, new Set([0]))).toBe(-1);
   });
 });

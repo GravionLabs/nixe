@@ -52,6 +52,8 @@ export class SettingsService {
   readonly backlinksVisible = signal<boolean>(this.stored.backlinks);
   /** Right-hand outline panel (the headings of the open note). */
   readonly outlineVisible = signal<boolean>(this.stored.outline);
+  /** Width of the right panel; kept per vault (#250). */
+  readonly panelWidth = signal<number>(this.stored.panelWidth);
   /**
    * The tab of the right panel. The panel is open when `outlineVisible` or `backlinksVisible` is
    * set; they are stored per vault, so the open tab survives a restart. Both set (an old
@@ -160,6 +162,7 @@ export class SettingsService {
       activeView: this.activeView(),
       backlinks: this.backlinksVisible(),
       outline: this.outlineVisible(),
+      panelWidth: this.panelWidth(),
       linkPreview: this.linkPreview(),
       lastFolder: this.lastFolder(),
       recentVaults: this.recentVaults(),
@@ -200,6 +203,7 @@ export class SettingsService {
     this.activeView.set(s.activeView);
     this.backlinksVisible.set(s.backlinks);
     this.outlineVisible.set(s.outline);
+    this.panelWidth.set(s.panelWidth);
     this.linkPreview.set(s.linkPreview);
     this.lastFolder.set(s.lastFolder);
     this.recentVaults.set(s.recentVaults);

@@ -42,20 +42,20 @@ describe("OutlineComponent", () => {
 
   it("lists the headings as a nested tree", () => {
     const { el } = render("# A\n## B\n# C");
-    const items = Array.from(el.querySelectorAll("li")).map((li) => li.querySelector("button")!.textContent!.trim());
+    const items = Array.from(el.querySelectorAll("li")).map((li) => li.querySelector("button.heading")!.textContent!.trim());
     expect(items).toEqual(["A", "B", "C"]);
-    expect(el.querySelector("li ul li button")!.textContent!.trim()).toBe("B");
+    expect(el.querySelector("li ul li button.heading")!.textContent!.trim()).toBe("B");
   });
 
   it("says so when there are no headings", () => {
     const { el } = render("text");
     expect(el.textContent).toContain("No headings");
-    expect(el.querySelectorAll("button").length).toBe(0);
+    expect(el.querySelectorAll("button.heading").length).toBe(0);
   });
 
   it("scrolls the viewer to the heading on click", () => {
     const { el, pendingLine, scrollToLine } = render("# A\ntext\n## B");
-    el.querySelectorAll("button")[1]!.click();
+    el.querySelectorAll("button.heading")[1]!.click();
     expect(pendingLine()).toBe(3);
     expect(scrollToLine).not.toHaveBeenCalled();
   });
@@ -63,14 +63,14 @@ describe("OutlineComponent", () => {
   it("bookmarks a heading from its context menu", () => {
     const { el, bookmarks } = render("# A\ntext\n## B");
     const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
-    el.querySelectorAll("button")[1]!.dispatchEvent(event);
+    el.querySelectorAll("button.heading")[1]!.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
     expect(bookmarks.bookmarkHeading).toHaveBeenCalledWith("n.md", "B");
   });
 
   it("scrolls the editor to the heading on click while editing", () => {
     const { el, pendingLine, scrollToLine } = render("# A\ntext\n## B", true);
-    el.querySelectorAll("button")[1]!.click();
+    el.querySelectorAll("button.heading")[1]!.click();
     expect(scrollToLine).toHaveBeenCalledWith(3);
     expect(pendingLine()).toBeNull();
   });
@@ -82,10 +82,58 @@ describe("OutlineComponent", () => {
     expect(el.querySelector("button.current")!.textContent!.trim()).toBe("B");
     outline.editorText.set("# A\ntext\n# B\n# Typed");
     fixture.detectChanges();
-    expect(el.querySelectorAll("button").length).toBe(3);
+    expect(el.querySelectorAll("button.heading").length).toBe(3);
     outline.topLine.set(1);
     fixture.detectChanges();
     expect(el.querySelector("button.current")!.textContent!.trim()).toBe("A");
     expect(el.querySelectorAll("button.current").length).toBe(1);
+  });
+
+  describe("folding", () => {
+    const text = "# A\n## B\n### C\n# D";
+    const labels = (el: HTMLElement) =>
+      Array.from(el.querySelectorAll("button.heading")).map((b) => b.textContent!.trim());
+
+    it("collapses to H1, H2 or H3 and expands all", () => {
+      const { fixture, el } = render(text);
+      const level = (name: string) =>
+        (Array.from(el.querySelectorAll("button.level")) as HTMLButtonElement[]).find((b) => b.textContent!.trim() === name)!.click();
+      level("H1");
+      fixture.detectChanges();
+      expect(labels(el)).toEqual(["A", "D"]);
+      level("H2");
+      fixture.detectChanges();
+      expect(labels(el)).toEqual(["A", "B", "D"]);
+      level("H3");
+      fixture.detectChanges();
+      expect(labels(el)).toEqual(["A", "B", "C", "D"]);
+      level("H1");
+      level("All");
+      fixture.detectChanges();
+      expect(labels(el)).toEqual(["A", "B", "C", "D"]);
+    });
+
+    it("folds a single heading with children", () => {
+      const { fixture, el } = render(text);
+      expect(el.querySelectorAll("button.fold").length).toBe(2);
+      (el.querySelector("button.fold") as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(labels(el)).toEqual(["A", "D"]);
+      expect(el.querySelector("li")!.getAttribute("aria-expanded")).toBe("false");
+    });
+
+    it("marks the parent while the current heading is folded away", () => {
+      const { fixture, el, outline } = render(text);
+      outline.topLine.set(3);
+      fixture.detectChanges();
+      expect(el.querySelector("button.current")!.textContent!.trim()).toBe("C");
+      outline.collapseTo(1);
+      fixture.detectChanges();
+      expect(el.querySelector("button.current")!.textContent!.trim()).toBe("A");
+      expect(el.querySelectorAll("button.current").length).toBe(1);
+      outline.expandAll();
+      fixture.detectChanges();
+      expect(el.querySelector("button.current")!.textContent!.trim()).toBe("C");
+    });
   });
 });

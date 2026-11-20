@@ -48,3 +48,13 @@ describe("sanitizeStates layout", () => {
     expect(states["/b"].layout).toBeUndefined();
   });
 });
+
+describe("panelWidth in a vault state", () => {
+  it("is kept when valid and clamped or dropped otherwise", () => {
+    const out = sanitizeStates({ "/a": { panelWidth: 400 }, "/b": { panelWidth: 5 }, "/c": { panelWidth: "x" }, "/d": {} });
+    expect(out["/a"]!.panelWidth).toBe(400);
+    expect(out["/b"]!.panelWidth).toBe(180);
+    expect(out["/c"]!.panelWidth).toBeUndefined();
+    expect(out["/d"]!.panelWidth).toBeUndefined();
+  });
+});
