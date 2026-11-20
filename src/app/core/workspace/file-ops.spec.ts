@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { noteFromLinkTarget, remapPath, renamedName, uniqueName } from "./file-ops";
+import { noteFromLinkTarget, planMove, remapPath, renamedName, topLevelPaths, uniqueName } from "./file-ops";
 
 describe("uniqueName", () => {
   it("uses the plain name when it is free", () => {
@@ -54,5 +54,27 @@ describe("remapPath", () => {
     expect(remapPath("/v/a", "/v/a", "/v/b")).toBe("/v/b");
     expect(remapPath("/v/a/x.md", "/v/a", "/v/b")).toBe("/v/b/x.md");
     expect(remapPath("/v/ab/x.md", "/v/a", "/v/b")).toBe("/v/ab/x.md");
+  });
+});
+
+describe("topLevelPaths and planMove", () => {
+  it("drops entries inside another selected folder", () => {
+    expect(topLevelPaths(["/v/a", "/v/a/x.md", "/v/ab.md", "/v/a"])).toEqual(["/v/a", "/v/ab.md"]);
+  });
+
+  it("plans the moves into a folder and leaves entries already there", () => {
+    expect(planMove(["/v/a.md", "/v/d/b.md", "/v/e"], "/v/d")).toEqual([
+      { from: "/v/a.md", to: "/v/d/a.md" },
+      { from: "/v/e", to: "/v/d/e" },
+    ]);
+  });
+
+  it("refuses a folder into itself or below itself", () => {
+    expect(() => planMove(["/v/a"], "/v/a")).toThrow(/into itself/);
+    expect(() => planMove(["/v/a"], "/v/a/b")).toThrow(/into itself/);
+  });
+
+  it("refuses two entries with the same name", () => {
+    expect(() => planMove(["/v/x/n.md", "/v/y/N.md"], "/v/d")).toThrow(/more than one/);
   });
 });

@@ -87,6 +87,15 @@ svg {
   outline-offset: -2px;
 }
 
+.row.selected {
+  background: color-mix(in srgb, var(--h-primary-color) 30%, transparent);
+}
+
+.row.drop-target {
+  outline: 2px dashed var(--h-primary-color);
+  outline-offset: -2px;
+}
+
 .row.active {
   background: color-mix(in srgb, var(--h-primary-color) 18%, transparent);
   color: var(--h-text-color);

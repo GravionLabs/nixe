@@ -64,6 +64,14 @@ CodeMirror completion for links and tags; nothing is offered in code.
   nothing matches.
 - The **sidebar context menu** (right click, F2 renames inline) offers New note, New folder,
   Rename, Delete and Reveal in Finder/Explorer. Delete moves to `.trash/` of the vault.
+- The **file tree** follows the WAI-ARIA tree pattern (`role="tree"`, `aria-multiselectable`,
+  `aria-selected`, one tab stop that moves with the focus). Up/Down, Home/End move the focus, Right
+  expands a folder or enters it, Left collapses it or goes to the parent folder, letters jump to the
+  next name that starts with them, Space toggles the selection of a row, Enter opens it, Delete moves
+  the selection to the trash. Ctrl/Cmd-click toggles and Shift-click (or Shift with the arrows)
+  extends the selection; Alt-click opens a note in a new tab. Dragging the selection onto a folder
+  (or the empty area for the vault root) moves it, rewriting links as a rename does and listing the
+  notes that change first. A move onto a name that is taken is refused before anything is moved.
 - Renaming or moving a note or folder rewrites the links to it in the notes that contain them
   (`[[wikilinks]]`, `![[embeds]]` and Markdown links), like Obsidian's `alwaysUpdateLinks`.
   Aliases, headings and block references stay; the path form follows `newLinkFormat` of

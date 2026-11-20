@@ -17,12 +17,27 @@
   </button>
 </header>
 
-<nav class="tree" role="tree" aria-label="Files" (contextmenu)="openMenu($event, null)">
+<nav
+  class="tree"
+  role="tree"
+  aria-label="Files"
+  aria-multiselectable="true"
+  (contextmenu)="openMenu($event, null)"
+  (dragover)="dragOver($event, null)"
+  (dragleave)="dropTarget.set(null)"
+  (drop)="drop($event, null)"
+>
   @for (node of workspace.visible(); track node.dirPath ?? node.filePath) {
     <div
       class="row"
       role="treeitem"
-      tabindex="0"
+      [attr.draggable]="renaming() !== path(node)"
+      [attr.data-path]="path(node)"
+      [attr.tabindex]="rowTabindex(node)"
+      [attr.aria-selected]="selection().has(path(node))"
+      [attr.aria-level]="node.depth + 1"
+      [class.selected]="selection().has(path(node))"
+      [class.drop-target]="dropTarget() === node.dirPath && node.dirPath !== null"
       [class.active]="node.filePath !== null && node.filePath === doc.path()"
       [class.conflict]="node.filePath !== null && conflicted().has(node.filePath)"
       [class.pulled]="node.filePath !== null && changes.unseenPaths().has(node.filePath)"
@@ -30,11 +45,13 @@
       [style.padding-left.px]="8 + node.depth * 14"
       [title]="node.filePath ?? node.dirPath ?? ''"
       (click)="select(node, $event)"
+      (focus)="focused.set(path(node))"
+      (dragstart)="dragStart($event, node)"
+      (dragend)="dragEnd()"
+      (dragover)="dragOver($event, node)"
+      (drop)="drop($event, node)"
       (contextmenu)="openMenu($event, node)"
-      (keydown.enter)="renaming() === path(node) || select(node)"
-      (keydown.f2)="beginRename(node)"
-      (keydown.arrowright)="node.dirPath && workspace.toggle(node, true)"
-      (keydown.arrowleft)="node.dirPath && workspace.toggle(node, false)"
+      (keydown)="onKeydown(node, $event)"
     >
       @if (node.dirPath) {
         <span class="chevron" [class.open]="node.expanded()" (click)="toggle(node, $event)">
