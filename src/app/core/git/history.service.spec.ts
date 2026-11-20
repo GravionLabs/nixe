@@ -187,6 +187,71 @@ describe("HistoryService", () => {
     });
   });
 
+  it("keeps timeline, selection and comparison on a status or revision change (#289)", async () => {
+    status.set({
+      branch: "main",
+      changes: [{ path: "a.md", kind: "modified" }],
+      ahead: 0,
+      behind: 0,
+    });
+    await ready();
+    await history.select(history.timeline()[0]);
+    const before = history.comparison();
+    expect(before).not.toBeNull();
+    log.mockClear();
+    let emptied = false;
+    let loadingSeen = false;
+    const watch = setInterval(() => {
+      if (history.timeline().length === 0) emptied = true;
+      if (history.loading()) loadingSeen = true;
+    }, 0);
+    version.mockImplementation(async (_p, rev) => `new@${rev}`);
+    status.set({
+      branch: "main",
+      changes: [{ path: "a.md", kind: "modified" }],
+      ahead: 0,
+      behind: 0,
+    });
+    revision.set(1);
+    TestBed.tick();
+    await flush();
+    await flush();
+    clearInterval(watch);
+    expect(log).toHaveBeenCalledWith("a.md", 0, PAGE_SIZE);
+    expect(emptied).toBe(false);
+    expect(loadingSeen).toBe(false);
+    expect(history.timeline().map((t) => t.id)).toEqual([null, "c2", "c1"]);
+    expect(history.selection()).toEqual([""]);
+    expect(history.comparison()).toMatchObject({ newText: "new@null" });
+  });
+
+  it("keeps a committed selection and its comparison untouched on a refresh (#289)", async () => {
+    await ready();
+    await history.select(history.timeline()[0]);
+    const commits = history.commits();
+    const comparison = history.comparison();
+    version.mockClear();
+    revision.set(1);
+    TestBed.tick();
+    await flush();
+    await flush();
+    expect(history.commits()).toBe(commits);
+    expect(history.selection()).toEqual(["c2"]);
+    expect(history.comparison()).toBe(comparison);
+    expect(version).not.toHaveBeenCalled();
+  });
+
+  it("resets the list and the selection when the note changes", async () => {
+    await ready();
+    await history.select(history.timeline()[0]);
+    path.set("/vault/b.md");
+    TestBed.tick();
+    await flush();
+    expect(log).toHaveBeenLastCalledWith("b.md", 0, PAGE_SIZE);
+    expect(history.selection()).toEqual([]);
+    expect(history.comparison()).toBeNull();
+  });
+
   it("reports a failing log", async () => {
     log.mockRejectedValue(new Error("boom"));
     await ready();
