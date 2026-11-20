@@ -225,6 +225,22 @@ describe("HistoryService", () => {
     expect(history.comparison()).toMatchObject({ newText: "new@null" });
   });
 
+  it("keeps a committed selection and its comparison untouched on a refresh (#289)", async () => {
+    await ready();
+    await history.select(history.timeline()[0]);
+    const commits = history.commits();
+    const comparison = history.comparison();
+    version.mockClear();
+    revision.set(1);
+    TestBed.tick();
+    await flush();
+    await flush();
+    expect(history.commits()).toBe(commits);
+    expect(history.selection()).toEqual(["c2"]);
+    expect(history.comparison()).toBe(comparison);
+    expect(version).not.toHaveBeenCalled();
+  });
+
   it("resets the list and the selection when the note changes", async () => {
     await ready();
     await history.select(history.timeline()[0]);

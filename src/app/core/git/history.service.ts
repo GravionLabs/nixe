@@ -207,7 +207,7 @@ export class HistoryService {
     const kept = this.selection().filter((k) => rows.some((r) => this.key(r) === k));
     const dropped = kept.length !== this.selection().length;
     if (dropped) this.selection.set(kept);
-    if (dropped || (changed && kept.length > 0) || kept.includes("")) await this.compare();
+    if (dropped || kept.includes("")) await this.compare();
   }
 
   /** Loads the next older page. */
