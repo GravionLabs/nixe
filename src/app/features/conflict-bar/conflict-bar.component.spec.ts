@@ -36,7 +36,9 @@ describe("ConflictBarComponent", () => {
   });
 
   it("links the copy from the original and the original from the copy", () => {
-    expect(render(false).el.querySelector("a")?.textContent).toBe("Note (conflict 2026-11-16 mac).md");
+    expect(render(false).el.querySelector("a")?.textContent).toBe(
+      "Note (conflict 2026-11-16 mac).md",
+    );
     expect(render(true).el.querySelector("a")?.textContent).toBe("Note.md");
   });
 

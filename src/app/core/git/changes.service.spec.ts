@@ -47,7 +47,9 @@ describe("ChangesService", () => {
       ],
     });
     between = vi.spyOn(backend, "gitChangesBetween").mockResolvedValue(list);
-    vi.spyOn(backend, "gitNoteVersion").mockImplementation(async (_p, rev) => (rev === "HEAD" ? "new" : "old"));
+    vi.spyOn(backend, "gitNoteVersion").mockImplementation(async (_p, rev) =>
+      rev === "HEAD" ? "new" : "old",
+    );
     service = TestBed.inject(ChangesService);
     TestBed.tick();
   });

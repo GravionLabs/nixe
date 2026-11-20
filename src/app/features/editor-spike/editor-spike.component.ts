@@ -1,27 +1,13 @@
-import {
-  Component,
-  ElementRef,
-  OnDestroy,
-  signal,
-  ViewChild,
-} from "@angular/core";
+import { Component, ElementRef, OnDestroy, signal, ViewChild } from "@angular/core";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import {
-  defaultHighlightStyle,
-  syntaxHighlighting,
-} from "@codemirror/language";
+import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { Compartment, EditorState, Extension } from "@codemirror/state";
 import { EditorView, drawSelection, keymap } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { open as pickFile } from "@tauri-apps/plugin-dialog";
 
-import {
-  CHECKLIST_ITEMS,
-  Rating,
-  checklistMarkdown,
-  clampFontSize,
-} from "./decoration-logic";
+import { CHECKLIST_ITEMS, Rating, checklistMarkdown, clampFontSize } from "./decoration-logic";
 import { livePreviewSpike } from "./decorations";
 
 const FONT_KEY = "nixe.editorSpike.fontSize";
@@ -47,10 +33,7 @@ function themeFor(size: number) {
 }
 
 /** The extension list of the spike editor; the compartment lets the font size change live. */
-export function editorExtensions(
-  theme: Compartment,
-  size: number,
-): Extension[] {
+export function editorExtensions(theme: Compartment, size: number): Extension[] {
   return [
     history(),
     keymap.of([...defaultKeymap, ...historyKeymap]),
@@ -80,12 +63,8 @@ export function editorExtensions(
         <button type="button" (click)="resize(-1)">A-</button>
         <span>{{ fontSize() }}px</span>
         <button type="button" (click)="resize(1)">A+</button>
-        <button type="button" (click)="openExternal()">
-          Open external file (iCloud)
-        </button>
-        <button type="button" (click)="save()" [disabled]="!current()">
-          Save
-        </button>
+        <button type="button" (click)="openExternal()">Open external file (iCloud)</button>
+        <button type="button" (click)="save()" [disabled]="!current()">Save</button>
       </div>
       <p style="white-space: pre-wrap">{{ status() }}</p>
       <div #host class="host"></div>
@@ -94,18 +73,11 @@ export function editorExtensions(
         <div class="item">
           <span>{{ item }}</span>
           @for (r of ratingsList; track r) {
-            <button
-              type="button"
-              [class.on]="ratings()[item] === r"
-              (click)="rate(item, r)"
-            >
+            <button type="button" [class.on]="ratings()[item] === r" (click)="rate(item, r)">
               {{ r }}
             </button>
           }
-          <input
-            placeholder="note"
-            (input)="note(item, $any($event.target).value)"
-          />
+          <input placeholder="note" (input)="note(item, $any($event.target).value)" />
         </div>
       }
       <button type="button" (click)="copy()">Copy result as markdown</button>

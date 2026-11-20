@@ -1,10 +1,27 @@
-import { Component, ElementRef, computed, effect, inject, output, signal, untracked, viewChild } from "@angular/core";
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  output,
+  signal,
+  untracked,
+  viewChild,
+} from "@angular/core";
 
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { SearchHit, SearchSnippet } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { ReplaceService } from "../../core/index/replace.service";
-import { SEARCH_SORTS, SearchService, SearchSort, segments, sortHits, withOperator } from "../../core/index/search.service";
+import {
+  SEARCH_SORTS,
+  SearchService,
+  SearchSort,
+  segments,
+  sortHits,
+  withOperator,
+} from "../../core/index/search.service";
 import { joinPath } from "../../core/markdown/paths";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
@@ -96,7 +113,9 @@ export class SearchComponent {
   }
 
   protected toggleAll(): void {
-    this.collapsed.set(this.allCollapsed() ? new Set() : new Set(this.search.hits().map((h) => h.path)));
+    this.collapsed.set(
+      this.allCollapsed() ? new Set() : new Set(this.search.hits().map((h) => h.path)),
+    );
   }
 
   protected insertOperator(operator: string): void {

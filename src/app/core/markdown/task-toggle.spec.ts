@@ -10,7 +10,9 @@ describe("setTaskState", () => {
 
   it("handles nested lists, ordered lists, other bullets and quotes", () => {
     const text = "- [ ] a\n  - [ ] b\n    * [ ] c\n1. [ ] d\n> - [ ] e\n";
-    expect(setTaskState(text, 1, true)).toBe("- [ ] a\n  - [x] b\n    * [ ] c\n1. [ ] d\n> - [ ] e\n");
+    expect(setTaskState(text, 1, true)).toBe(
+      "- [ ] a\n  - [x] b\n    * [ ] c\n1. [ ] d\n> - [ ] e\n",
+    );
     expect(setTaskState(text, 2, true)).toContain("    * [x] c");
     expect(setTaskState(text, 3, true)).toContain("1. [x] d");
     expect(setTaskState(text, 4, true)).toContain("> - [x] e");
@@ -31,7 +33,9 @@ describe("setTaskState", () => {
   });
 
   it("changes one character and keeps CRLF and the rest of the line", () => {
-    expect(setTaskState("- [ ] a [x] b\r\n- [ ] c\r\n", 0, true)).toBe("- [x] a [x] b\r\n- [ ] c\r\n");
+    expect(setTaskState("- [ ] a [x] b\r\n- [ ] c\r\n", 0, true)).toBe(
+      "- [x] a [x] b\r\n- [ ] c\r\n",
+    );
   });
 });
 

@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { describeChanges, headingLineAt, headingTextAt, targetNotePath } from "./composer-core";
 
 describe("headingLineAt", () => {
-  const text = "---\ntitle: x\n# not a heading\n---\nintro\n# A\ntext\n```\n# code\n```\n## B ##\nmore\n";
+  const text =
+    "---\ntitle: x\n# not a heading\n---\nintro\n# A\ntext\n```\n# code\n```\n## B ##\nmore\n";
 
   it("finds the heading above the cursor", () => {
     expect(headingLineAt(text, 7)).toBe(6);
@@ -62,7 +63,11 @@ describe("describeChanges", () => {
   });
 
   it("cuts a long list", () => {
-    const many = Array.from({ length: 5 }, (_, i) => ({ path: `${i}.md`, action: "update" as const, links: 2 }));
+    const many = Array.from({ length: 5 }, (_, i) => ({
+      path: `${i}.md`,
+      action: "update" as const,
+      links: 2,
+    }));
     expect(describeChanges(many, 2).split("\n")).toHaveLength(3);
     expect(describeChanges(many, 2)).toContain("… and 3 more");
   });

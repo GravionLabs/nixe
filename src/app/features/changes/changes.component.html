@@ -1,9 +1,19 @@
 <section aria-label="Changes since">
   <h2>Changes since</h2>
   <div class="range" role="group" aria-label="Range">
-    <button type="button" [class.on]="changes.kind() === 'sync'" (click)="changes.showSync()">Last sync</button>
-    <button type="button" [class.on]="changes.kind() === 'yesterday'" (click)="changes.showYesterday()">Yesterday</button>
-    <button type="button" [class.on]="changes.kind() === 'commit'" (click)="commit.focus()">Commit</button>
+    <button type="button" [class.on]="changes.kind() === 'sync'" (click)="changes.showSync()">
+      Last sync
+    </button>
+    <button
+      type="button"
+      [class.on]="changes.kind() === 'yesterday'"
+      (click)="changes.showYesterday()"
+    >
+      Yesterday
+    </button>
+    <button type="button" [class.on]="changes.kind() === 'commit'" (click)="commit.focus()">
+      Commit
+    </button>
   </div>
   <form class="commit" (submit)="$event.preventDefault(); changes.showCommit(commit.value)">
     <input #commit type="text" aria-label="Commit id" placeholder="Commit id" />
@@ -34,10 +44,15 @@
         }
         @if (changes.selected() === change.path && changes.diff()) {
           <div class="diff" aria-label="Difference">
-            <p class="stat"><span class="add">+{{ stat().added }}</span> <span class="del">−{{ stat().removed }}</span></p>
+            <p class="stat">
+              <span class="add">+{{ stat().added }}</span>
+              <span class="del">−{{ stat().removed }}</span>
+            </p>
             @for (row of rows(); track $index) {
               <div class="row" [class]="row.kind">
-                <span class="sign">{{ row.kind === "add" ? "+" : row.kind === "del" ? "−" : " " }}</span>
+                <span class="sign">{{
+                  row.kind === "add" ? "+" : row.kind === "del" ? "−" : " "
+                }}</span>
                 <span class="text">
                   @if (row.segments; as segments) {
                     @for (seg of segments; track $index) {

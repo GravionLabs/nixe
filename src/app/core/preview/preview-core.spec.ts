@@ -28,11 +28,19 @@ describe("placePopover", () => {
   const viewport = { width: 1000, height: 800 };
 
   it("opens below the anchor", () => {
-    expect(placePopover({ left: 100, top: 100, bottom: 120 }, size, viewport)).toEqual({ left: 100, top: 124, bottom: null });
+    expect(placePopover({ left: 100, top: 100, bottom: 120 }, size, viewport)).toEqual({
+      left: 100,
+      top: 124,
+      bottom: null,
+    });
   });
 
   it("flips above near the bottom", () => {
-    expect(placePopover({ left: 100, top: 700, bottom: 720 }, size, viewport)).toEqual({ left: 100, top: null, bottom: 104 });
+    expect(placePopover({ left: 100, top: 700, bottom: 720 }, size, viewport)).toEqual({
+      left: 100,
+      top: null,
+      bottom: 104,
+    });
   });
 
   it("keeps the popover inside the window horizontally", () => {

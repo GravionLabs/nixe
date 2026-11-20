@@ -23,7 +23,10 @@ describe("VaultOpsService", () => {
   const doc = { path, open: vi.fn(), close: vi.fn() };
   const workspace = { vaultRoot: signal("/v"), reloadTree: vi.fn() };
   const editor = { editing: signal(false), handle: null };
-  const bookmarks = { relative: (p: string) => (p.startsWith("/v/") ? p.slice(3) : null), renamed: vi.fn() };
+  const bookmarks = {
+    relative: (p: string) => (p.startsWith("/v/") ? p.slice(3) : null),
+    renamed: vi.fn(),
+  };
   let ops: VaultOpsService;
 
   beforeAll(() => {
@@ -191,7 +194,9 @@ describe("VaultOpsService", () => {
       vi.spyOn(backend, "listDir").mockResolvedValue([
         { name: "A.md", path: "/v/d/A.md", isDir: false, hasOrder: false },
       ]);
-      await expect(ops.move(["/v/b.md", "/v/a.md"], "/v/d")).rejects.toThrow(/a\.md already exists in d/);
+      await expect(ops.move(["/v/b.md", "/v/a.md"], "/v/d")).rejects.toThrow(
+        /a\.md already exists in d/,
+      );
       expect(backend.renamePath).not.toHaveBeenCalled();
     });
 

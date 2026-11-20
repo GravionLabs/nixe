@@ -76,7 +76,8 @@ export class BookmarksService {
   /** Listens for renames made outside the app (the file watcher). */
   async init(): Promise<void> {
     await listen<VaultChange[]>(VAULT_CHANGED_EVENT, (e) => {
-      for (const c of e.payload ?? []) if (c.kind === "rename" && c.from) this.renamed(c.from, c.path);
+      for (const c of e.payload ?? [])
+        if (c.kind === "rename" && c.from) this.renamed(c.from, c.path);
     });
   }
 
@@ -117,7 +118,10 @@ export class BookmarksService {
       // A vault file that exists but cannot be read or parsed is left alone.
       const keep = useVault && (vaultUnreadable || isDamaged(fromVault));
       this.writable = !keep;
-      if (keep) this.notice.set("Bookmarks of the vault are not readable; they are left as they are and not changed.");
+      if (keep)
+        this.notice.set(
+          "Bookmarks of the vault are not readable; they are left as they are and not changed.",
+        );
     } catch (err) {
       if (generation === this.generation) console.warn("bookmarks unavailable", err);
     }
@@ -199,7 +203,9 @@ export class BookmarksService {
 
   private toggle(probe: FileBookmark | SearchBookmark): void {
     const items = this.items();
-    this.commit(contains(items, probe) ? removeMatching(items, probe) : addBookmark(items, probe, this.now()));
+    this.commit(
+      contains(items, probe) ? removeMatching(items, probe) : addBookmark(items, probe, this.now()),
+    );
   }
 
   addGroup(title = "Group"): void {

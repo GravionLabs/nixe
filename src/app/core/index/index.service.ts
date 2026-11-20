@@ -6,7 +6,13 @@ import { INDEX_EVENT, IndexStatus, VAULT_CHANGED_EVENT, backend } from "../file/
 /** State of the vault index: build progress and a counter that moves whenever notes changed. */
 @Injectable({ providedIn: "root" })
 export class IndexService {
-  readonly status = signal<IndexStatus>({ state: "idle", done: 0, total: 0, notes: 0, error: null });
+  readonly status = signal<IndexStatus>({
+    state: "idle",
+    done: 0,
+    total: 0,
+    notes: 0,
+    error: null,
+  });
   /** Incremented after the index applied a batch of vault changes. */
   readonly revision = signal(0);
 

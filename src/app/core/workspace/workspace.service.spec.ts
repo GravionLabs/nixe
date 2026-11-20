@@ -41,10 +41,13 @@ describe("recent vaults in WorkspaceService", () => {
     doc.open = vi.fn().mockImplementation(async (p: string) => path.set(p));
     vi.spyOn(backend, "isFile").mockImplementation(async (p) => files.has(p));
     vi.spyOn(backend, "isDir").mockImplementation(async (p) => dirs.has(p));
-    vi.spyOn(backend, "listDir").mockImplementation(async (d) => [
-      { name: "home.md", path: `${d}/home.md`, isDir: false },
-      { name: "other.md", path: `${d}/other.md`, isDir: false },
-    ] as never);
+    vi.spyOn(backend, "listDir").mockImplementation(
+      async (d) =>
+        [
+          { name: "home.md", path: `${d}/home.md`, isDir: false },
+          { name: "other.md", path: `${d}/other.md`, isDir: false },
+        ] as never,
+    );
     vi.spyOn(backend, "findVaultRoot").mockImplementation(async (p) => p);
     vi.spyOn(backend, "listVaultFiles").mockResolvedValue([]);
     vi.spyOn(backend, "indexStart").mockResolvedValue(undefined as never);
@@ -55,7 +58,8 @@ describe("recent vaults in WorkspaceService", () => {
   });
 
   it("remembers the last five vaults, newest first", async () => {
-    for (const p of ["/a", "/b", "/c", "/d", "/e", "/f"]) await workspace.openFolder(p, { openDefaultPage: false });
+    for (const p of ["/a", "/b", "/c", "/d", "/e", "/f"])
+      await workspace.openFolder(p, { openDefaultPage: false });
     expect(settings.recentVaults()).toEqual(["/f", "/e", "/d", "/c", "/b"]);
     await workspace.openFolder("/c", { openDefaultPage: false });
     expect(settings.recentVaults()[0]).toBe("/c");
@@ -87,13 +91,26 @@ describe("recent vaults in WorkspaceService", () => {
 
   describe("tabs of a vault", () => {
     const layout = {
-      panes: [{ tabs: [{ path: "/b/other.md", history: ["/b/other.md"], index: 0, editing: false, line: null }], active: 0 }],
+      panes: [
+        {
+          tabs: [
+            { path: "/b/other.md", history: ["/b/other.md"], index: 0, editing: false, line: null },
+          ],
+          active: 0,
+        },
+      ],
       focused: 0,
       ratio: 0.5,
     };
 
     function withTabs(restore: () => Promise<boolean>) {
-      const fake = { panes: signal([]), focusedId: signal(0), reset: vi.fn(), restore: vi.fn(restore), snapshot: vi.fn(() => layout) };
+      const fake = {
+        panes: signal([]),
+        focusedId: signal(0),
+        reset: vi.fn(),
+        restore: vi.fn(restore),
+        snapshot: vi.fn(() => layout),
+      };
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
         providers: [
@@ -104,7 +121,13 @@ describe("recent vaults in WorkspaceService", () => {
       settings = TestBed.inject(SettingsService);
       workspace = TestBed.inject(WorkspaceService);
       settings.noteVaultOpened("/b");
-      settings.rememberVaultState("/b", { note: "/b/other.md", sidebar: true, backlinks: false, outline: false, layout });
+      settings.rememberVaultState("/b", {
+        note: "/b/other.md",
+        sidebar: true,
+        backlinks: false,
+        outline: false,
+        layout,
+      });
       return fake;
     }
 

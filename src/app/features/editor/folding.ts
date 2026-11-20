@@ -52,7 +52,12 @@ export function restoreFolds(view: EditorView, lines: readonly number[]): void {
     const range = ranges.get(n);
     if (!range) return [];
     const line = view.state.doc.line(n);
-    return [foldEffect.of({ from: line.to, to: view.state.doc.line(Math.min(range.endLine, view.state.doc.lines)).to })];
+    return [
+      foldEffect.of({
+        from: line.to,
+        to: view.state.doc.line(Math.min(range.endLine, view.state.doc.lines)).to,
+      }),
+    ];
   });
   if (effects.length) view.dispatch({ effects });
 }
@@ -85,7 +90,9 @@ export function folding(onChange: (lines: number[]) => void): Extension[] {
     foldGutter({ openText: "▾", closedText: "▸" }),
     keymap.of(foldKeymap),
     EditorView.updateListener.of((update: ViewUpdate) => {
-      const foldChanged = update.transactions.some((t) => t.effects.some((e) => e.is(foldEffect) || e.is(unfoldEffect)));
+      const foldChanged = update.transactions.some((t) =>
+        t.effects.some((e) => e.is(foldEffect) || e.is(unfoldEffect)),
+      );
       if (!foldChanged && !update.docChanged) return;
       const lines = foldedLines(update.state);
       const key = lines.join(",");

@@ -34,7 +34,9 @@ function saveUrl(url: string): void {
         <button type="button" (click)="run('token get', () => hasToken())">Token?</button>
         <button type="button" (click)="run('clone', () => clone(url.value))">Clone</button>
         <button type="button" (click)="run('commit', () => commit())">Commit</button>
-        <button type="button" (click)="run('pull --rebase', () => cmd('git_pull_rebase'))">Pull</button>
+        <button type="button" (click)="run('pull --rebase', () => cmd('git_pull_rebase'))">
+          Pull
+        </button>
         <button type="button" (click)="run('push', () => cmd('git_push'))">Push</button>
       </div>
       @if (git.tokenPrompt()) {
@@ -44,10 +46,23 @@ function saveUrl(url: string): void {
     </details>
   `,
   styles: `
-    .spike { padding: 0.5rem 1rem; font-size: 0.85rem; }
-    input { display: block; width: 100%; margin: 0.25rem 0; }
-    .row { display: flex; flex-wrap: wrap; gap: 0.25rem; }
-    pre { white-space: pre-wrap; }
+    .spike {
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+    }
+    input {
+      display: block;
+      width: 100%;
+      margin: 0.25rem 0;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
   `,
 })
 export class GitSpikeComponent {
@@ -60,7 +75,9 @@ export class GitSpikeComponent {
     const start = performance.now();
     try {
       const result = await action();
-      this.log.update((l) => `${l}${name}: ok ${Math.round(performance.now() - start)} ms ${result ?? ""}\n`);
+      this.log.update(
+        (l) => `${l}${name}: ok ${Math.round(performance.now() - start)} ms ${result ?? ""}\n`,
+      );
     } catch (error) {
       this.log.update((l) => `${l}${name}: FAILED ${String(error)}\n`);
     }

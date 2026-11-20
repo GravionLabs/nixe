@@ -39,7 +39,12 @@ function key(name: string, init: KeyboardEventInit = {}): KeyboardEvent {
 }
 
 describe("SidebarComponent tree", () => {
-  const rows = [node("alpha", "dir", 0, true), node("a.md", "file", 1), node("beta.md", "file", 0), node("box", "dir", 0)];
+  const rows = [
+    node("alpha", "dir", 0, true),
+    node("a.md", "file", 1),
+    node("beta.md", "file", 0),
+    node("box", "dir", 0),
+  ];
   const workspace = {
     visible: signal(rows),
     filteredRows: signal<TreeNode[]>([]),
@@ -52,7 +57,9 @@ describe("SidebarComponent tree", () => {
     sort: signal(TREE_SORTS[0]),
     setSort: vi.fn(),
   };
-  const gitStatus = signal<{ changes: { path: string; kind: string; untracked?: boolean }[] } | null>(null);
+  const gitStatus = signal<{
+    changes: { path: string; kind: string; untracked?: boolean }[];
+  } | null>(null);
   const treeGitStatus = signal(true);
   const ops = { trash: vi.fn(), move: vi.fn() };
   const tabs = { openInNewTab: vi.fn() };
@@ -70,7 +77,9 @@ describe("SidebarComponent tree", () => {
     gitStatus.set(null);
     treeGitStatus.set(true);
     host = document.createElement("div");
-    host.innerHTML = rows.map((r) => `<div class="row" data-path="${r.dirPath ?? r.filePath}" tabindex="-1"></div>`).join("");
+    host.innerHTML = rows
+      .map((r) => `<div class="row" data-path="${r.dirPath ?? r.filePath}" tabindex="-1"></div>`)
+      .join("");
     document.body.append(host);
     ops.trash.mockResolvedValue(undefined);
     ops.move.mockResolvedValue([]);
@@ -90,7 +99,8 @@ describe("SidebarComponent tree", () => {
         { provide: ElementRef, useValue: new ElementRef(host) },
       ],
     });
-    sidebar = TestBed.runInInjectionContext(() => new SidebarComponent()) as SidebarComponent & Record<string, any>;
+    sidebar = TestBed.runInInjectionContext(() => new SidebarComponent()) as SidebarComponent &
+      Record<string, any>;
   });
 
   const focusedPath = () => (document.activeElement as HTMLElement | null)?.dataset["path"];
@@ -156,7 +166,11 @@ describe("SidebarComponent tree", () => {
     const start = { dataTransfer: { setData: vi.fn(), effectAllowed: "" } } as unknown as DragEvent;
     sidebar.dragStart(start, rows[2]);
     const over = (target: TreeNode) =>
-      ({ stopPropagation: vi.fn(), preventDefault: vi.fn(), dataTransfer: { dropEffect: "" } }) as unknown as DragEvent;
+      ({
+        stopPropagation: vi.fn(),
+        preventDefault: vi.fn(),
+        dataTransfer: { dropEffect: "" },
+      }) as unknown as DragEvent;
     const noteOver = over(rows[1]);
     sidebar.dragOver(noteOver, rows[1]);
     expect(noteOver.preventDefault).not.toHaveBeenCalled();
@@ -181,7 +195,10 @@ describe("SidebarComponent tree", () => {
     sidebar.error.subscribe((e: string) => errors.push(e));
     ops.move.mockRejectedValue(new Error("Not moved: a.md already exists in box."));
     sidebar.dragStart({ dataTransfer: { setData: vi.fn() } } as unknown as DragEvent, rows[1]);
-    await sidebar.drop({ stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as DragEvent, rows[3]);
+    await sidebar.drop(
+      { stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as DragEvent,
+      rows[3],
+    );
     expect(errors[0]).toContain("already exists");
   });
 
@@ -236,9 +253,22 @@ describe("SidebarComponent tree", () => {
 
     it("offers the folder and file entries of the node the menu opened on", () => {
       sidebar.menu.set({ node: rows[1] });
-      expect(labels(sidebar.menuItems())).toEqual(["New note", "New folder", "Bookmark", "Rename", "Delete", sidebar.revealLabel]);
+      expect(labels(sidebar.menuItems())).toEqual([
+        "New note",
+        "New folder",
+        "Bookmark",
+        "Rename",
+        "Delete",
+        sidebar.revealLabel,
+      ]);
       sidebar.menu.set({ node: rows[0] });
-      expect(labels(sidebar.menuItems())).toEqual(["New note", "New folder", "Rename", "Delete", sidebar.revealLabel]);
+      expect(labels(sidebar.menuItems())).toEqual([
+        "New note",
+        "New folder",
+        "Rename",
+        "Delete",
+        sidebar.revealLabel,
+      ]);
     });
 
     it("offers only the creating and revealing entries on the empty area", () => {

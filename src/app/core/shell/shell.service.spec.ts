@@ -81,7 +81,16 @@ describe("ShellService", () => {
     });
 
     it("lists the items of the vault, with the Git view only for a repository", () => {
-      expect(shell.items().map((i) => i.id)).toEqual(["files", "search", "bookmarks", "git", "history", "daily-note", "health", "settings"]);
+      expect(shell.items().map((i) => i.id)).toEqual([
+        "files",
+        "search",
+        "bookmarks",
+        "git",
+        "history",
+        "daily-note",
+        "health",
+        "settings",
+      ]);
       available.set(false);
       expect(shell.items().map((i) => i.id)).not.toContain("history");
       expect(shell.items().map((i) => i.id)).not.toContain("git");
@@ -94,7 +103,9 @@ describe("ShellService", () => {
     it("puts the views at the top and the actions at the bottom, without the palette", () => {
       const items = shell.items();
       expect(items.filter((i) => i.position === "top").every((i) => i.kind === "view")).toBe(true);
-      expect(items.filter((i) => i.position === "bottom").every((i) => i.kind === "action")).toBe(true);
+      expect(items.filter((i) => i.position === "bottom").every((i) => i.kind === "action")).toBe(
+        true,
+      );
       expect(items.map((i) => i.id)).not.toContain("command-palette");
     });
 
@@ -102,7 +113,12 @@ describe("ShellService", () => {
       const label = (id: string) => shell.items().find((i) => i.id === id)?.label;
       expect(label("search")).toMatch(/^Search \(.*F\)$/);
       expect(label("daily-note")).toBe("Daily note");
-      commands.register({ id: "daily-note", title: "Daily note", shortcut: "Mod+Shift+D", run: () => undefined });
+      commands.register({
+        id: "daily-note",
+        title: "Daily note",
+        shortcut: "Mod+Shift+D",
+        run: () => undefined,
+      });
       expect(label("daily-note")).toMatch(/^Daily note \(.*D\)$/);
     });
   });
@@ -138,7 +154,15 @@ describe("ShellService", () => {
     });
 
     it("keep the shortcut of the search", () => {
-      expect(commands.findByKey({ key: "f", metaKey: true, ctrlKey: false, shiftKey: true, altKey: false })?.id).toBe("search");
+      expect(
+        commands.findByKey({
+          key: "f",
+          metaKey: true,
+          ctrlKey: false,
+          shiftKey: true,
+          altKey: false,
+        })?.id,
+      ).toBe("search");
     });
   });
 });

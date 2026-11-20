@@ -62,8 +62,10 @@ export const SEARCH_SORTS: readonly SearchSort[] = ["relevance", "name", "modifi
 
 /** The hits in the chosen order; relevance keeps the order of the backend. */
 export function sortHits(hits: SearchHit[], sort: SearchSort): SearchHit[] {
-  if (sort === "name") return [...hits].sort((a, b) => a.title.localeCompare(b.title) || a.path.localeCompare(b.path));
-  if (sort === "modified") return [...hits].sort((a, b) => b.modified - a.modified || a.path.localeCompare(b.path));
+  if (sort === "name")
+    return [...hits].sort((a, b) => a.title.localeCompare(b.title) || a.path.localeCompare(b.path));
+  if (sort === "modified")
+    return [...hits].sort((a, b) => b.modified - a.modified || a.path.localeCompare(b.path));
   return hits;
 }
 

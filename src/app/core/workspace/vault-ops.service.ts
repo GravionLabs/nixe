@@ -98,7 +98,9 @@ export class VaultOpsService {
       if (taken.has(name.toLowerCase()) || (await backend.pathExists(m.to))) clashes.push(name);
     }
     if (clashes.length > 0) {
-      throw new Error(`Not moved: ${clashes.join(", ")} already exist${clashes.length === 1 ? "s" : ""} in ${basename(dir)}.`);
+      throw new Error(
+        `Not moved: ${clashes.join(", ")} already exist${clashes.length === 1 ? "s" : ""} in ${basename(dir)}.`,
+      );
     }
     await this.editor.handle?.flush();
     const changes = new Map<string, RelinkChange>();

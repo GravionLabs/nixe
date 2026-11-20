@@ -32,7 +32,12 @@ export class HistoryComponent {
   protected readonly rendered = computed(() => {
     const c = this.history.comparison();
     if (!c) return null;
-    const ctx = { filePath: null, wikiRoot: null, math: false, vaultRoot: this.workspace.vaultRoot() };
+    const ctx = {
+      filePath: null,
+      wikiRoot: null,
+      math: false,
+      vaultRoot: this.workspace.vaultRoot(),
+    };
     return { old: this.markdown.render(c.oldText, ctx), new: this.markdown.render(c.newText, ctx) };
   });
 

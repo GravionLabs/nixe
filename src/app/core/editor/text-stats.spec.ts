@@ -37,7 +37,9 @@ describe("countText", () => {
   });
 
   it("is fast on 5000 lines", () => {
-    const text = Array.from({ length: 5000 }, (_, i) => `line ${i} with some words in it`).join("\n");
+    const text = Array.from({ length: 5000 }, (_, i) => `line ${i} with some words in it`).join(
+      "\n",
+    );
     const start = performance.now();
     const s = countText(text);
     expect(s.words).toBe(5000 * 7);

@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { SwitcherEntry, fileLabel, fuzzyMatch, fuzzyScore, highlightParts, rank } from "./fuzzy";
 
-const entry = (path: string, aliases: string[] = []): SwitcherEntry => ({ path, title: fileLabel(path), aliases });
+const entry = (path: string, aliases: string[] = []): SwitcherEntry => ({
+  path,
+  title: fileLabel(path),
+  aliases,
+});
 const paths = (query: string, entries: SwitcherEntry[], recent: string[] = []) =>
   rank(entries, query, recent).map((m) => m.entry.path);
 
@@ -37,7 +41,12 @@ describe("fuzzyScore", () => {
 });
 
 describe("rank", () => {
-  const all = [entry("a/Meeting Notes.md"), entry("Notes.md"), entry("Note to self.md"), entry("Other.md")];
+  const all = [
+    entry("a/Meeting Notes.md"),
+    entry("Notes.md"),
+    entry("Note to self.md"),
+    entry("Other.md"),
+  ];
 
   it("drops notes that do not match", () => {
     expect(paths("note", all)).not.toContain("Other.md");
@@ -66,7 +75,11 @@ describe("rank", () => {
 
   it("puts recently opened notes first on equal scores", () => {
     const list = [entry("a/Todo.md"), entry("b/Todo.md"), entry("c/Todo.md")];
-    expect(paths("todo", list, ["c/Todo.md", "b/Todo.md"])).toEqual(["c/Todo.md", "b/Todo.md", "a/Todo.md"]);
+    expect(paths("todo", list, ["c/Todo.md", "b/Todo.md"])).toEqual([
+      "c/Todo.md",
+      "b/Todo.md",
+      "a/Todo.md",
+    ]);
   });
 
   it("does not let recency beat a better match", () => {

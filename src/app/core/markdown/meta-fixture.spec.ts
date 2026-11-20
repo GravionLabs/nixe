@@ -12,7 +12,13 @@ import { parseWikilinkTarget } from "./wikilink-resolver";
 const vault = "fixtures/vault";
 const notes = (dir: string): string[] =>
   readdirSync(`${vault}/${dir}`, { withFileTypes: true }).flatMap((e) =>
-    e.name.startsWith(".") ? [] : e.isDirectory() ? notes(`${dir}${e.name}/`) : e.name.endsWith(".md") ? [`${dir}${e.name}`] : [],
+    e.name.startsWith(".")
+      ? []
+      : e.isDirectory()
+        ? notes(`${dir}${e.name}/`)
+        : e.name.endsWith(".md")
+          ? [`${dir}${e.name}`]
+          : [],
   );
 
 interface Link {
@@ -52,14 +58,19 @@ function extractWithMarkdownIt(text: string) {
         links.push(link(target, shown === target ? null : shown, embedFile));
       } else if (child.type === "embed") {
         links.push(link(child.content, null, true));
-      } else if (child.type === "image" && child.attrGet("alt") && child.attrGet("alt") === child.content) {
+      } else if (
+        child.type === "image" &&
+        child.attrGet("alt") &&
+        child.attrGet("alt") === child.content
+      ) {
         links.push(link(child.content, null, true));
       } else if (child.type === "link_open") {
         const href = child.attrGet("href") ?? "";
         if (/^[a-z][a-z0-9+.-]+:/i.test(href)) continue;
         const [path, fragment] = href.split("#");
         const decoded = decodeURIComponent(path);
-        if (isMarkdownPath(decoded)) markdownLinks.push({ target: decoded, heading: fragment || null });
+        if (isMarkdownPath(decoded))
+          markdownLinks.push({ target: decoded, heading: fragment || null });
       }
     }
   });
@@ -75,10 +86,17 @@ function extractWithMarkdownIt(text: string) {
   const list = (keys: string[], separator: RegExp) =>
     Object.entries(fm.data)
       .filter(([k]) => keys.includes(k.toLowerCase()))
-      .flatMap(([, v]) => (Array.isArray(v) ? v.map(String) : typeof v === "string" ? v.split(separator) : []))
+      .flatMap(([, v]) =>
+        Array.isArray(v) ? v.map(String) : typeof v === "string" ? v.split(separator) : [],
+      )
       .map((s) => s.trim())
       .filter(Boolean);
-  const tags = [...new Set([...list(["tags", "tag"], /[,\s]+/).map((t) => t.replace(/^#/, "")), ...(env.tags ?? [])])];
+  const tags = [
+    ...new Set([
+      ...list(["tags", "tag"], /[,\s]+/).map((t) => t.replace(/^#/, "")),
+      ...(env.tags ?? []),
+    ]),
+  ];
 
   return {
     links,
@@ -101,7 +119,8 @@ describe("fixtures/vault expected metadata", () => {
     const expected = JSON.parse(readFileSync(`${vault}/.meta/${note}.json`, "utf8"));
     const actual = extractWithMarkdownIt(readFileSync(`${vault}/${note}`, "utf8"));
     // Embed sizes (`|100x60`) are not kept by the markdown-it plugin.
-    const withoutEmbedAlias = (links: Link[]) => links.map((l) => (l.embed ? { ...l, alias: null } : l));
+    const withoutEmbedAlias = (links: Link[]) =>
+      links.map((l) => (l.embed ? { ...l, alias: null } : l));
     expect({ ...actual, links: withoutEmbedAlias(actual.links) }).toEqual({
       ...expected,
       links: withoutEmbedAlias(expected.links),

@@ -38,7 +38,8 @@ export function imageNaturalSize(img: {
   clientWidth: number;
   clientHeight: number;
 }): { width: number; height: number } {
-  if (img.naturalWidth > 0 && img.naturalHeight > 0) return { width: img.naturalWidth, height: img.naturalHeight };
+  if (img.naturalWidth > 0 && img.naturalHeight > 0)
+    return { width: img.naturalWidth, height: img.naturalHeight };
   return { width: img.clientWidth || 300, height: img.clientHeight || 150 };
 }
 
@@ -56,6 +57,7 @@ export function decorateImages(root: HTMLElement): void {
     img.dataset["zoomable"] = "";
     img.tabIndex = 0;
     img.setAttribute("role", "button");
-    if (!img.hasAttribute("aria-label")) img.setAttribute("aria-label", img.alt ? `Open image: ${img.alt}` : "Open image");
+    if (!img.hasAttribute("aria-label"))
+      img.setAttribute("aria-label", img.alt ? `Open image: ${img.alt}` : "Open image");
   }
 }

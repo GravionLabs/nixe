@@ -1,4 +1,10 @@
-import { Completion, CompletionContext, CompletionResult, CompletionSource, autocompletion } from "@codemirror/autocomplete";
+import {
+  Completion,
+  CompletionContext,
+  CompletionResult,
+  CompletionSource,
+  autocompletion,
+} from "@codemirror/autocomplete";
 import { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
@@ -49,7 +55,11 @@ function applyLink(insert: string, close: boolean): Completion["apply"] {
 }
 
 function toCompletions(options: readonly PlainOption[], close: boolean): Completion[] {
-  return options.map((o) => ({ label: o.label, detail: o.detail, apply: applyLink(o.insert, close) }));
+  return options.map((o) => ({
+    label: o.label,
+    detail: o.detail,
+    apply: applyLink(o.insert, close),
+  }));
 }
 
 function result(from: number, options: Completion[]): CompletionResult | null {
@@ -68,7 +78,11 @@ export function wikilinkSource(data: CompletionData): CompletionSource {
   };
 }
 
-async function stageOptions(data: CompletionData, stage: WikilinkStage, context: CompletionContext): Promise<Completion[] | null> {
+async function stageOptions(
+  data: CompletionData,
+  stage: WikilinkStage,
+  context: CompletionContext,
+): Promise<Completion[] | null> {
   const doc = context.state.doc.toString();
   switch (stage.kind) {
     case "note": {

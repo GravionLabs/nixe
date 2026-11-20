@@ -65,5 +65,8 @@ export function enabledSnippets(files: readonly CssFile[], enabled: readonly str
 /** True when the listed files differ from the applied ones (a name, a time or a content). */
 export function changed(before: readonly CssFile[], after: readonly CssFile[]): boolean {
   if (before.length !== after.length) return true;
-  return before.some((f, i) => f.name !== after[i].name || f.modified !== after[i].modified || f.css !== after[i].css);
+  return before.some(
+    (f, i) =>
+      f.name !== after[i].name || f.modified !== after[i].modified || f.css !== after[i].css,
+  );
 }

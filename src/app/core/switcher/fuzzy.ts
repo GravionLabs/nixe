@@ -111,7 +111,11 @@ export function fileLabel(path: string): string {
  * recently opened note (`recent` lists vault-relative paths, newest first). Without a query
  * the recent notes come first, then the rest alphabetically.
  */
-export function rank(entries: readonly SwitcherEntry[], query: string, recent: readonly string[] = []): SwitcherMatch[] {
+export function rank(
+  entries: readonly SwitcherEntry[],
+  query: string,
+  recent: readonly string[] = [],
+): SwitcherMatch[] {
   const order = new Map(recent.map((path, i) => [path, i]));
   const recency = (path: string) => order.get(path) ?? Number.POSITIVE_INFINITY;
   const q = query.trim();
@@ -124,7 +128,10 @@ export function rank(entries: readonly SwitcherEntry[], query: string, recent: r
       continue;
     }
     let best: SwitcherMatch | null = null;
-    for (const [label, isAlias] of [[name, false], ...entry.aliases.map((a) => [a, true] as const)] as const) {
+    for (const [label, isAlias] of [
+      [name, false],
+      ...entry.aliases.map((a) => [a, true] as const),
+    ] as const) {
       const found = fuzzyMatch(q, label);
       if (found && (!best || found.score > best.score)) {
         best = { entry, label, isAlias, score: found.score, positions: found.positions };

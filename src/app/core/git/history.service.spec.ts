@@ -72,8 +72,12 @@ describe("HistoryService", () => {
         { provide: EditorService, useValue: { handle: { flush: flush_ } } },
       ],
     });
-    log = vi.spyOn(backend, "gitNoteHistory").mockResolvedValue([entry(2), entry(1, { parent: null })]);
-    version = vi.spyOn(backend, "gitNoteVersion").mockImplementation(async (_p, rev) => `text@${rev}`);
+    log = vi
+      .spyOn(backend, "gitNoteHistory")
+      .mockResolvedValue([entry(2), entry(1, { parent: null })]);
+    version = vi
+      .spyOn(backend, "gitNoteVersion")
+      .mockImplementation(async (_p, rev) => `text@${rev}`);
     vi.spyOn(backend, "gitDeletedNotes").mockResolvedValue([]);
     open.mockReset().mockResolvedValue(undefined);
     refresh.mockReset().mockResolvedValue(undefined);
@@ -95,7 +99,12 @@ describe("HistoryService", () => {
   });
 
   it("puts the uncommitted state first when the note has changes", async () => {
-    status.set({ branch: "main", changes: [{ path: "a.md", kind: "modified" }], ahead: 0, behind: 0 });
+    status.set({
+      branch: "main",
+      changes: [{ path: "a.md", kind: "modified" }],
+      ahead: 0,
+      behind: 0,
+    });
     await ready();
     expect(history.timeline().map((t) => t.id)).toEqual([null, "c2", "c1"]);
     expect(history.timeline()[0].message).toBe("Uncommitted changes");
@@ -126,7 +135,11 @@ describe("HistoryService", () => {
   it("shows the change of one commit against its parent", async () => {
     await ready();
     await history.select(history.timeline()[0]);
-    expect(history.comparison()).toMatchObject({ oldText: "text@c1", newText: "text@c2", newLabel: "c2" });
+    expect(history.comparison()).toMatchObject({
+      oldText: "text@c1",
+      newText: "text@c2",
+      newLabel: "c2",
+    });
   });
 
   it("shows a first commit against an empty note", async () => {
@@ -157,10 +170,19 @@ describe("HistoryService", () => {
   });
 
   it("compares the uncommitted state with HEAD, and with the disk text", async () => {
-    status.set({ branch: "main", changes: [{ path: "a.md", kind: "modified" }], ahead: 0, behind: 0 });
+    status.set({
+      branch: "main",
+      changes: [{ path: "a.md", kind: "modified" }],
+      ahead: 0,
+      behind: 0,
+    });
     await ready();
     await history.select(history.timeline()[0]);
-    expect(history.comparison()).toMatchObject({ oldText: "text@c2", newText: "text@null", newLabel: "uncommitted" });
+    expect(history.comparison()).toMatchObject({
+      oldText: "text@c2",
+      newText: "text@null",
+      newLabel: "uncommitted",
+    });
   });
 
   it("reports a failing log", async () => {
@@ -185,7 +207,12 @@ describe("HistoryService", () => {
 
   it("does not restore the uncommitted state and reports a failing write", async () => {
     const write = vi.spyOn(backend, "writeTextFile").mockRejectedValue(new Error("denied"));
-    status.set({ branch: "main", changes: [{ path: "a.md", kind: "modified" }], ahead: 0, behind: 0 });
+    status.set({
+      branch: "main",
+      changes: [{ path: "a.md", kind: "modified" }],
+      ahead: 0,
+      behind: 0,
+    });
     await ready();
     await history.restore(history.timeline()[0]);
     expect(write).not.toHaveBeenCalled();
@@ -195,7 +222,14 @@ describe("HistoryService", () => {
   });
 
   it("lists the deleted notes and restores one from the parent of its deleting commit", async () => {
-    const note = { path: "dir/gone.md", id: "d1", parent: "p1", author: "A", time: 5, message: "delete" };
+    const note = {
+      path: "dir/gone.md",
+      id: "d1",
+      parent: "p1",
+      author: "A",
+      time: 5,
+      message: "delete",
+    };
     vi.mocked(backend.gitDeletedNotes).mockResolvedValue([note]);
     const dir = vi.spyOn(backend, "createDir").mockResolvedValue(undefined);
     const create = vi.spyOn(backend, "createFile").mockResolvedValue(undefined);
@@ -215,7 +249,14 @@ describe("HistoryService", () => {
     vi.spyOn(backend, "createDir").mockResolvedValue(undefined);
     vi.spyOn(backend, "createFile").mockRejectedValue(new Error("exists"));
     const write = vi.spyOn(backend, "writeTextFile").mockResolvedValue(undefined);
-    await history.restoreDeleted({ path: "g.md", id: "d", parent: "p", author: "", time: 0, message: "" });
+    await history.restoreDeleted({
+      path: "g.md",
+      id: "d",
+      parent: "p",
+      author: "",
+      time: 0,
+      message: "",
+    });
     expect(write).not.toHaveBeenCalled();
     expect(history.notice()).toContain("exists");
   });

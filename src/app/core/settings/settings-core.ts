@@ -106,17 +106,25 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   shortcuts: {},
 };
 
-const bool = (value: unknown, fallback: boolean): boolean => (typeof value === "boolean" ? value : fallback);
-const text = (value: unknown, fallback: string): string => (typeof value === "string" ? value : fallback);
+const bool = (value: unknown, fallback: boolean): boolean =>
+  typeof value === "boolean" ? value : fallback;
+const text = (value: unknown, fallback: string): string =>
+  typeof value === "string" ? value : fallback;
 const finite = (value: unknown, fallback: number): number =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
 /** Settings from any parsed JSON: every key that is missing or has the wrong type gets its default. */
 export function sanitizeSettings(raw: unknown): StoredSettings {
-  const o: Record<string, unknown> = raw !== null && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const o: Record<string, unknown> =
+    raw !== null && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
   const d = DEFAULT_SETTINGS;
   return {
-    theme: o["theme"] === "light" || o["theme"] === "dark" || o["theme"] === "system" ? o["theme"] : d.theme,
+    theme:
+      o["theme"] === "light" || o["theme"] === "dark" || o["theme"] === "system"
+        ? o["theme"]
+        : d.theme,
     math: bool(o["math"], d.math),
     sidebar: bool(o["sidebar"], d.sidebar),
     sidebarWidth: finite(o["sidebarWidth"], d.sidebarWidth),
@@ -129,7 +137,9 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     recentVaults: sanitizeRecent(o["recentVaults"]),
     vaultStates: sanitizeStates(o["vaultStates"]),
     zoom: Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, finite(o["zoom"], d.zoom))),
-    healthExclude: Array.isArray(o["healthExclude"]) ? o["healthExclude"].filter((v): v is string => typeof v === "string") : [],
+    healthExclude: Array.isArray(o["healthExclude"])
+      ? o["healthExclude"].filter((v): v is string => typeof v === "string")
+      : [],
     templateFolder: text(o["templateFolder"], d.templateFolder),
     dailyFolder: text(o["dailyFolder"], d.dailyFolder),
     dailyFormat: text(o["dailyFormat"], d.dailyFormat),
@@ -181,10 +191,12 @@ export interface LoadedSettings {
 export function loadSettings(file: string | null, legacy: string | null): LoadedSettings {
   const isObject = (v: unknown) => v !== null && typeof v === "object" && !Array.isArray(v);
   const fromFile = parseJson(file);
-  if (isObject(fromFile)) return { settings: sanitizeSettings(fromFile), source: "file", damaged: false };
+  if (isObject(fromFile))
+    return { settings: sanitizeSettings(fromFile), source: "file", damaged: false };
   const damaged = file !== null;
   const fromLegacy = parseJson(legacy);
-  if (isObject(fromLegacy)) return { settings: sanitizeSettings(fromLegacy), source: "legacy", damaged };
+  if (isObject(fromLegacy))
+    return { settings: sanitizeSettings(fromLegacy), source: "legacy", damaged };
   return { settings: sanitizeSettings(null), source: "defaults", damaged };
 }
 

@@ -5,7 +5,14 @@ import { CommandRegistry, formatShortcut } from "../commands/command-registry";
 import { GitService } from "../git/git.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { NixeView, ViewContext, availableViews, findView, isSidebarView, resolveView } from "./views";
+import {
+  NixeView,
+  ViewContext,
+  availableViews,
+  findView,
+  isSidebarView,
+  resolveView,
+} from "./views";
 
 /** The activity bar and the sidebar: one active view, shown or collapsed. */
 @Injectable({ providedIn: "root" })
@@ -17,11 +24,37 @@ export class ShellService {
 
   constructor() {
     const inVault = () => this.workspace.vaultRoot() !== null;
-    this.commands.register({ id: "toggle-sidebar", title: "Toggle sidebar", shortcut: "Mod+B", run: () => this.toggleSidebar() });
-    this.commands.register({ id: "show-files", title: "Show files", run: () => this.show("files") });
-    this.commands.register({ id: "search", title: "Search vault", shortcut: "Mod+Shift+F", keys: ["Mod+Shift+F"], when: inVault, run: () => this.show("search") });
-    this.commands.register({ id: "note-history", title: "Note history", when: () => this.git.available(), run: () => this.show("history") });
-    this.commands.register({ id: "git-changes", title: "Git changes", when: () => this.git.available(), run: () => this.show("git") });
+    this.commands.register({
+      id: "toggle-sidebar",
+      title: "Toggle sidebar",
+      shortcut: "Mod+B",
+      run: () => this.toggleSidebar(),
+    });
+    this.commands.register({
+      id: "show-files",
+      title: "Show files",
+      run: () => this.show("files"),
+    });
+    this.commands.register({
+      id: "search",
+      title: "Search vault",
+      shortcut: "Mod+Shift+F",
+      keys: ["Mod+Shift+F"],
+      when: inVault,
+      run: () => this.show("search"),
+    });
+    this.commands.register({
+      id: "note-history",
+      title: "Note history",
+      when: () => this.git.available(),
+      run: () => this.show("history"),
+    });
+    this.commands.register({
+      id: "git-changes",
+      title: "Git changes",
+      when: () => this.git.available(),
+      run: () => this.show("git"),
+    });
   }
 
   private readonly context = computed<ViewContext>(() => ({
@@ -33,7 +66,9 @@ export class ShellService {
   readonly activeView = computed(() => resolveView(this.settings.activeView(), this.context()));
   readonly collapsed = computed(() => !this.settings.sidebarVisible());
   /** The view the sidebar shows now; null while it is collapsed or no folder is open. */
-  readonly shownView = computed(() => (this.collapsed() || this.workspace.root() === null ? null : this.activeView()));
+  readonly shownView = computed(() =>
+    this.collapsed() || this.workspace.root() === null ? null : this.activeView(),
+  );
 
   /** The items of the activity bar. */
   readonly items = computed<HxActivityBarItem[]>(() =>
@@ -51,7 +86,9 @@ export class ShellService {
     const id = view.shortcutCommand ?? view.command;
     const command = this.commands.all().find((c) => c.id === id); // all() is reactive: the tooltip follows later registrations
     const shortcut = command ? this.commands.shortcutOf(command) : "";
-    return shortcut ? `${view.label} (${formatShortcut(shortcut, navigator.userAgent.includes("Mac"))})` : view.label;
+    return shortcut
+      ? `${view.label} (${formatShortcut(shortcut, navigator.userAgent.includes("Mac"))})`
+      : view.label;
   }
 
   /** A click on the activity bar: the active view collapses the sidebar, another view switches to it. */

@@ -67,7 +67,9 @@ const today = (): string => {
                   />
                 }
                 @case ("tags") {
-                  <ng-container *ngTemplateOutlet="chips; context: { p: p, source: suggestionsFor(p.key) }" />
+                  <ng-container
+                    *ngTemplateOutlet="chips; context: { p: p, source: suggestionsFor(p.key) }"
+                  />
                 }
                 @case ("list") {
                   <ng-container *ngTemplateOutlet="chips; context: { p: p, source: [] }" />
@@ -86,7 +88,12 @@ const today = (): string => {
                 }
               }
             </div>
-            <button type="button" class="prop-remove" [attr.aria-label]="'Remove property ' + p.key" (click)="remove(p.key)">
+            <button
+              type="button"
+              class="prop-remove"
+              [attr.aria-label]="'Remove property ' + p.key"
+              (click)="remove(p.key)"
+            >
               ✕
             </button>
           </div>
@@ -94,7 +101,13 @@ const today = (): string => {
 
         @if (adding()) {
           <form class="prop prop-new" (submit)="$event.preventDefault(); add(name, kind)">
-            <input #name class="prop-key" type="text" placeholder="Name" aria-label="New property name" />
+            <input
+              #name
+              class="prop-key"
+              type="text"
+              placeholder="Name"
+              aria-label="New property name"
+            />
             <select #kind aria-label="Type of the new property">
               @for (t of types; track t.type) {
                 <option [value]="t.type">{{ t.label }}</option>
@@ -114,7 +127,13 @@ const today = (): string => {
         @for (item of items(p.value); track $index) {
           <span class="property-chip">
             {{ item }}
-            <button type="button" [attr.aria-label]="'Remove ' + item" (click)="removeChip(p, $index)">✕</button>
+            <button
+              type="button"
+              [attr.aria-label]="'Remove ' + item"
+              (click)="removeChip(p, $index)"
+            >
+              ✕
+            </button>
           </span>
         }
         <input
@@ -152,7 +171,8 @@ export class PropertiesComponent {
 
   protected readonly isDateOnly = isDateOnly;
   protected readonly items = listItems;
-  protected readonly isObject = (v: unknown): boolean => typeof v === "object" && v !== null && !Array.isArray(v);
+  protected readonly isObject = (v: unknown): boolean =>
+    typeof v === "object" && v !== null && !Array.isArray(v);
   protected readonly json = (v: unknown): string => JSON.stringify(v);
 
   /** The index values to complete from: vault tags for `tags`, the aliases of the notes for `aliases`. */
@@ -165,7 +185,10 @@ export class PropertiesComponent {
   }
 
   protected async loadSuggestions(): Promise<void> {
-    const [tags, notes] = await Promise.all([backend.tags().catch(() => []), backend.notes().catch(() => [])]);
+    const [tags, notes] = await Promise.all([
+      backend.tags().catch(() => []),
+      backend.notes().catch(() => []),
+    ]);
     this.tagIndex.set(tags.map((t) => t.tag));
     this.aliasIndex.set([...new Set(notes.flatMap((n) => n.aliases))].sort());
   }
@@ -205,7 +228,11 @@ export class PropertiesComponent {
   }
 
   protected removeChip(p: Property, index: number): Promise<boolean> {
-    return this.apply({ kind: "set", key: p.key, value: listItems(p.value).filter((_, i) => i !== index) });
+    return this.apply({
+      kind: "set",
+      key: p.key,
+      value: listItems(p.value).filter((_, i) => i !== index),
+    });
   }
 
   protected onChipKey(event: KeyboardEvent, p: Property): void {

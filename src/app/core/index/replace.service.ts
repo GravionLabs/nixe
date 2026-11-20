@@ -2,7 +2,13 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 
 import { EditorService } from "../editor/editor.service";
-import { NoteReplacements, ReplaceApplied, ReplaceExclusions, ReplaceOptions, backend } from "../file/backend";
+import {
+  NoteReplacements,
+  ReplaceApplied,
+  ReplaceExclusions,
+  ReplaceOptions,
+  backend,
+} from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
@@ -47,7 +53,10 @@ export class ReplaceService {
     let replacements = 0;
     for (const note of this.notes()) {
       if (this.excludedNotes().has(note.path)) continue;
-      const left = note.count - note.replacements.filter((r) => this.excludedMatches().has(matchKey(note.path, r.index))).length;
+      const left =
+        note.count -
+        note.replacements.filter((r) => this.excludedMatches().has(matchKey(note.path, r.index)))
+          .length;
       if (left > 0) {
         notes++;
         replacements += left;
@@ -86,7 +95,13 @@ export class ReplaceService {
   }
 
   private options(find: string): ReplaceOptions {
-    return { find, replace: this.replacement(), regex: this.regex(), caseSensitive: this.caseSensitive(), wholeWord: this.wholeWord() };
+    return {
+      find,
+      replace: this.replacement(),
+      regex: this.regex(),
+      caseSensitive: this.caseSensitive(),
+      wholeWord: this.wholeWord(),
+    };
   }
 
   /** Reads the preview for `find`; the newest request wins. A changed preview resets the exclusions. */
@@ -115,7 +130,13 @@ export class ReplaceService {
   async apply(find: string): Promise<ReplaceApplied | null> {
     const { notes, replacements } = this.totals();
     if (!find || notes === 0) return null;
-    if (!(await ask(describeReplace(notes, replacements), { title: "Replace in the vault", okLabel: "Replace" }))) return null;
+    if (
+      !(await ask(describeReplace(notes, replacements), {
+        title: "Replace in the vault",
+        okLabel: "Replace",
+      }))
+    )
+      return null;
     this.busy.set(true);
     try {
       await this.editor.handle?.flush();

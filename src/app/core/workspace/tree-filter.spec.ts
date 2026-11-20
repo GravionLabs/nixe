@@ -45,10 +45,26 @@ describe("highlightParts", () => {
 
 describe("filterTree", () => {
   const leaf = (name: string) => ({ name, dirPath: null, children: () => null });
-  const dir = (name: string, kids: ReturnType<typeof leaf>[] | null) => ({ name, dirPath: `/v/${name}`, children: () => kids });
+  const dir = (name: string, kids: ReturnType<typeof leaf>[] | null) => ({
+    name,
+    dirPath: `/v/${name}`,
+    children: () => kids,
+  });
   it("keeps matches and the folders leading to them, also collapsed ones", () => {
     const inner = dir("inner", [leaf("plan.md"), leaf("other.md")]);
-    const tree = [dir("work", [inner as never]), dir("empty", []), leaf("plans.md"), leaf("zzz.md"), dir("planet", null)];
-    expect(filterTree(tree as never[], "plan").map((n) => n.name)).toEqual(["work", "inner", "plan.md", "plans.md", "planet"]);
+    const tree = [
+      dir("work", [inner as never]),
+      dir("empty", []),
+      leaf("plans.md"),
+      leaf("zzz.md"),
+      dir("planet", null),
+    ];
+    expect(filterTree(tree as never[], "plan").map((n) => n.name)).toEqual([
+      "work",
+      "inner",
+      "plan.md",
+      "plans.md",
+      "planet",
+    ]);
   });
 });

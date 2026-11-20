@@ -1,4 +1,13 @@
-import { Component, ElementRef, computed, effect, inject, output, signal, viewChild } from "@angular/core";
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  output,
+  signal,
+  viewChild,
+} from "@angular/core";
 import { HxMenu, HxMenuItem } from "@gravionlabs/helix-ui";
 
 import { DocumentService } from "../../core/file/document.service";
@@ -8,10 +17,21 @@ import { GitService } from "../../core/git/git.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { basename } from "../../core/markdown/paths";
 import { TabsService } from "../../core/tabs/tabs.service";
-import { FocusKey, focusTarget, parentIndex, rangeBetween, typeAheadMatch } from "../../core/workspace/tree-nav";
+import {
+  FocusKey,
+  focusTarget,
+  parentIndex,
+  rangeBetween,
+  typeAheadMatch,
+} from "../../core/workspace/tree-nav";
 import { topLevelPaths } from "../../core/workspace/file-ops";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
-import { TREE_SORTS, TREE_SORT_LABELS, TreeSort, conflictPaths } from "../../core/workspace/tree-model";
+import {
+  TREE_SORTS,
+  TREE_SORT_LABELS,
+  TreeSort,
+  conflictPaths,
+} from "../../core/workspace/tree-model";
 import { NO_DECORATION, decorate, highlightParts } from "../../core/workspace/tree-filter";
 import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
 
@@ -42,12 +62,16 @@ export class SidebarComponent {
   readonly error = output<string>();
 
   /** The rows of the tree: all of it, or with a filter the matches and their folders (#248). */
-  protected readonly rows = computed(() => (this.workspace.treeFilter() === "" ? this.workspace.visible() : this.workspace.filteredRows()));
+  protected readonly rows = computed(() =>
+    this.workspace.treeFilter() === "" ? this.workspace.visible() : this.workspace.filteredRows(),
+  );
   /** The Git status of the notes and the folders that hold changed notes; empty when the setting is off. */
   protected readonly decoration = computed(() => {
     const status = this.git.status();
     const root = this.workspace.vaultRoot();
-    return this.settings.treeGitStatus() && status && root ? decorate(status.changes, root) : NO_DECORATION;
+    return this.settings.treeGitStatus() && status && root
+      ? decorate(status.changes, root)
+      : NO_DECORATION;
   });
   /** The row that flashes after "Reveal the active note". */
   protected readonly flashed = signal<string | null>(null);
@@ -58,7 +82,10 @@ export class SidebarComponent {
   protected readonly conflicted = computed(() =>
     conflictPaths(this.rows().flatMap((n) => (n.filePath ? [n.filePath] : []))),
   );
-  protected readonly sortOptions = TREE_SORTS.map((value) => ({ value, label: TREE_SORT_LABELS[value] }));
+  protected readonly sortOptions = TREE_SORTS.map((value) => ({
+    value,
+    label: TREE_SORT_LABELS[value],
+  }));
   protected readonly menu = signal<MenuState | null>(null);
   private readonly contextMenu = viewChild<HxMenu>("contextMenu");
   private readonly sortPopup = viewChild<HxMenu>("sortPopup");
@@ -75,7 +102,9 @@ export class SidebarComponent {
     return [
       { label: "New note", command: () => void this.newNote(node) },
       { label: "New folder", command: () => void this.newFolder(node) },
-      ...(node?.filePath ? [{ label: this.bookmarkLabel(node), command: () => this.bookmark(node) }] : []),
+      ...(node?.filePath
+        ? [{ label: this.bookmarkLabel(node), command: () => this.bookmark(node) }]
+        : []),
       ...(node
         ? [
             { label: "Rename", command: () => this.beginRename(node) },
@@ -102,7 +131,11 @@ export class SidebarComponent {
   protected readonly tabStop = computed(() => {
     const rows = this.rows();
     const focused = this.focused();
-    return rows.some((n) => this.path(n) === focused) ? focused : rows.length ? this.path(rows[0]) : null;
+    return rows.some((n) => this.path(n) === focused)
+      ? focused
+      : rows.length
+        ? this.path(rows[0])
+        : null;
   });
   protected readonly basename = basename;
   protected readonly revealLabel = /Mac/u.test(navigator.userAgent)
@@ -220,7 +253,9 @@ export class SidebarComponent {
     if (!node) return;
     const path = this.path(node);
     this.focused.set(path);
-    const row = [...this.host.nativeElement.querySelectorAll<HTMLElement>(".row")].find((r) => r.dataset["path"] === path);
+    const row = [...this.host.nativeElement.querySelectorAll<HTMLElement>(".row")].find(
+      (r) => r.dataset["path"] === path,
+    );
     row?.focus();
     row?.scrollIntoView?.({ block: "nearest" });
   }
@@ -253,8 +288,15 @@ export class SidebarComponent {
         return;
       case "ArrowLeft": {
         event.preventDefault();
-        if (node.dirPath && node.expanded()) void this.attempt(() => this.workspace.toggle(node, false));
-        else this.focusRow(parentIndex(rows.map((n) => n.depth), index));
+        if (node.dirPath && node.expanded())
+          void this.attempt(() => this.workspace.toggle(node, false));
+        else
+          this.focusRow(
+            parentIndex(
+              rows.map((n) => n.depth),
+              index,
+            ),
+          );
         return;
       }
       case "Enter":
@@ -277,7 +319,11 @@ export class SidebarComponent {
       const now = Date.now();
       this.typed = now - this.typedAt > 700 ? event.key : this.typed + event.key;
       this.typedAt = now;
-      const hit = typeAheadMatch(rows.map((n) => n.name), index, this.typed);
+      const hit = typeAheadMatch(
+        rows.map((n) => n.name),
+        index,
+        this.typed,
+      );
       if (hit >= 0) this.focusRow(hit);
     }
   }
@@ -286,7 +332,11 @@ export class SidebarComponent {
   private actionPaths(node: TreeNode): string[] {
     const path = this.path(node);
     const selected = this.selection();
-    return selected.has(path) ? this.rows().map((n) => this.path(n)).filter((p) => selected.has(p)) : [path];
+    return selected.has(path)
+      ? this.rows()
+          .map((n) => this.path(n))
+          .filter((p) => selected.has(p))
+      : [path];
   }
 
   private trashSelection(node: TreeNode): Promise<void> {
@@ -347,7 +397,10 @@ export class SidebarComponent {
     event.preventDefault();
     event.stopPropagation();
     this.menu.set({ node });
-    this.contextMenu()?.showAt({ x: event.clientX, y: event.clientY }, event.currentTarget as Element | null);
+    this.contextMenu()?.showAt(
+      { x: event.clientX, y: event.clientY },
+      event.currentTarget as Element | null,
+    );
   }
 
   /** The folder a new entry goes to: the folder itself, the folder of a file, else the tree root. */
@@ -411,7 +464,15 @@ export class SidebarComponent {
   /** The label of the bookmark entry for the note of the menu. */
   protected bookmarkLabel(node: TreeNode): string {
     const rel = this.bookmarks.relative(node.filePath);
-    return rel !== null && this.bookmarks.items().some((b) => b.type === "file" && (b as { path?: string }).path === rel && !(b as { subpath?: string }).subpath)
+    return rel !== null &&
+      this.bookmarks
+        .items()
+        .some(
+          (b) =>
+            b.type === "file" &&
+            (b as { path?: string }).path === rel &&
+            !(b as { subpath?: string }).subpath,
+        )
       ? "Remove bookmark"
       : "Bookmark";
   }

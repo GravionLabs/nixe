@@ -66,7 +66,9 @@ describe("sourceOf", () => {
 
   it("is the TeX of a math block", () => {
     const root = mount("$$\n\\int_0^1 x\\,dx\n$$\n");
-    expect(sourceOf(root.querySelector<HTMLElement>(".katex-display")!)).toContain("\\int_0^1 x\\,dx");
+    expect(sourceOf(root.querySelector<HTMLElement>(".katex-display")!)).toContain(
+      "\\int_0^1 x\\,dx",
+    );
   });
 });
 

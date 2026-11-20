@@ -21,7 +21,8 @@
   box-sizing: border-box;
   max-width: var(--nixe-content-width, 980px);
   margin: 0 auto;
-  padding: var(--nixe-content-padding-top, 32px) var(--nixe-content-padding-x, 40px) var(--nixe-content-padding-bottom, 80px);
+  padding: var(--nixe-content-padding-top, 32px) var(--nixe-content-padding-x, 40px)
+    var(--nixe-content-padding-bottom, 80px);
   background: transparent;
 }
 

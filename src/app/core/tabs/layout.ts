@@ -51,8 +51,14 @@ function sanitizeTab(raw: unknown): TabState | null {
   const history = Array.isArray(t["history"])
     ? t["history"].filter((p): p is string => typeof p === "string" && p !== "").slice(-MAX_HISTORY)
     : [];
-  const index = typeof t["index"] === "number" && Number.isInteger(t["index"]) ? t["index"] : history.length - 1;
-  const line = typeof t["line"] === "number" && Number.isFinite(t["line"]) && t["line"] >= 1 ? Math.floor(t["line"]) : null;
+  const index =
+    typeof t["index"] === "number" && Number.isInteger(t["index"])
+      ? t["index"]
+      : history.length - 1;
+  const line =
+    typeof t["line"] === "number" && Number.isFinite(t["line"]) && t["line"] >= 1
+      ? Math.floor(t["line"])
+      : null;
   return {
     view: null,
     path,

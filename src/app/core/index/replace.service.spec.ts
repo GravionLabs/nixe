@@ -18,7 +18,14 @@ import { WorkspaceService } from "../workspace/workspace.service";
 import { ReplaceService, describeReplace } from "./replace.service";
 
 const preview: NoteReplacements[] = [
-  { path: "a.md", count: 2, replacements: [{ index: 0, line: 1, before: "foo", after: "bar" }, { index: 1, line: 2, before: "foo", after: "bar" }] },
+  {
+    path: "a.md",
+    count: 2,
+    replacements: [
+      { index: 0, line: 1, before: "foo", after: "bar" },
+      { index: 1, line: 2, before: "foo", after: "bar" },
+    ],
+  },
   { path: "b.md", count: 1, replacements: [{ index: 0, line: 1, before: "foo", after: "bar" }] },
 ];
 
@@ -42,7 +49,10 @@ describe("ReplaceService", () => {
         { provide: WorkspaceService, useValue: { reloadTree } },
         { provide: DocumentService, useValue: { path: () => "/v/a.md", reload } },
         { provide: EditorService, useValue: { handle: null } },
-        { provide: SettingsService, useValue: { gitAuthorName: () => " N ", gitAuthorEmail: () => "" } },
+        {
+          provide: SettingsService,
+          useValue: { gitAuthorName: () => " N ", gitAuthorEmail: () => "" },
+        },
       ],
     });
     service = TestBed.inject(ReplaceService);
@@ -97,7 +107,9 @@ describe("ReplaceService", () => {
     await service.refresh("foo");
     service.toggleNote("b.md");
     service.toggleMatch("a.md", 1);
-    vi.mocked(invoke).mockResolvedValueOnce({ notes: 1, replacements: 1, paths: ["a.md"] }).mockResolvedValueOnce([]);
+    vi.mocked(invoke)
+      .mockResolvedValueOnce({ notes: 1, replacements: 1, paths: ["a.md"] })
+      .mockResolvedValueOnce([]);
     const done = await service.apply("foo");
     expect(done?.notes).toBe(1);
     expect(vi.mocked(ask).mock.calls[0][0]).toContain("1 replacement in 1 note?");

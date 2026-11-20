@@ -24,7 +24,9 @@ describe("panel width", () => {
   it("clamps to the minimum and the maximum", () => {
     expect(clampPanelWidth(10, 2000, 260)).toBe(MIN_PANEL_WIDTH);
     expect(clampPanelWidth(5000, 4000, 260)).toBe(MAX_PANEL_WIDTH);
-    expect(maxPanelWidth(260 + SHELL_CHROME + MIN_NOTE_WIDTH + MIN_PANEL_WIDTH, 260)).toBe(MIN_PANEL_WIDTH);
+    expect(maxPanelWidth(260 + SHELL_CHROME + MIN_NOTE_WIDTH + MIN_PANEL_WIDTH, 260)).toBe(
+      MIN_PANEL_WIDTH,
+    );
   });
 
   it("overlays the note in a window too narrow for both", () => {

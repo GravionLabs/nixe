@@ -1,16 +1,45 @@
 import { describe, expect, it } from "vitest";
 import type { DirEntry } from "../file/backend";
-import { buildTreeItems, sanitizeTreeSort, sortItems, conflictOriginal, conflictPaths, defaultPage, wikiDisplayName } from "./tree-model";
+import {
+  buildTreeItems,
+  sanitizeTreeSort,
+  sortItems,
+  conflictOriginal,
+  conflictPaths,
+  defaultPage,
+  wikiDisplayName,
+} from "./tree-model";
 
-const dir = (name: string, hasOrder = false): DirEntry => ({ name, path: `/w/${name}`, isDir: true, hasOrder, modified: 0 });
-const file = (name: string, modified = 0): DirEntry => ({ name, path: `/w/${name}`, isDir: false, hasOrder: false, modified });
+const dir = (name: string, hasOrder = false): DirEntry => ({
+  name,
+  path: `/w/${name}`,
+  isDir: true,
+  hasOrder,
+  modified: 0,
+});
+const file = (name: string, modified = 0): DirEntry => ({
+  name,
+  path: `/w/${name}`,
+  isDir: false,
+  hasOrder: false,
+  modified,
+});
 
 describe("buildTreeItems", () => {
   it("merges ADO page file and sub-page folder", () => {
-    const items = buildTreeItems([file("Home.md"), dir("Architektur", true), file("Architektur.md")], true);
+    const items = buildTreeItems(
+      [file("Home.md"), dir("Architektur", true), file("Architektur.md")],
+      true,
+    );
     expect(items).toEqual([
       { name: "Home", dirPath: null, filePath: "/w/Home.md", hasOrder: false, modified: 0 },
-      { name: "Architektur", dirPath: "/w/Architektur", filePath: "/w/Architektur.md", hasOrder: true, modified: 0 },
+      {
+        name: "Architektur",
+        dirPath: "/w/Architektur",
+        filePath: "/w/Architektur.md",
+        hasOrder: true,
+        modified: 0,
+      },
     ]);
   });
 
@@ -29,7 +58,9 @@ describe("buildTreeItems", () => {
 
 describe("defaultPage", () => {
   it("prefers README, then index/Home, then the first page", () => {
-    expect(defaultPage(buildTreeItems([file("a.md"), file("README.md")], false))).toBe("/w/README.md");
+    expect(defaultPage(buildTreeItems([file("a.md"), file("README.md")], false))).toBe(
+      "/w/README.md",
+    );
     expect(defaultPage(buildTreeItems([file("a.md"), file("Home.md")], true))).toBe("/w/Home.md");
     expect(defaultPage(buildTreeItems([dir("x"), file("b.md")], false))).toBe("/w/b.md");
     expect(defaultPage([])).toBeNull();
@@ -68,7 +99,8 @@ describe("sortItems", () => {
     [file("b.md", 20), dir("Zed"), file("a.md", 30), dir("Alpha"), file("c.md", 10)],
     false,
   ).map((i, n) => (i.dirPath ? { ...i, modified: 100 + n } : i));
-  const names = (sort: Parameters<typeof sortItems>[1]) => sortItems(items, sort).map((i) => i.name);
+  const names = (sort: Parameters<typeof sortItems>[1]) =>
+    sortItems(items, sort).map((i) => i.name);
 
   it("keeps the given order for name ascending", () => {
     expect(sortItems(items, "name-asc")).toBe(items);

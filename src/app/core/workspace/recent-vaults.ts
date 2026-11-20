@@ -20,7 +20,11 @@ export interface VaultState {
 export type VaultStates = Record<string, VaultState>;
 
 /** `path` first, any earlier entry of it removed, at most `max` entries. */
-export function addRecent(list: readonly string[], path: string, max = MAX_RECENT_VAULTS): string[] {
+export function addRecent(
+  list: readonly string[],
+  path: string,
+  max = MAX_RECENT_VAULTS,
+): string[] {
   return [path, ...list.filter((p) => p !== path)].slice(0, max);
 }
 
@@ -53,7 +57,8 @@ export function sanitizeStates(value: unknown): VaultStates {
       backlinks: s["backlinks"] === true,
       outline: s["outline"] === true,
     };
-    if (typeof s["panelWidth"] === "number") out[path].panelWidth = sanitizePanelWidth(s["panelWidth"]);
+    if (typeof s["panelWidth"] === "number")
+      out[path].panelWidth = sanitizePanelWidth(s["panelWidth"]);
     const layout = sanitizeLayout(s["layout"]);
     if (layout) out[path].layout = layout;
   }

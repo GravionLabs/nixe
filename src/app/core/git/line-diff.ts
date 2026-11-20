@@ -17,7 +17,12 @@ function lcs<T>(a: readonly T[], b: readonly T[]): [number, number][] {
   let head = 0;
   while (head < a.length && head < b.length && a[head] === b[head]) head++;
   let tail = 0;
-  while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
+  while (
+    tail < a.length - head &&
+    tail < b.length - head &&
+    a[a.length - 1 - tail] === b[b.length - 1 - tail]
+  )
+    tail++;
   const pairs: [number, number][] = [];
   for (let i = 0; i < head; i++) pairs.push([i, i]);
   const n = a.length - head - tail;
@@ -30,7 +35,9 @@ function lcs<T>(a: readonly T[], b: readonly T[]): [number, number][] {
       for (let i = n - 1; i >= 0; i--) {
         for (let j = m - 1; j >= 0; j--) {
           t[i * w + j] =
-            a[head + i] === b[head + j] ? t[(i + 1) * w + j + 1] + 1 : Math.max(t[(i + 1) * w + j], t[i * w + j + 1]);
+            a[head + i] === b[head + j]
+              ? t[(i + 1) * w + j + 1] + 1
+              : Math.max(t[(i + 1) * w + j], t[i * w + j + 1]);
         }
       }
       let i = 0;

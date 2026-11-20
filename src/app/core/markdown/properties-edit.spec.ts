@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { chipSuggestions, chipText, initialValue, isDateOnly, listItems, parseNumber } from "./properties-edit";
+import {
+  chipSuggestions,
+  chipText,
+  initialValue,
+  isDateOnly,
+  listItems,
+  parseNumber,
+} from "./properties-edit";
 
 describe("properties-edit", () => {
   it("starts each type with a value of that type", () => {

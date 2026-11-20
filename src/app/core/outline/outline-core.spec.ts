@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOutline, collapseToLevel, currentHeading, foldable, markedHeading, outlineOf } from "./outline-core";
+import {
+  buildOutline,
+  collapseToLevel,
+  currentHeading,
+  foldable,
+  markedHeading,
+  outlineOf,
+} from "./outline-core";
 
 describe("outlineOf", () => {
   it("lists ATX headings with their 1-based line", () => {
@@ -12,7 +19,8 @@ describe("outlineOf", () => {
   });
 
   it("skips frontmatter and fenced code and counts their lines", () => {
-    const text = "---\n# not: a heading\n---\n# Real\n```md\n# in code\n```\n~~~~\n# tilde\n~~~~\n## After";
+    const text =
+      "---\n# not: a heading\n---\n# Real\n```md\n# in code\n```\n~~~~\n# tilde\n~~~~\n## After";
     expect(outlineOf(text)).toEqual([
       { level: 1, text: "Real", line: 4 },
       { level: 2, text: "After", line: 11 },

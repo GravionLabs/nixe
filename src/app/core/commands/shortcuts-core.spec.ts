@@ -32,32 +32,55 @@ describe("platformOf", () => {
 
 describe("bindingFromEvent", () => {
   it("records ⌘ as Mod and ⌃ as Ctrl on macOS", () => {
-    expect(bindingFromEvent(press("k", "KeyK", { metaKey: true, shiftKey: true }), "mac")).toBe("Mod+Shift+K");
+    expect(bindingFromEvent(press("k", "KeyK", { metaKey: true, shiftKey: true }), "mac")).toBe(
+      "Mod+Shift+K",
+    );
     expect(bindingFromEvent(press("Tab", "Tab", { ctrlKey: true }), "mac")).toBe("Ctrl+Tab");
-    expect(bindingFromEvent(press("k", "KeyK", { metaKey: true, ctrlKey: true }), "mac")).toBeNull();
+    expect(
+      bindingFromEvent(press("k", "KeyK", { metaKey: true, ctrlKey: true }), "mac"),
+    ).toBeNull();
   });
 
-  it.each(["windows", "linux"] as const)("records Ctrl as Mod on %s and refuses the Super key", (platform) => {
-    expect(bindingFromEvent(press("k", "KeyK", { ctrlKey: true, altKey: true }), platform)).toBe("Mod+Alt+K");
-    expect(bindingFromEvent(press("Tab", "Tab", { ctrlKey: true, shiftKey: true }), platform)).toBe("Mod+Shift+Tab");
-    expect(bindingFromEvent(press("k", "KeyK", { metaKey: true }), platform)).toBeNull();
-  });
+  it.each(["windows", "linux"] as const)(
+    "records Ctrl as Mod on %s and refuses the Super key",
+    (platform) => {
+      expect(bindingFromEvent(press("k", "KeyK", { ctrlKey: true, altKey: true }), platform)).toBe(
+        "Mod+Alt+K",
+      );
+      expect(
+        bindingFromEvent(press("Tab", "Tab", { ctrlKey: true, shiftKey: true }), platform),
+      ).toBe("Mod+Shift+Tab");
+      expect(bindingFromEvent(press("k", "KeyK", { metaKey: true }), platform)).toBeNull();
+    },
+  );
 
   it("reads letters from the physical key, so ⌥ letters work on macOS", () => {
-    expect(bindingFromEvent(press("å", "KeyA", { metaKey: true, altKey: true }), "mac")).toBe("Mod+Alt+A");
-    expect(bindingFromEvent(press("!", "Digit1", { ctrlKey: true, shiftKey: true }), "linux")).toBe("Mod+Shift+1");
+    expect(bindingFromEvent(press("å", "KeyA", { metaKey: true, altKey: true }), "mac")).toBe(
+      "Mod+Alt+A",
+    );
+    expect(bindingFromEvent(press("!", "Digit1", { ctrlKey: true, shiftKey: true }), "linux")).toBe(
+      "Mod+Shift+1",
+    );
   });
 
   it("names the keys that clash with the separator or are blank", () => {
-    expect(bindingFromEvent(press("+", "Equal", { ctrlKey: true, shiftKey: true }), "windows")).toBe("Mod+Shift+Plus");
+    expect(
+      bindingFromEvent(press("+", "Equal", { ctrlKey: true, shiftKey: true }), "windows"),
+    ).toBe("Mod+Shift+Plus");
     expect(bindingFromEvent(press(" ", "Space", { ctrlKey: true }), "linux")).toBe("Mod+Space");
     expect(bindingFromEvent(press("=", "Equal", { metaKey: true }), "mac")).toBe("Mod+=");
-    expect(bindingFromEvent(press("ArrowLeft", "ArrowLeft", { altKey: true }), "mac")).toBe("Alt+ArrowLeft");
+    expect(bindingFromEvent(press("ArrowLeft", "ArrowLeft", { altKey: true }), "mac")).toBe(
+      "Alt+ArrowLeft",
+    );
   });
 
   it("records punctuation by its physical key, so ⇧ and ⌥ do not change it", () => {
-    expect(bindingFromEvent(press("<", "Comma", { ctrlKey: true, shiftKey: true }), "linux")).toBe("Mod+Shift+,");
-    expect(bindingFromEvent(press("≤", "Comma", { metaKey: true, altKey: true }), "mac")).toBe("Mod+Alt+,");
+    expect(bindingFromEvent(press("<", "Comma", { ctrlKey: true, shiftKey: true }), "linux")).toBe(
+      "Mod+Shift+,",
+    );
+    expect(bindingFromEvent(press("≤", "Comma", { metaKey: true, altKey: true }), "mac")).toBe(
+      "Mod+Alt+,",
+    );
     const event = press("<", "Comma", { ctrlKey: true, shiftKey: true });
     expect(matchesBinding(event, "Mod+Shift+,")).toBe(true);
   });
@@ -74,7 +97,9 @@ describe("bindingFromEvent", () => {
 
   it("refuses a modifier alone and a key without modifier, except function keys", () => {
     expect(bindingFromEvent(press("Shift", "ShiftLeft", { shiftKey: true }), "mac")).toBeNull();
-    expect(bindingFromEvent(press("Control", "ControlLeft", { ctrlKey: true }), "windows")).toBeNull();
+    expect(
+      bindingFromEvent(press("Control", "ControlLeft", { ctrlKey: true }), "windows"),
+    ).toBeNull();
     expect(bindingFromEvent(press("a", "KeyA"), "linux")).toBeNull();
     expect(bindingFromEvent(press("F5", "F5"), "linux")).toBe("F5");
     expect(bindingFromEvent(press("F5", "F5", { shiftKey: true }), "windows")).toBe("Shift+F5");
@@ -123,7 +148,9 @@ describe("findConflicts", () => {
 
 describe("effectiveBindings", () => {
   it("lets an override, also an empty one, replace the default", () => {
-    expect(effectiveBindings({ a: "Mod+A", b: "Mod+B", c: "" }, { a: "Mod+X", b: "", z: "Mod+Z" })).toEqual({
+    expect(
+      effectiveBindings({ a: "Mod+A", b: "Mod+B", c: "" }, { a: "Mod+X", b: "", z: "Mod+Z" }),
+    ).toEqual({
       a: "Mod+X",
       b: "",
       c: "",

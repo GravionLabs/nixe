@@ -13,7 +13,10 @@ function make(onChange: (l: number[]) => void = () => {}): EditorView {
   return new EditorView({
     state: EditorState.create({
       doc: DOC,
-      extensions: [editorBehavior({ onSave: () => {}, onBlur: () => {}, onWikilink: () => {} }), folding(onChange)],
+      extensions: [
+        editorBehavior({ onSave: () => {}, onBlur: () => {}, onWikilink: () => {} }),
+        folding(onChange),
+      ],
     }),
     parent: document.body,
   });
@@ -22,7 +25,8 @@ function make(onChange: (l: number[]) => void = () => {}): EditorView {
 describe("editor folding", () => {
   it("offers folds for frontmatter, headings and list items", () => {
     const view = make();
-    const at = (n: number) => foldable(view.state, view.state.doc.line(n).from, view.state.doc.line(n).to);
+    const at = (n: number) =>
+      foldable(view.state, view.state.doc.line(n).from, view.state.doc.line(n).to);
     expect(at(1)).not.toBeNull();
     expect(at(4)).not.toBeNull();
     expect(at(6)).not.toBeNull();

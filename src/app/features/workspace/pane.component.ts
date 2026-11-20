@@ -30,7 +30,12 @@ import { ViewerComponent } from "../viewer/viewer.component";
           <app-editor class="note" (error)="tabs.notice.set($event)" />
         }
       } @else {
-        <app-viewer class="note" [html]="html()" [dark]="settings.dark()" (notify)="tabs.notice.set($event)" />
+        <app-viewer
+          class="note"
+          [html]="html()"
+          [dark]="settings.dark()"
+          (notify)="tabs.notice.set($event)"
+        />
       }
     } @else {
       <app-start class="view" (error)="tabs.notice.set($event)" />
@@ -63,7 +68,6 @@ export class PaneComponent implements OnDestroy {
   protected readonly tab = inject(CURRENT_TAB);
   private readonly viewer = viewChild(ViewerComponent);
 
-
   /** The note's body; its properties are shown (and edited) by the viewer's properties panel. */
   protected readonly html = computed(
     () =>
@@ -79,7 +83,13 @@ export class PaneComponent implements OnDestroy {
   constructor() {
     effect(() => {
       const viewer = this.viewer();
-      this.tab.viewer = viewer ? { topLine: () => viewer.topLine(), openFind: () => viewer.openFind(), fold: (a) => viewer.fold(a) } : null;
+      this.tab.viewer = viewer
+        ? {
+            topLine: () => viewer.topLine(),
+            openFind: () => viewer.openFind(),
+            fold: (a) => viewer.fold(a),
+          }
+        : null;
     });
     // A note opened into a tab that shows a view (the sidebar opens into the shown tab) replaces it.
     effect(() => {

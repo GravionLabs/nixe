@@ -15,10 +15,18 @@ import { OutlineService } from "../../core/outline/outline.service";
       <p class="status">No headings</p>
     } @else {
       <div class="levels" role="group" aria-label="Fold the outline">
-        <button type="button" class="level" (click)="outline.collapseTo(1)" title="Show only H1">H1</button>
-        <button type="button" class="level" (click)="outline.collapseTo(2)" title="Show down to H2">H2</button>
-        <button type="button" class="level" (click)="outline.collapseTo(3)" title="Show down to H3">H3</button>
-        <button type="button" class="level" (click)="outline.expandAll()" title="Expand all">All</button>
+        <button type="button" class="level" (click)="outline.collapseTo(1)" title="Show only H1">
+          H1
+        </button>
+        <button type="button" class="level" (click)="outline.collapseTo(2)" title="Show down to H2">
+          H2
+        </button>
+        <button type="button" class="level" (click)="outline.collapseTo(3)" title="Show down to H3">
+          H3
+        </button>
+        <button type="button" class="level" (click)="outline.expandAll()" title="Expand all">
+          All
+        </button>
       </div>
       <ul class="tree" role="tree">
         <ng-container *ngTemplateOutlet="nodes; context: { $implicit: outline.tree() }" />
@@ -38,7 +46,9 @@ import { OutlineService } from "../../core/outline/outline.service";
               type="button"
               class="fold"
               [style.left.px]="2 + (node.level - 1) * 12"
-              [attr.aria-label]="(outline.folded().has(node.index) ? 'Expand ' : 'Collapse ') + node.text"
+              [attr.aria-label]="
+                (outline.folded().has(node.index) ? 'Expand ' : 'Collapse ') + node.text
+              "
               (click)="outline.toggle(node.index)"
             >
               {{ outline.folded().has(node.index) ? "▸" : "▾" }}

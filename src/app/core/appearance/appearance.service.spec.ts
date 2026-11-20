@@ -25,12 +25,17 @@ describe("AppearanceService", () => {
   beforeEach(() => {
     themes = [file("sepia", ":root{--x:1}")];
     snippets = [file("wide", "a{}"), file("round", "b{}")];
-    vi.spyOn(backend, "readAppearance").mockImplementation(async (kind) => (kind === "themes" ? themes : snippets));
+    vi.spyOn(backend, "readAppearance").mockImplementation(async (kind) =>
+      kind === "themes" ? themes : snippets,
+    );
     vi.spyOn(backend, "appearanceDir").mockResolvedValue("/cfg");
     vi.spyOn(backend, "writeAppSettings").mockResolvedValue(undefined);
     localStorage.clear();
     document.head.innerHTML = "";
-    window.matchMedia = (() => ({ matches: false, addEventListener: () => undefined })) as unknown as typeof window.matchMedia;
+    window.matchMedia = (() => ({
+      matches: false,
+      addEventListener: () => undefined,
+    })) as unknown as typeof window.matchMedia;
     TestBed.resetTestingModule();
     service = TestBed.inject(AppearanceService);
     settings = TestBed.inject(SettingsService);

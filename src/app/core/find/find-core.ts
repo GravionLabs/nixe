@@ -35,14 +35,21 @@ function escapeRegExp(text: string): string {
 export function buildPattern(query: string, options: FindOptions): RegExp | string | null {
   if (!query) return null;
   try {
-    return new RegExp(options.regex ? query : escapeRegExp(query), options.caseSensitive ? "g" : "gi");
+    return new RegExp(
+      options.regex ? query : escapeRegExp(query),
+      options.caseSensitive ? "g" : "gi",
+    );
   } catch (error) {
     return error instanceof Error ? error.message : "Invalid regular expression";
   }
 }
 
 /** All non-empty matches of `query` in `text`, in order (at most 5000). */
-export function findMatches(text: string, query: string, options: FindOptions): FindMatch[] | string {
+export function findMatches(
+  text: string,
+  query: string,
+  options: FindOptions,
+): FindMatch[] | string {
   const pattern = buildPattern(query, options);
   if (pattern === null) return [];
   if (typeof pattern === "string") return pattern;

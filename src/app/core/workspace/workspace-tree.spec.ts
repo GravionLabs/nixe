@@ -42,13 +42,16 @@ describe("file tree actions of WorkspaceService", () => {
     vi.spyOn(backend, "isFile").mockResolvedValue(false);
     vi.spyOn(backend, "isDir").mockResolvedValue(true);
     vi.spyOn(backend, "listDir").mockImplementation(
-      async (d) => (tree[d] ?? []).map((e) => ({ ...e, path: `${d}/${e.name}`, hasOrder: false })) as never,
+      async (d) =>
+        (tree[d] ?? []).map((e) => ({ ...e, path: `${d}/${e.name}`, hasOrder: false })) as never,
     );
     vi.spyOn(backend, "findVaultRoot").mockImplementation(async (p) => p);
     vi.spyOn(backend, "listVaultFiles").mockResolvedValue([]);
     vi.spyOn(backend, "indexStart").mockResolvedValue(undefined as never);
     TestBed.resetTestingModule();
-    TestBed.configureTestingModule({ providers: [{ provide: DocumentService, useValue: { path, open: vi.fn() } }] });
+    TestBed.configureTestingModule({
+      providers: [{ provide: DocumentService, useValue: { path, open: vi.fn() } }],
+    });
     settings = TestBed.inject(SettingsService);
     workspace = TestBed.inject(WorkspaceService);
     await workspace.openFolder("/v", { openDefaultPage: false });
@@ -92,7 +95,12 @@ describe("file tree actions of WorkspaceService", () => {
   });
 
   it("filters by name, loads the folders of matches and clears the filter on a reveal", async () => {
-    vi.spyOn(backend, "listVaultFiles").mockResolvedValue(["a.md", "b.md", "docs/deep/note.md", "docs/x.md"]);
+    vi.spyOn(backend, "listVaultFiles").mockResolvedValue([
+      "a.md",
+      "b.md",
+      "docs/deep/note.md",
+      "docs/x.md",
+    ]);
     await workspace.openFolder("/v", { openDefaultPage: false });
     await workspace.setTreeFilter("note");
     expect(workspace.filteredRows().map((n) => n.name)).toEqual(["docs", "deep", "note.md"]);

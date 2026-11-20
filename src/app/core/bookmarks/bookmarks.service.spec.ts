@@ -20,8 +20,19 @@ describe("BookmarksService", () => {
   const vaultRoot = signal<string | null>("/v");
   const inVault = signal(false);
   const docPath = signal<string | null>("/v/dir/a.md");
-  const doc = { path: docPath, content: signal("# Intro\n\ntext\n\n## Deep\n"), open: vi.fn(), pendingLine: { set: vi.fn() } };
-  const outline = { headings: signal([{ level: 1, text: "Intro", line: 1 }, { level: 2, text: "Deep", line: 5 }]), current: signal(1) };
+  const doc = {
+    path: docPath,
+    content: signal("# Intro\n\ntext\n\n## Deep\n"),
+    open: vi.fn(),
+    pendingLine: { set: vi.fn() },
+  };
+  const outline = {
+    headings: signal([
+      { level: 1, text: "Intro", line: 1 },
+      { level: 2, text: "Deep", line: 5 },
+    ]),
+    current: signal(1),
+  };
   const search = { query: signal("tag:#x") };
   let service: BookmarksService;
   let appFile: string | null;
@@ -94,7 +105,13 @@ describe("BookmarksService", () => {
 
   it("reads and writes .obsidian/bookmarks.json when the setting is on, keeping unknown keys", async () => {
     inVault.set(true);
-    vaultFile = JSON.stringify({ items: [{ type: "file", path: "n.md" }, { type: "url", url: "u" }], other: 1 });
+    vaultFile = JSON.stringify({
+      items: [
+        { type: "file", path: "n.md" },
+        { type: "url", url: "u" },
+      ],
+      other: 1,
+    });
     await start();
     expect(service.store()).toBe("vault");
     service.bookmarkSearch();

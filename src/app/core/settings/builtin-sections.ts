@@ -37,11 +37,35 @@ export const NOT_SET = "Not set";
 /** General, Editor, Files and links, Appearance, Git and Shortcuts. */
 export function builtinSections(src: SectionSources): SettingsSection[] {
   const s = src.settings;
-  const toggle = (id: string, label: string, signal: { (): boolean; set(v: boolean): void }, description?: string, keywords?: string[]): SettingItem => ({
-    kind: "toggle", id, label, description, keywords, get: () => signal(), set: (v) => signal.set(v),
+  const toggle = (
+    id: string,
+    label: string,
+    signal: { (): boolean; set(v: boolean): void },
+    description?: string,
+    keywords?: string[],
+  ): SettingItem => ({
+    kind: "toggle",
+    id,
+    label,
+    description,
+    keywords,
+    get: () => signal(),
+    set: (v) => signal.set(v),
   });
-  const text = (id: string, label: string, signal: { (): string; set(v: string): void }, description?: string, placeholder?: string): SettingItem => ({
-    kind: "text", id, label, description, placeholder, get: () => signal(), set: (v) => signal.set(v.trim()),
+  const text = (
+    id: string,
+    label: string,
+    signal: { (): string; set(v: string): void },
+    description?: string,
+    placeholder?: string,
+  ): SettingItem => ({
+    kind: "text",
+    id,
+    label,
+    description,
+    placeholder,
+    get: () => signal(),
+    set: (v) => signal.set(v.trim()),
   });
 
   /** Theme file, accent color, fonts and one switch per snippet (#114). */
@@ -55,7 +79,10 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       description: "CSS snippet; reloads when the file changes.",
       keywords: ["css", "snippet"],
       get: () => s.snippets().includes(f.name),
-      set: (on: boolean) => s.snippets.update((l) => (on ? [...l.filter((n) => n !== f.name), f.name] : l.filter((n) => n !== f.name))),
+      set: (on: boolean) =>
+        s.snippets.update((l) =>
+          on ? [...l.filter((n) => n !== f.name), f.name] : l.filter((n) => n !== f.name),
+        ),
     }));
     return [
       {
@@ -64,7 +91,10 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
         label: "Custom theme",
         description: "A CSS file in the themes folder. It changes the look at once.",
         keywords: ["css", "look", "skin"],
-        options: [{ value: "", label: "None" }, ...a.themes().map((t) => ({ value: t.name, label: t.name }))],
+        options: [
+          { value: "", label: "None" },
+          ...a.themes().map((t) => ({ value: t.name, label: t.name })),
+        ],
         get: () => s.appearanceTheme(),
         set: (v) => s.appearanceTheme.set(v),
       },
@@ -102,7 +132,8 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
         kind: "readonly",
         id: "appearance-folder",
         label: "Themes and snippets folder",
-        description: "Put theme files into `themes/` and snippets into `snippets/` of this folder. Obsidian themes and snippets are not loaded.",
+        description:
+          "Put theme files into `themes/` and snippets into `snippets/` of this folder. Obsidian themes and snippets are not loaded.",
         keywords: ["css", "folder", "directory", "obsidian"],
         value: () => a.folder() || "Unknown",
       },
@@ -124,10 +155,31 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           keywords: ["about", "release", "build"],
           value: () => src.version() || "Unknown",
         },
-        toggle("sidebar", "Show the sidebar", s.sidebarVisible, "The file tree of the vault.", ["files", "tree"]),
-        toggle("tree-git-status", "Git status in the file tree", s.treeGitStatus, "Mark changed, added and untracked notes with a letter and a color, and their folders with a dot.", ["git", "decoration", "files", "modified"]),
-        toggle("backlinks", "Show the backlinks panel", s.backlinksVisible, "Notes that link to the open note.", ["links"]),
-        toggle("outline", "Show the outline panel", s.outlineVisible, "The headings of the open note.", ["headings", "toc"]),
+        toggle("sidebar", "Show the sidebar", s.sidebarVisible, "The file tree of the vault.", [
+          "files",
+          "tree",
+        ]),
+        toggle(
+          "tree-git-status",
+          "Git status in the file tree",
+          s.treeGitStatus,
+          "Mark changed, added and untracked notes with a letter and a color, and their folders with a dot.",
+          ["git", "decoration", "files", "modified"],
+        ),
+        toggle(
+          "backlinks",
+          "Show the backlinks panel",
+          s.backlinksVisible,
+          "Notes that link to the open note.",
+          ["links"],
+        ),
+        toggle(
+          "outline",
+          "Show the outline panel",
+          s.outlineVisible,
+          "The headings of the open note.",
+          ["headings", "toc"],
+        ),
       ],
     },
     {
@@ -135,8 +187,17 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       title: "Editor",
       order: 20,
       items: () => [
-        toggle("math", "LaTeX math", s.math, "Render $…$ and $$…$$ with KaTeX.", ["formula", "katex"]),
-        toggle("wrap-code", "Wrap lines in code blocks", s.wrapCode, "Wrap long lines instead of scrolling sideways.", ["code", "scroll", "horizontal"]),
+        toggle("math", "LaTeX math", s.math, "Render $…$ and $$…$$ with KaTeX.", [
+          "formula",
+          "katex",
+        ]),
+        toggle(
+          "wrap-code",
+          "Wrap lines in code blocks",
+          s.wrapCode,
+          "Wrap long lines instead of scrolling sideways.",
+          ["code", "scroll", "horizontal"],
+        ),
       ],
     },
     {
@@ -160,17 +221,40 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
                 kind: "readonly" as const,
                 id: "obsidian-none",
                 label: "Obsidian settings",
-                description: "Open a vault to see its new-note folder, attachment folder, link format, templates and daily notes.",
+                description:
+                  "Open a vault to see its new-note folder, attachment folder, link format, templates and daily notes.",
                 keywords: ["obsidian", "attachment", "link format", "new note", "daily"],
                 value: () => "No vault open",
               },
             ];
         return [
           ...fromVault,
-          text("template-folder", "Template folder", s.templateFolder, "Used when `.obsidian/templates.json` names none.", "Templates"),
-          text("daily-folder", "Daily notes folder", s.dailyFolder, "Used when `.obsidian/daily-notes.json` sets none."),
-          text("daily-format", "Daily notes date format", s.dailyFormat, "Used when `.obsidian/daily-notes.json` sets none.", "YYYY-MM-DD"),
-          text("daily-template", "Daily notes template", s.dailyTemplate, "Used when `.obsidian/daily-notes.json` sets none."),
+          text(
+            "template-folder",
+            "Template folder",
+            s.templateFolder,
+            "Used when `.obsidian/templates.json` names none.",
+            "Templates",
+          ),
+          text(
+            "daily-folder",
+            "Daily notes folder",
+            s.dailyFolder,
+            "Used when `.obsidian/daily-notes.json` sets none.",
+          ),
+          text(
+            "daily-format",
+            "Daily notes date format",
+            s.dailyFormat,
+            "Used when `.obsidian/daily-notes.json` sets none.",
+            "YYYY-MM-DD",
+          ),
+          text(
+            "daily-template",
+            "Daily notes template",
+            s.dailyTemplate,
+            "Used when `.obsidian/daily-notes.json` sets none.",
+          ),
           {
             kind: "text",
             id: "health-exclude",
@@ -248,9 +332,25 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       title: "Git",
       order: 50,
       items: () => [
-        text("git-author-name", "Commit author name", s.gitAuthorName, "Used when the Git config of the vault has none."),
-        text("git-author-email", "Commit author email", s.gitAuthorEmail, "Used when the Git config of the vault has none."),
-        toggle("auto-sync", "Sync automatically", s.autoSync, "Commit and sync the vault on a timer.", ["git", "pull", "push"]),
+        text(
+          "git-author-name",
+          "Commit author name",
+          s.gitAuthorName,
+          "Used when the Git config of the vault has none.",
+        ),
+        text(
+          "git-author-email",
+          "Commit author email",
+          s.gitAuthorEmail,
+          "Used when the Git config of the vault has none.",
+        ),
+        toggle(
+          "auto-sync",
+          "Sync automatically",
+          s.autoSync,
+          "Commit and sync the vault on a timer.",
+          ["git", "pull", "push"],
+        ),
         {
           kind: "number",
           id: "auto-sync-minutes",
@@ -261,9 +361,17 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           get: () => s.autoSyncMinutes(),
           set: (v) => s.autoSyncMinutes.set(clampMinutes(v)),
         },
-        toggle("auto-sync-focus", "Sync when the window gets focus", s.autoSyncOnFocus, undefined, ["git"]),
+        toggle("auto-sync-focus", "Sync when the window gets focus", s.autoSyncOnFocus, undefined, [
+          "git",
+        ]),
         toggle("auto-sync-quit", "Sync when quitting", s.autoSyncOnQuit, undefined, ["git"]),
-        text("review-branch-prefix", "Review branch prefix", s.reviewBranchPrefix, "Branches with this prefix that are ahead of the working branch wait for review. Empty turns the review off.", "claude/"),
+        text(
+          "review-branch-prefix",
+          "Review branch prefix",
+          s.reviewBranchPrefix,
+          "Branches with this prefix that are ahead of the working branch wait for review. Empty turns the review off.",
+          "claude/",
+        ),
       ],
     },
     {

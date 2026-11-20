@@ -12,7 +12,13 @@ import { WorkspaceService } from "../workspace/workspace.service";
 import { BacklinksService } from "./backlinks.service";
 import { IndexService } from "./index.service";
 
-const status = (state: IndexStatus["state"]): IndexStatus => ({ state, done: 0, total: 0, notes: 0, error: null });
+const status = (state: IndexStatus["state"]): IndexStatus => ({
+  state,
+  done: 0,
+  total: 0,
+  notes: 0,
+  error: null,
+});
 
 function setup(indexState: IndexStatus["state"] = "ready") {
   const doc = { path: signal<string | null>("/vault/notes/A.md") };
@@ -58,7 +64,11 @@ describe("BacklinksService", () => {
     invoke.mockImplementation(async (cmd: string) =>
       cmd === "backlinks"
         ? [back]
-        : { path: "notes/A.md", title: "A", links: [link("sub/C", "sub/C.md"), link("Missing", null)] },
+        : {
+            path: "notes/A.md",
+            title: "A",
+            links: [link("sub/C", "sub/C.md"), link("Missing", null)],
+          },
     );
     const { service } = setup();
     await service.refresh();
@@ -158,7 +168,9 @@ describe("BacklinksService", () => {
     });
 
     it("links a mention and reads the list again", async () => {
-      invoke.mockImplementation(async (cmd: string) => (cmd === "unlinked_mentions" ? [] : undefined));
+      invoke.mockImplementation(async (cmd: string) =>
+        cmd === "unlinked_mentions" ? [] : undefined,
+      );
       const { service } = setup();
       await service.linkMention(mention);
       expect(invoke).toHaveBeenCalledWith("link_mention", {

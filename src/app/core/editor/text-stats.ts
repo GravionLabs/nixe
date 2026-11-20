@@ -32,7 +32,12 @@ function stripCodeBlocks(text: string): string {
     if (fence === null) {
       if (match) fence = match[1];
       else out.push(line);
-    } else if (match && match[1][0] === fence[0] && match[1].length >= fence.length && line.slice(match[0].length).trim() === "") {
+    } else if (
+      match &&
+      match[1][0] === fence[0] &&
+      match[1].length >= fence.length &&
+      line.slice(match[0].length).trim() === ""
+    ) {
       fence = null;
     }
   }
@@ -49,7 +54,12 @@ export function countText(text: string, selection = false): TextStats {
   const body = stripComments(stripCodeBlocks(selection ? text : stripFrontmatter(text)));
   const words = body.match(/\S+/g)?.length ?? 0;
   const characters = body.replace(/\s/g, "").length;
-  return { words, characters, minutes: words === 0 ? 0 : Math.max(1, Math.round(words / WORDS_PER_MINUTE)), selection };
+  return {
+    words,
+    characters,
+    minutes: words === 0 ? 0 : Math.max(1, Math.round(words / WORDS_PER_MINUTE)),
+    selection,
+  };
 }
 
 /** `1 min read`, or `under a minute` for a short text. */

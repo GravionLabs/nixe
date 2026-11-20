@@ -59,10 +59,7 @@ describe("toggledCheckbox", () => {
 
 describe("checklistMarkdown", () => {
   it("lists every item, marks untested ones and escapes pipes", () => {
-    const md = checklistMarkdown(
-      { typing: "ok", undo: "blocker" },
-      { undo: "a|b\nc" },
-    );
+    const md = checklistMarkdown({ typing: "ok", undo: "blocker" }, { undo: "a|b\nc" });
     expect(md).toContain("| typing | ok |  |");
     expect(md).toContain("| undo | blocker | a\\|b c |");
     expect(md).toContain("| dictation | untested |  |");

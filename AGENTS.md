@@ -15,12 +15,13 @@ Run these before opening a pull request. CI runs the same.
 
 | What | Command |
 |---|---|
+| Frontend format (oxfmt) | `pnpm format:check` |
 | Frontend tests (Vitest) | `pnpm test` |
 | Frontend build | `pnpm build` |
 | Rust format | `cargo fmt --manifest-path src-tauri/Cargo.toml --check` |
 | Rust tests | `cargo test --manifest-path src-tauri/Cargo.toml` |
 
-Run `cargo fmt --manifest-path src-tauri/Cargo.toml` to fix formatting. There is no lint check for the frontend yet.
+Run `pnpm format` (oxfmt, `.oxfmtrc.json`) and `cargo fmt --manifest-path src-tauri/Cargo.toml` to fix formatting. oxfmt formats the TypeScript, the Angular templates, the styles and the JSON/YAML configs; Markdown, `docs/`, `fixtures/` and `src-tauri/` are left out. There is no lint check for the frontend yet.
 
 ## Conventions
 

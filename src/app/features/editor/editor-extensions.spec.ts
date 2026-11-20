@@ -7,9 +7,19 @@ import { describe, expect, it } from "vitest";
 import { matchCountLabel } from "./editor-extensions";
 import { editorBehavior } from "./editor-extensions";
 
-function stateWith(doc: string, search: string, caseSensitive = false, regexp = false): EditorState {
-  const state = EditorState.create({ doc, extensions: editorBehavior({ onSave: () => {}, onBlur: () => {}, onWikilink: () => {} }) });
-  return state.update({ effects: setSearchQuery.of(new SearchQuery({ search, caseSensitive, regexp })) }).state;
+function stateWith(
+  doc: string,
+  search: string,
+  caseSensitive = false,
+  regexp = false,
+): EditorState {
+  const state = EditorState.create({
+    doc,
+    extensions: editorBehavior({ onSave: () => {}, onBlur: () => {}, onWikilink: () => {} }),
+  });
+  return state.update({
+    effects: setSearchQuery.of(new SearchQuery({ search, caseSensitive, regexp })),
+  }).state;
 }
 
 describe("matchCountLabel", () => {
@@ -39,7 +49,12 @@ describe("wikilink hover", () => {
       parent,
       state: EditorState.create({
         doc: "see [[Note#Head|Alias]] now",
-        extensions: editorBehavior({ onSave: () => {}, onBlur: () => {}, onWikilink: () => {}, onWikilinkHover }),
+        extensions: editorBehavior({
+          onSave: () => {},
+          onBlur: () => {},
+          onWikilink: () => {},
+          onWikilinkHover,
+        }),
       }),
     });
     return view;
@@ -52,7 +67,13 @@ describe("wikilink hover", () => {
     view.posAtCoords = () => 8;
     view.coordsAtPos = () => ({ left: 10, right: 20, top: 5, bottom: 20 });
     view.contentDOM.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, metaKey: true }));
-    expect(calls).toEqual([{ value: "Note#Head|Alias", anchor: { left: 10, right: 20, top: 5, bottom: 20 }, modifier: true }]);
+    expect(calls).toEqual([
+      {
+        value: "Note#Head|Alias",
+        anchor: { left: 10, right: 20, top: 5, bottom: 20 },
+        modifier: true,
+      },
+    ]);
   });
 
   it("reports null off a wikilink and when the pointer leaves", () => {

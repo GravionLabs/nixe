@@ -14,10 +14,14 @@ describe("note layout", () => {
   });
 
   it("keeps the padding of a narrow pane", () => {
-    expect(viewer).toMatch(/@media \(max-width: 700px\)[\s\S]*article\.markdown-body\s*\{\s*padding: 20px 16px 60px/);
+    expect(viewer).toMatch(
+      /@media \(max-width: 700px\)[\s\S]*article\.markdown-body\s*\{\s*padding: 20px 16px 60px/,
+    );
   });
 
   it("uses the same width and centering in the editor", () => {
-    expect(editor).toMatch(/"\.cm-content": \{[^}]*maxWidth: "var\(--nixe-content-width, 980px\)", margin: "0 auto"/);
+    expect(editor).toMatch(
+      /"\.cm-content": \{[^}]*maxWidth: "var\(--nixe-content-width, 980px\)",\s*margin: "0 auto"/,
+    );
   });
 });

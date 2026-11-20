@@ -31,7 +31,9 @@ describe("matchesBinding / formatShortcut", () => {
     expect(matchesBinding(key("Tab", { ctrlKey: true }), "Ctrl+Tab")).toBe(true);
     expect(matchesBinding(key("Tab", { metaKey: true }), "Ctrl+Tab")).toBe(false);
     expect(matchesBinding(key("Tab", { ctrlKey: true, shiftKey: true }), "Ctrl+Tab")).toBe(false);
-    expect(matchesBinding(key("Tab", { ctrlKey: true, shiftKey: true }), "Ctrl+Shift+Tab")).toBe(true);
+    expect(matchesBinding(key("Tab", { ctrlKey: true, shiftKey: true }), "Ctrl+Shift+Tab")).toBe(
+      true,
+    );
     expect(formatShortcut("Ctrl+Tab", true)).toBe("⌃Tab");
     expect(formatShortcut("Ctrl+Tab", false)).toBe("Ctrl+Tab");
   });
@@ -141,7 +143,9 @@ describe("matchesBinding with the physical key", () => {
   });
 
   it("matches Plus and Space by name", () => {
-    expect(matchesBinding(key("+", { ctrlKey: true, shiftKey: true }), "Mod+Shift+Plus")).toBe(true);
+    expect(matchesBinding(key("+", { ctrlKey: true, shiftKey: true }), "Mod+Shift+Plus")).toBe(
+      true,
+    );
     expect(matchesBinding(key(" ", { ctrlKey: true }), "Mod+Space")).toBe(true);
     expect(formatShortcut("Mod+Shift+Plus", true)).toBe("⌘⇧+");
     expect(formatShortcut("Mod+Shift+Plus", false)).toBe("Ctrl+Shift++");

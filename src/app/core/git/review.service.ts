@@ -1,6 +1,13 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 
-import { GitChange, NoteDecision, ReviewBranch, ReviewConflict, ReviewHunk, backend } from "../file/backend";
+import {
+  GitChange,
+  NoteDecision,
+  ReviewBranch,
+  ReviewConflict,
+  ReviewHunk,
+  backend,
+} from "../file/backend";
 import { IndexService } from "../index/index.service";
 import { SettingsService } from "../settings/settings.service";
 import { GitService } from "./git.service";
@@ -53,7 +60,9 @@ export class ReviewService {
   /** What the last finished review did, for the user. */
   readonly result = signal<string | null>(null);
   /** The notes with at least one accepted hunk. */
-  readonly accepted = computed(() => this.changes().filter((c) => this.stateOf(c.path) !== "rejected").length);
+  readonly accepted = computed(
+    () => this.changes().filter((c) => this.stateOf(c.path) !== "rejected").length,
+  );
   private request = 0;
   private branchRequest = 0;
   private diffRequest = 0;
@@ -129,7 +138,9 @@ export class ReviewService {
       const result = await backend.gitReviewChanges(branch.tip);
       if (request !== this.branchRequest) return;
       const entries = await Promise.all(
-        result.changes.map(async (c) => [c.path, await backend.gitReviewHunks(branch.tip, c.path)] as const),
+        result.changes.map(
+          async (c) => [c.path, await backend.gitReviewHunks(branch.tip, c.path)] as const,
+        ),
       );
       const saved = await this.loadState(branch);
       if (request !== this.branchRequest) return;
@@ -138,7 +149,8 @@ export class ReviewService {
       this.hunks.set(Object.fromEntries(entries));
       this.choices.set(saved);
     } catch (err) {
-      if (request === this.branchRequest) this.error.set(String(err instanceof Error ? err.message : err));
+      if (request === this.branchRequest)
+        this.error.set(String(err instanceof Error ? err.message : err));
     } finally {
       if (request === this.branchRequest) this.loading.set(false);
     }
@@ -164,7 +176,8 @@ export class ReviewService {
       ]);
       if (request === this.diffRequest) this.diff.set({ path: change.path, oldText, newText });
     } catch (err) {
-      if (request === this.diffRequest) this.error.set(String(err instanceof Error ? err.message : err));
+      if (request === this.diffRequest)
+        this.error.set(String(err instanceof Error ? err.message : err));
     }
   }
 
@@ -184,7 +197,9 @@ export class ReviewService {
     this.choices.set(choices);
     const branch = this.open();
     if (!branch) return;
-    const content = Object.keys(choices).length ? JSON.stringify({ tip: branch.tip, choices }) : null;
+    const content = Object.keys(choices).length
+      ? JSON.stringify({ tip: branch.tip, choices })
+      : null;
     void backend.gitReviewStateSave(branch.name, content).catch(() => undefined);
   }
 
@@ -212,7 +227,10 @@ export class ReviewService {
     const next: NoteChoice = { accepted: accept, hunks: {}, resolve: previous?.resolve };
     for (const h of hunks) {
       const kept = previous?.hunks[h.index];
-      next.hunks[h.index] = { accept, ...(accept && kept?.text !== undefined ? { text: kept.text } : {}) };
+      next.hunks[h.index] = {
+        accept,
+        ...(accept && kept?.text !== undefined ? { text: kept.text } : {}),
+      };
     }
     this.set({ ...this.choices(), [path]: next });
   }
@@ -224,7 +242,10 @@ export class ReviewService {
       ...this.choices(),
       [path]: {
         ...previous,
-        hunks: { ...previous.hunks, [index]: { accept, ...(accept && kept?.text !== undefined ? { text: kept.text } : {}) } },
+        hunks: {
+          ...previous.hunks,
+          [index]: { accept, ...(accept && kept?.text !== undefined ? { text: kept.text } : {}) },
+        },
       },
     });
   }
@@ -232,13 +253,19 @@ export class ReviewService {
   /** Replaces the lines of an accepted hunk; the empty text drops them. */
   editHunk(path: string, index: number, text: string): void {
     const previous = this.choices()[path] ?? { hunks: {} };
-    this.set({ ...this.choices(), [path]: { ...previous, hunks: { ...previous.hunks, [index]: { accept: true, text } } } });
+    this.set({
+      ...this.choices(),
+      [path]: { ...previous, hunks: { ...previous.hunks, [index]: { accept: true, text } } },
+    });
   }
 
   /** Takes the edit back: the hunk applies as the branch has it. */
   resetHunk(path: string, index: number): void {
     const previous = this.choices()[path] ?? { hunks: {} };
-    this.set({ ...this.choices(), [path]: { ...previous, hunks: { ...previous.hunks, [index]: { accept: true } } } });
+    this.set({
+      ...this.choices(),
+      [path]: { ...previous, hunks: { ...previous.hunks, [index]: { accept: true } } },
+    });
   }
 
   /** How a conflicting note ends: keep the vault version or take the branch version. */
@@ -253,9 +280,16 @@ export class ReviewService {
       const choice = choices[c.path];
       const hunks = (this.hunks()[c.path] ?? []).flatMap((h) => {
         const d = choice?.hunks[h.index];
-        return d?.accept ? [{ index: h.index, accept: true, ...(d.text !== undefined ? { text: d.text } : {}) }] : [];
+        return d?.accept
+          ? [{ index: h.index, accept: true, ...(d.text !== undefined ? { text: d.text } : {}) }]
+          : [];
       });
-      return { path: c.path, accepted: choice?.accepted === true, hunks, ...(choice?.resolve ? { resolve: choice.resolve } : {}) };
+      return {
+        path: c.path,
+        accepted: choice?.accepted === true,
+        hunks,
+        ...(choice?.resolve ? { resolve: choice.resolve } : {}),
+      };
     });
   }
 

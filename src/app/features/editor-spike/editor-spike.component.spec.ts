@@ -82,9 +82,7 @@ describe("EditorSpikeComponent", () => {
     const c = new EditorSpikeComponent() as any;
     external({ spike_external_read: "Operation not permitted (os error 1)" });
     await c.openExternal();
-    expect(c.status()).toContain(
-      "read FAILED: Operation not permitted (os error 1)",
-    );
+    expect(c.status()).toContain("read FAILED: Operation not permitted (os error 1)");
   });
 
   it("reports the exact write error", async () => {

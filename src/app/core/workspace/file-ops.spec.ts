@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { noteFromLinkTarget, planMove, remapPath, renamedName, topLevelPaths, uniqueName } from "./file-ops";
+import {
+  noteFromLinkTarget,
+  planMove,
+  remapPath,
+  renamedName,
+  topLevelPaths,
+  uniqueName,
+} from "./file-ops";
 
 describe("uniqueName", () => {
   it("uses the plain name when it is free", () => {

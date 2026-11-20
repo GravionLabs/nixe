@@ -18,7 +18,14 @@ import { GitService } from "./git.service";
 describe("isCloneUrl", () => {
   it("accepts GitHub https urls only", () => {
     expect(isCloneUrl(" https://github.com/a/b.git ")).toBe(true);
-    for (const url of ["", "https://github.com/", "http://github.com/a/b", "https://gitlab.com/a/b", "https://u@github.com/a/b", "/tmp/x"]) {
+    for (const url of [
+      "",
+      "https://github.com/",
+      "http://github.com/a/b",
+      "https://gitlab.com/a/b",
+      "https://u@github.com/a/b",
+      "/tmp/x",
+    ]) {
       expect(isCloneUrl(url), url).toBe(false);
     }
   });
@@ -84,7 +91,10 @@ describe("CloneService", () => {
     });
     await clone.start();
     expect(runRemote).toHaveBeenCalledOnce();
-    expect(backend.gitCloneVault).toHaveBeenCalledWith("https://github.com/a/notes.git", "/home/me");
+    expect(backend.gitCloneVault).toHaveBeenCalledWith(
+      "https://github.com/a/notes.git",
+      "/home/me",
+    );
     expect(openFolder).toHaveBeenCalledWith("/home/me/notes");
     expect(clone.visible()).toBe(false);
     expect(clone.cloning()).toBe(false);

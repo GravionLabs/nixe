@@ -24,7 +24,12 @@ import { slugify } from "../../core/markdown/markdown-renderer";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { decorateCodeBlocks, handleCopyClick } from "../../core/markdown/code-blocks";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
-import { assetFilePath, decorateImages, imageNaturalSize, revealLabel } from "../../core/markdown/image-zoom";
+import {
+  assetFilePath,
+  decorateImages,
+  imageNaturalSize,
+  revealLabel,
+} from "../../core/markdown/image-zoom";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
@@ -57,8 +62,17 @@ const DIALOG_ZOOM_STEP = 1.1;
           (input)="setFindQuery($any($event.target).value)"
         />
         <span class="find-count" aria-live="polite">{{ findStatus() }}</span>
-        <button type="button" (click)="findStep(-1)" title="Previous match" aria-label="Previous match">↑</button>
-        <button type="button" (click)="findStep(1)" title="Next match" aria-label="Next match">↓</button>
+        <button
+          type="button"
+          (click)="findStep(-1)"
+          title="Previous match"
+          aria-label="Previous match"
+        >
+          ↑
+        </button>
+        <button type="button" (click)="findStep(1)" title="Next match" aria-label="Next match">
+          ↓
+        </button>
         <button
           type="button"
           [class.active]="findCase()"
@@ -77,10 +91,16 @@ const DIALOG_ZOOM_STEP = 1.1;
         >
           .*
         </button>
-        <button type="button" (click)="closeFind()" title="Close" aria-label="Close find bar">✕</button>
+        <button type="button" (click)="closeFind()" title="Close" aria-label="Close find bar">
+          ✕
+        </button>
       </div>
     }
-    <app-properties class="properties-host" [style.zoom.%]="settings.zoom()" (error)="notify.emit($event)" />
+    <app-properties
+      class="properties-host"
+      [style.zoom.%]="settings.zoom()"
+      (error)="notify.emit($event)"
+    />
     <article
       #content
       class="markdown-body"
@@ -104,17 +124,27 @@ const DIALOG_ZOOM_STEP = 1.1;
       <div class="diagram-dialog" (click)="$event.stopPropagation()">
         <div class="diagram-dialog-toolbar">
           <button type="button" (click)="dialogZoomOut()" title="Zoom out" aria-label="Zoom out">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35M8 11h6" /></svg>
+            <svg viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.35-4.35M8 11h6" />
+            </svg>
           </button>
           <button type="button" class="zoom-level" (click)="resetDialogZoom()" title="Reset zoom">
             {{ dialogZoomPercent() }}%
           </button>
           <button type="button" (click)="dialogZoomIn()" title="Zoom in" aria-label="Zoom in">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35M11 8v6M8 11h6" /></svg>
+            <svg viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
+            </svg>
           </button>
           @if (dialogFile(); as file) {
-            <button type="button" class="text" (click)="openDialogFile(file)">Open with default app</button>
-            <button type="button" class="text" (click)="revealDialogFile(file)">{{ revealText }}</button>
+            <button type="button" class="text" (click)="openDialogFile(file)">
+              Open with default app
+            </button>
+            <button type="button" class="text" (click)="revealDialogFile(file)">
+              {{ revealText }}
+            </button>
           }
         </div>
         <button type="button" class="close" (click)="closeDiagram()" aria-label="Close">✕</button>
@@ -173,7 +203,9 @@ export class ViewerComponent {
   private readonly imageMenu = viewChild<HxMenu>("imageMenu");
   /** The image the context menu was opened on. */
   private menuImage: HTMLImageElement | null = null;
-  protected readonly imageMenuItems: HxMenuItem[] = [{ label: "Open image", command: () => this.openMenuImage() }];
+  protected readonly imageMenuItems: HxMenuItem[] = [
+    { label: "Open image", command: () => this.openMenuImage() },
+  ];
   protected readonly revealText = revealLabel(navigator.userAgent);
   protected readonly panning = signal(false);
   private pan: { x: number; y: number; left: number; top: number } | null = null;
@@ -191,7 +223,9 @@ export class ViewerComponent {
   protected readonly findStatus = computed(() => {
     if (this.findError()) return "Invalid";
     if (!this.findQuery()) return "";
-    return this.findCount() === 0 ? "No matches" : `${this.findCurrent() + 1} / ${this.findCount()}`;
+    return this.findCount() === 0
+      ? "No matches"
+      : `${this.findCurrent() + 1} / ${this.findCount()}`;
   });
   private findMarks: HTMLElement[][] = [];
 
@@ -255,7 +289,8 @@ export class ViewerComponent {
       const line = this.doc.pendingLine();
       if (line === null) return;
       untracked(() => {
-        if (this.renderedPath === this.doc.path() && this.scrollToLine(line)) this.doc.pendingLine.set(null);
+        if (this.renderedPath === this.doc.path() && this.scrollToLine(line))
+          this.doc.pendingLine.set(null);
       });
     });
   }
@@ -291,12 +326,17 @@ export class ViewerComponent {
   /** Folds or unfolds the heading at the top of the view, or every heading of the note. */
   fold(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void {
     if (action === "fold-all") {
-      this.setFolded((lines) => this.headings.filter((h) => h.foldable).forEach((h) => lines.add(h.line)));
+      this.setFolded((lines) =>
+        this.headings.filter((h) => h.foldable).forEach((h) => lines.add(h.line)),
+      );
     } else if (action === "unfold-all") {
       this.setFolded((lines) => this.headings.forEach((h) => lines.delete(h.line)));
     } else {
       const target = commandTarget(this.headings, this.topLine(), action);
-      if (target) this.setFolded((lines) => (action === "fold" ? lines.add(target.line) : lines.delete(target.line)));
+      if (target)
+        this.setFolded((lines) =>
+          action === "fold" ? lines.add(target.line) : lines.delete(target.line),
+        );
     }
   }
 
@@ -365,8 +405,14 @@ export class ViewerComponent {
     const query = this.findQuery();
     if (!query) return;
     const nodes = this.textNodes();
-    const parts: TextPart[] = nodes.map((n) => ({ text: n.data, group: blockId(n, this.content().nativeElement) }));
-    const result = findInParts(parts, query, { caseSensitive: this.findCase(), regex: this.findRegex() });
+    const parts: TextPart[] = nodes.map((n) => ({
+      text: n.data,
+      group: blockId(n, this.content().nativeElement),
+    }));
+    const result = findInParts(parts, query, {
+      caseSensitive: this.findCase(),
+      regex: this.findRegex(),
+    });
     if (typeof result === "string") {
       this.findError.set(result);
       return;
@@ -388,11 +434,14 @@ export class ViewerComponent {
       }
     }
     for (const group of marks) {
-      group.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+      group.sort((a, b) =>
+        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+      );
     }
     this.findMarks = marks;
     this.findCount.set(marks.length);
-    if (marks.length) this.activateMatch(jump ? 0 : Math.min(Math.max(previous, 0), marks.length - 1), jump);
+    if (marks.length)
+      this.activateMatch(jump ? 0 : Math.min(Math.max(previous, 0), marks.length - 1), jump);
   }
 
   private activateMatch(index: number, scroll = true): void {
@@ -421,12 +470,12 @@ export class ViewerComponent {
   /** 1-based source line at the top of the visible area; null when no block carries one. */
   topLine(): number | null {
     const top = this.host.nativeElement.getBoundingClientRect().top;
-    const blocks = Array.from(this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]")).map(
-      (el) => {
-        const rect = el.getBoundingClientRect();
-        return { line: Number(el.dataset["line"]), top: rect.top - top, bottom: rect.bottom - top };
-      },
-    );
+    const blocks = Array.from(
+      this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]"),
+    ).map((el) => {
+      const rect = el.getBoundingClientRect();
+      return { line: Number(el.dataset["line"]), top: rect.top - top, bottom: rect.bottom - top };
+    });
     return viewerTopLine(blocks, 0);
   }
 
@@ -484,7 +533,9 @@ export class ViewerComponent {
    * of stretching an already-rasterized bitmap — the latter looks blurry when zoomed in.
    */
   private applyDialogZoom(): void {
-    const svg = this.dialogContent()?.nativeElement.querySelector<SVGSVGElement | HTMLImageElement>("svg, img");
+    const svg = this.dialogContent()?.nativeElement.querySelector<SVGSVGElement | HTMLImageElement>(
+      "svg, img",
+    );
     const size = this.dialogNaturalSize;
     if (!svg || !size) return;
     const zoom = this.dialogZoom();
@@ -507,7 +558,12 @@ export class ViewerComponent {
   protected onPanStart(event: PointerEvent): void {
     if (event.button !== 0) return;
     const viewport = event.currentTarget as HTMLElement;
-    this.pan = { x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop };
+    this.pan = {
+      x: event.clientX,
+      y: event.clientY,
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop,
+    };
     this.panning.set(true);
     viewport.setPointerCapture?.(event.pointerId);
   }
@@ -568,7 +624,12 @@ export class ViewerComponent {
   /** Enter on a focused image opens it. */
   protected onContentKeydown(event: KeyboardEvent): void {
     const target = event.target;
-    if (event.key !== "Enter" || !(target instanceof HTMLImageElement) || !target.hasAttribute("data-zoomable")) return;
+    if (
+      event.key !== "Enter" ||
+      !(target instanceof HTMLImageElement) ||
+      !target.hasAttribute("data-zoomable")
+    )
+      return;
     event.preventDefault();
     this.openImage(target);
   }
@@ -600,7 +661,9 @@ export class ViewerComponent {
     if (marker?.parentElement) {
       const heading = this.headings.find((h) => h.el === marker.parentElement);
       if (heading) {
-        this.setFolded((lines) => (heading.folded ? lines.delete(heading.line) : lines.add(heading.line)));
+        this.setFolded((lines) =>
+          heading.folded ? lines.delete(heading.line) : lines.add(heading.line),
+        );
         return;
       }
     }
@@ -630,7 +693,10 @@ export class ViewerComponent {
       return;
     }
 
-    if (target instanceof HTMLInputElement && target.classList.contains("task-list-item-checkbox")) {
+    if (
+      target instanceof HTMLInputElement &&
+      target.classList.contains("task-list-item-checkbox")
+    ) {
       const run = this.toggleQueue.then(() => this.toggleTask(event, target));
       this.toggleQueue = run.catch(() => undefined);
       await run;
@@ -657,7 +723,9 @@ export class ViewerComponent {
       return;
     }
 
-    const wikiTarget = link.classList.contains("wikilink") ? link.getAttribute("data-target") : null;
+    const wikiTarget = link.classList.contains("wikilink")
+      ? link.getAttribute("data-target")
+      : null;
     if (wikiTarget !== null) {
       await this.openWikilink(wikiTarget, event.metaKey || event.ctrlKey);
       return;
@@ -697,7 +765,11 @@ export class ViewerComponent {
   /** Checkboxes are rendered disabled; here they are enabled where a source line is known to write to. */
   private enableTasks(): void {
     const piped = this.doc.path()?.endsWith(STDIN_FILE_SUFFIX) ?? false;
-    for (const box of Array.from(this.content().nativeElement.querySelectorAll<HTMLInputElement>("input.task-list-item-checkbox"))) {
+    for (const box of Array.from(
+      this.content().nativeElement.querySelectorAll<HTMLInputElement>(
+        "input.task-list-item-checkbox",
+      ),
+    )) {
       const embed = box.closest<HTMLElement>(".embed-body");
       const known = embed ? !!embed.dataset["sourcePath"] : !piped && !!this.doc.path();
       box.disabled = !known || !box.closest("[data-line]");
@@ -720,7 +792,8 @@ export class ViewerComponent {
       const text = isOpenNote ? this.doc.content() : await backend.readTextFile(path);
       const next = setTaskState(text, line, checked);
       const rendered = item.dataset["srcLine"];
-      const stale = embed && rendered !== undefined && taskShape(text.split("\n")[line] ?? "") !== rendered;
+      const stale =
+        embed && rendered !== undefined && taskShape(text.split("\n")[line] ?? "") !== rendered;
       if (next === null || stale) {
         // Not a `[ ]`/`[x]` line any more (the file changed): leave the file alone.
         box.checked = !checked;
@@ -737,7 +810,11 @@ export class ViewerComponent {
 
   /** Resolved links open the note (history included); unresolved ones create the note. */
   /** Opens a note in this tab, or in a new one (⌘/Ctrl+click). */
-  private async openNote(path: string, options: { anchor?: string | null }, newTab: boolean): Promise<void> {
+  private async openNote(
+    path: string,
+    options: { anchor?: string | null },
+    newTab: boolean,
+  ): Promise<void> {
     try {
       if (newTab) await this.tabs.openInNewTab(path, options);
       else await this.doc.open(path, options);
@@ -784,7 +861,8 @@ export class ViewerComponent {
 
   /** Scrolls to the last top-level block that starts at or before the 1-based source `line`. */
   private scrollToLine(line: number): boolean {
-    const blocks = this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]");
+    const blocks =
+      this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]");
     let best: HTMLElement | null = null;
     for (const block of Array.from(blocks)) {
       if (Number(block.dataset["line"]) <= line - 1) best = block;

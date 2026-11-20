@@ -233,15 +233,30 @@ export class HistoryService {
           revision === undefined ? Promise.resolve("") : backend.gitNoteVersion(path, revision),
           backend.gitNoteVersion(entry.path, entry.id),
         ]);
-        result = { oldText, newText, oldLabel: "before", newLabel: this.label(entry), path: entry.path };
+        result = {
+          oldText,
+          newText,
+          oldLabel: "before",
+          newLabel: this.label(entry),
+          path: entry.path,
+        };
       } else {
         // Older side first: the timeline is newest first.
-        const [newer, older] = rows.indexOf(chosen[0]) < rows.indexOf(chosen[1]) ? [chosen[0], chosen[1]] : [chosen[1], chosen[0]];
+        const [newer, older] =
+          rows.indexOf(chosen[0]) < rows.indexOf(chosen[1])
+            ? [chosen[0], chosen[1]]
+            : [chosen[1], chosen[0]];
         const [oldText, newText] = await Promise.all([
           backend.gitNoteVersion(older.path, older.id),
           backend.gitNoteVersion(newer.path, newer.id),
         ]);
-        result = { oldText, newText, oldLabel: this.label(older), newLabel: this.label(newer), path: newer.path };
+        result = {
+          oldText,
+          newText,
+          oldLabel: this.label(older),
+          newLabel: this.label(newer),
+          path: newer.path,
+        };
       }
       if (request === this.compareRequest) this.comparison.set(result);
     } catch (err) {

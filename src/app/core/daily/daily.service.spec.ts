@@ -39,22 +39,37 @@ describe("DailyService", () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        { provide: WorkspaceService, useValue: { vaultRoot: signal("/v"), vaultFiles, reloadTree } },
+        {
+          provide: WorkspaceService,
+          useValue: { vaultRoot: signal("/v"), vaultFiles, reloadTree },
+        },
         { provide: DocumentService, useValue: { path: docPath, open } },
         { provide: EditorService, useValue: { handle: null } },
         { provide: SettingsService, useValue: setting },
       ],
     });
     daily = TestBed.inject(DailyService);
-    vi.spyOn(backend, "dailyNotesConfig").mockResolvedValue({ folder: null, format: null, template: null });
+    vi.spyOn(backend, "dailyNotesConfig").mockResolvedValue({
+      folder: null,
+      format: null,
+      template: null,
+    });
   });
 
   it("takes each key from daily-notes.json, else from the settings", async () => {
     setting.dailyFolder.set("Settings folder");
     setting.dailyFormat.set("YYYY");
     setting.dailyTemplate.set("T/Settings");
-    vi.spyOn(backend, "dailyNotesConfig").mockResolvedValue({ folder: "Journal", format: null, template: "T/Vault" });
-    expect(await daily.config()).toEqual({ folder: "Journal", format: "YYYY", template: "T/Vault" });
+    vi.spyOn(backend, "dailyNotesConfig").mockResolvedValue({
+      folder: "Journal",
+      format: null,
+      template: "T/Vault",
+    });
+    expect(await daily.config()).toEqual({
+      folder: "Journal",
+      format: "YYYY",
+      template: "T/Vault",
+    });
   });
 
   it("uses the settings when the vault has no daily-notes.json", async () => {
@@ -72,9 +87,15 @@ describe("DailyService", () => {
   });
 
   it("creates a missing note from the template in a nested folder", async () => {
-    vi.spyOn(backend, "dailyNotesConfig").mockResolvedValue({ folder: "Journal", format: "YYYY/MM/YYYY-MM-DD", template: "Templates/Daily" });
+    vi.spyOn(backend, "dailyNotesConfig").mockResolvedValue({
+      folder: "Journal",
+      format: "YYYY/MM/YYYY-MM-DD",
+      template: "Templates/Daily",
+    });
     vi.spyOn(backend, "isFile").mockResolvedValue(false);
-    const read = vi.spyOn(backend, "readTextFile").mockResolvedValue("# {{title}}\n{{date:dddd}}\n");
+    const read = vi
+      .spyOn(backend, "readTextFile")
+      .mockResolvedValue("# {{title}}\n{{date:dddd}}\n");
     const dir = vi.spyOn(backend, "createDir").mockResolvedValue();
     const file = vi.spyOn(backend, "createFile").mockResolvedValue();
     const write = vi.spyOn(backend, "writeTextFile").mockResolvedValue();
@@ -82,7 +103,10 @@ describe("DailyService", () => {
     expect(read).toHaveBeenCalledWith("/v/Templates/Daily.md");
     expect(dir).toHaveBeenCalledWith("/v/Journal/2026/03");
     expect(file).toHaveBeenCalledWith("/v/Journal/2026/03/2026-03-02.md");
-    expect(write).toHaveBeenCalledWith("/v/Journal/2026/03/2026-03-02.md", "# 2026-03-02\nMonday\n");
+    expect(write).toHaveBeenCalledWith(
+      "/v/Journal/2026/03/2026-03-02.md",
+      "# 2026-03-02\nMonday\n",
+    );
     expect(reloadTree).toHaveBeenCalled();
     expect(open).toHaveBeenCalledWith("/v/Journal/2026/03/2026-03-02.md");
   });

@@ -1,5 +1,13 @@
 import { DEFAULT_PANEL_WIDTH } from "../panel/panel-width";
-import { Injectable, WritableSignal, computed, effect, inject, signal, untracked } from "@angular/core";
+import {
+  Injectable,
+  WritableSignal,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { backend } from "../file/backend";
@@ -224,12 +232,19 @@ export class WorkspaceService {
     this.vaultFiles.set(files);
   }
 
-  private async loadOpen(dir: string, hasOrder: boolean, depth: number, open: Set<string>): Promise<TreeNode[]> {
+  private async loadOpen(
+    dir: string,
+    hasOrder: boolean,
+    depth: number,
+    open: Set<string>,
+  ): Promise<TreeNode[]> {
     const nodes = await this.load(dir, hasOrder, depth);
     await Promise.all(
       nodes.map(async (node) => {
         if (!node.dirPath || !open.has(node.dirPath)) return;
-        node.children.set(await this.loadOpen(node.dirPath, node.hasOrder, depth + 1, open).catch(() => []));
+        node.children.set(
+          await this.loadOpen(node.dirPath, node.hasOrder, depth + 1, open).catch(() => []),
+        );
         node.expanded.set(true);
       }),
     );

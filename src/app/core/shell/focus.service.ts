@@ -23,7 +23,11 @@ function firstOf(...selectors: string[]): HTMLElement | null {
 /** True for a field the user types into: Escape belongs to it (cancel a rename, clear a box). */
 function isTextField(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.closest("[role='menu']") !== null;
+  return (
+    target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+    target.closest("[role='menu']") !== null
+  );
 }
 
 /**
@@ -42,11 +46,43 @@ export class FocusService {
   constructor() {
     const inVault = () => this.workspace.root() !== null;
     const noteOpen = () => this.doc.path() !== null;
-    this.commands.register({ id: "focus-file-tree", title: "Focus file tree", shortcut: "Mod+Shift+E", keys: ["Mod+Shift+E"], when: inVault, run: () => this.focusFileTree() });
-    this.commands.register({ id: "focus-note", title: "Focus note", shortcut: "Mod+Shift+N", keys: ["Mod+Shift+N"], when: noteOpen, run: () => this.focusNote() });
-    this.commands.register({ id: "focus-panel", title: "Focus panel", shortcut: "Mod+Shift+I", keys: ["Mod+Shift+I"], when: noteOpen, run: () => this.focusPanel() });
-    this.commands.register({ id: "filter-file-tree", title: "Filter file tree", shortcut: "Mod+Alt+E", keys: ["Mod+Alt+E"], when: inVault, run: () => this.focusFilter() });
-    document.addEventListener("pointerdown", () => document.documentElement.removeAttribute(KEYBOARD_FOCUS_ATTRIBUTE), true);
+    this.commands.register({
+      id: "focus-file-tree",
+      title: "Focus file tree",
+      shortcut: "Mod+Shift+E",
+      keys: ["Mod+Shift+E"],
+      when: inVault,
+      run: () => this.focusFileTree(),
+    });
+    this.commands.register({
+      id: "focus-note",
+      title: "Focus note",
+      shortcut: "Mod+Shift+N",
+      keys: ["Mod+Shift+N"],
+      when: noteOpen,
+      run: () => this.focusNote(),
+    });
+    this.commands.register({
+      id: "focus-panel",
+      title: "Focus panel",
+      shortcut: "Mod+Shift+I",
+      keys: ["Mod+Shift+I"],
+      when: noteOpen,
+      run: () => this.focusPanel(),
+    });
+    this.commands.register({
+      id: "filter-file-tree",
+      title: "Filter file tree",
+      shortcut: "Mod+Alt+E",
+      keys: ["Mod+Alt+E"],
+      when: inVault,
+      run: () => this.focusFilter(),
+    });
+    document.addEventListener(
+      "pointerdown",
+      () => document.documentElement.removeAttribute(KEYBOARD_FOCUS_ATTRIBUTE),
+      true,
+    );
   }
 
   /** Shows the files, opens the sidebar when it is collapsed and focuses the row of the tree. */
@@ -58,7 +94,9 @@ export class FocusService {
   /** Shows the files, opens the sidebar when it is collapsed and focuses the filter field above the tree. */
   focusFilter(): Promise<boolean> {
     this.shell.show("files");
-    return this.focusWhenReady(() => document.querySelector<HTMLInputElement>("app-sidebar .filter"));
+    return this.focusWhenReady(() =>
+      document.querySelector<HTMLInputElement>("app-sidebar .filter"),
+    );
   }
 
   focusNote(): Promise<boolean> {
@@ -75,7 +113,11 @@ export class FocusService {
   handleEscape(event: KeyboardEvent): boolean {
     if (event.key !== "Escape" || event.defaultPrevented || isTextField(event.target)) return false;
     const target = event.target;
-    if (!(target instanceof Element) || !target.closest("app-sidebar, app-search, app-bookmarks, app-history, app-git, .panel")) return false;
+    if (
+      !(target instanceof Element) ||
+      !target.closest("app-sidebar, app-search, app-bookmarks, app-history, app-git, .panel")
+    )
+      return false;
     if (this.doc.path() === null) return false;
     void this.focusNote();
     return true;
