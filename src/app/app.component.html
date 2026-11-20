@@ -130,6 +130,17 @@
           >
             Links
           </button>
+          <button
+            type="button"
+            role="tab"
+            id="panel-tab-related"
+            aria-controls="panel-body"
+            [attr.aria-selected]="panelTab() === 'related'"
+            [class.active]="panelTab() === 'related'"
+            (click)="settings.showPanelTab('related')"
+          >
+            Related
+          </button>
         }
       </div>
       <div
@@ -140,6 +151,8 @@
       >
         @if (panelTab() === "outline") {
           <app-outline />
+        } @else if (panelTab() === "related") {
+          <app-related (failed)="showError($event)" />
         } @else {
           <app-backlinks (failed)="showError($event)" />
         }
@@ -150,16 +163,8 @@
   <app-status-bar slot="status" />
 </hx-app-shell>
 
-@if (showSwitcher()) {
-  <app-switcher (failed)="showError($event)" />
-}
-
 @if (composer.visible()) {
   <app-composer (failed)="showError($event)" />
-}
-
-@if (templates.visible()) {
-  <app-templates (failed)="showError($event)" />
 }
 
 @if (cloneVault.visible()) {
@@ -167,11 +172,7 @@
 }
 
 @if (palette.visible()) {
-  <app-palette />
-}
-
-@if (recent.visible()) {
-  <app-recent />
+  <app-palette (failed)="showError($event)" />
 }
 
 <app-link-preview />

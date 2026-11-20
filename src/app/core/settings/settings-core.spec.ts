@@ -33,9 +33,34 @@ describe("sanitizeSettings", () => {
     expect(s.wrapCode).toBe(false);
     expect(sanitizeSettings({ wrapCode: true }).wrapCode).toBe(true);
     expect(sanitizeSettings({ wrapCode: "yes" }).wrapCode).toBe(false);
+    expect(s.exportPageBreaks).toBe(true);
+    expect(s.exportDark).toBe(false);
+    expect(s.exportPageSize).toBe("A4");
+    expect(sanitizeSettings({ exportPageBreaks: false }).exportPageBreaks).toBe(false);
+    expect(sanitizeSettings({ exportPageBreaks: "no" }).exportPageBreaks).toBe(true);
+    expect(sanitizeSettings({ exportDark: true }).exportDark).toBe(true);
+    expect(sanitizeSettings({ exportPageSize: "legal" }).exportPageSize).toBe("Legal");
+    expect(sanitizeSettings({ exportPageSize: "B7" }).exportPageSize).toBe("A4");
     expect(s.treeGitStatus).toBe(true);
     expect(sanitizeSettings({ treeGitStatus: false }).treeGitStatus).toBe(false);
     expect(sanitizeSettings({ treeGitStatus: "no" }).treeGitStatus).toBe(true);
+    expect(s.captureShortcut).toBe("");
+    expect(s.captureTarget).toBe("daily");
+    expect(
+      sanitizeSettings({
+        captureShortcut: " Alt+Space ",
+        captureTarget: "inbox",
+        captureInbox: "In",
+      }),
+    ).toMatchObject({ captureShortcut: "Alt+Space", captureTarget: "inbox", captureInbox: "In" });
+    expect(sanitizeSettings({ captureTarget: "x", captureShortcut: 3 })).toMatchObject({
+      captureTarget: "daily",
+      captureShortcut: "",
+    });
+    expect(s.propertiesDisplay).toBe("visible");
+    expect(sanitizeSettings({ propertiesDisplay: "folded" }).propertiesDisplay).toBe("folded");
+    expect(sanitizeSettings({ propertiesDisplay: "hidden" }).propertiesDisplay).toBe("hidden");
+    expect(sanitizeSettings({ propertiesDisplay: "x" }).propertiesDisplay).toBe("visible");
     expect(s.treeSort).toBe("name-asc");
     expect(sanitizeSettings({ treeSort: "modified-desc" }).treeSort).toBe("modified-desc");
     expect(sanitizeSettings({ treeSort: "bogus" }).treeSort).toBe("name-asc");

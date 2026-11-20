@@ -32,6 +32,16 @@ export interface Backlink {
   context: string;
 }
 
+/** A note close to another one, ranked in the Rust index. */
+export interface RelatedNote {
+  /** Vault-relative path. */
+  path: string;
+  title: string;
+  score: number;
+  /** Why it is related, strongest first: `links here`, `2 shared tags`, `both linked from X`. */
+  reasons: string[];
+}
+
 /** A plain-text mention of the title or an alias of a note in another note. */
 export interface UnlinkedMention {
   /** Vault-relative path of the note holding the mention. */
@@ -74,6 +84,22 @@ export interface SearchHit {
   /** Matching lines of the note; `snippets` holds only the first few. */
   matches: number;
   snippets: SearchSnippet[];
+  /** Name of the workspace root the note is in; set by a search over a workspace only (#117). */
+  root?: string;
+  /** Absolute path of that root; `path` is relative to it. */
+  rootPath?: string;
+}
+
+/** A folder of the workspace a search or the quick switcher covers. */
+export interface RootArg {
+  path: string;
+  name: string;
+}
+
+/** A note of a workspace, with its root. */
+export interface WorkspaceNote extends NoteSummary {
+  root: string;
+  rootPath: string;
 }
 
 export interface BrokenLink {
@@ -321,6 +347,22 @@ export interface HistoryEntry {
   parent: string | null;
   /** The note's path in the parent commit. */
   parentPath: string;
+  /** The kind of vault operation (`rename`, `move`, `delete`, `merge`, `extract`) that wrote the commit. */
+  operation: string | null;
+}
+
+/** The Git author of the settings, used when the Git config names none. */
+export interface GitAuthor {
+  name: string | null;
+  email: string | null;
+}
+
+/** A vault operation that one Git commit holds (#241). */
+export interface VaultOperation {
+  id: string;
+  kind: string;
+  /** First line of the commit message, e.g. `rename: A -> B, links in 9 notes`. */
+  message: string;
 }
 
 /** A note that a recent commit deleted. */
@@ -336,6 +378,24 @@ export interface DeletedNote {
 }
 
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
+export type RootKind = "obsidian" | "wiki" | "folder";
+
+export interface WorkspaceRoot {
+  path: string;
+  name: string;
+  kind: RootKind;
+}
+
+export interface Workspace {
+  name: string;
+  roots: WorkspaceRoot[];
+}
+
+export interface ResolvedLink {
+  root: string;
+  path: string;
+}
+
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
@@ -347,19 +407,30 @@ export const backend = {
   /** Creates a folder and its missing parents inside the vault. */
   createDir: (path: string) => invoke<void>("create_dir", { path }),
   /** Moves a file or folder inside the vault, fails rather than replace, and rewrites the links to it in one batch. */
-  renamePath: (from: string, to: string) => invoke<RelinkChange[]>("rename_path", { from, to }),
+  renamePath: (from: string, to: string, author?: GitAuthor) =>
+    invoke<RelinkChange[]>("rename_path", { from, to, ...author }),
+  /** The last vault operation that is not undone yet; null without Git (#241). */
+  lastVaultOperation: () => invoke<VaultOperation | null>("last_vault_operation"),
+  /** Reverts the last vault operation as a new commit; rejects when it conflicts with later changes. */
+  undoVaultOperation: (author?: GitAuthor) =>
+    invoke<VaultOperation>("undo_vault_operation", { ...author }),
   /** The notes an extraction into `target` would change; changes nothing. */
   extractPreview: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
     invoke<ComposeChange[]>("extract_preview", { source, target, what, embed }),
   /** Moves the text into `target` (created when missing) and leaves a link or an embed. */
-  extractText: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
-    invoke<ComposeChange[]>("extract_text", { source, target, what, embed }),
+  extractText: (
+    source: string,
+    target: string,
+    what: ExtractWhat,
+    embed: boolean,
+    author?: GitAuthor,
+  ) => invoke<ComposeChange[]>("extract_text", { source, target, what, embed, ...author }),
   /** The notes a merge of `source` into `target` would change; changes nothing. */
   mergePreview: (source: string, target: string) =>
     invoke<ComposeChange[]>("merge_preview", { source, target }),
   /** Appends `source` to `target`, rewrites the links to it and moves it to `.trash/`. */
-  mergeNote: (source: string, target: string) =>
-    invoke<ComposeChange[]>("merge_note", { source, target }),
+  mergeNote: (source: string, target: string, author?: GitAuthor) =>
+    invoke<ComposeChange[]>("merge_note", { source, target, ...author }),
   /** Every replacement a find and replace would make, per note; changes nothing. */
   replacePreview: (options: ReplaceOptions) =>
     invoke<NoteReplacements[]>("replace_preview", { options }),
@@ -374,13 +445,23 @@ export const backend = {
   relinkPreview: (from: string, to: string) =>
     invoke<RelinkChange[]>("relink_preview", { from, to }),
   /** Moves a file or folder to `.trash/` of the vault; returns the new path. */
-  trashPath: (path: string) => invoke<string>("trash_path", { path }),
+  trashPath: (path: string, author?: GitAuthor) =>
+    invoke<string>("trash_path", { path, ...author }),
   newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),
   /** The template folder of `.obsidian/templates.json` (vault-relative); null when it names none. */
   templateFolder: () => invoke<string | null>("template_folder"),
   /** The Daily notes settings of `.obsidian/daily-notes.json`. */
   dailyNotesConfig: () => invoke<DailyNotesConfig>("daily_notes_config"),
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
+  /** Writes the captured text to the daily note or the inbox (#118); returns the note. */
+  captureSave: (text: string) => invoke<string>("capture_save", { text }),
+  /** Note names of the vault for the `[[` completion of the capture window. */
+  captureNoteNames: () => invoke<string[]>("capture_note_names"),
+  /** The title of the page at a URL; null when it cannot be fetched within two seconds. */
+  captureLinkTitle: (url: string) => invoke<string | null>("capture_link_title", { url }),
+  captureHide: () => invoke<void>("capture_hide"),
+  /** Registers the global shortcut of the settings file and creates or removes the window. */
+  captureApply: () => invoke<void>("capture_apply"),
   /** The app settings file (`settings.json` in the app config directory); null before the first save. */
   readAppSettings: () => invoke<string | null>("read_app_settings"),
   writeAppSettings: (content: string) => invoke<void>("write_app_settings", { content }),
@@ -421,11 +502,24 @@ export const backend = {
   findWikiRoot: (path: string) => invoke<string>("find_wiki_root", { path }),
   findVaultRoot: (path: string) => invoke<string>("find_vault_root", { path }),
   listVaultFiles: (root: string) => invoke<string[]>("list_vault_files", { root }),
+  /** The names of the saved workspaces (app data directory, never the folders). */
+  workspaceList: () => invoke<string[]>("workspace_list"),
+  workspaceLoad: (name: string) => invoke<Workspace>("workspace_load", { name }),
+  workspaceSave: (workspace: Workspace) => invoke<void>("workspace_save", { workspace }),
+  workspaceDelete: (name: string) => invoke<void>("workspace_delete", { name }),
+  /** `workspace` with the folder added as a root; the backend detects its kind. */
+  workspaceAddRoot: (workspace: Workspace, path: string) =>
+    invoke<Workspace>("workspace_add_root", { workspace, path }),
+  /** Resolves link targets of a note in root `from`; `Root name:Note` reaches another root. */
+  workspaceResolveLinks: (workspace: Workspace, from: string, targets: string[]) =>
+    invoke<(ResolvedLink | null)[]>("workspace_resolve_links", { workspace, from, targets }),
   /** Starts the background scan of the vault index; returns at once. */
   indexStart: (root: string) => invoke<void>("index_start", { root }),
   indexStatus: () => invoke<IndexStatus>("index_status"),
   notes: () => invoke<NoteSummary[]>("notes"),
   backlinks: (path: string) => invoke<Backlink[]>("backlinks", { path }),
+  /** Notes close to the note, nearest first, each with the reasons. */
+  relatedNotes: (path: string) => invoke<RelatedNote[]>("related_notes", { path }),
   /** Plain-text mentions of the title or an alias of the note, computed on demand. */
   unlinkedMentions: (path: string) => invoke<UnlinkedMention[]>("unlinked_mentions", { path }),
   /** Turns a mention into a `[[link]]` to `target` (both vault-relative paths). */
@@ -441,6 +535,13 @@ export const backend = {
   /** Metadata of one indexed note (vault-relative path); null when it is not indexed. */
   noteMeta: (path: string) => invoke<NoteRecord | null>("note_meta", { path }),
   searchNotes: (query: string) => invoke<SearchHit[]>("search_notes", { query }),
+  /** Brings the index of every root up to date; resolves when all are done (#117). */
+  workspaceIndex: (roots: RootArg[]) => invoke<void>("workspace_index", { roots }),
+  /** Search over all roots; each hit names its root. `root:name` in the query narrows it. */
+  searchWorkspace: (roots: RootArg[], query: string) =>
+    invoke<SearchHit[]>("search_workspace", { roots, query }),
+  /** The notes of all roots, for the quick switcher. */
+  workspaceNotes: (roots: RootArg[]) => invoke<WorkspaceNote[]>("workspace_notes", { roots }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Git state of the vault; null when the vault is not a Git repository. */
@@ -528,9 +629,40 @@ export const backend = {
   /** Stops the running clone. */
   gitCloneCancel: () => invoke<void>("git_clone_cancel"),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
+  /** Writes an exported file to the place the user (or `--out`) chose; any path, replaces a file. */
+  writeExportFile: (path: string, content: string) =>
+    invoke<void>("write_export_file", { path, content }),
+  /** Writes `folder` of a vault as a static website into `out`; the number of pages. */
+  exportSite: (folder: string, out: string, exclude: string[] = []) =>
+    invoke<number>("export_site", { folder, out, exclude }),
+  /** The file as a `data:` URI; null when it cannot be read. */
+  readDataUri: (path: string) => invoke<string | null>("read_data_uri", { path }),
+  /** A file of the frontend bundle (a KaTeX font) as a `data:` URI; null when the bundle has none. */
+  readBundledDataUri: (path: string) => invoke<string | null>("read_bundled_data_uri", { path }),
+  /** The export `nixe export` asked for, once. */
+  takePendingExport: () => invoke<ExportRequest | null>("take_pending_export"),
+  /** Ends a headless `nixe export`: the message goes to stdout (code 0) or stderr, then the process exits. */
+  finishExport: (code: number, message: string) => invoke<void>("finish_export", { code, message }),
 };
 
+/** `nixe export <note> --format html|pdf` (cli.rs `ExportRequest`). */
+export interface ExportRequest {
+  /** Absolute path of the note. */
+  note: string;
+  /** Absolute vault root of the note. */
+  vaultRoot: string;
+  format: "html" | "pdf";
+  /** Absolute path of the HTML file. */
+  out: string | null;
+  dark: boolean | null;
+  pageSize: string | null;
+  /** No window: the command waits for the file and the process ends with `finishExport`. */
+  headless: boolean;
+}
+
 export const OPEN_FILE_EVENT = "open-file-requested";
+/** A `nixe export` reached the running window; `takePendingExport` holds it. */
+export const EXPORT_EVENT = "export-requested";
 /** Piped content (`nixe -`) lives in this temp file, see `stdin_file_path` in lib.rs. */
 export const STDIN_FILE_SUFFIX = "/nixe-stdin/stdin.md";
 /** Emitted with an `IndexStatus` while the vault index is built. */

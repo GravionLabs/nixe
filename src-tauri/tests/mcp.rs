@@ -176,3 +176,85 @@ async fn results_hold_vault_relative_paths_only() {
         assert!(!Path::new(n["path"].as_str().unwrap()).is_absolute());
     }
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn several_vaults_are_searched_together() {
+    let base = std::env::temp_dir().join(format!("nixe-mcp-roots-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let (a, b) = (base.join("alpha"), base.join("beta"));
+    for (dir, file, text) in [
+        (&a, "One.md", "#red\nshared words"),
+        (&b, "Two.md", "#blue\nshared more"),
+    ] {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(dir.join(file), text).unwrap();
+    }
+    let data = base.join("data");
+    std::fs::create_dir_all(&data).unwrap();
+    let transport =
+        TokioChildProcess::new(Command::new(env!("CARGO_BIN_EXE_nixe")).configure(|cmd| {
+            cmd.env("HOME", &data)
+                .env("XDG_DATA_HOME", &data)
+                .env("APPDATA", &data)
+                .arg("mcp")
+                .arg("--vault")
+                .arg(&a)
+                .arg("--vault")
+                .arg(&b);
+        }))
+        .unwrap();
+    let client: Client = ().serve(transport).await.unwrap();
+
+    let hits = call(&client, "search", json!({"query": "shared"}))
+        .await
+        .unwrap();
+    let found: Vec<(String, String)> = hits
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| {
+            (
+                h["root"].as_str().unwrap().into(),
+                h["path"].as_str().unwrap().into(),
+            )
+        })
+        .collect();
+    assert!(
+        found.contains(&("alpha".into(), "One.md".into())),
+        "{found:?}"
+    );
+    assert!(
+        found.contains(&("beta".into(), "Two.md".into())),
+        "{found:?}"
+    );
+
+    let only = call(&client, "search", json!({"query": "shared root:beta"}))
+        .await
+        .unwrap();
+    assert_eq!(only.as_array().unwrap().len(), 1);
+    let only = call(
+        &client,
+        "search",
+        json!({"query": "shared", "roots": ["alpha"]}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(only[0]["root"], "alpha");
+
+    let tags = call(&client, "tags", json!({})).await.unwrap();
+    assert_eq!(tags.as_array().unwrap().len(), 2);
+
+    // A tool about one note needs the root once there are several.
+    let err = call(&client, "read_note", json!({"note": "One"}))
+        .await
+        .unwrap_err();
+    assert!(err.contains("name the root"), "{err}");
+    let note = call(&client, "read_note", json!({"note": "Two", "root": "beta"}))
+        .await
+        .unwrap();
+    assert_eq!(note["path"], "Two.md");
+    let err = call(&client, "read_note", json!({"note": "One", "root": "nope"}))
+        .await
+        .unwrap_err();
+    assert!(err.contains("no such root"), "{err}");
+}

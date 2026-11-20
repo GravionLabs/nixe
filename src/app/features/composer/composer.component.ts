@@ -9,7 +9,7 @@ import { ComposerService } from "../../core/composer/composer.service";
 @Component({
   selector: "app-composer",
   templateUrl: "./composer.component.html",
-  styleUrl: "../switcher/switcher.component.css",
+  styleUrl: "../palette/palette.component.css",
   imports: [HxDialog],
 })
 export class ComposerComponent {

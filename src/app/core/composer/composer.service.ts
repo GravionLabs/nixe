@@ -8,6 +8,7 @@ import { DocumentService } from "../file/document.service";
 import { basename, joinPath } from "../markdown/paths";
 import { SettingsService } from "../settings/settings.service";
 import { fuzzyScore } from "../switcher/fuzzy";
+import { VaultUndoService } from "../workspace/vault-undo.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { describeChanges, headingLineAt, headingTextAt, targetNotePath } from "./composer-core";
 
@@ -32,6 +33,7 @@ export class ComposerService {
   private readonly doc = inject(DocumentService);
   private readonly editor = inject(EditorService);
   private readonly settings = inject(SettingsService);
+  private readonly undo = inject(VaultUndoService);
 
   readonly visible = signal(false);
   readonly query = signal("");
@@ -153,15 +155,16 @@ export class ComposerService {
     }
     await this.editor.handle?.flush();
     if (job.kind === "merge") {
-      await backend.mergeNote(source, target);
+      await backend.mergeNote(source, target, this.undo.author());
       this.editor.editing.set(false);
       await this.workspace.reloadTree();
       await this.doc.open(target, { addToHistory: false });
     } else {
-      await backend.extractText(source, target, job.what, embed);
+      await backend.extractText(source, target, job.what, embed, this.undo.author());
       await this.workspace.reloadTree();
       await this.doc.reload();
     }
+    await this.undo.offer();
     return true;
   }
 

@@ -224,6 +224,151 @@ pub fn vault_commit(
         .commit(message, fallback)
 }
 
+/// Trailer of a commit that one structural operation wrote (#241): `Nixe-Operation: rename`.
+const OPERATION_TRAILER: &str = "Nixe-Operation";
+/// Trailer of the commit that undid an operation: `Nixe-Undo: <id of the undone commit>`.
+const UNDO_TRAILER: &str = "Nixe-Undo";
+/// How far back the last operation is looked for.
+const OPERATION_WALK: usize = 200;
+
+fn trailer<'a>(message: &'a str, key: &str) -> Option<&'a str> {
+    message
+        .lines()
+        .rev()
+        .find_map(|l| l.strip_prefix(key)?.strip_prefix(": "))
+        .map(str::trim)
+}
+
+/// A commit that one operation of the vault wrote.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Operation {
+    pub id: String,
+    /// `rename`, `move`, `delete`, `merge` or `extract`.
+    pub kind: String,
+    /// First line of the message, e.g. `rename: A -> B, links in 9 notes`.
+    pub message: String,
+}
+
+fn operation_of(commit: &git2::Commit) -> Option<Operation> {
+    let message = commit.message().ok()?;
+    Some(Operation {
+        id: commit.id().to_string(),
+        kind: trailer(message, OPERATION_TRAILER)?.to_owned(),
+        message: commit.summary().ok().flatten().unwrap_or("").to_owned(),
+    })
+}
+
+/// Commits the open changes so that the next commit holds nothing but one operation. Nothing
+/// to commit is fine. `false` when the vault is no Git repository.
+pub fn checkpoint(root: &Path, reason: &str, fallback: Option<&Identity>) -> Result<bool, String> {
+    let Some(backend) = Git2Backend::open(root) else {
+        return Ok(false);
+    };
+    match backend.commit(Some(&format!("checkpoint before {reason}")), fallback) {
+        Ok(_) => {}
+        Err(m) if m == "nothing to commit" => {}
+        Err(m) => return Err(format!("could not commit before the {reason}: {m}")),
+    }
+    Ok(true)
+}
+
+/// Commits the changes of one operation: `summary` is the first line, the trailer marks it.
+/// Nothing to commit is fine.
+pub fn commit_operation(
+    root: &Path,
+    kind: &str,
+    summary: &str,
+    fallback: Option<&Identity>,
+) -> Result<(), String> {
+    let message = format!("{summary}\n\n{OPERATION_TRAILER}: {kind}\n");
+    match vault_commit(root, Some(&message), fallback) {
+        Ok(_) => Ok(()),
+        Err(m) if m == "nothing to commit" => Ok(()),
+        Err(m) => Err(m),
+    }
+}
+
+/// The newest operation commit that is not undone yet; `None` without Git or operations.
+pub fn last_operation(root: &Path) -> Result<Option<Operation>, String> {
+    let Some(backend) = Git2Backend::open(root) else {
+        return Ok(None);
+    };
+    let repo = &backend.repo;
+    if repo.head().is_err() {
+        return Ok(None);
+    }
+    let mut walk = repo.revwalk().map_err(e)?;
+    walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
+        .map_err(e)?;
+    walk.push_head().map_err(e)?;
+    let mut undone = std::collections::HashSet::new();
+    for oid in walk.take(OPERATION_WALK) {
+        let commit = repo.find_commit(oid.map_err(e)?).map_err(e)?;
+        if let Some(id) = commit.message().ok().and_then(|m| trailer(m, UNDO_TRAILER)) {
+            undone.insert(id.to_owned());
+        }
+        if let Some(op) = operation_of(&commit) {
+            if !undone.contains(&op.id) {
+                return Ok(Some(op));
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// Reverts the last operation as a new commit, also when edits came after it. Open changes
+/// are committed first. A revert that conflicts is refused and changes nothing.
+pub fn undo_operation(root: &Path, fallback: Option<&Identity>) -> Result<Operation, String> {
+    let backend =
+        Git2Backend::open(root).ok_or_else(|| "the vault is not a Git repository".to_string())?;
+    let op = last_operation(root)?.ok_or_else(|| "no vault operation to undo".to_string())?;
+    let repo = &backend.repo;
+    let target = repo
+        .find_commit(git2::Oid::from_str(&op.id).map_err(e)?)
+        .map_err(e)?;
+    let refused = || {
+        format!(
+            "cannot undo \"{}\": later changes conflict with it, nothing was changed",
+            op.message
+        )
+    };
+    let conflicts = |head: &git2::Commit| -> Result<git2::Index, String> {
+        let index = repo.revert_commit(&target, head, 0, None).map_err(e)?;
+        if index.has_conflicts() {
+            return Err(refused());
+        }
+        Ok(index)
+    };
+    // Refuse before the open changes are committed.
+    let head = repo.head().and_then(|h| h.peel_to_commit()).map_err(e)?;
+    conflicts(&head)?;
+    checkpoint(root, "undo", fallback)?;
+    let head = repo.head().and_then(|h| h.peel_to_commit()).map_err(e)?;
+    let mut index = conflicts(&head)?;
+    let tree = repo
+        .find_tree(index.write_tree_to(repo).map_err(e)?)
+        .map_err(e)?;
+    let sig = match repo.signature() {
+        Ok(sig) => sig,
+        Err(_) => {
+            let id = fallback
+                .filter(|i| !i.name.trim().is_empty() && !i.email.trim().is_empty())
+                .ok_or(
+                    "no author: set user.name and user.email in the Git config or in the settings",
+                )?;
+            Signature::now(id.name.trim(), id.email.trim()).map_err(e)?
+        }
+    };
+    let message = format!("undo: {}\n\n{UNDO_TRAILER}: {}\n", op.message, op.id);
+    repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&head])
+        .map_err(e)?;
+    let mut checkout = git2::build::CheckoutBuilder::new();
+    checkout.force();
+    repo.checkout_head(Some(&mut checkout)).map_err(e)?;
+    Ok(op)
+}
+
 /// One commit that touched a note (#105).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -240,6 +385,8 @@ pub struct HistoryEntry {
     pub parent: Option<String>,
     /// The path of the note in the parent (the old name when this commit renamed it).
     pub parent_path: String,
+    /// The kind of vault operation that wrote this commit (#241); `None` for other commits.
+    pub operation: Option<String>,
 }
 
 fn blob_id(tree: &git2::Tree, path: &str) -> Option<git2::Oid> {
@@ -321,6 +468,7 @@ pub fn note_history(
                 path: current.clone(),
                 parent: parents.first().map(|p| p.id().to_string()),
                 parent_path,
+                operation: operation_of(&commit).map(|o| o.kind),
             });
             if out.len() >= limit {
                 break;

@@ -1,3 +1,4 @@
+import { CaptureShortcutService } from "./core/capture/capture-shortcut.service";
 import {
   Component,
   Directive,
@@ -20,15 +21,19 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   FILE_CHANGED_EVENT,
   MENU_EVENT,
+  EXPORT_EVENT,
   OPEN_FILE_EVENT,
   STDIN_FILE_SUFFIX,
   backend,
+  type ExportRequest,
 } from "./core/file/backend";
 import { EditorService } from "./core/editor/editor.service";
 import type { Command } from "./core/commands/command-registry";
 import { CommandRegistry } from "./core/commands/command-registry";
 import { PaletteService } from "./core/commands/palette.service";
 import { ShortcutService } from "./core/commands/shortcut.service";
+import { ExportService } from "./core/export/export.service";
+import type { ExportFormat } from "./core/export/export-core";
 import { DocumentService } from "./core/file/document.service";
 import { BookmarksService } from "./core/bookmarks/bookmarks.service";
 import { IndexService } from "./core/index/index.service";
@@ -44,21 +49,20 @@ import { isPrerelease } from "./core/updater/update-logic";
 import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
-import { TemplateService } from "./core/templates/template.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
+import { WorkspacesService } from "./core/workspace/workspaces.service";
+import { VaultUndoService } from "./core/workspace/vault-undo.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
 import { TREE_SORTS, TREE_SORT_LABELS } from "./core/workspace/tree-model";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
+import { RelatedComponent } from "./features/related/related.component";
 import { LinkPreviewComponent } from "./features/link-preview/link-preview.component";
 import { OutlineComponent } from "./features/outline/outline.component";
-import { RecentComponent } from "./features/recent/recent.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
 import { ComposerComponent } from "./features/composer/composer.component";
-import { TemplatesComponent } from "./features/templates/templates.component";
-import { SwitcherComponent } from "./features/switcher/switcher.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { CloneComponent } from "./features/clone/clone.component";
 import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
@@ -94,16 +98,14 @@ export class NavIconDirective {
     LinkPreviewComponent,
     OutlineComponent,
     BacklinksComponent,
+    RelatedComponent,
     CloneComponent,
     ConflictBarComponent,
     GitComponent,
     HistoryComponent,
     StatusBarComponent,
     PaletteComponent,
-    RecentComponent,
     SearchComponent,
-    SwitcherComponent,
-    TemplatesComponent,
     ComposerComponent,
     EditorSpikeComponent,
     GitSpikeComponent,
@@ -117,9 +119,11 @@ export class NavIconDirective {
   host: { "(document:keydown)": "onKeydown($event)", "(window:resize)": "onResize()" },
 })
 export class AppComponent {
+  private readonly exporter = inject(ExportService);
   protected readonly doc = inject(DocumentService);
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
+  private readonly captureShortcut = inject(CaptureShortcutService);
   private readonly index = inject(IndexService);
   private readonly ops = inject(VaultOpsService);
   protected readonly editor = inject(EditorService);
@@ -133,13 +137,14 @@ export class AppComponent {
   private readonly autoSync = inject(AutoSyncService);
   protected readonly updater = inject(UpdateService);
   protected readonly switcher = inject(SwitcherService);
-  protected readonly templates = inject(TemplateService);
   protected readonly composer = inject(ComposerService);
   private readonly daily = inject(DailyService);
   private readonly bookmarks = inject(BookmarksService);
+  private readonly vaultUndo = inject(VaultUndoService);
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
   protected readonly recent = inject(RecentPickerService);
+  private readonly workspaces = inject(WorkspacesService);
   protected readonly settingsPage = inject(SettingsPageService);
   /** Applies the user's shortcuts to the key handling and the native menu. */
   private readonly shortcuts = inject(ShortcutService);
@@ -185,11 +190,9 @@ export class AppComponent {
   );
 
   protected readonly panelTab = computed<PanelTab>(() =>
-    this.settings.panelTab() === "links" && this.linksAvailable() ? "links" : "outline",
-  );
-
-  protected readonly showSwitcher = computed(
-    () => this.workspace.vaultRoot() !== null && this.switcher.visible(),
+    this.settings.panelTab() !== "outline" && this.linksAvailable()
+      ? this.settings.panelTab()
+      : "outline",
   );
 
   constructor() {
@@ -207,6 +210,11 @@ export class AppComponent {
     effect(() => {
       const path = this.doc.path();
       if (path) void this.workspace.reveal(path);
+    });
+
+    effect(() => {
+      const error = this.captureShortcut.error();
+      if (error !== null) untracked(() => this.showToast(`Capture shortcut: ${error}`));
     });
 
     effect(() => {
@@ -236,6 +244,23 @@ export class AppComponent {
       });
     });
 
+    effect(() => {
+      const notice = this.vaultUndo.notice();
+      if (notice === null) return;
+      untracked(() => {
+        if (notice.error) this.showError(notice.text);
+        else if (notice.undo) {
+          this.messages.add({
+            severity: "info",
+            summary: notice.text,
+            life: 8000,
+            action: { label: "Undo", run: () => void this.vaultUndo.undo() },
+          });
+        } else this.showToast(notice.text);
+        this.vaultUndo.notice.set(null);
+      });
+    });
+
     this.registerCommands();
     void this.initDesktopIntegration();
   }
@@ -245,10 +270,12 @@ export class AppComponent {
     // (on iOS some of them are unavailable).
     try {
       await listen(OPEN_FILE_EVENT, () => void this.openPending());
+      await listen(EXPORT_EVENT, () => void this.runPendingExport());
       await listen<string>(FILE_CHANGED_EVENT, (e) => void this.tabs.onExternalChange(e.payload));
       await this.updater.init();
       await this.index.init();
       await this.bookmarks.init();
+      await this.workspaces.refreshSaved();
       await this.autoSync.listenWindow();
       await listen<string>(MENU_EVENT, (e) => this.commands.execute(e.payload));
 
@@ -263,6 +290,9 @@ export class AppComponent {
     } catch (err) {
       console.warn("desktop integration unavailable", err);
     }
+
+    // A headless `nixe export` shows no window and needs nothing else to start.
+    if ((await this.runPendingExport())?.headless) return;
 
     // A file or folder passed on the command line may already be waiting;
     // otherwise the last opened folder is restored.
@@ -282,6 +312,44 @@ export class AppComponent {
     if (!path) return false;
     await this.openPath(path);
     return true;
+  }
+
+  /** Export as HTML asks for the file; PDF and print open the print dialog ("Save as PDF" there). */
+  private async exportNote(format: ExportFormat | "print"): Promise<void> {
+    await this.run(async () => {
+      const file = await this.exporter.exportCurrent(format);
+      if (file) this.showToast(`Exported ${file}`);
+    });
+  }
+
+  /** Export folder as site asks for the folder and for where to write the pages. */
+  private async exportSite(): Promise<void> {
+    await this.run(async () => {
+      const site = await this.exporter.exportSite();
+      if (site) this.showToast(`Exported ${site.pages} pages to ${site.out}`);
+    });
+  }
+
+  /** `nixe export`: runs the request and, without a window, ends the process with its result. */
+  private async runPendingExport(): Promise<ExportRequest | null> {
+    let request: ExportRequest | null;
+    try {
+      request = await backend.takePendingExport();
+    } catch (err) {
+      // Ends a headless export (a no-op in a normal window), which would otherwise hang hidden.
+      await backend.finishExport(1, String(err)).catch(() => undefined);
+      return null;
+    }
+    if (!request) return null;
+    try {
+      const file = await this.exporter.runRequest(request);
+      if (request.headless) await backend.finishExport(0, file ?? "");
+      else if (file) this.showToast(`Exported ${file}`);
+    } catch (err) {
+      if (request.headless) await backend.finishExport(1, String(err));
+      else this.showError(String(err));
+    }
+    return request;
   }
 
   /** Opens a file, or a folder in the sidebar. */
@@ -320,7 +388,7 @@ export class AppComponent {
         title: "Command palette",
         shortcut: "Mod+P",
         keys: ["Mod+P"],
-        run: () => this.palette.open(),
+        run: () => this.palette.open(">"),
       },
       {
         id: "new-note",
@@ -367,7 +435,7 @@ export class AppComponent {
         shortcut: "Mod+O",
         keys: ["Mod+O"],
         when: inVault,
-        run: () => this.switcher.open(),
+        run: () => this.palette.open(),
       },
       {
         id: "daily-note",
@@ -393,7 +461,7 @@ export class AppComponent {
         id: "insert-template",
         title: "Insert template",
         when: () => noteOpen() && this.editor.editing(),
-        run: () => this.run(() => this.templates.open()),
+        run: () => this.run(() => this.palette.openTemplates()),
       },
       {
         id: "toggle-editor",
@@ -402,6 +470,12 @@ export class AppComponent {
         when: noteOpen,
         run: () =>
           this.run(() => this.editor.toggle(this.tabs.activeTab().viewer?.topLine() ?? null)),
+      },
+      {
+        id: "undo-vault-operation",
+        title: "Undo last vault operation",
+        when: inVault,
+        run: () => void this.vaultUndo.undo(),
       },
       {
         id: "bookmark-note",
@@ -539,9 +613,21 @@ export class AppComponent {
         run: () => this.updater.check(),
       },
       {
+        id: "add-folder-to-workspace",
+        title: "Add folder to workspace…",
+        when: () => this.workspace.root() !== null,
+        run: () => this.run(() => this.workspaces.addFolderWithDialog()),
+      },
+      {
+        id: "save-workspace",
+        title: "Save workspace",
+        when: () => this.workspaces.current() !== null,
+        run: () => this.run(() => this.workspaces.save()),
+      },
+      {
         id: "open-recent",
         title: "Open recent vault…",
-        run: () => this.run(() => this.recent.open()),
+        run: () => this.palette.open("~"),
       },
       { id: "clone-vault", title: "Clone vault…", run: () => this.cloneVault.open() },
       {
@@ -575,6 +661,32 @@ export class AppComponent {
         run: () => this.run(async () => void this.tabs.openView("health")),
       },
       {
+        id: "export-html",
+        title: "Export as HTML",
+        when: noteOpen,
+        run: () => this.exportNote("html"),
+      },
+      {
+        id: "export-site",
+        title: "Export folder as site",
+        when: inVault,
+        run: () => this.exportSite(),
+      },
+      {
+        id: "export-pdf",
+        title: "Export as PDF",
+        when: noteOpen,
+        run: () => this.exportNote("pdf"),
+      },
+      {
+        id: "print",
+        title: "Print",
+        shortcut: "Mod+Alt+P",
+        keys: ["Mod+Alt+P"],
+        when: noteOpen,
+        run: () => this.exportNote("print"),
+      },
+      {
         id: "git-sync",
         title: "Sync with the remote",
         shortcut: "Mod+Shift+S",
@@ -590,11 +702,24 @@ export class AppComponent {
         run: () => this.settings.togglePanelTab("links"),
       },
       {
+        id: "toggle-related",
+        title: "Toggle related notes panel",
+        when: inVault,
+        run: () => this.settings.togglePanelTab("related"),
+      },
+      {
         id: "toggle-outline",
         title: "Toggle outline panel",
         shortcut: "Mod+Shift+L",
         when: noteOpen,
         run: () => this.settings.togglePanelTab("outline"),
+      },
+      {
+        id: "toggle-properties",
+        title: "Toggle properties",
+        shortcut: "Mod+Alt+P",
+        when: noteOpen,
+        run: () => this.settings.toggleProperties(),
       },
       {
         id: "toggle-link-preview",

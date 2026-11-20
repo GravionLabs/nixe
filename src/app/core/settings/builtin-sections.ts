@@ -2,12 +2,14 @@ import type { CssFile } from "../appearance/appearance-core";
 import { sanitizeAccent, sanitizeFont } from "../appearance/appearance-core";
 import type { ObsidianSetting } from "../file/backend";
 import type { Command } from "../commands/command-registry";
+import { PAGE_SIZES, sanitizePageSize } from "../export/export-core";
 import { clampMinutes } from "../git/auto-sync";
 import { sanitizeMode } from "../preview/preview-core";
 import type { SettingItem, SettingsSection } from "./settings-registry";
 import type { SettingsService } from "./settings.service";
 import { ZOOM_MAX, ZOOM_MIN } from "./settings.service";
 import type { ThemeMode } from "./settings-core";
+import { sanitizePropertiesDisplay } from "./settings-core";
 
 /** What the built-in sections read besides the settings themselves. */
 export interface SectionSources {
@@ -203,6 +205,36 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       ],
     },
     {
+      id: "export",
+      title: "Export and print",
+      order: 25,
+      items: () => [
+        toggle(
+          "export-page-breaks",
+          "Page break before top-level headings",
+          s.exportPageBreaks,
+          "Each `# Heading` starts a new page in a PDF or a print.",
+          ["pdf", "print", "page"],
+        ),
+        toggle(
+          "export-dark",
+          "Dark look",
+          s.exportDark,
+          "Export and print with the dark colors instead of the light ones.",
+          ["pdf", "print", "html", "theme"],
+        ),
+        {
+          kind: "select",
+          id: "export-page-size",
+          label: "Page size",
+          keywords: ["pdf", "print", "paper", "a4", "letter"],
+          options: PAGE_SIZES.map((v) => ({ value: v, label: v })),
+          get: () => s.exportPageSize(),
+          set: (v) => s.exportPageSize.set(sanitizePageSize(v)),
+        },
+      ],
+    },
+    {
       id: "files",
       title: "Files and links",
       order: 30,
@@ -285,6 +317,45 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       },
     },
     {
+      id: "capture",
+      title: "Capture",
+      order: 35,
+      items: () => [
+        text(
+          "capture-shortcut",
+          "Global shortcut",
+          s.captureShortcut,
+          "Opens the capture window from anywhere on the desktop, also without a Nixe window. Leave empty to turn capture off. With a shortcut set, Nixe keeps running in the tray when its window closes; quit it there.",
+          "CommandOrControl+Shift+Space",
+        ),
+        {
+          kind: "select",
+          id: "capture-target",
+          label: "Save captures to",
+          options: [
+            { value: "daily", label: "Today's daily note" },
+            { value: "inbox", label: "A new note in the inbox folder" },
+          ],
+          get: () => s.captureTarget(),
+          set: (v) => s.captureTarget.set(v === "inbox" ? "inbox" : "daily"),
+        },
+        text(
+          "capture-inbox",
+          "Inbox folder",
+          s.captureInbox,
+          "Vault-relative. Empty uses the new-note folder of the vault, else `Inbox`.",
+          "Inbox",
+        ),
+        text(
+          "capture-template",
+          "Inbox note template",
+          s.captureTemplate,
+          "A note of the vault; `{{content}}` marks where the text goes, `{{title}}`, `{{date}}` and `{{time}}` work too. The daily note keeps its own template.",
+          "Templates/Capture",
+        ),
+      ],
+    },
+    {
       id: "appearance",
       title: "Appearance",
       order: 40,
@@ -325,6 +396,20 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           ],
           get: () => s.linkPreview(),
           set: (v) => s.linkPreview.set(sanitizeMode(v)),
+        },
+        {
+          kind: "select",
+          id: "properties-display",
+          label: "Properties in document",
+          description: "How the properties of a note show above its text.",
+          keywords: ["frontmatter", "fold", "hide", "yaml"],
+          options: [
+            { value: "visible", label: "Visible" },
+            { value: "folded", label: "Folded" },
+            { value: "hidden", label: "Hidden" },
+          ],
+          get: () => s.propertiesDisplay(),
+          set: (v) => s.propertiesDisplay.set(sanitizePropertiesDisplay(v)),
         },
         ...appearanceItems(),
       ],

@@ -48,12 +48,21 @@ describe("settings page", () => {
     page = TestBed.inject(SettingsPageService);
   });
 
-  it("registers the six sections in order", () => {
+  it("registers the seven sections in order", () => {
     expect(
       TestBed.inject(SettingsRegistry)
         .sections()
         .map((s) => s.title),
-    ).toEqual(["General", "Editor", "Files and links", "Appearance", "Git", "Shortcuts"]);
+    ).toEqual([
+      "General",
+      "Editor",
+      "Export and print",
+      "Files and links",
+      "Capture",
+      "Appearance",
+      "Git",
+      "Shortcuts",
+    ]);
   });
 
   it("shows the running version read-only in General", () => {
@@ -154,6 +163,7 @@ describe("settings page", () => {
     expect(page.listed().map((s) => s.id)).toEqual(["git"]);
     page.query.set("dark");
     expect(page.listed().map((s) => [s.id, s.items.map((i) => i.id)])).toEqual([
+      ["export", ["export-dark"]],
       ["appearance", ["theme"]],
     ]);
     page.query.set("zzz");

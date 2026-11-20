@@ -95,7 +95,7 @@ pub fn extract(text: &str) -> NoteMeta {
 }
 
 /// `(yaml, body)` when the note starts with a `---` fenced block that is closed by `---` or `...`.
-pub(super) fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
+pub(crate) fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
     let mut lines = text.split_inclusive('\n');
     let first = lines.next()?;
     if !is_fence(first) {

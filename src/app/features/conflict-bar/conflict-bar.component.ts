@@ -2,10 +2,12 @@ import { Component, inject, output } from "@angular/core";
 
 import { ConflictService } from "../../core/git/conflict.service";
 import { basename } from "../../core/markdown/paths";
+import { ConflictMergeComponent } from "./conflict-merge.component";
 
 /** Shown above a note that has a sync conflict: links the two versions and settles the pair. */
 @Component({
   selector: "app-conflict-bar",
+  imports: [ConflictMergeComponent],
   templateUrl: "./conflict-bar.component.html",
   styles: `
     .bar {
@@ -55,6 +57,10 @@ export class ConflictBarComponent {
 
   protected keep(which: "this" | "other"): Promise<void> {
     return this.run(() => this.conflict.keep(which));
+  }
+
+  protected merge(): Promise<void> {
+    return this.run(() => this.conflict.startMerge());
   }
 
   private async run(action: () => Promise<void>): Promise<void> {

@@ -217,8 +217,16 @@ fn failed(e: impl ToString) -> CliError {
 
 /// Creates the daily note of `now` from its template when it does not exist; returns its path.
 fn ensure(root: &Path, now: &DateTime<FixedOffset>) -> Result<PathBuf, CliError> {
-    let config = fileops::daily_notes_config(root);
-    let rel = daily_path(&config, now)?;
+    ensure_with(root, &fileops::daily_notes_config(root), now)
+}
+
+/// Like `ensure`, with the daily notes settings given (the capture window merges the app settings).
+pub(crate) fn ensure_with(
+    root: &Path,
+    config: &fileops::DailyNotesConfig,
+    now: &DateTime<FixedOffset>,
+) -> Result<PathBuf, CliError> {
+    let rel = daily_path(config, now)?;
     let target = root.join(&rel);
     if target.is_file() {
         return Ok(target);

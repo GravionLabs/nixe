@@ -179,6 +179,55 @@ fn full_text_search_finds_bodies() {
 }
 
 #[test]
+fn related_ranks_by_closeness_and_says_why() {
+    let (root, mut conn) = setup("related");
+    write(
+        &root,
+        "Open.md",
+        "#a #b #c\n[[Mutual]] [[Out]] [[Attach.png]]",
+    );
+    write(&root, "Mutual.md", "[[Open]]");
+    write(&root, "Out.md", "text");
+    write(&root, "Back.md", "[[Open]]");
+    write(&root, "Hub.md", "# Hub\n[[Open]] [[Sibling]] [[Mutual]]");
+    write(&root, "Hub2.md", "[[Open]] [[Sibling]]");
+    write(&root, "Sibling.md", "text");
+    write(&root, "Tagged.md", "#a #b");
+    write(&root, "Tag1.md", "#c");
+    write(&root, "Unrelated.md", "#z");
+    run(&mut conn, &root);
+    let rel = read::related(&conn, "Open.md").unwrap();
+    let got: Vec<(&str, u32, Vec<&str>)> = rel
+        .iter()
+        .map(|r| {
+            (
+                r.path.as_str(),
+                r.score,
+                r.reasons.iter().map(String::as_str).collect(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        got,
+        [
+            (
+                "Mutual.md",
+                115,
+                vec!["links both ways", "both linked from Hub"]
+            ),
+            ("Back.md", 60, vec!["links here"]),
+            ("Hub.md", 60, vec!["links here"]),
+            ("Hub2.md", 60, vec!["links here"]),
+            ("Out.md", 50, vec!["linked from here"]),
+            ("Sibling.md", 30, vec!["both linked from Hub and 1 more"]),
+            ("Tagged.md", 10, vec!["2 shared tags"]),
+            ("Tag1.md", 5, vec!["1 shared tag"]),
+        ]
+    );
+    assert!(read::related(&conn, "Missing.md").unwrap().is_empty());
+}
+
+#[test]
 fn backlinks_and_tags() {
     let (root, mut conn) = setup("back");
     write(&root, "Target.md", "#shared\n[[#Self]] # Self");
@@ -737,4 +786,158 @@ fn notes_by_property_matches_scalars_and_list_members() {
     assert_eq!(paths("n", Some("3")), ["a.md"]);
     assert!(paths("list", Some("z")).is_empty());
     assert!(paths("missing", None).is_empty());
+}
+
+mod workspace_search {
+    use super::*;
+    use crate::index::search::{parse_query, search_roots, SearchRoot};
+
+    fn root(name: &str, notes: &[(&str, &str)]) -> (PathBuf, Connection) {
+        let (dir, mut conn) = setup(name);
+        for (rel, text) in notes {
+            write(&dir, rel, text);
+        }
+        run(&mut conn, &dir);
+        (dir, conn)
+    }
+
+    fn roots<'a>(list: &'a [(&'a str, &'a str, &'a Connection)]) -> Vec<SearchRoot<'a>> {
+        list.iter()
+            .map(|(name, path, conn)| SearchRoot { name, path, conn })
+            .collect()
+    }
+
+    #[test]
+    fn root_operand_is_parsed_with_quotes() {
+        assert_eq!(parse_query("x root:Wiki").roots, ["wiki"]);
+        assert_eq!(parse_query(r#"x root:"My Wiki""#).roots, ["my wiki"]);
+        assert_eq!(
+            parse_query(r#"root:"My Wiki" x"#).fts.as_deref(),
+            Some(r#""x"*"#)
+        );
+        assert!(parse_query("root:").is_empty());
+        assert!(!parse_query("root:a").is_empty());
+    }
+
+    #[test]
+    fn searches_all_roots_and_names_the_root_of_each_hit() {
+        let (a, ca) = root(
+            "ws-a",
+            &[("One.md", "alpha shared\n"), ("Same.md", "shared")],
+        );
+        let (b, cb) = root(
+            "ws-b",
+            &[("Two.md", "beta shared\n"), ("Same.md", "shared")],
+        );
+        let (pa, pb) = (a.to_string_lossy(), b.to_string_lossy());
+        let list = [("Notes", &*pa, &ca), ("Wiki", &*pb, &cb)];
+        let hits = search_roots(&roots(&list), "shared").unwrap();
+        let found: Vec<(&str, &str)> = hits
+            .iter()
+            .map(|h| (h.root.as_deref().unwrap(), h.path.as_str()))
+            .collect();
+        for expected in [
+            ("Notes", "One.md"),
+            ("Notes", "Same.md"),
+            ("Wiki", "Two.md"),
+            ("Wiki", "Same.md"),
+        ] {
+            assert!(found.contains(&expected), "{expected:?} in {found:?}");
+        }
+        assert_eq!(hits.len(), 4);
+        let wiki = hits.iter().find(|h| h.path == "Two.md").unwrap();
+        assert_eq!(wiki.root_path.as_deref(), Some(&*pb));
+        assert_eq!(wiki.snippets[0].line, 1);
+    }
+
+    #[test]
+    fn root_filter_keeps_the_named_roots_only() {
+        let (a, ca) = root("ws-fa", &[("One.md", "shared")]);
+        let (b, cb) = root("ws-fb", &[("Two.md", "shared")]);
+        let (pa, pb) = (a.to_string_lossy(), b.to_string_lossy());
+        let list = [("Notes", &*pa, &ca), ("My Wiki", &*pb, &cb)];
+        let r = roots(&list);
+        let only = |q: &str| -> Vec<String> {
+            search_roots(&r, q)
+                .unwrap()
+                .into_iter()
+                .map(|h| h.path)
+                .collect()
+        };
+        assert_eq!(only("shared root:notes"), ["One.md"]);
+        assert_eq!(only(r#"shared root:"my wiki""#), ["Two.md"]);
+        assert_eq!(only("shared root:notes root:wiki").len(), 1);
+        assert_eq!(only("root:Notes"), ["One.md"]);
+        assert!(only("shared root:missing").is_empty());
+    }
+
+    #[test]
+    fn the_better_match_wins_across_roots_and_hits_are_capped() {
+        let many: Vec<(String, String)> = (0..60)
+            .map(|i| (format!("n{i:02}.md"), "needle".to_string()))
+            .collect();
+        let refs: Vec<(&str, &str)> = many.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
+        let (a, ca) = root("ws-ca", &refs);
+        let (b, cb) = root("ws-cb", &[("Tiny.md", "needle needle needle")]);
+        let (pa, pb) = (a.to_string_lossy(), b.to_string_lossy());
+        let list = [("A", &*pa, &ca), ("B", &*pb, &cb)];
+        let hits = search_roots(&roots(&list), "needle").unwrap();
+        assert_eq!(hits.len(), 50);
+        assert!(hits.iter().any(|h| h.root.as_deref() == Some("B")));
+    }
+
+    #[test]
+    fn ten_roots_with_5000_notes_answer_within_150_ms() {
+        let mut keep = Vec::new();
+        for r in 0..10 {
+            let notes: Vec<(String, String)> = (0..500)
+                .map(|i| {
+                    (
+                        format!("dir{}/note-{i}.md", i % 10),
+                        format!(
+                            "# Note {i}\n\nalpha{i} beta gamma delta word{} shared text\n",
+                            i % 7
+                        ),
+                    )
+                })
+                .collect();
+            let refs: Vec<(&str, &str)> = notes
+                .iter()
+                .map(|(a, b)| (a.as_str(), b.as_str()))
+                .collect();
+            keep.push(root(&format!("ws-perf{r}"), &refs));
+        }
+        let names: Vec<String> = (0..10).map(|i| format!("Root {i}")).collect();
+        let paths: Vec<String> = keep
+            .iter()
+            .map(|(p, _)| p.to_string_lossy().into_owned())
+            .collect();
+        let list: Vec<(&str, &str, &Connection)> = keep
+            .iter()
+            .enumerate()
+            .map(|(i, (_, c))| (names[i].as_str(), paths[i].as_str(), c))
+            .collect();
+        let r = roots(&list);
+        for query in ["shared", "word3 gamma", "alpha42", "tag:#none shared"] {
+            let start = Instant::now();
+            let hits = search_roots(&r, query).unwrap();
+            let took = start.elapsed();
+            assert!(
+                took.as_millis() < 150,
+                "`{query}` took {took:?} for {} hits",
+                hits.len()
+            );
+        }
+        assert_eq!(search_roots(&r, "shared").unwrap().len(), 50);
+    }
+}
+
+#[test]
+fn a_root_operand_alone_selects_nothing_in_a_single_vault() {
+    let (root, mut conn) = setup("root-alone");
+    write(&root, "A.md", "text");
+    run(&mut conn, &root);
+    assert!(crate::index::search::search(&conn, "root:Wiki")
+        .unwrap()
+        .is_empty());
 }

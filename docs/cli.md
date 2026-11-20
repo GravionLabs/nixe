@@ -64,10 +64,38 @@ the note picks the change up through its file watcher.
 `<note>` is a vault-relative path (with or without `.md`) or a unique note name, resolved
 like a `[[wikilink]]`. A missing or ambiguous note is an error.
 
+## Export
+
+`nixe export <note> --format html|pdf [--out <file>] [--dark|--light] [--page-size <size>]` does what
+the commands "Export as HTML", "Export as PDF" and "Print" do in the app (see
+[export.md](export.md)). The rendering lives in the app, so the command resolves the note like a
+`[[wikilink]]`, checks the arguments (exit `2` when wrong, `1` for an unknown note) and then starts
+the app for the export.
+
+- `--format html` writes one self-contained file to `--out` (default: `<note name>.html` in the
+  current directory) and prints its path. No window shows; the command ends when the file is written.
+- `--format pdf` opens the note with the print dialog: the system web views have no silent print,
+  so the PDF is saved from that dialog ("Save as PDF"). `--out` is refused.
+- `--dark` / `--light` and `--page-size A3|A4|A5|Letter|Legal` override the export settings.
+- When Nixe is already running, its window does the export and the command returns at once.
+
+### Export a folder as a site
+
+`nixe export <folder> --site <out> [--exclude <dir>]... [--vault <dir>]` writes a folder as a static
+website, see [export.md](export.md#folder-as-a-static-site). It needs no window and no running app,
+and prints the number of pages. `--site` cannot be combined with `--format` or `--out`.
+
 ## Options
 
 - `--vault <dir>`: the vault. Without it, the vault that contains the current directory (the
   topmost parent holding `.obsidian/`, else the current directory itself).
+- `--vault <dir>` more than once, or `--workspace <name>` (a workspace saved in the app, see
+  [workspaces.md](workspaces.md)): `search`, `notes` and `tags` then cover all the folders. The
+  root of a result is its folder name (`notes`, `notes (2)` for equal names; in a workspace the
+  name of the root). Text output prefixes it (`wiki:Page.md`), JSON adds `"root"` (and, for
+  `search`, `"rootPath"`). `search` takes `root:<name>` (`root:"two words"`) to keep one root.
+  `tags` adds the counts up. The other commands work on one vault and refuse several.
+  `--workspace` and `--vault` cannot be combined.
 - `--json`: machine-readable output.
 
 Before answering, the index (the one the app uses, below the app data directory) is brought up

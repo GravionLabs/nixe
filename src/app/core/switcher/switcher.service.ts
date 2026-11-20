@@ -2,20 +2,19 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 
 import { backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { WorkspacesService } from "../workspace/workspaces.service";
 import type { SwitcherEntry, SwitcherMatch } from "./fuzzy";
-import { fileLabel, rank } from "./fuzzy";
+import { fileLabel, rank, splitRootFilter } from "./fuzzy";
 
 const MAX_RECENT = 50;
 const MAX_RESULTS = 50;
 
-/** Quick switcher state: the notes of the vault, the query and the ranked matches. */
+/** The notes the palette finds without a prefix: the vault index, the recently opened notes. */
 @Injectable({ providedIn: "root" })
 export class SwitcherService {
   private readonly workspace = inject(WorkspaceService);
+  private readonly workspaces = inject(WorkspacesService);
 
-  readonly visible = signal(false);
-  readonly query = signal("");
-  readonly selected = signal(0);
   private readonly entries = signal<SwitcherEntry[]>([]);
   /** Vault-relative paths of opened notes, newest first. */
   private readonly opened = signal<{ root: string; rel: string }[]>([]);
@@ -27,36 +26,20 @@ export class SwitcherService {
       .map((o) => o.rel);
   });
 
-  private readonly ranked = computed(() => rank(this.entries(), this.query(), this.recentNotes()));
-  readonly matches = computed<SwitcherMatch[]>(() => this.ranked().slice(0, MAX_RESULTS));
-  /** True when more notes match than the list shows. */
-  readonly truncated = computed(() => this.ranked().length > MAX_RESULTS);
+  /** The notes matching `query`, best first, cut to the list length; empty query: recent notes first. */
+  search(query: string): { matches: SwitcherMatch[]; truncated: boolean } {
+    // `root:name` narrows the list to the notes of that root (#117).
+    const { roots, text } = splitRootFilter(query);
+    const entries = roots.length
+      ? this.entries().filter((e) => e.root && roots.includes(e.root.toLowerCase()))
+      : this.entries();
+    const ranked = rank(entries, text, this.recentNotes());
+    return { matches: ranked.slice(0, MAX_RESULTS), truncated: ranked.length > MAX_RESULTS };
+  }
 
-  async open(): Promise<void> {
-    this.query.set("");
-    this.selected.set(0);
-    this.visible.set(true);
+  /** Loads the notes of the vault (or of all roots of the workspace) for the quick switcher. */
+  async load(): Promise<void> {
     this.entries.set(await this.loadEntries());
-  }
-
-  close(): void {
-    this.visible.set(false);
-  }
-
-  setQuery(query: string): void {
-    this.query.set(query);
-    this.selected.set(0);
-  }
-
-  /** Moves the selection, wrapping around. */
-  move(delta: number): void {
-    const n = this.matches().length;
-    if (n) this.selected.update((i) => (i + delta + n) % n);
-  }
-
-  /** The match Enter would open; null when nothing matches. */
-  current(): SwitcherMatch | null {
-    return this.matches()[this.selected()] ?? null;
   }
 
   /** Records an opened note (absolute path); notes outside the vault are ignored. */
@@ -71,6 +54,11 @@ export class SwitcherService {
 
   private async loadEntries(): Promise<SwitcherEntry[]> {
     try {
+      const roots = this.workspaces.searchRoots();
+      if (roots) {
+        const all = await backend.workspaceNotes(roots);
+        if (all.length) return all;
+      }
       const notes = await backend.notes();
       if (notes.length) return notes;
     } catch {

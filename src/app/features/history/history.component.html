@@ -16,7 +16,12 @@
           [attr.aria-pressed]="selected(entry)"
           (click)="history.select(entry)"
         >
-          <span class="message">{{ entry.message }}</span>
+          <span class="message">
+            @if (entry.operation) {
+              <span class="operation">{{ entry.operation }}</span>
+            }
+            {{ entry.message }}
+          </span>
           <span class="meta"
             >{{ time(entry) }}
             @if (entry.author) {

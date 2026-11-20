@@ -1,4 +1,5 @@
 import { sanitizeAccent, sanitizeFont, sanitizeNames } from "../appearance/appearance-core";
+import { sanitizePageSize } from "../export/export-core";
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
 import { DEFAULT_PANEL_WIDTH, sanitizePanelWidth } from "../panel/panel-width";
@@ -10,6 +11,12 @@ import type { VaultStates } from "../workspace/recent-vaults";
 import { sanitizeRecent, sanitizeStates } from "../workspace/recent-vaults";
 
 export type ThemeMode = "system" | "light" | "dark";
+
+export type PropertiesDisplay = "visible" | "folded" | "hidden";
+
+export function sanitizePropertiesDisplay(value: unknown): PropertiesDisplay {
+  return value === "folded" || value === "hidden" ? value : "visible";
+}
 
 /** Key of the settings in `localStorage` before they moved to the app config directory. */
 export const LEGACY_STORAGE_KEY = "nixe.settings";
@@ -53,6 +60,14 @@ export interface StoredSettings {
   extractEmbed: boolean;
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   wrapCode: boolean;
+  /** Export and print: a page break before every top-level heading (#119). */
+  exportPageBreaks: boolean;
+  /** Export and print in the dark look (#119). */
+  exportDark: boolean;
+  /** Page size of a PDF or print: A3, A4, A5, Letter or Legal (#119). */
+  exportPageSize: string;
+  /** How the properties of a note show in the document: all, one summary line or not at all (#290). */
+  propertiesDisplay: PropertiesDisplay;
   /** Name of the theme file (without `.css`) in `themes/` of the app config directory; "" is the built-in look (#114). */
   appearanceTheme: string;
   /** Names of the enabled snippets of `snippets/` (#114). */
@@ -68,7 +83,17 @@ export interface StoredSettings {
   treeGitStatus: boolean;
   /** Shortcut of a command id that differs from its default; "" means removed. */
   shortcuts: Record<string, string>;
+  /** Global shortcut (Tauri accelerator) that opens the capture window; "" turns capture off (#118). */
+  captureShortcut: string;
+  /** Where a capture goes: today's daily note or a new note in the inbox folder. */
+  captureTarget: CaptureTarget;
+  /** Vault-relative inbox folder; "" uses the new-note folder of the vault, else `Inbox`. */
+  captureInbox: string;
+  /** Vault-relative template note of a new inbox note; `{{content}}` marks the text. */
+  captureTemplate: string;
 }
+
+export type CaptureTarget = "daily" | "inbox";
 
 export const DEFAULT_SETTINGS: StoredSettings = {
   theme: "system",
@@ -99,6 +124,10 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   bookmarksInVault: false,
   extractEmbed: false,
   wrapCode: false,
+  exportPageBreaks: true,
+  exportDark: false,
+  exportPageSize: "A4",
+  propertiesDisplay: "visible",
   appearanceTheme: "",
   snippets: [],
   accentColor: "",
@@ -107,6 +136,10 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   treeSort: "name-asc",
   treeGitStatus: true,
   shortcuts: {},
+  captureShortcut: "",
+  captureTarget: "daily",
+  captureInbox: "",
+  captureTemplate: "",
 };
 
 const bool = (value: unknown, fallback: boolean): boolean =>
@@ -157,6 +190,10 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     bookmarksInVault: o["bookmarksInVault"] === true,
     extractEmbed: o["extractEmbed"] === true,
     wrapCode: o["wrapCode"] === true,
+    exportPageBreaks: bool(o["exportPageBreaks"], d.exportPageBreaks),
+    exportDark: o["exportDark"] === true,
+    exportPageSize: sanitizePageSize(o["exportPageSize"]),
+    propertiesDisplay: sanitizePropertiesDisplay(o["propertiesDisplay"]),
     appearanceTheme: text(o["appearanceTheme"], d.appearanceTheme),
     snippets: sanitizeNames(o["snippets"]),
     accentColor: sanitizeAccent(o["accentColor"]),
@@ -165,6 +202,10 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     treeSort: sanitizeTreeSort(o["treeSort"]),
     treeGitStatus: o["treeGitStatus"] !== false,
     shortcuts: sanitizeShortcuts(o["shortcuts"]),
+    captureShortcut: text(o["captureShortcut"], d.captureShortcut).trim(),
+    captureTarget: o["captureTarget"] === "inbox" ? "inbox" : "daily",
+    captureInbox: text(o["captureInbox"], d.captureInbox),
+    captureTemplate: text(o["captureTemplate"], d.captureTemplate),
   };
 }
 

@@ -1,0 +1,26 @@
+:root { color-scheme: light dark; --fg: #1f2328; --bg: #fff; --muted: #656d76; --line: #d0d7de; --accent: #0969da; }
+@media (prefers-color-scheme: dark) { :root { --fg: #e6edf3; --bg: #0d1117; --muted: #8d96a0; --line: #30363d; --accent: #58a6ff; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.6 system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+a { color: var(--accent); }
+header { display: flex; gap: 1rem; align-items: center; padding: .5rem 1rem; border-bottom: 1px solid var(--line); position: relative; }
+header .site { font-weight: 600; text-decoration: none; color: var(--fg); }
+#q { flex: 1; max-width: 24rem; padding: .3rem .6rem; font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 6px; }
+#results { position: absolute; top: 100%; left: 1rem; right: 1rem; z-index: 2; max-height: 60vh; overflow: auto; margin: 0; padding: .5rem; list-style: none; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+#results li { padding: .25rem 0; }
+#results small { display: block; color: var(--muted); }
+.layout { display: flex; align-items: flex-start; }
+nav { width: 17rem; flex: none; padding: 1rem; font-size: .9rem; border-right: 1px solid var(--line); overflow: auto; position: sticky; top: 0; max-height: 100vh; }
+nav ul { list-style: none; margin: 0; padding-left: 1rem; }
+nav > ul { padding-left: 0; }
+nav a[aria-current="page"] { font-weight: 600; }
+main { flex: 1; min-width: 0; max-width: 52rem; padding: 1rem 2rem 4rem; }
+img { max-width: 100%; }
+pre { overflow: auto; padding: .75rem; background: color-mix(in srgb, var(--fg) 6%, transparent); border-radius: 6px; }
+code { font-family: ui-monospace, monospace; font-size: .9em; }
+table { border-collapse: collapse; }
+th, td { border: 1px solid var(--line); padding: .3rem .6rem; }
+blockquote { margin-left: 0; padding-left: 1rem; border-left: 3px solid var(--line); color: var(--muted); }
+.unpublished { color: var(--muted); }
+.backlinks { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+@media (max-width: 760px) { .layout { flex-direction: column; } nav { width: 100%; position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); } main { padding: 1rem; } }

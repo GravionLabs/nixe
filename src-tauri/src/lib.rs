@@ -12,7 +12,37 @@ mod appearance;
 mod attachments;
 mod bookmarks;
 #[cfg(desktop)]
+mod capture;
+#[cfg(desktop)]
+mod capture_app;
+/// Mobile has no global shortcut or capture window; the commands exist so the handler list is shared.
+#[cfg(not(desktop))]
+mod capture_app {
+    const UNSUPPORTED: &str = "capture is not available on mobile";
+
+    #[tauri::command]
+    pub fn capture_save(_text: String) -> Result<String, String> {
+        Err(UNSUPPORTED.into())
+    }
+    #[tauri::command]
+    pub fn capture_note_names() -> Vec<String> {
+        Vec::new()
+    }
+    #[tauri::command]
+    pub fn capture_link_title(_url: String) -> Option<String> {
+        None
+    }
+    #[tauri::command]
+    pub fn capture_hide() {}
+    #[tauri::command]
+    pub fn capture_apply() -> Result<(), String> {
+        Ok(())
+    }
+}
+#[cfg(desktop)]
 pub mod cli;
+#[cfg(desktop)]
+pub mod cli_export;
 #[cfg(target_os = "macos")]
 mod cli_install;
 #[cfg(desktop)]
@@ -34,19 +64,27 @@ mod menu;
 mod notes;
 mod review;
 mod settings;
+mod site;
 mod tree;
 mod vault;
+pub mod workspace;
 mod write;
 
 /// Event telling the frontend that a file or folder is waiting in `take_pending_file`.
 const OPEN_FILE_EVENT: &str = "open-file-requested";
 /// Event emitted when the watched file changed on disk (payload: path).
+/// Event telling the frontend that a `nixe export` waits in `take_pending_export`.
+const EXPORT_EVENT: &str = "export-requested";
 const FILE_CHANGED_EVENT: &str = "file-changed";
 
 #[derive(Default)]
 struct AppState {
     /// File or folder requested via CLI argument, OS file association or a second instance.
     pending_file: Mutex<Option<String>>,
+    /// Export requested by `nixe export`.
+    pending_export: Mutex<Option<cli_export::ExportRequest>>,
+    /// The process runs only for a `nixe export` to HTML: `finish_export` ends it.
+    headless_export: std::sync::atomic::AtomicBool,
     watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
     /// Vault root last returned by `find_vault_root`; notes below it may be written.
     vault_root: Mutex<Option<PathBuf>>,
@@ -117,6 +155,96 @@ fn queue_file(app: &AppHandle, path: String) {
 #[tauri::command]
 fn take_pending_file(state: State<'_, AppState>) -> Option<String> {
     state.pending_file.lock().unwrap().take()
+}
+
+#[tauri::command]
+fn take_pending_export(state: State<'_, AppState>) -> Option<cli_export::ExportRequest> {
+    state.pending_export.lock().unwrap().take()
+}
+
+/// Ends a headless `nixe export`: the file path goes to stdout, an error to stderr.
+#[tauri::command]
+fn finish_export(state: State<'_, AppState>, code: i32, message: String) {
+    if !state
+        .headless_export
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        return;
+    }
+    if code == 0 {
+        println!("{message}");
+    } else {
+        eprintln!("nixe: {message}");
+    }
+    std::process::exit(code);
+}
+
+/// Writes an exported file where the user chose (save dialog or `--out`).
+#[tauri::command]
+fn write_export_file(path: String, content: String) -> Result<(), String> {
+    write_export(Path::new(&path), content.as_bytes()).map_err(|e| format!("{path}: {e}"))
+}
+
+/// Exports `folder` of a vault as a static website into `out`; the answer is the page count.
+#[tauri::command]
+fn export_site(folder: String, out: String, exclude: Vec<String>) -> Result<usize, String> {
+    let folder = dunce::canonicalize(&folder).map_err(|e| format!("{folder}: {e}"))?;
+    let summary = site::export_site(&site::SiteOptions {
+        root: vault::find_vault_root(&folder),
+        folder,
+        out: PathBuf::from(out),
+        exclude,
+    })?;
+    Ok(summary.pages)
+}
+
+fn write_export(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(path, bytes)
+}
+
+/// The media type of an image or font by its extension.
+fn media_type(path: &Path) -> Option<&'static str> {
+    let ext = path.extension()?.to_string_lossy().to_lowercase();
+    Some(match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        "avif" => "image/avif",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        "woff2" => "font/woff2",
+        _ => return None,
+    })
+}
+
+fn data_uri(path: &Path, bytes: &[u8]) -> Option<String> {
+    use base64::Engine;
+    let media = media_type(path)?;
+    Some(format!(
+        "data:{media};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    ))
+}
+
+/// An image of a note as a `data:` URI, for the standalone HTML export. `None` for a file that
+/// is missing or no image.
+#[tauri::command]
+fn read_data_uri(path: String) -> Option<String> {
+    let path = Path::new(&path);
+    data_uri(path, &std::fs::read(path).ok()?)
+}
+
+/// A file of the frontend bundle (the KaTeX fonts) as a `data:` URI. `None` in a dev build,
+/// which serves the files from the dev server.
+#[tauri::command]
+fn read_bundled_data_uri(app: AppHandle, path: String) -> Option<String> {
+    let asset = app.asset_resolver().get(path.clone())?;
+    data_uri(Path::new(&path), &asset.bytes)
 }
 
 #[tauri::command]
@@ -378,20 +506,76 @@ fn create_dir(state: State<'_, AppState>, path: String) -> Result<(), String> {
 }
 
 /// Renames or moves a file or folder inside the vault and rewrites the links to it in the notes
-/// that contain them (one batch). Returns the notes that were rewritten.
+/// that contain them (one batch). Returns the notes that were rewritten. In a Git vault the
+/// operation is one commit (#241).
 #[tauri::command]
 fn rename_path(
     state: State<'_, AppState>,
     index: State<'_, index::commands::IndexState>,
     from: String,
     to: String,
+    name: Option<String>,
+    email: Option<String>,
 ) -> Result<Vec<vault::relink::Change>, String> {
-    vault::relink::rename_with_links(
-        &vault_root_of(&state)?,
-        Path::new(&from),
-        Path::new(&to),
-        |targets| index.referrers(targets),
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    let (rel_from, rel_to) = (
+        vault::ops::display(&root, Path::new(&from)),
+        vault::ops::display(&root, Path::new(&to)),
+    );
+    let kind = vault::ops::rename_kind(&rel_from, &rel_to);
+    vault::ops::commit_around(
+        &root,
+        kind,
+        fallback.as_ref(),
+        || {
+            vault::relink::rename_with_links(&root, Path::new(&from), Path::new(&to), |targets| {
+                index.referrers(targets)
+            })
+        },
+        |changes| {
+            (
+                kind,
+                format!(
+                    "{kind}: {rel_from} -> {rel_to}{}",
+                    vault::ops::links_suffix(changes.len())
+                ),
+            )
+        },
     )
+}
+
+/// The Git author of the settings, when both parts are set.
+fn identity_of(name: Option<String>, email: Option<String>) -> Option<git::Identity> {
+    match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    }
+}
+
+/// The last vault operation that is not undone yet (#241); `None` without Git.
+#[tauri::command]
+async fn last_vault_operation(
+    state: State<'_, AppState>,
+) -> Result<Option<git::Operation>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::last_operation(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Reverts the last vault operation as a new commit; refused when it conflicts (#241).
+#[tauri::command]
+async fn undo_vault_operation(
+    state: State<'_, AppState>,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<git::Operation, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    tauri::async_runtime::spawn_blocking(move || git::undo_operation(&root, fallback.as_ref()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// The notes whose links a rename of `from` to `to` would rewrite; changes nothing.
@@ -440,14 +624,31 @@ fn extract_text(
     target: String,
     what: vault::composer::What,
     embed: bool,
+    name: Option<String>,
+    email: Option<String>,
 ) -> Result<Vec<vault::composer::Change>, String> {
-    vault::composer::extract(
-        &vault_root_of(&state)?,
-        &source,
-        &what,
-        &target,
-        embed,
-        |t| index.referrers(t),
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    let summary = format!(
+        "extract: {} -> {}",
+        vault::ops::display(&root, Path::new(&source)),
+        vault::ops::display(&root, Path::new(&target))
+    );
+    vault::ops::commit_around(
+        &root,
+        "extraction",
+        fallback.as_ref(),
+        || {
+            vault::composer::extract(&root, &source, &what, &target, embed, |t| {
+                index.referrers(t)
+            })
+        },
+        |changes| {
+            (
+                "extract",
+                format!("{summary}, {} notes changed", changes.len()),
+            )
+        },
     )
 }
 
@@ -471,10 +672,30 @@ fn merge_note(
     index: State<'_, index::commands::IndexState>,
     source: String,
     target: String,
+    name: Option<String>,
+    email: Option<String>,
 ) -> Result<Vec<vault::composer::Change>, String> {
-    vault::composer::merge(&vault_root_of(&state)?, &source, &target, |t| {
-        index.referrers(t)
-    })
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    let (rel_source, rel_target) = (
+        vault::ops::display(&root, Path::new(&source)),
+        vault::ops::display(&root, Path::new(&target)),
+    );
+    vault::ops::commit_around(
+        &root,
+        "merge",
+        fallback.as_ref(),
+        || vault::composer::merge(&root, &source, &target, |t| index.referrers(t)),
+        |changes| {
+            (
+                "merge",
+                format!(
+                    "merge: {rel_source} -> {rel_target}{}",
+                    vault::ops::links_suffix(changes.len())
+                ),
+            )
+        },
+    )
 }
 
 /// Every replacement a find and replace would make, per note; changes nothing (#115).
@@ -538,8 +759,22 @@ fn link_mention(
 
 /// Moves a file or folder to `.trash/` in the vault; returns its new path.
 #[tauri::command]
-fn trash_path(state: State<'_, AppState>, path: String) -> Result<String, String> {
-    fileops::trash_path(&vault_root_of(&state)?, Path::new(&path)).map(|p| path_to_string(&p))
+fn trash_path(
+    state: State<'_, AppState>,
+    path: String,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<String, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    let rel = vault::ops::display(&root, Path::new(&path));
+    vault::ops::commit_around(
+        &root,
+        "delete",
+        fallback.as_ref(),
+        || fileops::trash_path(&root, Path::new(&path)).map(|p| path_to_string(&p)),
+        |_| ("delete", format!("delete: {rel}")),
+    )
 }
 
 /// Where a new note goes, from `.obsidian/app.json` of the vault.
@@ -751,6 +986,60 @@ fn list_vault_files(root: String) -> Vec<String> {
     vault::list_vault_files(Path::new(&root))
 }
 
+/// The names of the saved workspaces (#116).
+#[tauri::command]
+fn workspace_list(app: AppHandle) -> Result<Vec<String>, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(workspace::list(&dir))
+}
+
+/// A saved workspace: its roots with their kinds.
+#[tauri::command]
+fn workspace_load(app: AppHandle, name: String) -> Result<workspace::Workspace, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    workspace::load(&dir, &name)
+}
+
+/// Saves a workspace in the app data directory; nothing is written into its folders.
+#[tauri::command]
+fn workspace_save(app: AppHandle, workspace: workspace::Workspace) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    workspace::save(&dir, &workspace)
+}
+
+/// Forgets a saved workspace; its folders stay.
+#[tauri::command]
+fn workspace_delete(app: AppHandle, name: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    workspace::delete(&dir, &name)
+}
+
+/// `workspace` with the folder at `path` added as a root (kind detected); changes nothing on disk.
+#[tauri::command]
+fn workspace_add_root(
+    mut workspace: workspace::Workspace,
+    path: String,
+) -> Result<workspace::Workspace, String> {
+    workspace.add_root(Path::new(&path))?;
+    Ok(workspace)
+}
+
+/// Resolves link targets of a note in the root `from`; a `Root name:` prefix reaches another root.
+/// One entry per target, `None` for a missing or ambiguous note.
+#[tauri::command]
+async fn workspace_resolve_links(
+    workspace: workspace::Workspace,
+    from: String,
+    targets: Vec<String>,
+) -> Result<Vec<Option<workspace::ResolvedLink>>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let links = workspace::WorkspaceLinks::new(&workspace);
+        targets.iter().map(|t| links.resolve(&from, t)).collect()
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Watches a single file. The parent directory is watched (non-recursively) so
 /// that editors saving via "write temp file + rename" are detected as well.
 #[tauri::command]
@@ -807,7 +1096,18 @@ pub fn run() {
     {
         // Must be the first plugin: forwards files from a second launch.
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            if let Some(path) = path_from_args(&argv, Path::new(&cwd)) {
+            if argv.get(1).is_some_and(|a| a == "export") {
+                // A running window does the export; the new process ends at once.
+                let request = cli::data_dir().and_then(|data| {
+                    cli::parse_export(&argv[2..], Path::new(&cwd), &data, false)
+                        .map_err(|e| eprintln!("nixe: export: {e:?}"))
+                        .ok()
+                });
+                if let Some(request) = request {
+                    *app.state::<AppState>().pending_export.lock().unwrap() = Some(request);
+                    let _ = app.emit(EXPORT_EVENT, ());
+                }
+            } else if let Some(path) = path_from_args(&argv, Path::new(&cwd)) {
                 queue_file(app, path);
             }
             if let Some(window) = app.get_webview_window("main") {
@@ -828,7 +1128,13 @@ pub fn run() {
     {
         builder = builder
             .plugin(tauri_plugin_updater::Builder::new().build())
-            .plugin(tauri_plugin_process::init());
+            .plugin(tauri_plugin_process::init())
+            .plugin(tauri_plugin_clipboard_manager::init());
+    }
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(capture_app::plugin());
     }
 
     #[cfg(desktop)]
@@ -845,8 +1151,29 @@ pub fn run() {
     let builder = builder.setup(|app| {
         let cwd = std::env::current_dir().unwrap_or_default();
         let args: Vec<String> = std::env::args().collect();
+        #[cfg(desktop)]
+        if let Some(request) = cli_export::REQUEST.get() {
+            let state = app.state::<AppState>();
+            state
+                .headless_export
+                .store(request.headless, std::sync::atomic::Ordering::SeqCst);
+            *state.pending_export.lock().unwrap() = Some(request.clone());
+            if request.headless {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+        } else if let Some(path) = path_from_args(&args, &cwd) {
+            *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
+        }
+        #[cfg(not(desktop))]
         if let Some(path) = path_from_args(&args, &cwd) {
             *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
+        }
+        // A shortcut that cannot be registered leaves capture off; the settings page shows why.
+        #[cfg(desktop)]
+        if let Err(e) = capture_app::apply(app.handle()) {
+            eprintln!("capture: {e}");
         }
         #[cfg(mobile)]
         if app
@@ -870,6 +1197,12 @@ pub fn run() {
     #[cfg(any(debug_assertions, mobile))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         take_pending_file,
+        take_pending_export,
+        finish_export,
+        write_export_file,
+        export_site,
+        read_data_uri,
+        read_bundled_data_uri,
         read_text_file,
         write_text_file,
         create_file,
@@ -880,6 +1213,8 @@ pub fn run() {
         extract_text,
         merge_preview,
         merge_note,
+        last_vault_operation,
+        undo_vault_operation,
         replace_preview,
         replace_apply,
         trash_path,
@@ -893,6 +1228,12 @@ pub fn run() {
         write_app_settings,
         read_appearance,
         appearance_dir,
+        workspace_list,
+        workspace_load,
+        workspace_save,
+        workspace_delete,
+        workspace_add_root,
+        workspace_resolve_links,
         read_folds,
         write_folds,
         read_vault_bookmarks,
@@ -916,10 +1257,14 @@ pub fn run() {
         index::commands::notes,
         index::commands::note_meta,
         index::commands::backlinks,
+        index::commands::related_notes,
         index::commands::unlinked_mentions,
         link_mention,
         index::commands::tags,
         index::commands::search_notes,
+        index::commands::workspace_index,
+        index::commands::search_workspace,
+        index::commands::workspace_notes,
         index::commands::vault_health,
         watch_file,
         git_vault_status,
@@ -941,6 +1286,11 @@ pub fn run() {
         credentials::git_token_delete,
         gitclone::git_clone_vault,
         gitclone::git_clone_cancel,
+        capture_app::capture_save,
+        capture_app::capture_note_names,
+        capture_app::capture_link_title,
+        capture_app::capture_hide,
+        capture_app::capture_apply,
         gitsync::git_clone,
         gitsync::git_spike_edit,
         gitsync::git_commit,
@@ -956,6 +1306,12 @@ pub fn run() {
     #[cfg(not(any(debug_assertions, mobile)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         take_pending_file,
+        take_pending_export,
+        finish_export,
+        write_export_file,
+        export_site,
+        read_data_uri,
+        read_bundled_data_uri,
         read_text_file,
         write_text_file,
         create_file,
@@ -966,6 +1322,8 @@ pub fn run() {
         extract_text,
         merge_preview,
         merge_note,
+        last_vault_operation,
+        undo_vault_operation,
         replace_preview,
         replace_apply,
         trash_path,
@@ -979,6 +1337,12 @@ pub fn run() {
         write_app_settings,
         read_appearance,
         appearance_dir,
+        workspace_list,
+        workspace_load,
+        workspace_save,
+        workspace_delete,
+        workspace_add_root,
+        workspace_resolve_links,
         read_folds,
         write_folds,
         read_vault_bookmarks,
@@ -1002,10 +1366,14 @@ pub fn run() {
         index::commands::notes,
         index::commands::note_meta,
         index::commands::backlinks,
+        index::commands::related_notes,
         index::commands::unlinked_mentions,
         link_mention,
         index::commands::tags,
         index::commands::search_notes,
+        index::commands::workspace_index,
+        index::commands::search_workspace,
+        index::commands::workspace_notes,
         index::commands::vault_health,
         watch_file,
         git_vault_status,
@@ -1026,7 +1394,12 @@ pub fn run() {
         credentials::git_token_set,
         credentials::git_token_delete,
         gitclone::git_clone_vault,
-        gitclone::git_clone_cancel
+        gitclone::git_clone_cancel,
+        capture_app::capture_save,
+        capture_app::capture_note_names,
+        capture_app::capture_link_title,
+        capture_app::capture_hide,
+        capture_app::capture_apply
     ]);
 
     let app = builder
@@ -1096,6 +1469,26 @@ mod tests {
         );
         let args = vec!["nixe".into(), ".".into()];
         assert_eq!(path_from_args(&args, &root), Some(path_to_string(&root)));
+    }
+
+    #[test]
+    fn export_files_are_written_below_new_folders() {
+        let dir = temp_dir("export");
+        let file = dir.join("out/deep/note.html");
+        write_export(&file, b"<p>x</p>").unwrap();
+        assert_eq!(fs::read_to_string(&file).unwrap(), "<p>x</p>");
+        write_export(&file, b"y").unwrap();
+        assert_eq!(fs::read_to_string(&file).unwrap(), "y");
+    }
+
+    #[test]
+    fn images_become_data_uris_and_other_files_do_not() {
+        assert_eq!(
+            data_uri(Path::new("a/B.PNG"), b"hi").as_deref(),
+            Some("data:image/png;base64,aGk=")
+        );
+        assert!(data_uri(Path::new("notes.md"), b"hi").is_none());
+        assert!(read_data_uri("/definitely/missing.png".into()).is_none());
     }
 
     #[test]

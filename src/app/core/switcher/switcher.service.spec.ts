@@ -8,11 +8,14 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 import { backend } from "../file/backend";
+import type { RootArg } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { WorkspacesService } from "../workspace/workspaces.service";
 import { SwitcherService } from "./switcher.service";
 
 describe("SwitcherService", () => {
   const vaultFiles = signal<string[] | null>(["Alpha.md", "Beta.md", "img.png"]);
+  const searchRoots = signal<RootArg[] | null>(null);
   let switcher: SwitcherService;
 
   beforeAll(() => {
@@ -21,9 +24,13 @@ describe("SwitcherService", () => {
 
   beforeEach(() => {
     vaultFiles.set(["Alpha.md", "Beta.md", "img.png"]);
+    searchRoots.set(null);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: WorkspaceService, useValue: { vaultRoot: signal("/v"), vaultFiles } }],
+      providers: [
+        { provide: WorkspaceService, useValue: { vaultRoot: signal("/v"), vaultFiles } },
+        { provide: WorkspacesService, useValue: { searchRoots } },
+      ],
     });
     switcher = TestBed.inject(SwitcherService);
   });
@@ -32,30 +39,25 @@ describe("SwitcherService", () => {
     vi.spyOn(backend, "notes").mockResolvedValue([
       { path: "Home.md", title: "Home", aliases: ["Start"] },
     ]);
-    await switcher.open();
-    switcher.setQuery("start");
-    expect(switcher.current()?.entry.path).toBe("Home.md");
+    await switcher.load();
+    expect(switcher.search("start").matches[0]?.entry.path).toBe("Home.md");
   });
 
   it("falls back to the Markdown files when the index is unavailable", async () => {
     vi.spyOn(backend, "notes").mockRejectedValue("no index");
-    await switcher.open();
-    expect(switcher.matches().map((m) => m.entry.path)).toEqual(["Alpha.md", "Beta.md"]);
+    await switcher.load();
+    expect(switcher.search("").matches.map((m) => m.entry.path)).toEqual(["Alpha.md", "Beta.md"]);
   });
 
-  it("lists recently opened notes first and moves the selection with wrap-around", async () => {
+  it("lists recently opened notes first", async () => {
     vi.spyOn(backend, "notes").mockRejectedValue("no index");
     switcher.noteOpened("/v/Beta.md");
     switcher.noteOpened("/elsewhere/Alpha.md");
     switcher.noteOpened("/v/Alpha.md");
     switcher.noteOpened("/v/Beta.md");
     expect(switcher.recentNotes()).toEqual(["Beta.md", "Alpha.md"]);
-    await switcher.open();
-    expect(switcher.matches().map((m) => m.entry.path)).toEqual(["Beta.md", "Alpha.md"]);
-    switcher.move(-1);
-    expect(switcher.current()?.entry.path).toBe("Alpha.md");
-    switcher.move(1);
-    expect(switcher.current()?.entry.path).toBe("Beta.md");
+    await switcher.load();
+    expect(switcher.search("").matches.map((m) => m.entry.path)).toEqual(["Beta.md", "Alpha.md"]);
   });
 
   it("lists only the recent notes of the current vault", () => {
@@ -71,13 +73,10 @@ describe("SwitcherService", () => {
     expect(switcher.recentNotes()).toEqual(["Alpha.md"]);
   });
 
-  it("has no current match when nothing matches, so Enter does nothing", async () => {
+  it("finds nothing for a query that matches no note", async () => {
     vi.spyOn(backend, "notes").mockRejectedValue("no index");
-    await switcher.open();
-    switcher.setQuery("zzz");
-    expect(switcher.current()).toBeNull();
-    switcher.move(1);
-    expect(switcher.selected()).toBe(0);
+    await switcher.load();
+    expect(switcher.search("zzz").matches).toEqual([]);
   });
 
   it("caps the list at 50 and says that more notes match", async () => {
@@ -87,10 +86,52 @@ describe("SwitcherService", () => {
       aliases: [],
     }));
     vi.spyOn(backend, "notes").mockResolvedValue(notes);
-    await switcher.open();
-    expect(switcher.matches()).toHaveLength(50);
-    expect(switcher.truncated()).toBe(true);
-    switcher.setQuery("n1");
-    expect(switcher.truncated()).toBe(false);
+    await switcher.load();
+    expect(switcher.search("").matches).toHaveLength(50);
+    expect(switcher.search("").truncated).toBe(true);
+    expect(switcher.search("n1").truncated).toBe(false);
+  });
+
+  describe("over a workspace (#117)", () => {
+    const roots = [
+      { path: "/v", name: "Notes" },
+      { path: "/w", name: "My Wiki" },
+    ];
+    const notes = [
+      { root: "Notes", rootPath: "/v", path: "Todo.md", title: "Todo", aliases: [] },
+      { root: "My Wiki", rootPath: "/w", path: "Todo.md", title: "Todo", aliases: [] },
+      { root: "My Wiki", rootPath: "/w", path: "Guide.md", title: "Guide", aliases: [] },
+    ];
+
+    it("lists the notes of all roots, each with its root", async () => {
+      searchRoots.set(roots);
+      const spy = vi.spyOn(backend, "workspaceNotes").mockResolvedValue(notes);
+      await switcher.load();
+      expect(spy).toHaveBeenCalledWith(roots);
+      expect(switcher.search("todo").matches.map((m) => [m.entry.root, m.entry.path])).toEqual([
+        ["Notes", "Todo.md"],
+        ["My Wiki", "Todo.md"],
+      ]);
+    });
+
+    it("narrows the list with root:", async () => {
+      searchRoots.set(roots);
+      vi.spyOn(backend, "workspaceNotes").mockResolvedValue(notes);
+      await switcher.load();
+      expect(switcher.search('root:"my wiki" todo').matches.map((m) => m.entry.rootPath)).toEqual([
+        "/w",
+      ]);
+      expect(switcher.search("root:notes").matches.map((m) => m.entry.path)).toEqual(["Todo.md"]);
+      expect(switcher.search("root:nothing").matches).toEqual([]);
+    });
+
+    it("uses the notes of the open folder when there is no workspace", async () => {
+      const spy = vi.spyOn(backend, "workspaceNotes");
+      spy.mockClear();
+      vi.spyOn(backend, "notes").mockResolvedValue([{ path: "A.md", title: "A", aliases: [] }]);
+      await switcher.load();
+      expect(spy).not.toHaveBeenCalled();
+      expect(switcher.search("").matches[0].entry.root).toBeUndefined();
+    });
   });
 });

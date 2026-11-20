@@ -16,6 +16,7 @@ import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { VaultOpsService } from "./vault-ops.service";
+import { VaultUndoService } from "./vault-undo.service";
 import { WorkspaceService } from "./workspace.service";
 
 describe("VaultOpsService", () => {
@@ -26,6 +27,10 @@ describe("VaultOpsService", () => {
   const bookmarks = {
     relative: (p: string) => (p.startsWith("/v/") ? p.slice(3) : null),
     renamed: vi.fn(),
+  };
+  const undo = {
+    author: () => ({ name: "A", email: "a@x" }),
+    offer: vi.fn(),
   };
   let ops: VaultOpsService;
 
@@ -40,6 +45,7 @@ describe("VaultOpsService", () => {
     workspace.reloadTree = vi.fn().mockResolvedValue(undefined);
     path.set(null);
     bookmarks.renamed.mockReset();
+    undo.offer = vi.fn().mockResolvedValue(undefined);
     editor.editing.set(false);
     vi.spyOn(backend, "newNoteLocation").mockResolvedValue({ location: "root", folder: "" });
     vi.spyOn(backend, "listDir").mockResolvedValue([]);
@@ -59,6 +65,7 @@ describe("VaultOpsService", () => {
         { provide: DocumentService, useValue: doc },
         { provide: EditorService, useValue: editor },
         { provide: BookmarksService, useValue: bookmarks },
+        { provide: VaultUndoService, useValue: undo },
       ],
     });
     ops = TestBed.inject(VaultOpsService);
@@ -119,7 +126,7 @@ describe("VaultOpsService", () => {
   it("renames and follows the open note", async () => {
     path.set("/v/d/a.md");
     await expect(ops.rename("/v/d", "e")).resolves.toBe("/v/e");
-    expect(backend.renamePath).toHaveBeenCalledWith("/v/d", "/v/e");
+    expect(backend.renamePath).toHaveBeenCalledWith("/v/d", "/v/e", undo.author());
     expect(doc.open).toHaveBeenCalledWith("/v/e/a.md", { addToHistory: false });
   });
 
@@ -129,7 +136,7 @@ describe("VaultOpsService", () => {
     await expect(ops.rename("/v/d", "e")).resolves.toBe("/v/e");
     expect(backend.relinkPreview).toHaveBeenCalledWith("/v/d", "/v/e");
     expect(vi.mocked(ask).mock.calls[0][0]).toContain("a.md (2)");
-    expect(backend.renamePath).toHaveBeenCalledWith("/v/d", "/v/e");
+    expect(backend.renamePath).toHaveBeenCalledWith("/v/d", "/v/e", undo.author());
   });
 
   it("does not rename a folder when the user declines the confirmation", async () => {
@@ -148,15 +155,41 @@ describe("VaultOpsService", () => {
     expect(backend.renamePath).toHaveBeenCalled();
   });
 
-  it("renames a note without asking", async () => {
+  it("renames a note without asking when no link changes", async () => {
     await ops.rename("/v/a.md", "b");
-    expect(backend.relinkPreview).not.toHaveBeenCalled();
+    expect(backend.relinkPreview).toHaveBeenCalledWith("/v/a.md", "/v/b.md");
     expect(ask).not.toHaveBeenCalled();
+    expect(backend.renamePath).toHaveBeenCalled();
+  });
+
+  it("lists the notes a single note rename changes first", async () => {
+    vi.spyOn(backend, "relinkPreview").mockResolvedValue([{ path: "x.md", links: 3 }]);
+    await expect(ops.rename("/v/a.md", "b")).resolves.toBe("/v/b.md");
+    const [text, options] = vi.mocked(ask).mock.calls[0];
+    expect(text).toContain("x.md (3)");
+    expect(options).toMatchObject({ title: "Rename note" });
+  });
+
+  it("does not rename a note when the user declines the list", async () => {
+    vi.spyOn(backend, "relinkPreview").mockResolvedValue([{ path: "x.md", links: 3 }]);
+    vi.mocked(ask).mockResolvedValue(false);
+    await expect(ops.rename("/v/a.md", "b")).resolves.toBe("/v/a.md");
+    expect(backend.renamePath).not.toHaveBeenCalled();
+    expect(undo.offer).not.toHaveBeenCalled();
+  });
+
+  it("offers Undo after a rename, a move and a delete", async () => {
+    await ops.rename("/v/a.md", "b");
+    expect(undo.offer).toHaveBeenCalledTimes(1);
+    await ops.move(["/v/b.md"], "/v/d");
+    expect(undo.offer).toHaveBeenCalledTimes(2);
+    await ops.trash("/v/d/b.md");
+    expect(undo.offer).toHaveBeenCalledTimes(3);
   });
 
   it("keeps .md when a note is renamed without an extension", async () => {
     await ops.rename("/v/a.md", "b");
-    expect(backend.renamePath).toHaveBeenCalledWith("/v/a.md", "/v/b.md");
+    expect(backend.renamePath).toHaveBeenCalledWith("/v/a.md", "/v/b.md", undo.author());
     expect(doc.open).not.toHaveBeenCalled();
   });
 
@@ -169,7 +202,7 @@ describe("VaultOpsService", () => {
     path.set("/v/a.md");
     editor.editing.set(true);
     await ops.trash("/v/a.md");
-    expect(backend.trashPath).toHaveBeenCalledWith("/v/a.md");
+    expect(backend.trashPath).toHaveBeenCalledWith("/v/a.md", undo.author());
     expect(doc.close).toHaveBeenCalled();
     expect(editor.editing()).toBe(false);
   });
@@ -184,8 +217,8 @@ describe("VaultOpsService", () => {
   describe("move", () => {
     it("moves the entries into the folder", async () => {
       await expect(ops.move(["/v/a.md", "/v/b"], "/v/d")).resolves.toEqual(["/v/d/a.md", "/v/d/b"]);
-      expect(backend.renamePath).toHaveBeenCalledWith("/v/a.md", "/v/d/a.md");
-      expect(backend.renamePath).toHaveBeenCalledWith("/v/b", "/v/d/b");
+      expect(backend.renamePath).toHaveBeenCalledWith("/v/a.md", "/v/d/a.md", undo.author());
+      expect(backend.renamePath).toHaveBeenCalledWith("/v/b", "/v/d/b", undo.author());
       expect(bookmarks.renamed).toHaveBeenCalledWith("a.md", "d/a.md");
       expect(workspace.reloadTree).toHaveBeenCalled();
     });
