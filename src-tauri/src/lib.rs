@@ -15,6 +15,30 @@ mod bookmarks;
 mod capture;
 #[cfg(desktop)]
 mod capture_app;
+/// Mobile has no global shortcut or capture window; the commands exist so the handler list is shared.
+#[cfg(not(desktop))]
+mod capture_app {
+    const UNSUPPORTED: &str = "capture is not available on mobile";
+
+    #[tauri::command]
+    pub fn capture_save(_text: String) -> Result<String, String> {
+        Err(UNSUPPORTED.into())
+    }
+    #[tauri::command]
+    pub fn capture_note_names() -> Vec<String> {
+        Vec::new()
+    }
+    #[tauri::command]
+    pub fn capture_link_title(_url: String) -> Option<String> {
+        None
+    }
+    #[tauri::command]
+    pub fn capture_hide() {}
+    #[tauri::command]
+    pub fn capture_apply() -> Result<(), String> {
+        Ok(())
+    }
+}
 #[cfg(desktop)]
 pub mod cli;
 #[cfg(target_os = "macos")]
