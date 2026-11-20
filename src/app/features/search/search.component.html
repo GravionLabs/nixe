@@ -2,6 +2,7 @@
   <span>Search</span>
   <span class="actions">
   <button type="button" class="toggle-replace" [class.on]="replace.enabled()" [attr.aria-pressed]="replace.enabled()" (click)="replace.toggle()" title="Replace in the vault" aria-label="Replace in the vault">⇄</button>
+  <button type="button" class="help" [class.on]="helpOpen()" [attr.aria-pressed]="helpOpen()" (click)="helpOpen.set(!helpOpen())" title="Search operators" aria-label="Search operators">?</button>
   <button type="button" class="bookmark" [disabled]="!search.query().trim()" (click)="bookmarkSearch()" title="Bookmark this search" aria-label="Bookmark this search">☆</button>
   </span>
 </header>
@@ -14,6 +15,14 @@
   [value]="search.query()"
   (input)="onInput($event)"
 />
+
+@if (helpOpen()) {
+  <ul class="operators" aria-label="Operators">
+    @for (op of operators; track op.insert) {
+      <li><button type="button" class="operator" (click)="insertOperator(op.insert)"><code>{{ op.insert }}</code> <span>{{ op.text }}</span></button></li>
+    }
+  </ul>
+}
 
 @if (replace.enabled()) {
   <div class="replace">
@@ -75,14 +84,26 @@
     @if (search.hits().length === 0) {
       <p class="status">No results</p>
     } @else {
+      <div class="summary">
+        <span class="count" role="status">{{ countLabel() }}</span>
+        <select class="sort" aria-label="Sort results" (change)="setSort($event)">
+          @for (s of sorts; track s) {
+            <option [value]="s" [selected]="s === sort()">{{ s === "relevance" ? "Relevance" : s === "name" ? "Name" : "Modified" }}</option>
+          }
+        </select>
+        <button type="button" class="collapse-all" (click)="toggleAll()" [attr.aria-label]="allCollapsed() ? 'Expand all' : 'Collapse all'" [title]="allCollapsed() ? 'Expand all' : 'Collapse all'">{{ allCollapsed() ? "⊞" : "⊟" }}</button>
+      </div>
       <ul aria-label="Results">
-        @for (hit of search.hits(); track hit.path) {
+        @for (hit of sorted(); track hit.path) {
           <li>
             <button type="button" class="note" (click)="openHit(hit)" [title]="hit.path">
               <span class="name">{{ hit.title }}</span>
               <span class="path">{{ hit.path }}</span>
             </button>
-            @for (snippet of hit.snippets; track snippet.line) {
+            @if (hit.snippets.length > 0) {
+              <button type="button" class="fold" (click)="toggleNote(hit.path)" [attr.aria-expanded]="!collapsed().has(hit.path)" [attr.aria-label]="(collapsed().has(hit.path) ? 'Expand ' : 'Collapse ') + hit.path">{{ collapsed().has(hit.path) ? "▸" : "▾" }} {{ hit.snippets.length }}</button>
+            }
+            @for (snippet of collapsed().has(hit.path) ? [] : hit.snippets; track snippet.line) {
               <button type="button" class="snippet" (click)="openHit(hit, snippet)">
                 @for (part of segments(snippet.text); track $index) {
                   @if (part.match) {
