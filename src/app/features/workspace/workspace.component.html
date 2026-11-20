@@ -30,6 +30,7 @@
       [value]="'' + pane.activeId"
       [menu]="menu"
       allTabsButton
+      missingTitle="File not found"
       (valueChange)="activate(pane, $event)"
       (closed)="closeTab(pane, $event)"
       (moved)="tabs.moveTab(pane.id, $event.from, $event.to)"

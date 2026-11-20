@@ -16,6 +16,8 @@ export interface EditorHandle {
   dirty(): boolean;
   /** True while an external change waits for the user's choice (reload or keep mine). */
   blocked(): boolean;
+  /** Writes the text in the editor to a copy next to the note (the note itself is gone). */
+  saveCopy(): Promise<void>;
   /** Inserts an expanded template at the cursor and merges its frontmatter into the note's. */
   insertTemplate(template: string): void;
   /** Brings dropped files into the vault and inserts `![[name]]` links at the cursor. */

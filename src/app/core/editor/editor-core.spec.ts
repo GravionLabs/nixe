@@ -272,9 +272,7 @@ describe("inlineTokens", () => {
   });
 
   it("skips code spans", () => {
-    expect(inlineTokens("`[[x]]` `#tag` [[y]]").map((t) => t.value)).toEqual([
-      "y",
-    ]);
+    expect(inlineTokens("`[[x]]` `#tag` [[y]]").map((t) => t.value)).toEqual(["y"]);
   });
 
   it("does not read a heading marker as a tag", () => {
