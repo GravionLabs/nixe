@@ -488,3 +488,32 @@ body {
     cursor: default;
   }
 }
+
+/* Folding headings in the reading view (#110) */
+.markdown-body .fold-hidden {
+  display: none;
+}
+
+.markdown-body .fold-marker {
+  display: inline-block;
+  width: 1em;
+  margin-left: -1.1em;
+  cursor: pointer;
+  opacity: 0;
+  font-size: 0.7em;
+  font-weight: 400;
+  user-select: none;
+}
+
+.markdown-body .fold-marker::before {
+  content: "▾";
+}
+
+.markdown-body .folded > .fold-marker::before {
+  content: "▸";
+}
+
+.markdown-body .folded > .fold-marker,
+.markdown-body .foldable:hover > .fold-marker {
+  opacity: 0.6;
+}

@@ -220,6 +220,10 @@ export class AppComponent {
       { id: "daily-next", title: "Open next daily note", when: inVault, run: () => this.run(() => this.daily.next()) },
       { id: "insert-template", title: "Insert template", when: () => noteOpen() && this.editor.editing(), run: () => this.run(() => this.templates.open()) },
       { id: "toggle-editor", title: "Toggle editor", shortcut: "Mod+E", when: noteOpen, run: () => this.run(() => this.editor.toggle(this.tabs.activeTab().viewer?.topLine() ?? null)) },
+      { id: "fold", title: "Fold at the cursor", when: noteOpen, run: () => this.foldNote("fold") },
+      { id: "unfold", title: "Unfold at the cursor", when: noteOpen, run: () => this.foldNote("unfold") },
+      { id: "fold-all", title: "Fold all", when: noteOpen, run: () => this.foldNote("fold-all") },
+      { id: "unfold-all", title: "Unfold all", when: noteOpen, run: () => this.foldNote("unfold-all") },
       { id: "find", title: "Find in note", shortcut: "Mod+F", keys: ["Mod+F"], when: () => noteOpen() && !this.editor.editing(), run: () => this.tabs.activeTab().viewer?.openFind() },
       { id: "new-tab", title: "New tab", shortcut: "Mod+T", run: () => this.run(async () => void this.tabs.newTab()) },
       { id: "close-tab", title: "Close tab", shortcut: "Mod+W", run: () => this.closeTab() },
@@ -262,6 +266,13 @@ export class AppComponent {
       { id: "zoom-reset", title: "Actual size", shortcut: "Mod+0", run: () => this.settings.resetZoom() },
     ];
     for (const command of commands) this.commands.register(command);
+  }
+
+  /** Folds in the editor while it is open, else the headings of the reading view. */
+  private foldNote(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void {
+    const tab = this.tabs.activeTab();
+    if (tab.editor.editing()) tab.editor.handle?.fold?.(action);
+    else tab.viewer?.fold(action);
   }
 
   /** Closes the shown tab; the window closes when there is only an empty tab left. */

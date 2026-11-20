@@ -83,7 +83,7 @@ export class PaneComponent implements OnDestroy {
   constructor() {
     effect(() => {
       const viewer = this.viewer();
-      this.tab.viewer = viewer ? { topLine: () => viewer.topLine(), openFind: () => viewer.openFind() } : null;
+      this.tab.viewer = viewer ? { topLine: () => viewer.topLine(), openFind: () => viewer.openFind(), fold: (a) => viewer.fold(a) } : null;
     });
     // A note opened into a tab that shows a view (the sidebar opens into the shown tab) replaces it.
     effect(() => {
