@@ -6,7 +6,36 @@
     <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg>
   </button>
 
-  <span slot="centre" class="name" [title]="doc.path() ?? ''">{{ doc.fileName() }}</span>
+  <nav slot="centre" class="crumbs" aria-label="Path of the note" [title]="doc.path() ?? ''">
+    @for (crumb of crumbs(); track $index) {
+      @if ($index > 0) {
+        <span class="sep" aria-hidden="true">/</span>
+      }
+      @switch (crumb.kind) {
+        @case ("folder") {
+          <button type="button" class="crumb folder" (click)="revealFolder(crumb.dir!)">{{ crumb.label }}</button>
+        }
+        @case ("ellipsis") {
+          <span class="crumb gap">{{ crumb.label }}</span>
+        }
+        @default {
+          @if (renaming()) {
+            <input
+              #renameInput
+              class="rename"
+              aria-label="Rename note"
+              [value]="crumb.label"
+              (keydown.enter)="commitRename(renameInput)"
+              (keydown.escape)="cancelRename()"
+              (blur)="commitRename(renameInput)"
+            />
+          } @else {
+            <button type="button" class="crumb note" title="Rename" (click)="startRename()">{{ crumb.label }}</button>
+          }
+        }
+      }
+    }
+  </nav>
 
   <button
     slot="end"
