@@ -51,6 +51,7 @@ import { TREE_SORTS, TREE_SORT_LABELS } from "./core/workspace/tree-model";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
 import { WorkspaceService } from "./core/workspace/workspace.service";
 import { BacklinksComponent } from "./features/backlinks/backlinks.component";
+import { RelatedComponent } from "./features/related/related.component";
 import { LinkPreviewComponent } from "./features/link-preview/link-preview.component";
 import { OutlineComponent } from "./features/outline/outline.component";
 import { PaletteComponent } from "./features/palette/palette.component";
@@ -91,6 +92,7 @@ export class NavIconDirective {
     LinkPreviewComponent,
     OutlineComponent,
     BacklinksComponent,
+    RelatedComponent,
     CloneComponent,
     ConflictBarComponent,
     GitComponent,
@@ -179,7 +181,9 @@ export class AppComponent {
   );
 
   protected readonly panelTab = computed<PanelTab>(() =>
-    this.settings.panelTab() === "links" && this.linksAvailable() ? "links" : "outline",
+    this.settings.panelTab() !== "outline" && this.linksAvailable()
+      ? this.settings.panelTab()
+      : "outline",
   );
 
   constructor() {
@@ -591,6 +595,12 @@ export class AppComponent {
         shortcut: "Mod+Shift+B",
         when: inVault,
         run: () => this.settings.togglePanelTab("links"),
+      },
+      {
+        id: "toggle-related",
+        title: "Toggle related notes panel",
+        when: inVault,
+        run: () => this.settings.togglePanelTab("related"),
       },
       {
         id: "toggle-outline",

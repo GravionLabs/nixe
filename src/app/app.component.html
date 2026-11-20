@@ -130,6 +130,17 @@
           >
             Links
           </button>
+          <button
+            type="button"
+            role="tab"
+            id="panel-tab-related"
+            aria-controls="panel-body"
+            [attr.aria-selected]="panelTab() === 'related'"
+            [class.active]="panelTab() === 'related'"
+            (click)="settings.showPanelTab('related')"
+          >
+            Related
+          </button>
         }
       </div>
       <div
@@ -140,6 +151,8 @@
       >
         @if (panelTab() === "outline") {
           <app-outline />
+        } @else if (panelTab() === "related") {
+          <app-related (failed)="showError($event)" />
         } @else {
           <app-backlinks (failed)="showError($event)" />
         }

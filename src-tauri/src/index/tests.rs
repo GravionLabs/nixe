@@ -179,6 +179,55 @@ fn full_text_search_finds_bodies() {
 }
 
 #[test]
+fn related_ranks_by_closeness_and_says_why() {
+    let (root, mut conn) = setup("related");
+    write(
+        &root,
+        "Open.md",
+        "#a #b #c\n[[Mutual]] [[Out]] [[Attach.png]]",
+    );
+    write(&root, "Mutual.md", "[[Open]]");
+    write(&root, "Out.md", "text");
+    write(&root, "Back.md", "[[Open]]");
+    write(&root, "Hub.md", "# Hub\n[[Open]] [[Sibling]] [[Mutual]]");
+    write(&root, "Hub2.md", "[[Open]] [[Sibling]]");
+    write(&root, "Sibling.md", "text");
+    write(&root, "Tagged.md", "#a #b");
+    write(&root, "Tag1.md", "#c");
+    write(&root, "Unrelated.md", "#z");
+    run(&mut conn, &root);
+    let rel = read::related(&conn, "Open.md").unwrap();
+    let got: Vec<(&str, u32, Vec<&str>)> = rel
+        .iter()
+        .map(|r| {
+            (
+                r.path.as_str(),
+                r.score,
+                r.reasons.iter().map(String::as_str).collect(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        got,
+        [
+            (
+                "Mutual.md",
+                115,
+                vec!["links both ways", "both linked from Hub"]
+            ),
+            ("Back.md", 60, vec!["links here"]),
+            ("Hub.md", 60, vec!["links here"]),
+            ("Hub2.md", 60, vec!["links here"]),
+            ("Out.md", 50, vec!["linked from here"]),
+            ("Sibling.md", 30, vec!["both linked from Hub and 1 more"]),
+            ("Tagged.md", 10, vec!["2 shared tags"]),
+            ("Tag1.md", 5, vec!["1 shared tag"]),
+        ]
+    );
+    assert!(read::related(&conn, "Missing.md").unwrap().is_empty());
+}
+
+#[test]
 fn backlinks_and_tags() {
     let (root, mut conn) = setup("back");
     write(&root, "Target.md", "#shared\n[[#Self]] # Self");

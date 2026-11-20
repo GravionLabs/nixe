@@ -18,7 +18,7 @@ import {
 
 export { ZOOM_MAX, ZOOM_MIN };
 export type { ThemeMode };
-export type PanelTab = "outline" | "links";
+export type PanelTab = "outline" | "links" | "related";
 
 const ZOOM_STEP = 10;
 
@@ -53,15 +53,22 @@ export class SettingsService {
    * set; they are stored per vault, so the open tab survives a restart. Both set (an old
    * setting) shows the outline.
    */
-  readonly panelTab = computed<PanelTab>(() =>
-    this.outlineVisible() || !this.backlinksVisible() ? "outline" : "links",
-  );
+  readonly panelTab = computed<PanelTab>(() => {
+    if (this.outlineVisible() || !this.backlinksVisible()) return "outline";
+    return this.relatedSelected() ? "related" : "links";
+  });
+  /**
+   * The Related tab shares the stored `backlinksVisible` flag with Links: it is open when that
+   * flag is set and this one too. Not stored, so a restart reopens the panel on Links.
+   */
+  private readonly relatedSelected = signal(false);
   readonly panelOpen = computed(() => this.outlineVisible() || this.backlinksVisible());
 
   /** Opens the panel on `tab`. */
   showPanelTab(tab: PanelTab): void {
     this.outlineVisible.set(tab === "outline");
-    this.backlinksVisible.set(tab === "links");
+    this.backlinksVisible.set(tab !== "outline");
+    this.relatedSelected.set(tab === "related");
   }
 
   /** Opens the panel on `tab`; closes it when that tab is the open one. */
