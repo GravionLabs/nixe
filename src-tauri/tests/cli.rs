@@ -582,3 +582,212 @@ fn export_needs_a_format_and_an_existing_note() {
         Err(CliError::Failed(_))
     ));
 }
+
+mod site {
+    use super::*;
+    use std::collections::BTreeSet;
+    use std::fs;
+
+    fn export(name: &str, args: &[&str]) -> (PathBuf, Result<String, CliError>) {
+        let out = std::env::temp_dir().join(format!("nixe-site-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&out);
+        let mut all = vec!["export"];
+        all.extend_from_slice(args);
+        let out_arg = out.to_string_lossy().into_owned();
+        all.extend(["--site", &out_arg]);
+        (out, run(name, &all))
+    }
+
+    fn pages(dir: &Path) -> Vec<PathBuf> {
+        let mut found = Vec::new();
+        let mut todo = vec![dir.to_path_buf()];
+        while let Some(d) = todo.pop() {
+            for e in fs::read_dir(d).unwrap().flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    todo.push(p);
+                } else if p.extension().is_some_and(|x| x == "html") {
+                    found.push(p);
+                }
+            }
+        }
+        found.sort();
+        found
+    }
+
+    fn decode(s: &str) -> String {
+        let mut out = Vec::new();
+        let b = s.as_bytes();
+        let mut i = 0;
+        while i < b.len() {
+            if b[i] == b'%' {
+                out.push(u8::from_str_radix(&s[i + 1..i + 3], 16).unwrap());
+                i += 3;
+            } else {
+                out.push(b[i]);
+                i += 1;
+            }
+        }
+        String::from_utf8(out).unwrap()
+    }
+
+    /// Every `href` and `src` of the page that is not an address on the web.
+    fn internal(html: &str) -> Vec<String> {
+        let mut found = Vec::new();
+        for attr in ["href=\"", "src=\""] {
+            for part in html.split(attr).skip(1) {
+                let value = part.split('"').next().unwrap();
+                if !value.contains("://") && !value.starts_with("mailto:") {
+                    found.push(value.to_string());
+                }
+            }
+        }
+        found
+    }
+
+    fn ids(html: &str) -> BTreeSet<String> {
+        html.split("id=\"")
+            .skip(1)
+            .map(|p| p.split('"').next().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn every_internal_link_of_the_exported_vault_resolves() {
+        let (out, result) = export("vault", &["."]);
+        assert!(result.unwrap().contains("pages"));
+        let files = pages(&out);
+        assert!(files.len() > 8);
+        let mut checked = 0;
+        for page in &files {
+            let html = fs::read_to_string(page).unwrap();
+            for link in internal(&html) {
+                let (path, fragment) = link.split_once('#').unwrap_or((&link, ""));
+                let target = if path.is_empty() {
+                    page.clone()
+                } else {
+                    page.parent().unwrap().join(decode(path))
+                };
+                assert!(target.is_file(), "{}: {link}", page.display());
+                // The fixture links `Deep.md#Top` to a heading that does not exist; a heading
+                // the note has must be found by its anchor.
+                if fragment == "second-heading" {
+                    assert!(ids(&fs::read_to_string(&target).unwrap()).contains(fragment));
+                }
+                checked += 1;
+            }
+        }
+        assert!(checked > 50);
+    }
+
+    #[test]
+    fn a_page_has_wikilinks_a_navigation_tree_backlinks_and_the_search() {
+        let (out, result) = export("parts", &["."]);
+        result.unwrap();
+        let index = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(index.contains("<a class=\"wikilink\" href=\"Note.html\">Note</a>"));
+        assert!(index.contains("href=\"Note.html#second-heading\""));
+        assert!(index.contains("href=\"folder/Deep.html\""));
+        // Missing and ambiguous targets stay text.
+        assert!(index.contains("<span class=\"unpublished\">Missing</span>"));
+        assert!(index.contains("<span class=\"unpublished\">Twin</span>"));
+        assert!(index.contains("<nav"));
+        let note = fs::read_to_string(out.join("Note.html")).unwrap();
+        assert!(note.contains("class=\"backlinks\""));
+        assert!(note.contains("href=\"index.html\""));
+        let deep = fs::read_to_string(out.join("folder/Deep.html")).unwrap();
+        assert!(deep.contains("href=\"../_nixe/site.css\""));
+        let search = fs::read_to_string(out.join("_nixe/search-index.js")).unwrap();
+        assert!(search.starts_with("window.NIXE_SEARCH = ["));
+        assert!(out.join("_nixe/search.js").is_file());
+        let home = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(
+            home.contains("Vault index"),
+            "the note Index is the home page"
+        );
+        assert!(
+            out.join("assets/image.svg").is_file(),
+            "a shown image is copied"
+        );
+        // No script of a note and nothing that needs a server.
+        for page in pages(&out) {
+            let html = fs::read_to_string(page).unwrap();
+            assert_eq!(html.matches("<script").count(), 2);
+            assert!(!html.contains("href=\"/"), "root-absolute link");
+        }
+    }
+
+    #[test]
+    fn a_folder_or_a_frontmatter_property_excludes_a_note_and_its_links_become_text() {
+        let dir = std::env::temp_dir().join(format!("nixe-site-src-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("private")).unwrap();
+        fs::create_dir_all(dir.join(".obsidian")).unwrap();
+        fs::write(
+            dir.join("Home.md"),
+            "[[Secret]] [[Hidden]] [[Open]] [md](private/Hidden.md) [k](private/key.txt) [o](.obsidian/app.json) ![[private/key.txt]] <script>x()</script>\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.join("Open.md"),
+            "open\n```sh\nif [[ -f x ]]; then 100%%d%%\n```\n",
+        )
+        .unwrap();
+        fs::write(dir.join("private/key.txt"), "k").unwrap();
+        fs::write(dir.join(".obsidian/app.json"), "{}").unwrap();
+        fs::write(dir.join("Secret.md"), "---\npublish: false\n---\nsecret\n").unwrap();
+        fs::write(dir.join("private/Hidden.md"), "hidden\n").unwrap();
+        let out = dir.join("out");
+        let args: Vec<String> = [
+            "export",
+            ".",
+            "--site",
+            "out",
+            "--exclude",
+            "private",
+            "--vault",
+            ".",
+        ]
+        .map(String::from)
+        .to_vec();
+        let mut sink = Vec::new();
+        execute(&args, &dir, &data_dir("exclude"), &mut sink).unwrap();
+        let home = fs::read_to_string(out.join("Home.html")).unwrap();
+        assert!(home.contains("<span class=\"unpublished\">Secret</span>"));
+        assert!(home.contains("<span class=\"unpublished\">Hidden</span>"));
+        assert!(home.contains("href=\"Open.html\""));
+        assert!(!home.contains("Hidden.html"));
+        assert!(home.contains("&lt;script&gt;"), "raw HTML is shown as text");
+        assert!(!out.join("Secret.html").exists());
+        assert!(!out.join("private").exists());
+        assert!(!out.join("_nixe/files").exists());
+        assert!(!out.join(".obsidian").exists());
+        let open = fs::read_to_string(out.join("Open.html")).unwrap();
+        assert!(
+            open.contains("if [[ -f x ]]; then 100%%d%%"),
+            "code is left alone"
+        );
+        let search = fs::read_to_string(out.join("_nixe/search-index.js")).unwrap();
+        assert!(!search.contains("secret") && !search.contains("hidden"));
+        assert!(String::from_utf8(sink).unwrap().contains("2 left out"));
+    }
+
+    #[test]
+    fn a_site_of_a_subfolder_uses_relative_links_only() {
+        let (out, result) = export("sub", &["folder"]);
+        result.unwrap();
+        let deep = fs::read_to_string(out.join("Deep.html")).unwrap();
+        assert!(deep.contains("href=\"_nixe/site.css\""));
+        assert!(!deep.contains("../"));
+    }
+
+    #[test]
+    fn wrong_arguments_are_usage_errors() {
+        let (_, r) = export("both", &[".", "--format", "html"]);
+        assert!(matches!(r, Err(CliError::Usage(_))));
+        let (_, r) = export("two", &[".", "folder"]);
+        assert!(matches!(r, Err(CliError::Usage(_))));
+        let (_, r) = export("missing", &["nope"]);
+        assert!(matches!(r, Err(CliError::Failed(_))));
+    }
+}

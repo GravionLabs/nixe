@@ -12,6 +12,8 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn(), ask: vi.fn() }));
 
 import { signal } from "@angular/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import { WorkspaceService } from "../workspace/workspace.service";
 import { SettingsService } from "../settings/settings.service";
 import { ExportService } from "./export.service";
 import type { ExportOptions } from "./export-core";
@@ -100,5 +102,34 @@ describe("ExportService", () => {
     expect(write[1].path).toBe("/out/Note.html");
     expect(write[1].content).toContain('class="app-dark"');
     expect(write[1].content).toContain("size: Letter");
+  });
+
+  describe("exportSite", () => {
+    function withVault(root: string | null): ExportService {
+      TestBed.overrideProvider(WorkspaceService, { useValue: { vaultRoot: () => root } });
+      return TestBed.inject(ExportService);
+    }
+
+    it("asks for the folder and the target and exports", async () => {
+      vi.mocked(open).mockResolvedValueOnce("/v/docs").mockResolvedValueOnce("/site");
+      invoke.mockImplementation(async (cmd: string) => (cmd === "export_site" ? 7 : null));
+      const result = await withVault("/v").exportSite();
+      expect(result).toEqual({ out: "/site", pages: 7 });
+      expect(invoke).toHaveBeenCalledWith("export_site", {
+        folder: "/v/docs",
+        out: "/site",
+        exclude: [],
+      });
+    });
+
+    it("does nothing when a dialog is cancelled", async () => {
+      vi.mocked(open).mockResolvedValueOnce("/v/docs").mockResolvedValueOnce(null);
+      expect(await withVault("/v").exportSite()).toBeNull();
+      expect(invoke).not.toHaveBeenCalledWith("export_site", expect.anything());
+    });
+
+    it("needs a vault", async () => {
+      await expect(withVault(null).exportSite()).rejects.toThrow("No vault");
+    });
   });
 });

@@ -79,6 +79,12 @@ the app for the export.
 - `--dark` / `--light` and `--page-size A3|A4|A5|Letter|Legal` override the export settings.
 - When Nixe is already running, its window does the export and the command returns at once.
 
+### Export a folder as a site
+
+`nixe export <folder> --site <out> [--exclude <dir>]... [--vault <dir>]` writes a folder as a static
+website, see [export.md](export.md#folder-as-a-static-site). It needs no window and no running app,
+and prints the number of pages. `--site` cannot be combined with `--format` or `--out`.
+
 ## Options
 
 - `--vault <dir>`: the vault. Without it, the vault that contains the current directory (the

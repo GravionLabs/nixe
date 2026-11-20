@@ -36,6 +36,25 @@ Settings, section "Export and print" (`settings.json`):
 | Dark look | `exportDark` | off |
 | Page size (A3, A4, A5, Letter, Legal) | `exportPageSize` | A4 |
 
+## Folder as a static site
+
+The command "Export folder as site" (it asks for the folder and for where to write) and
+`nixe export <folder> --site <out> [--exclude <dir>]...` write a vault, or a part of it, as a website:
+
+- One HTML page per note (`folder/Note.md` becomes `folder/Note.html`), with the frontmatter left out.
+  A top-level `index.md` is the home page; without one, `index.html` lists the notes.
+- `[[wikilinks]]` and Markdown links to notes become links between the pages, headings included.
+  A link to a note that is excluded, missing, ambiguous or outside the exported folder is plain text.
+  `![[image]]` shows the image; other embeds become a link. Files a page shows or links are copied.
+- Every page has the navigation tree of all pages, the backlinks of the note, and a search box
+  (`_nixe/search-index.js` and `_nixe/search.js`, no server).
+- Excluded: a folder named by `--exclude` (relative to the exported folder or to the vault) and every
+  note with `publish: false` (or `no`) in its frontmatter.
+- Every link is relative and the output has no server part: it works from a subpath (GitHub Pages) and
+  from `file://`. The file `.nojekyll` keeps GitHub Pages from dropping the `_nixe` folder.
+- Raw HTML in a note is shown as text. Mermaid diagrams stay code blocks, math stays source text and
+  embedded notes become links.
+
 ## Limits
 
 - A PDF is made by the print dialog of the system web view, not by Nixe, so the command line cannot
