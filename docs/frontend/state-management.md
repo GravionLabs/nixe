@@ -106,6 +106,11 @@ is watched for external changes; the watcher event goes to every tab showing tha
 - Commands: `new-tab` (⌘/Ctrl+T), `close-tab` (⌘/Ctrl+W; closes the window when only an empty tab is
   left), `next-tab` / `previous-tab` (⌃Tab, ⌃⇧Tab), `split-right`, `unsplit`, `focus-other-pane`.
   ⌘/Ctrl+click on a link, a tree entry or a backlink opens the note in a new tab.
+- Focus regions: `FocusService` (`core/shell/focus.service.ts`) registers `focus-file-tree` (⌘/Ctrl+Shift+E),
+  `focus-note` (⌘/Ctrl+Shift+N) and `focus-panel` (⌘/Ctrl+Shift+I); the shortcuts can be changed like any other.
+  A collapsed sidebar or panel opens first. Escape in the sidebar or the panel returns the focus to the note
+  (not in a text field, where Escape cancels the edit). While the focus was moved by a command, `<html>` has
+  `data-keyboard-focus` (removed on the next pointer press) and the editor, the viewer and the panel tab show a ring.
 - Views as tabs: settings and the vault health report are not notes; they open as a tab
   (`TabsService.openView`, at most one of each: the open one is focused, also in the other pane).
   The tab keeps an empty document, so it never reaches the back/forward history; opening a note into

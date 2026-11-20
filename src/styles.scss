@@ -560,3 +560,15 @@ body {
 .markdown-body .foldable:hover > .fold-marker {
   opacity: 0.6;
 }
+
+/* The region the focus was moved to by a command (focus file tree, note, panel) shows a ring. */
+[data-keyboard-focus] .cm-editor.cm-focused,
+[data-keyboard-focus] .markdown-body:focus {
+  outline: 2px solid var(--h-primary-color);
+  outline-offset: -2px;
+}
+
+[data-keyboard-focus] .panel-tabs button:focus {
+  outline: 2px solid var(--h-primary-color);
+  outline-offset: -2px;
+}
