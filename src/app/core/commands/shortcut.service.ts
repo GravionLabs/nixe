@@ -3,7 +3,7 @@ import { Injectable, computed, effect, inject, signal } from "@angular/core";
 import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
 import type { Command } from "./command-registry";
-import { CommandRegistry, formatShortcut } from "./command-registry";
+import { CommandRegistry, formatShortcut, shortcutKeys } from "./command-registry";
 import type { Bindings, RecordedKey } from "./shortcuts-core";
 import {
   bindingFromEvent,
@@ -148,6 +148,11 @@ export class ShortcutService {
   display(id: string): string {
     const binding = this.bindings()[id];
     return binding ? formatShortcut(binding, this.platform === "mac") : "";
+  }
+
+  /** The key caps of the shortcut of a command for `hx-kbd`; empty when it has none. */
+  keys(id: string): string[] {
+    return shortcutKeys(this.bindings()[id] ?? "", this.platform === "mac");
   }
 
   formatBinding(binding: string): string {

@@ -1,4 +1,5 @@
 import { Component, computed, inject, output } from "@angular/core";
+import { HxKbd } from "@gravionlabs/helix-ui";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { ShortcutService } from "../../core/commands/shortcut.service";
@@ -34,6 +35,7 @@ const VAULT_ACTIONS: readonly StartAction[] = [
 /** The page of the empty tab: the ways to start, the recent vaults or the recent notes. */
 @Component({
   selector: "app-start",
+  imports: [HxKbd],
   templateUrl: "./start.component.html",
   styleUrl: "./start.component.css",
 })
@@ -53,7 +55,7 @@ export class StartComponent {
   protected readonly actions = computed(() =>
     (this.inVault() ? VAULT_ACTIONS : NO_VAULT_ACTIONS).map((action) => ({
       ...action,
-      shortcut: this.shortcuts.display(action.id),
+      shortcut: this.shortcuts.keys(action.id),
     })),
   );
 

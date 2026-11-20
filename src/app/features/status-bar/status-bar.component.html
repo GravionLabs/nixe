@@ -7,7 +7,7 @@
           kind="button"
           class="git"
           [ariaLabel]="'Git: ' + (status.branch ?? 'detached HEAD')"
-          title="Show the Git changes"
+          hx-tooltip="Show the Git changes"
           (click)="shell.show('git')"
         >
           <span class="branch">⎇ {{ status.branch ?? "detached HEAD" }}</span>
@@ -19,7 +19,8 @@
           kind="button"
           class="sync-button"
           ariaLabel="Sync with the remote"
-          title="Commit, pull with rebase and push"
+          hx-tooltip="Commit, pull with rebase and push"
+          [hxTooltipShortcut]="shortcuts.keys('git-sync')"
           [disabled]="git.syncState().phase === 'syncing'"
           (click)="git.sync()"
         >
@@ -30,7 +31,7 @@
             slot="start"
             kind="button"
             class="pulled"
-            title="Show what the last sync brought"
+            hx-tooltip="Show what the last sync brought"
             (click)="showPulled()"
           >
             {{ n }} {{ n === 1 ? "note" : "notes" }} changed
@@ -41,7 +42,7 @@
             slot="start"
             kind="button"
             class="review"
-            title="Branches waiting for review"
+            hx-tooltip="Branches waiting for review"
             (click)="showReview()"
           >
             {{ n }} {{ n === 1 ? "branch" : "branches" }} to review
@@ -64,7 +65,7 @@
         slot="end"
         kind="button"
         class="backlinks"
-        title="Show the links panel"
+        hx-tooltip="Show the links panel"
         (click)="settings.showPanelTab('links')"
       >
         {{ links.backlinks().length }}
@@ -72,7 +73,7 @@
       </hx-status-item>
     }
     @if (editor.stats(); as stats) {
-      <hx-status-item slot="end" class="words" [title]="readingTime(stats)">
+      <hx-status-item slot="end" class="words" [hx-tooltip]="readingTime(stats)">
         {{ stats.words }} {{ stats.words === 1 ? "word" : "words" }}, {{ stats.characters }}
         {{ stats.characters === 1 ? "character" : "characters"
         }}{{ stats.selection ? " selected" : "" }}
@@ -101,7 +102,7 @@
           updater.phase() === 'installing' ||
           updater.phase() === 'error'
         "
-        [title]="updater.phase() === 'error' ? updater.error() : 'Check for updates'"
+        [hx-tooltip]="updater.phase() === 'error' ? updater.error() : 'Check for updates'"
         [ariaLabel]="updater.phase() === 'available' ? 'Update details' : null"
         (click)="onUpdateClick()"
       >
@@ -148,7 +149,8 @@
       kind="button"
       class="shortcuts"
       ariaLabel="Shortcuts"
-      title="Shortcuts and commands"
+      hx-tooltip="Shortcuts and commands"
+      [hxTooltipShortcut]="shortcuts.keys('command-palette')"
       (click)="commands.execute('command-palette')"
       >?</hx-status-item
     >

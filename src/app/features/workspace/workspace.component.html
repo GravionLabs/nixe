@@ -28,7 +28,7 @@
       [groupId]="'pane-' + pane.id"
       [tabs]="items(pane)"
       [value]="'' + pane.activeId"
-      [menu]="menu"
+      [menu]="menu()"
       allTabsButton
       missingTitle="File not found"
       (valueChange)="activate(pane, $event)"
@@ -46,7 +46,8 @@
         iconOnly
         class="new"
         aria-label="New tab"
-        title="New tab"
+        hx-tooltip="New tab"
+        [hxTooltipShortcut]="shortcuts.keys('new-tab')"
         (click)="addTab(pane)"
       >
         +

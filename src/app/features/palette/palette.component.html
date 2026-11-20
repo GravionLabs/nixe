@@ -28,7 +28,11 @@
       >
         <button type="button" tabindex="-1" (click)="palette.run(command)">
           <span class="name">{{ command.title }}</span>
-          <span class="shortcut">{{ shortcut(command) }}</span>
+          @if (shortcuts.keys(command.id); as keys) {
+            @if (keys.length) {
+              <hx-kbd class="shortcut" [keys]="keys" size="sm" />
+            }
+          }
         </button>
       </li>
     } @empty {

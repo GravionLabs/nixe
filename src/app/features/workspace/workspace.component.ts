@@ -1,8 +1,9 @@
 import { NgComponentOutlet } from "@angular/common";
-import { Component, ElementRef, inject } from "@angular/core";
+import { Component, ElementRef, computed, inject } from "@angular/core";
 import type { HxTabBarItem, HxTabBarMenuItem, HxTabBarReceive } from "@gravionlabs/helix-ui";
-import { HxButton, HxTabBar } from "@gravionlabs/helix-ui";
+import { HxButton, HxTabBar, HxTooltip } from "@gravionlabs/helix-ui";
 
+import { ShortcutService } from "../../core/commands/shortcut.service";
 import { basename } from "../../core/markdown/paths";
 import type { TabView } from "../../core/tabs/layout";
 import { MAX_RATIO, MIN_RATIO } from "../../core/tabs/layout";
@@ -16,7 +17,7 @@ const VIEW_TITLES: Record<TabView, string> = { settings: "Settings", health: "Va
 /** The tab bars and panes: one pane, or two side by side with a draggable divider. */
 @Component({
   selector: "app-workspace",
-  imports: [NgComponentOutlet, HxButton, HxTabBar],
+  imports: [NgComponentOutlet, HxButton, HxTabBar, HxTooltip],
   templateUrl: "./workspace.component.html",
   styleUrl: "./workspace.component.css",
 })
@@ -24,7 +25,11 @@ export class WorkspaceComponent {
   protected readonly tabs = inject(TabsService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  protected readonly menu: readonly HxTabBarMenuItem[] = [{ action: "close", label: "Close" }];
+  protected readonly shortcuts = inject(ShortcutService);
+  /** The tab menu; "Close" shows the shortcut of the close-tab command. */
+  protected readonly menu = computed<readonly HxTabBarMenuItem[]>(() => [
+    { action: "close", label: "Close", shortcut: this.shortcuts.display("close-tab") },
+  ]);
   protected readonly paneType = PaneComponent;
   protected readonly minPercent = MIN_RATIO * 100;
   protected readonly maxPercent = MAX_RATIO * 100;

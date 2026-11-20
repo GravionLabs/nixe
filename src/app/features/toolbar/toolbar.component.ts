@@ -1,8 +1,10 @@
 import type { ElementRef } from "@angular/core";
 import { Component, computed, effect, inject, output, signal, viewChild } from "@angular/core";
 import { HxAppToolbar } from "@gravionlabs/helix-desktop";
+import { HxTooltip } from "@gravionlabs/helix-ui";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
+import { ShortcutService } from "../../core/commands/shortcut.service";
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
 import { ShellService } from "../../core/shell/shell.service";
@@ -12,8 +14,6 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import type { Crumb } from "./breadcrumb";
 import { breadcrumb } from "./breadcrumb";
 
-const MOD = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
-
 /**
  * The slim bar of the open note: back and forward, the title, the edit toggle, outline and backlinks.
  * Everything else (sidebar, open, zoom, version, LaTeX, theme) lives in the activity bar, the status
@@ -21,7 +21,7 @@ const MOD = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
  */
 @Component({
   selector: "app-toolbar",
-  imports: [HxAppToolbar],
+  imports: [HxAppToolbar, HxTooltip],
   templateUrl: "./toolbar.component.html",
   styleUrl: "./toolbar.component.css",
 })
@@ -33,7 +33,7 @@ export class ToolbarComponent {
   private readonly commands = inject(CommandRegistry);
   private readonly shell = inject(ShellService);
   private readonly ops = inject(VaultOpsService);
-  protected readonly mod = MOD;
+  protected readonly shortcuts = inject(ShortcutService);
 
   readonly failed = output<string>();
 
