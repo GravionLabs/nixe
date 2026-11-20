@@ -57,7 +57,8 @@ export function sanitizeStates(value: unknown): VaultStates {
       backlinks: s["backlinks"] === true,
       outline: s["outline"] === true,
     };
-    if (typeof s["panelWidth"] === "number") out[path].panelWidth = sanitizePanelWidth(s["panelWidth"]);
+    if (typeof s["panelWidth"] === "number")
+      out[path].panelWidth = sanitizePanelWidth(s["panelWidth"]);
     const layout = sanitizeLayout(s["layout"]);
     if (layout) out[path].layout = layout;
   }

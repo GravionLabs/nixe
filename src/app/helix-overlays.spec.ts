@@ -15,7 +15,10 @@ function files(dir: string, found: string[] = []): string[] {
   return found;
 }
 
-const sources = [...files(root), resolve(root, "../styles.scss")].map((path) => ({ path, text: readFileSync(path, "utf8") }));
+const sources = [...files(root), resolve(root, "../styles.scss")].map((path) => ({
+  path,
+  text: readFileSync(path, "utf8"),
+}));
 const rel = (path: string) => path.slice(resolve(root, "..").length + 1);
 
 // The viewer's zoom dialog pans and zooms an image or a diagram; hx-dialog has no such surface.
@@ -23,30 +26,43 @@ const ALLOWED_BACKDROP = new Set(["app/features/viewer/viewer.component.ts", "st
 
 describe("helix overlays", () => {
   it("builds no own backdrop", () => {
-    const own = sources.filter(({ path, text }) => /(^|[\s."'-])(menu-)?backdrop\b/.test(text.replace(/diagram-dialog-backdrop/g, "")) && !ALLOWED_BACKDROP.has(rel(path)));
+    const own = sources.filter(
+      ({ path, text }) =>
+        /(^|[\s."'-])(menu-)?backdrop\b/.test(text.replace(/diagram-dialog-backdrop/g, "")) &&
+        !ALLOWED_BACKDROP.has(rel(path)),
+    );
     expect(own.map(({ path }) => rel(path))).toEqual([]);
   });
 
   it("builds no own menu", () => {
-    const own = sources.filter(({ path, text }) => (/\.s?css$/.test(path) ? /\.menu\b/ : /role="menu"|role="menuitem|class="menu"/).test(text));
+    const own = sources.filter(({ path, text }) =>
+      (/\.s?css$/.test(path) ? /\.menu\b/ : /role="menu"|role="menuitem|class="menu"/).test(text),
+    );
     expect(own.map(({ path }) => rel(path))).toEqual([]);
   });
 
   it("builds no own toast", () => {
-    const own = sources.filter(({ path, text }) => (/\.s?css$/.test(path) ? /\.toast\b/ : /class="toast"/).test(text));
+    const own = sources.filter(({ path, text }) =>
+      (/\.s?css$/.test(path) ? /\.toast\b/ : /class="toast"/).test(text),
+    );
     expect(own.map(({ path }) => rel(path))).toEqual([]);
   });
 
   it("has no hand-made dialog", () => {
-    const own = sources.filter(({ path, text }) => path.endsWith(".html") && /role="dialog"/.test(text));
+    const own = sources.filter(
+      ({ path, text }) => path.endsWith(".html") && /role="dialog"/.test(text),
+    );
     expect(own.map(({ path }) => rel(path))).toEqual([]);
   });
 
-  it.each(["switcher", "palette", "recent", "clone", "templates", "composer"])("shows %s in an hx-dialog", (name) => {
-    const html = readFileSync(resolve(root, `features/${name}/${name}.component.html`), "utf8");
-    expect(html).toMatch(/^<hx-dialog /);
-    expect(html.trimEnd()).toMatch(/<\/hx-dialog>$/);
-  });
+  it.each(["switcher", "palette", "recent", "clone", "templates", "composer"])(
+    "shows %s in an hx-dialog",
+    (name) => {
+      const html = readFileSync(resolve(root, `features/${name}/${name}.component.html`), "utf8");
+      expect(html).toMatch(/^<hx-dialog /);
+      expect(html.trimEnd()).toMatch(/<\/hx-dialog>$/);
+    },
+  );
 
   it("has one hx-toast in the root component", () => {
     const html = readFileSync(resolve(root, "app.component.html"), "utf8");

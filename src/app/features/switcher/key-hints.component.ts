@@ -16,7 +16,9 @@ export const modKey = (): string => (isMac() ? "⌘" : "Ctrl");
   selector: "app-key-hints",
   template: `
     @for (hint of hints(); track hint.label) {
-      <span class="hint"><kbd>{{ hint.keys }}</kbd> {{ hint.label }}</span>
+      <span class="hint"
+        ><kbd>{{ hint.keys }}</kbd> {{ hint.label }}</span
+      >
     }
   `,
   styles: `

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOutline, collapseToLevel, currentHeading, foldable, markedHeading, outlineOf } from "./outline-core";
+import {
+  buildOutline,
+  collapseToLevel,
+  currentHeading,
+  foldable,
+  markedHeading,
+  outlineOf,
+} from "./outline-core";
 
 describe("outlineOf", () => {
   it("lists ATX headings with their 1-based line", () => {

@@ -1,7 +1,13 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
 import { DocumentService } from "../file/document.service";
-import { buildOutline, collapseToLevel, currentHeading, markedHeading, outlineOf } from "./outline-core";
+import {
+  buildOutline,
+  collapseToLevel,
+  currentHeading,
+  markedHeading,
+  outlineOf,
+} from "./outline-core";
 
 const NONE: ReadonlySet<number> = new Set();
 
@@ -19,9 +25,14 @@ export class OutlineService {
   readonly tree = computed(() => buildOutline(this.headings()));
   readonly current = computed(() => currentHeading(this.headings(), this.topLine()));
 
-  private readonly fold = signal<{ path: string | null; set: ReadonlySet<number> }>({ path: null, set: new Set() });
+  private readonly fold = signal<{ path: string | null; set: ReadonlySet<number> }>({
+    path: null,
+    set: new Set(),
+  });
   /** Headings that are folded: their children are hidden. A fold belongs to the note it was made in. */
-  readonly folded = computed<ReadonlySet<number>>(() => (this.fold().path === this.doc.path() ? this.fold().set : NONE));
+  readonly folded = computed<ReadonlySet<number>>(() =>
+    this.fold().path === this.doc.path() ? this.fold().set : NONE,
+  );
   /** The heading to mark: the current one, or its outermost folded ancestor while it is hidden. */
   readonly marked = computed(() => markedHeading(this.tree(), this.current(), this.folded()));
 

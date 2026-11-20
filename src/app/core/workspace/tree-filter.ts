@@ -20,7 +20,11 @@ export function decorate(changes: readonly GitChange[], vaultRoot: string): Tree
     if (change.kind === "deleted") continue;
     const path = `${vaultRoot}/${change.path}`;
     files.set(path, change.untracked ? "U" : change.kind === "added" ? "A" : "M");
-    for (let at = path.lastIndexOf("/"); at > vaultRoot.length; at = path.lastIndexOf("/", at - 1)) {
+    for (
+      let at = path.lastIndexOf("/");
+      at > vaultRoot.length;
+      at = path.lastIndexOf("/", at - 1)
+    ) {
       folders.add(path.slice(0, at));
     }
   }
@@ -55,10 +59,9 @@ export function highlightParts(name: string, filter: string): NamePart[] {
 }
 
 /** The rows of a loaded tree that survive the filter: the matches and the folders on the way to them. */
-export function filterTree<T extends { name: string; dirPath: string | null; children(): T[] | null }>(
-  nodes: readonly T[],
-  filter: string,
-): T[] {
+export function filterTree<
+  T extends { name: string; dirPath: string | null; children(): T[] | null },
+>(nodes: readonly T[], filter: string): T[] {
   const out: T[] = [];
   const walk = (list: readonly T[]): boolean => {
     let any = false;

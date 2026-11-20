@@ -1,4 +1,12 @@
-<hx-dialog [visible]="true" (hidden)="palette.close()" ariaLabel="Command palette" [closable]="false" dismissableMask position="top" width="min(560px, 90vw)">
+<hx-dialog
+  [visible]="true"
+  (hidden)="palette.close()"
+  ariaLabel="Command palette"
+  [closable]="false"
+  dismissableMask
+  position="top"
+  width="min(560px, 90vw)"
+>
   <input
     #input
     type="text"

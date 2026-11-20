@@ -105,7 +105,10 @@ describe.each(["light", "dark"] as const)("contrast in the %s theme", (scope) =>
     [scope === "dark" ? "--h-red-300" : "--h-red-700", "--h-message-error-background"],
     ["--h-toast-contrast-color", "--h-toast-contrast-background"],
     // The Git status of the file tree (sidebar.component.css): `light-dark(<color>-700, <color>-300)` on the sidebar.
-    ...["amber", "green", "teal"].map((c): [string, string] => [`--h-${c}-${scope === "dark" ? 300 : 700}`, "--h-surface-frame"]),
+    ...["amber", "green", "teal"].map((c): [string, string] => [
+      `--h-${c}-${scope === "dark" ? 300 : 700}`,
+      "--h-surface-frame",
+    ]),
   ];
   it.each(pairs)("%s on %s is at least 4.5:1", (fg, bg) => {
     const f = resolveColor(scope, fg);
@@ -132,7 +135,9 @@ describe("focus and motion rules", () => {
 
   it("leave the focus ring to styles.scss: no component sets an outline of its own", () => {
     for (const file of files.filter((f) => !f.endsWith("styles.scss"))) {
-      expect(readFileSync(file, "utf8"), file).not.toMatch(/\boutline\s*:\s*(["']?none|0\b|\d|var\()/);
+      expect(readFileSync(file, "utf8"), file).not.toMatch(
+        /\boutline\s*:\s*(["']?none|0\b|\d|var\()/,
+      );
     }
   });
 
@@ -149,26 +154,36 @@ describe("focus and motion rules", () => {
     for (const file of files) {
       const text = readFileSync(file, "utf8");
       if (/outline\s*:\s*["']?(none|0)\b/.test(text)) {
-        expect(/:focus-visible|\[data-keyboard-focus\]/.test(text), `${file} removes the outline without a replacement`).toBe(true);
+        expect(
+          /:focus-visible|\[data-keyboard-focus\]/.test(text),
+          `${file} removes the outline without a replacement`,
+        ).toBe(true);
       }
     }
   });
 
   it("stop transitions, animations and smooth scrolling for prefers-reduced-motion", () => {
-    const block = stylesheet.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+    const block =
+      stylesheet.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/)?.[0] ?? "";
     expect(block).toContain("animation-duration");
     expect(block).toContain("transition-duration");
     expect(block).toMatch(/scroll-behavior:\s*auto/);
   });
 
   it("never scroll with behavior: smooth", () => {
-    for (const file of files) expect(readFileSync(file, "utf8"), file).not.toMatch(/behavior\s*:\s*["']?smooth/);
+    for (const file of files)
+      expect(readFileSync(file, "utf8"), file).not.toMatch(/behavior\s*:\s*["']?smooth/);
   });
 
   it("hold no hardcoded colour in callouts, find hits, embeds and tag chips", () => {
-    const viewer = readFileSync(resolve(root, "src/app/features/viewer/viewer.component.css"), "utf8");
+    const viewer = readFileSync(
+      resolve(root, "src/app/features/viewer/viewer.component.css"),
+      "utf8",
+    );
     expect(stylesheet).not.toContain("--callout-rgb");
     expect(viewer).not.toMatch(/rgb\(|#[0-9a-f]{3,8}\b/i);
-    expect(readFileSync(resolve(root, "src/app/features/search/search.component.css"), "utf8")).not.toMatch(/gold|#[0-9a-f]{6}/i);
+    expect(
+      readFileSync(resolve(root, "src/app/features/search/search.component.css"), "utf8"),
+    ).not.toMatch(/gold|#[0-9a-f]{6}/i);
   });
 });

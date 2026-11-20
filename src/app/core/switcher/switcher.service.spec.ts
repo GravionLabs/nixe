@@ -81,7 +81,11 @@ describe("SwitcherService", () => {
   });
 
   it("caps the list at 50 and says that more notes match", async () => {
-    const notes = Array.from({ length: 51 }, (_, i) => ({ path: `n${i}.md`, title: `n${i}`, aliases: [] }));
+    const notes = Array.from({ length: 51 }, (_, i) => ({
+      path: `n${i}.md`,
+      title: `n${i}`,
+      aliases: [],
+    }));
     vi.spyOn(backend, "notes").mockResolvedValue(notes);
     await switcher.open();
     expect(switcher.matches()).toHaveLength(50);

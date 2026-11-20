@@ -1,6 +1,12 @@
 import { Component, Input, output } from "@angular/core";
 
-import { GRAB_WIDTH, MIN_PANEL_WIDTH, clampPanelWidth, maxPanelWidth, widthAfterKey } from "../../core/panel/panel-width";
+import {
+  GRAB_WIDTH,
+  MIN_PANEL_WIDTH,
+  clampPanelWidth,
+  maxPanelWidth,
+  widthAfterKey,
+} from "../../core/panel/panel-width";
 
 /** The left edge of the right panel: drag it or use the arrow keys to change the width. */
 @Component({
@@ -61,7 +67,13 @@ export class PanelResizerComponent {
   protected move(event: PointerEvent): void {
     if (!this.drag) return;
     // The panel sits at the right edge: dragging left makes it wider.
-    this.widthChange.emit(clampPanelWidth(this.drag.width + (this.drag.x - event.clientX), this.windowWidth, this.sidebarWidth));
+    this.widthChange.emit(
+      clampPanelWidth(
+        this.drag.width + (this.drag.x - event.clientX),
+        this.windowWidth,
+        this.sidebarWidth,
+      ),
+    );
   }
 
   protected end(event: PointerEvent): void {
@@ -70,7 +82,13 @@ export class PanelResizerComponent {
   }
 
   protected key(event: KeyboardEvent): void {
-    const next = widthAfterKey(event.key, event.shiftKey, this.width, this.windowWidth, this.sidebarWidth);
+    const next = widthAfterKey(
+      event.key,
+      event.shiftKey,
+      this.width,
+      this.windowWidth,
+      this.sidebarWidth,
+    );
     if (next === null) return;
     event.preventDefault();
     this.widthChange.emit(next);

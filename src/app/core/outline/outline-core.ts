@@ -116,7 +116,11 @@ export function collapseToLevel(tree: readonly OutlineNode[], level: number): Se
  * The heading to mark as current: `current` itself, or, when a folded heading hides it, the
  * outermost folded ancestor.
  */
-export function markedHeading(tree: readonly OutlineNode[], current: number, folded: ReadonlySet<number>): number {
+export function markedHeading(
+  tree: readonly OutlineNode[],
+  current: number,
+  folded: ReadonlySet<number>,
+): number {
   if (current < 0) return -1;
   const path: OutlineNode[] = [];
   const find = (list: readonly OutlineNode[]): boolean => {

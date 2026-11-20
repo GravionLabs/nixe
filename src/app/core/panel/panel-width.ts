@@ -22,7 +22,8 @@ function room(windowWidth: number, sidebarWidth: number): number {
  * panel overlays the note, whatever fits into the window.
  */
 export function maxPanelWidth(windowWidth: number, sidebarWidth: number): number {
-  if (overlaysNote(windowWidth, sidebarWidth)) return Math.max(0, Math.min(MAX_PANEL_WIDTH, windowWidth - OVERLAY_MARGIN));
+  if (overlaysNote(windowWidth, sidebarWidth))
+    return Math.max(0, Math.min(MAX_PANEL_WIDTH, windowWidth - OVERLAY_MARGIN));
   return Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, room(windowWidth, sidebarWidth)));
 }
 
@@ -37,7 +38,13 @@ export function overlaysNote(windowWidth: number, sidebarWidth: number): boolean
 }
 
 /** The width after a key on the separator (the panel grows to the left), or null for a key it ignores. */
-export function widthAfterKey(key: string, shift: boolean, width: number, windowWidth: number, sidebarWidth: number): number | null {
+export function widthAfterKey(
+  key: string,
+  shift: boolean,
+  width: number,
+  windowWidth: number,
+  sidebarWidth: number,
+): number | null {
   const step = shift ? 64 : 16;
   let next: number;
   if (key === "ArrowLeft") next = width + step;
