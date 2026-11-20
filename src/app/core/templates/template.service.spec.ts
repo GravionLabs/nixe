@@ -73,48 +73,35 @@ describe("TemplateService", () => {
   it("has no folder when neither names one", async () => {
     vi.spyOn(backend, "templateFolder").mockRejectedValue("x");
     expect(await templates.folder()).toBeNull();
-    await expect(templates.open()).rejects.toThrow(/No template folder/);
+    await expect(templates.list()).rejects.toThrow(/No template folder/);
   });
 
   it("lists the Markdown files of the folder, below it too", async () => {
     vi.spyOn(backend, "templateFolder").mockResolvedValue("Templates");
-    await templates.open();
-    expect(templates.matches().map((e) => e.path)).toEqual([
+    expect((await templates.list()).map((e) => e.path)).toEqual([
       "Templates/Daily.md",
       "Templates/sub/Deep.md",
       "Templates/Meeting.md",
     ]);
-    templates.setQuery("meet");
-    expect(templates.matches().map((e) => e.name)).toEqual(["Meeting"]);
   });
 
   it("says so when the folder has no template", async () => {
     vi.spyOn(backend, "templateFolder").mockResolvedValue("Empty");
-    await expect(templates.open()).rejects.toThrow(/No templates in Empty/);
+    await expect(templates.list()).rejects.toThrow(/No templates in Empty/);
   });
 
   it("needs the editor", async () => {
     vi.spyOn(backend, "templateFolder").mockResolvedValue("Templates");
     editor.handle = null;
-    await expect(templates.open()).rejects.toThrow(/Open the editor/);
+    await expect(templates.list()).rejects.toThrow(/Open the editor/);
   });
 
   it("inserts the chosen template with the variables replaced", async () => {
     vi.spyOn(backend, "templateFolder").mockResolvedValue("Templates");
     const read = vi.spyOn(backend, "readTextFile").mockResolvedValue("# {{title}} {{date:YYYY}}");
-    await templates.open();
-    await templates.insert(templates.matches().find((e) => e.name === "Daily")!);
+    const entries = await templates.list();
+    await templates.insert(entries.find((e) => e.name === "Daily")!);
     expect(read).toHaveBeenCalledWith("/v/Templates/Daily.md");
     expect(inserted).toEqual([`# Trip plan ${new Date().getFullYear()}`]);
-    expect(templates.visible()).toBe(false);
-  });
-
-  it("moves the selection with wrap-around", async () => {
-    vi.spyOn(backend, "templateFolder").mockResolvedValue("Templates");
-    await templates.open();
-    templates.move(-1);
-    expect(templates.current()?.name).toBe("Meeting");
-    templates.move(1);
-    expect(templates.current()?.name).toBe("Daily");
   });
 });

@@ -150,16 +150,8 @@
   <app-status-bar slot="status" />
 </hx-app-shell>
 
-@if (showSwitcher()) {
-  <app-switcher (failed)="showError($event)" />
-}
-
 @if (composer.visible()) {
   <app-composer (failed)="showError($event)" />
-}
-
-@if (templates.visible()) {
-  <app-templates (failed)="showError($event)" />
 }
 
 @if (cloneVault.visible()) {
@@ -167,11 +159,7 @@
 }
 
 @if (palette.visible()) {
-  <app-palette />
-}
-
-@if (recent.visible()) {
-  <app-recent />
+  <app-palette (failed)="showError($event)" />
 }
 
 <app-link-preview />
