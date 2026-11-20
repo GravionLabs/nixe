@@ -154,7 +154,8 @@ struct Candidate {
 /// Notes matching `query`, best first, with up to three matching lines each.
 pub fn search(conn: &Connection, input: &str) -> rusqlite::Result<Vec<SearchHit>> {
     let q = parse_query(input);
-    if q.is_empty() {
+    // A single vault has no roots: a query of `root:` operands alone selects nothing.
+    if q.is_empty() || (q.fts.is_none() && q.tags.is_empty() && q.paths.is_empty()) {
         return Ok(Vec::new());
     }
     candidates(conn, &q)?

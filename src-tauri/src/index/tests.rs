@@ -882,3 +882,13 @@ mod workspace_search {
         assert_eq!(search_roots(&r, "shared").unwrap().len(), 50);
     }
 }
+
+#[test]
+fn a_root_operand_alone_selects_nothing_in_a_single_vault() {
+    let (root, mut conn) = setup("root-alone");
+    write(&root, "A.md", "text");
+    run(&mut conn, &root);
+    assert!(crate::index::search::search(&conn, "root:Wiki")
+        .unwrap()
+        .is_empty());
+}

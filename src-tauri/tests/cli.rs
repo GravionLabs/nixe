@@ -429,7 +429,7 @@ mod several_roots {
         let (base, _, _) = two_vaults("search");
         let out = run_in(
             &base,
-            "search",
+            "several-search",
             &[
                 "search", "shared", "--vault", "alpha", "--vault", "beta", "--json",
             ],
@@ -458,7 +458,7 @@ mod several_roots {
 
         let text = run_in(
             &base,
-            "search-text",
+            "several-search-text",
             &[
                 "search",
                 "shared",
@@ -491,7 +491,7 @@ mod several_roots {
 
         let out = run_in(
             &base,
-            "notes",
+            "several-notes",
             &["notes", "--vault", "alpha", "--vault", "beta", "--json"],
         )
         .unwrap();
@@ -544,7 +544,7 @@ mod several_roots {
             &["check", "--vault", "alpha", "--vault", "beta"][..],
             &["daily", "--vault", "alpha", "--vault", "beta"][..],
         ] {
-            let err = run_in(&base, "one", args).unwrap_err();
+            let err = run_in(&base, "several-one", args).unwrap_err();
             assert!(matches!(err, CliError::Usage(_)), "{args:?}: {err:?}");
         }
     }
