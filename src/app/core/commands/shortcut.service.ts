@@ -14,6 +14,8 @@ import {
   toAccelerator,
 } from "./shortcuts-core";
 
+const NO_KEYS: readonly string[] = [];
+
 /**
  * The shortcuts the user chose: kept in the settings file, applied to the key handling of the
  * webview (`CommandRegistry.overrides`) and shown in the native menu.
@@ -151,9 +153,19 @@ export class ShortcutService {
   }
 
   /** The key caps of the shortcut of a command for `hx-kbd`; empty when it has none. */
-  keys(id: string): string[] {
-    return shortcutKeys(this.bindings()[id] ?? "", this.platform === "mac");
+  keys(id: string): readonly string[] {
+    return this.keyCaps()[id] ?? NO_KEYS;
   }
+
+  /** The key caps by command id; one array per binding, so a template binding stays stable. */
+  private readonly keyCaps = computed(() =>
+    Object.fromEntries(
+      Object.entries(this.bindings()).map(([id, binding]) => [
+        id,
+        shortcutKeys(binding, this.platform === "mac"),
+      ]),
+    ),
+  );
 
   formatBinding(binding: string): string {
     return formatShortcut(binding, this.platform === "mac");

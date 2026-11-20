@@ -24,13 +24,7 @@
     <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg>
   </button>
 
-  <nav
-    slot="centre"
-    class="crumbs"
-    aria-label="Path of the note"
-    [hx-tooltip]="doc.path() ?? ''"
-    hxTooltipWhenTruncated
-  >
+  <nav slot="centre" class="crumbs" aria-label="Path of the note" [hx-tooltip]="doc.path() ?? ''">
     @for (crumb of crumbs(); track $index) {
       @if ($index > 0) {
         <span class="sep" aria-hidden="true">/</span>
