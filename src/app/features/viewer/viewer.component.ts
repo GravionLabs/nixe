@@ -13,6 +13,8 @@ import {
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { viewerTopLine } from "../../core/editor/editor-core";
+import { FoldStateService } from "../../core/fold/fold-state.service";
+import { HeadingFold, applyHeadingFolds, commandTarget } from "../../core/fold/viewer-folds";
 import { TextPart, findInParts, stepIndex } from "../../core/find/find-core";
 import { STDIN_FILE_SUFFIX, backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
@@ -132,6 +134,7 @@ export class ViewerComponent {
   private readonly search = inject(SearchService);
   protected readonly settings = inject(SettingsService);
   private readonly markdown = inject(MarkdownService);
+  private readonly folds = inject(FoldStateService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly content = viewChild.required<ElementRef<HTMLElement>>("content");
   /** Always mounted (visibility toggled via CSS), so it's available as soon as a diagram is clicked. */
@@ -182,6 +185,7 @@ export class ViewerComponent {
         }
         this.findMarks = [];
         this.enableTasks();
+        void this.syncFolds();
         this.applyPendingAnchor(false);
         this.applyPendingLine(false);
         this.trackScroll();
@@ -198,6 +202,7 @@ export class ViewerComponent {
           })
           .catch(() => undefined)
           .then(() => this.mermaid.render(el, dark))
+          .then(() => this.syncFolds())
           .then(() => {
             this.enableTasks();
             this.applyPendingAnchor(true);
@@ -216,6 +221,46 @@ export class ViewerComponent {
         if (this.renderedPath === this.doc.path() && this.scrollToLine(line)) this.doc.pendingLine.set(null);
       });
     });
+  }
+
+  /** Headings of the shown note that can fold, after the last `syncFolds`. */
+  private headings: HeadingFold[] = [];
+  /** Folded source lines of the shown note (all kinds; the editor also folds lists and the frontmatter). */
+  private foldedLines = new Set<number>();
+
+  /** Applies the remembered folds of the note to the rendered headings. */
+  private async syncFolds(): Promise<void> {
+    const path = this.doc.path();
+    if (path) {
+      // The editor may have changed the folds since the last render, so they are read again.
+      const stored = this.folds.peek(path) ?? (await this.folds.linesOf(path));
+      if (this.doc.path() !== path) return;
+      this.foldedLines = new Set(stored);
+    } else {
+      this.foldedLines = new Set();
+    }
+    this.headings = applyHeadingFolds(this.content().nativeElement, this.foldedLines);
+  }
+
+  private setFolded(change: (lines: Set<number>) => void): void {
+    const path = this.doc.path();
+    if (!path) return;
+    change(this.foldedLines);
+    this.headings = applyHeadingFolds(this.content().nativeElement, this.foldedLines);
+    this.folds.set(path, [...this.foldedLines]);
+    this.trackScroll();
+  }
+
+  /** Folds or unfolds the heading at the top of the view, or every heading of the note. */
+  fold(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void {
+    if (action === "fold-all") {
+      this.setFolded((lines) => this.headings.filter((h) => h.foldable).forEach((h) => lines.add(h.line)));
+    } else if (action === "unfold-all") {
+      this.setFolded((lines) => this.headings.forEach((h) => lines.delete(h.line)));
+    } else {
+      const target = commandTarget(this.headings, this.topLine(), action);
+      if (target) this.setFolded((lines) => (action === "fold" ? lines.add(target.line) : lines.delete(target.line)));
+    }
   }
 
   /** Opens the find bar (⌘/Ctrl+F), or focuses it when it is open. */
@@ -422,6 +467,15 @@ export class ViewerComponent {
 
   async onClick(event: MouseEvent): Promise<void> {
     const target = event.target as Element;
+
+    const marker = target.closest<HTMLElement>(".fold-marker");
+    if (marker?.parentElement) {
+      const heading = this.headings.find((h) => h.el === marker.parentElement);
+      if (heading) {
+        this.setFolded((lines) => (heading.folded ? lines.delete(heading.line) : lines.add(heading.line)));
+        return;
+      }
+    }
 
     const diagram = target.closest<HTMLElement>(".mermaid-diagram");
     if (diagram && !target.closest("a")) {

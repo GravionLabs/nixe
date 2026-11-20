@@ -20,6 +20,14 @@ The toolbar button shows `editing()` as `active`/`aria-pressed` and is disabled 
   until one is chosen. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
 - **Scroll**: the viewer's top block (`data-line`) becomes the editor's first line and back.
 
+## Folding
+
+Headings, list items and the frontmatter fold in the editor; headings also fold in the reading view.
+
+- **Editor**: a gutter marker (▾ / ▸) next to every foldable line, and the commands *Fold at the cursor*, *Unfold at the cursor*, *Fold all* and *Unfold all* (palette; keys `Ctrl+Shift+[` / `]` in the editor). A heading folds down to the next heading of its level or a higher one, a list item with its deeper lines, the frontmatter between its `---` lines. Code fences are skipped. Code: `features/editor/folding.ts` (CodeMirror `foldService`), ranges from the pure `core/fold/fold-core.ts`.
+- **Reading view**: a marker left of each heading with content; clicking it hides the blocks below (`core/fold/viewer-folds.ts`). The same four commands act in the reading view on the heading at or above the top of the view (*fold all* on every heading); list items and the frontmatter stay open there.
+- **Remembered per note**: the folded start lines are kept in `folds.json` in the app data directory (commands `read_folds` / `write_folds`, `folds.rs`), keyed by the path of the note, never in the vault. Editor and reading view share them; a line that no longer folds after the note changed is ignored. A file that cannot be read is not overwritten.
+
 ## Find and replace
 
 - **Editor**: ⌘/Ctrl+F opens the `@codemirror/search` bar at the top (next, previous, match count,

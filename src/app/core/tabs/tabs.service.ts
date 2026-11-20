@@ -11,6 +11,7 @@ import { LayoutState, MAX_TABS, TabState, TabView, clampRatio } from "./layout";
 export interface ViewerHandle {
   topLine(): number | null;
   openFind(): void;
+  fold(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void;
 }
 
 /**

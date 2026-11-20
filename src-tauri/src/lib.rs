@@ -19,6 +19,7 @@ mod conflict;
 mod credentials;
 mod daily;
 mod fileops;
+mod folds;
 mod git;
 mod gitclone;
 mod gitsync;
@@ -477,6 +478,20 @@ fn write_app_settings(app: AppHandle, content: String) -> Result<(), String> {
     settings::write_settings(&dir, &content)
 }
 
+/// The fold state file of the app data directory; `None` when there is none yet.
+#[tauri::command]
+fn read_folds(app: AppHandle) -> Result<Option<String>, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    folds::read_folds(&dir)
+}
+
+/// Replaces the fold state file of the app data directory.
+#[tauri::command]
+fn write_folds(app: AppHandle, content: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    folds::write_folds(&dir, &content)
+}
+
 /// Shows the user's shortcuts in the native menu: the accelerator per menu item id, `null` for none.
 #[tauri::command]
 fn set_menu_shortcuts(
@@ -695,6 +710,8 @@ pub fn run() {
         link_format,
         read_app_settings,
         write_app_settings,
+        read_folds,
+        write_folds,
         set_menu_shortcuts,
         obsidian_settings,
         save_attachment,
@@ -764,6 +781,8 @@ pub fn run() {
         link_format,
         read_app_settings,
         write_app_settings,
+        read_folds,
+        write_folds,
         set_menu_shortcuts,
         obsidian_settings,
         save_attachment,

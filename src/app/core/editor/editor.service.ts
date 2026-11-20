@@ -19,6 +19,8 @@ export interface EditorHandle {
   insertTemplate(template: string): void;
   /** Brings dropped files into the vault and inserts `![[name]]` links at the cursor. */
   attachPaths(paths: string[]): Promise<void>;
+  /** Folds or unfolds at the cursor, or every foldable part of the note. */
+  fold?(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void;
 }
 
 /** Switches between the viewer and the editor of the open note. */

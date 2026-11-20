@@ -20,7 +20,9 @@ import { SettingsService } from "../../core/settings/settings.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { CompletionData } from "./completion";
+import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
+import { FoldAction, foldAction, folding, restoreFolds } from "./folding";
 
 const BASE_FONT_PX = 16;
 
@@ -58,6 +60,7 @@ export class EditorComponent implements OnDestroy {
   private readonly settings = inject(SettingsService);
   private readonly editor = inject(EditorService);
   private readonly outline = inject(OutlineService);
+  private readonly folds = inject(FoldStateService);
   private readonly host = viewChild.required<ElementRef<HTMLElement>>("host");
 
   /** The disk text that conflicts with unsaved changes; null when there is no conflict. */
@@ -79,6 +82,7 @@ export class EditorComponent implements OnDestroy {
       blocked: () => this.conflict() !== null,
       insertTemplate: (template) => this.insertTemplate(template),
       attachPaths: (paths) => this.attachPaths(paths),
+      fold: (action) => this.fold(action),
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
     this.doc.remoteHook = (text, saved) => this.onRemote(text, saved);
@@ -165,6 +169,9 @@ export class EditorComponent implements OnDestroy {
             hover ? this.preview.hover(targetOf(hover.value), hover.anchor, hover.modifier) : this.preview.leave(),
           completion: this.completionData,
         }),
+        folding((lines) => {
+          if (this.session === session && !this.restoringFolds) this.folds.set(session.path, lines);
+        }),
         this.theme.of(editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100)),
         EditorView.domEventHandlers({
           paste: (event) => this.onPaste(event),
@@ -186,12 +193,35 @@ export class EditorComponent implements OnDestroy {
     else this.view = new EditorView({ state, parent: host });
     this.loading = false;
     this.outline.editorText.set(text);
+    void this.restoreFolds(session);
 
     const line = this.editor.startLine();
     this.editor.startLine.set(null);
     if (line !== null) this.scrollToLine(line);
     this.outline.topLine.set(this.topLine());
     this.view.focus();
+  }
+
+  private restoringFolds = false;
+
+  /** Closes the folds remembered for the note, unless the user already changed them meanwhile. */
+  private async restoreFolds(session: Session): Promise<void> {
+    const lines = await this.folds.linesOf(session.path);
+    const view = this.view;
+    if (!view || this.session !== session || lines.length === 0) return;
+    this.restoringFolds = true;
+    try {
+      restoreFolds(view, lines);
+    } finally {
+      this.restoringFolds = false;
+    }
+  }
+
+  private fold(action: FoldAction): void {
+    const view = this.view;
+    if (!view) return;
+    foldAction(view, action);
+    view.focus();
   }
 
   /** What `[[` and `#` completion reads: the index for notes and tags, the note text for headings. */
