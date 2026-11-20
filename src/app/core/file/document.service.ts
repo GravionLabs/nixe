@@ -15,6 +15,8 @@ export class DocumentService {
   readonly path = signal<string | null>(null);
   readonly wikiRoot = signal<string | null>(null);
   readonly content = signal("");
+  /** The file was deleted or moved outside Nixe; cleared when it returns. */
+  readonly missing = signal(false);
   /** Heading to scroll to once the next document is rendered. */
   readonly pendingAnchor = signal<string | null>(null);
   /** 1-based source line to scroll to once the next document is rendered. */
@@ -49,6 +51,7 @@ export class DocumentService {
     this.wikiRoot.set(toSlashes(wikiRoot));
     this.path.set(path);
     this.content.set(text);
+    this.missing.set(false);
     this.pendingAnchor.set(anchor);
     this.pendingLine.set(line);
     if (watch) await backend.watchFile(path);
@@ -65,6 +68,7 @@ export class DocumentService {
     this.path.set(null);
     this.wikiRoot.set(null);
     this.content.set("");
+    this.missing.set(false);
     this.pendingAnchor.set(null);
     this.pendingLine.set(null);
   }
@@ -135,13 +139,17 @@ export class DocumentService {
   /** Called by the file watcher. */
   async onExternalChange(path: string): Promise<void> {
     if (toSlashes(path) !== this.path()) return;
+    let text: string;
     try {
-      const text = await backend.readTextFile(path);
-      if (this.editorHook) this.editorHook(toSlashes(path), text);
-      else this.content.set(text);
+      text = await backend.readTextFile(path);
     } catch {
-      // file is being replaced – the next event will pick it up
+      // Gone (deleted or moved) or being replaced: only a file that is not there is missing.
+      if (!(await backend.pathExists(path).catch(() => true))) this.missing.set(true);
+      return;
     }
+    this.missing.set(false);
+    if (this.editorHook) this.editorHook(toSlashes(path), text);
+    else this.content.set(text);
   }
 
   private async goTo(index: number): Promise<void> {

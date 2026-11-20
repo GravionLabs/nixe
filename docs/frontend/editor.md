@@ -18,6 +18,7 @@ The toolbar button shows `editing()` as `active`/`aria-pressed` and is disabled 
   tracked: the text editor and disk agree on, plus writes in flight or finished within 2 s, are ignored; anything else (even an older text restored by `git checkout`) is foreign. A foreign change is loaded at once
   when nothing is unsaved; otherwise a bar offers *Reload* or *Keep mine*, and saving is paused
   until one is chosen. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
+- **Missing file**: when the watcher reports the open note and it can no longer be read and `path_exists` is false, `DocumentService.missing` is set (per tab). The tab shows its name struck through with the tooltip "File not found" (`HxTabBarItem.missing`), the pane shows a bar with *Close* and, in the editor, *Save as copy* (writes the editor text to `<name> (unsaved copy …).md`). The autosave is paused meanwhile, so the note is not re-created behind the user's back. A file that returns clears the state and resumes saving.
 - **Scroll**: the viewer's top block (`data-line`) becomes the editor's first line and back.
 
 ## Folding

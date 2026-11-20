@@ -24,9 +24,35 @@ import { ViewerComponent } from "../viewer/viewer.component";
   styles: `
     :host {
       display: flex;
+      flex-direction: column;
       flex: 1;
       min-height: 0;
       min-width: 0;
+    }
+    .bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--h-message-error-border-color);
+      background: var(--h-message-error-background);
+      color: light-dark(var(--h-red-700), var(--h-red-300));
+    }
+    .bar span {
+      flex: 1;
+    }
+    .bar button {
+      height: 28px;
+      padding: 0 12px;
+      border: 1px solid var(--h-content-border-color);
+      border-radius: 6px;
+      background: var(--h-surface-frame);
+      color: var(--h-text-color);
+      font: inherit;
+      cursor: pointer;
+    }
+    .bar button:hover {
+      background: var(--h-surface-hover);
     }
     .view {
       flex: 1;
@@ -75,6 +101,15 @@ export class PaneComponent implements OnDestroy {
     effect(() => {
       if (this.tab.view() !== null && this.doc.path() !== null) this.tab.view.set(null);
     });
+  }
+
+  protected close(): void {
+    const pane = this.tabs.panes().find((p) => p.tabs.some((t) => t.id === this.tab.id));
+    if (pane) this.tabs.closeTab(pane.id, this.tab.id);
+  }
+
+  protected saveCopy(): void {
+    void this.editor.handle?.saveCopy();
   }
 
   ngOnDestroy(): void {
