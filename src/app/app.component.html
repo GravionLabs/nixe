@@ -60,29 +60,7 @@
     @if (tabs.showWorkspace()) {
       <app-workspace class="pane" />
     } @else {
-    <section class="welcome">
-      <h1>Nixe</h1>
-      <p>Markdown viewer with Mermaid, Azure DevOps wiki, and LaTeX</p>
-      <div class="actions">
-        <button type="button" class="primary" (click)="run(doc.openWithDialog.bind(doc))">Open file</button>
-        <button type="button" (click)="run(workspace.openFolderWithDialog.bind(workspace))">Open folder</button>
-        <button type="button" (click)="cloneVault.open()">Clone vault</button>
-      </div>
-      <p class="hint">or drop a file or folder onto the window</p>
-      <dl class="shortcuts">
-        <dt>{{ mod }}N</dt><dd>New note</dd>
-        <dt>{{ mod }}O</dt><dd>Quick switcher</dd>
-        <dt>{{ mod }}P</dt><dd>Command palette</dd>
-        <dt>{{ mod }}⇧P</dt><dd>Open file</dd>
-        <dt>{{ mod }}⇧O</dt><dd>Open folder</dd>
-        <dt>{{ mod }}E</dt><dd>Edit / view the note</dd>
-        <dt>{{ mod }}B</dt><dd>Toggle sidebar</dd>
-        <dt>{{ mod }}⇧B</dt><dd>Toggle backlinks</dd>
-        <dt>{{ mod }}⇧L</dt><dd>Toggle outline</dd>
-        <dt>{{ mod }}⇧F</dt><dd>Search the vault</dd>
-        <dt>{{ mod }}[ / ]</dt><dd>Back / forward</dd>
-      </dl>
-    </section>
+    <app-start class="pane" (error)="showToast($event)" />
     }
   </main>
   </div>

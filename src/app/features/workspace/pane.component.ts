@@ -8,6 +8,7 @@ import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { EditorComponent } from "../editor/editor.component";
 import { HealthComponent } from "../health/health.component";
+import { StartComponent } from "../start/start.component";
 import { SettingsComponent } from "../settings/settings.component";
 import { ViewerComponent } from "../viewer/viewer.component";
 
@@ -17,7 +18,7 @@ import { ViewerComponent } from "../viewer/viewer.component";
  */
 @Component({
   selector: "app-pane",
-  imports: [EditorComponent, HealthComponent, SettingsComponent, ViewerComponent],
+  imports: [EditorComponent, HealthComponent, SettingsComponent, StartComponent, ViewerComponent],
   template: `
     @if (tab.view() === "settings") {
       <app-settings class="view" />
@@ -32,7 +33,7 @@ import { ViewerComponent } from "../viewer/viewer.component";
         <app-viewer class="note" [html]="html()" [dark]="settings.dark()" (notify)="tabs.notice.set($event)" />
       }
     } @else {
-      <p class="empty">Empty tab. Pick a note in the sidebar or press {{ mod }}O.</p>
+      <app-start class="view" (error)="tabs.notice.set($event)" />
     }
   `,
   styles: `
@@ -50,10 +51,6 @@ import { ViewerComponent } from "../viewer/viewer.component";
       flex: 1;
       min-width: 0;
     }
-    .empty {
-      margin: auto;
-      color: var(--h-text-muted-color);
-    }
   `,
 })
 export class PaneComponent implements OnDestroy {
@@ -66,7 +63,6 @@ export class PaneComponent implements OnDestroy {
   protected readonly tab = inject(CURRENT_TAB);
   private readonly viewer = viewChild(ViewerComponent);
 
-  protected readonly mod = navigator.userAgent.includes("Mac") ? "⌘" : "Ctrl+";
 
   /** The note's body; its properties are shown (and edited) by the viewer's properties panel. */
   protected readonly html = computed(
