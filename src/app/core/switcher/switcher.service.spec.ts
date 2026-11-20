@@ -75,4 +75,14 @@ describe("SwitcherService", () => {
     switcher.move(1);
     expect(switcher.selected()).toBe(0);
   });
+
+  it("caps the list at 50 and says that more notes match", async () => {
+    const notes = Array.from({ length: 51 }, (_, i) => ({ path: `n${i}.md`, title: `n${i}`, aliases: [] }));
+    vi.spyOn(backend, "notes").mockResolvedValue(notes);
+    await switcher.open();
+    expect(switcher.matches()).toHaveLength(50);
+    expect(switcher.truncated()).toBe(true);
+    switcher.setQuery("n1");
+    expect(switcher.truncated()).toBe(false);
+  });
 });

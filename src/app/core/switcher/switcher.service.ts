@@ -24,9 +24,10 @@ export class SwitcherService {
     return this.opened().filter((o) => o.root === root).map((o) => o.rel);
   });
 
-  readonly matches = computed<SwitcherMatch[]>(() =>
-    rank(this.entries(), this.query(), this.recentNotes()).slice(0, MAX_RESULTS),
-  );
+  private readonly ranked = computed(() => rank(this.entries(), this.query(), this.recentNotes()));
+  readonly matches = computed<SwitcherMatch[]>(() => this.ranked().slice(0, MAX_RESULTS));
+  /** True when more notes match than the list shows. */
+  readonly truncated = computed(() => this.ranked().length > MAX_RESULTS);
 
   async open(): Promise<void> {
     this.query.set("");

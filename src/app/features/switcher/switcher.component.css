@@ -91,3 +91,33 @@ li button:hover {
   font: inherit;
   cursor: pointer;
 }
+
+.name {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+mark {
+  background: none;
+  color: var(--h-accent-color, inherit);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.path {
+  min-width: 0;
+}
+
+.status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.more {
+  padding: 4px 14px;
+  color: var(--h-text-muted-color);
+  font-size: 11px;
+}
