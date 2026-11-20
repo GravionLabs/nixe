@@ -10,7 +10,7 @@ import {
   untracked,
   viewChild,
 } from "@angular/core";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 import { viewerTopLine } from "../../core/editor/editor-core";
 import { FoldStateService } from "../../core/fold/fold-state.service";
@@ -23,6 +23,7 @@ import { slugify } from "../../core/markdown/markdown-renderer";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { decorateCodeBlocks, handleCopyClick } from "../../core/markdown/code-blocks";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
+import { assetFilePath, decorateImages, imageNaturalSize, revealLabel } from "../../core/markdown/image-zoom";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
@@ -86,6 +87,8 @@ const DIALOG_ZOOM_STEP = 1.1;
       tabindex="-1"
       [style.zoom.%]="settings.zoom()"
       (click)="onClick($event)"
+      (keydown)="onContentKeydown($event)"
+      (contextmenu)="onContextMenu($event)"
       (wheel)="onWheel($event)"
       (mousemove)="onHover($event)"
       (mouseleave)="preview.leave()"
@@ -108,13 +111,31 @@ const DIALOG_ZOOM_STEP = 1.1;
           <button type="button" (click)="dialogZoomIn()" title="Zoom in" aria-label="Zoom in">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35M11 8v6M8 11h6" /></svg>
           </button>
+          @if (dialogFile(); as file) {
+            <button type="button" class="text" (click)="openDialogFile(file)">Open with default app</button>
+            <button type="button" class="text" (click)="revealDialogFile(file)">{{ revealText }}</button>
+          }
         </div>
         <button type="button" class="close" (click)="closeDiagram()" aria-label="Close">✕</button>
-        <div class="diagram-dialog-viewport">
+        <div
+          class="diagram-dialog-viewport"
+          [class.panning]="panning()"
+          (pointerdown)="onPanStart($event)"
+          (pointermove)="onPanMove($event)"
+          (pointerup)="onPanEnd($event)"
+          (pointercancel)="onPanEnd($event)"
+        >
           <div #dialogContent class="diagram-dialog-content"></div>
         </div>
       </div>
     </div>
+
+    @if (imageMenu(); as m) {
+      <div class="menu-backdrop" (click)="imageMenu.set(null)" (contextmenu)="$event.preventDefault(); imageMenu.set(null)" role="presentation"></div>
+      <ul class="menu" role="menu" [style.left.px]="m.x" [style.top.px]="m.y" (keydown.escape)="imageMenu.set(null)">
+        <li role="none"><button type="button" role="menuitem" (click)="openMenuImage()">Open image</button></li>
+      </ul>
+    }
   `,
   styleUrl: "./viewer.component.css",
   imports: [PropertiesComponent],
@@ -150,6 +171,15 @@ export class ViewerComponent {
   private toggleQueue: Promise<void> = Promise.resolve();
 
   protected readonly dialogOpen = signal(false);
+  /** File of the image in the dialog (offers "Open with default app" and reveal); null for diagrams and remote images. */
+  protected readonly dialogFile = signal<string | null>(null);
+  /** The "Open image" menu of an image that sits inside a link. */
+  protected readonly imageMenu = signal<{ x: number; y: number; img: HTMLImageElement } | null>(null);
+  protected readonly revealText = revealLabel(navigator.userAgent);
+  protected readonly panning = signal(false);
+  private pan: { x: number; y: number; left: number; top: number } | null = null;
+  /** Element that opened the dialog; gets the focus back on close. */
+  private dialogOpener: HTMLElement | null = null;
   protected readonly dialogZoom = signal(1);
   protected readonly dialogZoomPercent = computed(() => Math.round(this.dialogZoom() * 100));
   protected readonly findOpen = signal(false);
@@ -187,6 +217,7 @@ export class ViewerComponent {
         }
         this.findMarks = [];
         decorateCodeBlocks(el);
+        decorateImages(el);
         this.enableTasks();
         void this.syncFolds();
         this.applyPendingAnchor(false);
@@ -205,7 +236,10 @@ export class ViewerComponent {
           })
           .catch(() => undefined)
           .then(() => this.mermaid.render(el, dark))
-          .then(() => decorateCodeBlocks(el))
+          .then(() => {
+            decorateCodeBlocks(el);
+            decorateImages(el);
+          })
           .then(() => this.syncFolds())
           .then(() => {
             this.enableTasks();
@@ -451,7 +485,7 @@ export class ViewerComponent {
    * of stretching an already-rasterized bitmap — the latter looks blurry when zoomed in.
    */
   private applyDialogZoom(): void {
-    const svg = this.dialogContent()?.nativeElement.querySelector("svg");
+    const svg = this.dialogContent()?.nativeElement.querySelector<SVGSVGElement | HTMLImageElement>("svg, img");
     const size = this.dialogNaturalSize;
     if (!svg || !size) return;
     const zoom = this.dialogZoom();
@@ -462,7 +496,96 @@ export class ViewerComponent {
 
   closeDiagram(): void {
     this.dialogOpen.set(false);
+    this.pan = null;
+    this.panning.set(false);
     document.removeEventListener("keydown", this.onDialogKeydown);
+    const opener = this.dialogOpener;
+    this.dialogOpener = null;
+    if (opener?.isConnected) opener.focus({ preventScroll: true });
+  }
+
+  /** Drag to pan the zoomed content. */
+  protected onPanStart(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    const viewport = event.currentTarget as HTMLElement;
+    this.pan = { x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop };
+    this.panning.set(true);
+    viewport.setPointerCapture?.(event.pointerId);
+  }
+
+  protected onPanMove(event: PointerEvent): void {
+    if (!this.pan) return;
+    const viewport = event.currentTarget as HTMLElement;
+    viewport.scrollLeft = this.pan.left - (event.clientX - this.pan.x);
+    viewport.scrollTop = this.pan.top - (event.clientY - this.pan.y);
+  }
+
+  protected onPanEnd(event: PointerEvent): void {
+    if (!this.pan) return;
+    this.pan = null;
+    this.panning.set(false);
+    (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
+  }
+
+  /** Shows `img` in the zoom dialog; `size` is its size at zoom 1. */
+  private openImage(img: HTMLImageElement): void {
+    const container = this.dialogContent()?.nativeElement;
+    if (!container) return;
+    const copy = document.createElement("img");
+    copy.src = img.currentSrc || img.src;
+    copy.alt = img.alt;
+    copy.draggable = false;
+    container.replaceChildren(copy);
+    // Sized (not transformed) so an SVG is rendered again at every zoom level and stays sharp.
+    this.dialogNaturalSize = imageNaturalSize(img);
+    this.dialogFile.set(assetFilePath(copy.src));
+    this.dialogZoom.set(1);
+    this.applyDialogZoom();
+    this.showDialog(img);
+  }
+
+  private showDialog(opener: HTMLElement | null): void {
+    this.dialogOpener = opener;
+    this.dialogOpen.set(true);
+    document.addEventListener("keydown", this.onDialogKeydown);
+  }
+
+  protected async openDialogFile(path: string): Promise<void> {
+    try {
+      await openPath(path);
+    } catch (err) {
+      this.notify.emit(String(err));
+    }
+  }
+
+  protected async revealDialogFile(path: string): Promise<void> {
+    try {
+      await revealItemInDir(path);
+    } catch (err) {
+      this.notify.emit(String(err));
+    }
+  }
+
+  /** Enter on a focused image opens it. */
+  protected onContentKeydown(event: KeyboardEvent): void {
+    const target = event.target;
+    if (event.key !== "Enter" || !(target instanceof HTMLImageElement) || !target.hasAttribute("data-zoomable")) return;
+    event.preventDefault();
+    this.openImage(target);
+  }
+
+  /** An image inside a link follows the link on click; its dialog is in the context menu. */
+  protected onContextMenu(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof HTMLImageElement) || !target.closest("a")) return;
+    event.preventDefault();
+    this.imageMenu.set({ x: event.clientX, y: event.clientY, img: target });
+  }
+
+  protected openMenuImage(): void {
+    const img = this.imageMenu()?.img;
+    this.imageMenu.set(null);
+    if (img) this.openImage(img);
   }
 
   private readonly onDialogKeydown = (event: KeyboardEvent): void => {
@@ -488,6 +611,7 @@ export class ViewerComponent {
       const container = this.dialogContent()?.nativeElement;
       if (svg && container) {
         container.innerHTML = svg.outerHTML;
+        this.dialogFile.set(null);
         const clone = container.querySelector<SVGSVGElement>("svg");
         const viewBox = clone?.viewBox.baseVal;
         this.dialogNaturalSize =
@@ -496,9 +620,13 @@ export class ViewerComponent {
             : { width: clone?.clientWidth || 300, height: clone?.clientHeight || 150 };
         this.dialogZoom.set(1);
         this.applyDialogZoom();
-        this.dialogOpen.set(true);
-        document.addEventListener("keydown", this.onDialogKeydown);
+        this.showDialog(null);
       }
+      return;
+    }
+
+    if (target instanceof HTMLImageElement && target.hasAttribute("data-zoomable")) {
+      this.openImage(target);
       return;
     }
 
