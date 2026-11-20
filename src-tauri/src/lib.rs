@@ -511,6 +511,31 @@ async fn replace_apply(
     .map_err(|e| e.to_string())?
 }
 
+/// Turns the plain-text mention of `target` at `line`/`start..end` of the note `source` (both
+/// vault-relative) into a `[[link]]`. Refuses when the note changed since the mention was listed.
+#[tauri::command]
+fn link_mention(
+    state: State<'_, AppState>,
+    source: String,
+    target: String,
+    line: usize,
+    start: usize,
+    end: usize,
+    text: String,
+) -> Result<(), String> {
+    let root = vault_root_of(&state)?;
+    let path = root.join(&source);
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("{source}: {e}"))?;
+    let title = target
+        .rsplit('/')
+        .next()
+        .map(|n| n.rsplit_once('.').map_or(n, |(stem, _)| stem))
+        .unwrap_or(&target);
+    let linked = vault::mentions::link(&content, line, start, end, &text, title)
+        .ok_or_else(|| format!("{source} changed, the mention is gone"))?;
+    write::write_text_file(&root, &path, &linked)
+}
+
 /// Moves a file or folder to `.trash/` in the vault; returns its new path.
 #[tauri::command]
 fn trash_path(state: State<'_, AppState>, path: String) -> Result<String, String> {
@@ -891,6 +916,8 @@ pub fn run() {
         index::commands::notes,
         index::commands::note_meta,
         index::commands::backlinks,
+        index::commands::unlinked_mentions,
+        link_mention,
         index::commands::tags,
         index::commands::search_notes,
         index::commands::vault_health,
@@ -975,6 +1002,8 @@ pub fn run() {
         index::commands::notes,
         index::commands::note_meta,
         index::commands::backlinks,
+        index::commands::unlinked_mentions,
+        link_mention,
         index::commands::tags,
         index::commands::search_notes,
         index::commands::vault_health,

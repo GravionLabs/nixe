@@ -1,5 +1,3 @@
-<header>Links</header>
-
 @switch (links.state()) {
   @case ("loading") {
     <p class="status" role="status">Indexing the vault…</p>
@@ -58,6 +56,63 @@
             </li>
           }
         </ul>
+      }
+    </section>
+
+    <section aria-label="Unlinked mentions">
+      <h2>
+        <button
+          type="button"
+          class="fold"
+          [attr.aria-expanded]="unlinkedOpen()"
+          (click)="toggleUnlinked()"
+        >
+          <span class="chevron" aria-hidden="true">{{ unlinkedOpen() ? "▾" : "▸" }}</span>
+          Unlinked mentions
+          @if (unlinkedOpen() && links.unlinkedState() === "ready") {
+            <span class="count">{{ links.unlinked().length }}</span>
+          }
+        </button>
+      </h2>
+      @if (unlinkedOpen()) {
+        @switch (links.unlinkedState()) {
+          @case ("error") {
+            <p class="status" role="alert">The mentions could not be read.</p>
+          }
+          @case ("ready") {
+            @if (links.unlinked().length === 0) {
+              <p class="status">No unlinked mentions</p>
+            } @else {
+              <ul>
+                @for (mention of links.unlinked(); track $index) {
+                  <li class="mention">
+                    <button
+                      type="button"
+                      class="open"
+                      (click)="openMention(mention, $event)"
+                      [title]="mention.source + ':' + mention.line"
+                    >
+                      <span class="name">{{ mention.source }}</span>
+                      <span class="context">{{ mention.context }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="link-it"
+                      (click)="linkMention(mention)"
+                      [attr.aria-label]="'Link the mention in ' + mention.source"
+                      title="Turn the mention into a link"
+                    >
+                      Link
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          }
+          @default {
+            <p class="status" role="status">Searching the notes…</p>
+          }
+        }
       }
     </section>
   }

@@ -211,6 +211,43 @@ fn backlinks_and_tags() {
 }
 
 #[test]
+fn unlinked_mentions_of_the_title_and_the_aliases() {
+    let (root, mut conn) = setup("mentions");
+    write(
+        &root,
+        "Target.md",
+        "---\naliases: [Tgt]\n---\nTarget talks about target",
+    );
+    write(
+        &root,
+        "a.md",
+        "intro\nI like the target and Tgt.\n[[Target]] `target`\n```\ntarget\n```\n",
+    );
+    write(
+        &root,
+        "sub/b.md",
+        "no mention, only [[Target|target]] and [t](Target.md)",
+    );
+    run(&mut conn, &root);
+    let found = read::unlinked_mentions(&conn, "Target.md").unwrap();
+    assert_eq!(
+        found
+            .iter()
+            .map(|m| (m.source.as_str(), m.line, m.text.as_str()))
+            .collect::<Vec<_>>(),
+        [("a.md", 2, "target"), ("a.md", 2, "Tgt")]
+    );
+    assert_eq!(found[0].context, "I like the target and Tgt.");
+    assert_eq!(
+        &"I like the target and Tgt."[found[1].start..found[1].end],
+        "Tgt"
+    );
+    assert!(read::unlinked_mentions(&conn, "missing.md")
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
 fn skips_internal_directories_and_ignored_files() {
     let (root, mut conn) = setup("skip");
     write(&root, "a.md", "a");

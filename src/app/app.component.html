@@ -64,14 +64,41 @@
   </main>
   </div>
 
-  @if (tabs.showWorkspace() && (showOutline() || showBacklinks())) {
+  @if (tabs.showWorkspace() && showPanel()) {
     <div slot="panel" class="panel">
-      @if (showOutline()) {
-        <app-outline />
-      }
-      @if (showBacklinks()) {
-        <app-backlinks (error)="showToast($event)" />
-      }
+      <div class="panel-tabs" role="tablist" aria-label="Note panel">
+        <button
+          type="button"
+          role="tab"
+          id="panel-tab-outline"
+          aria-controls="panel-body"
+          [attr.aria-selected]="panelTab() === 'outline'"
+          [class.active]="panelTab() === 'outline'"
+          (click)="settings.showPanelTab('outline')"
+        >
+          Outline
+        </button>
+        @if (linksAvailable()) {
+          <button
+            type="button"
+            role="tab"
+            id="panel-tab-links"
+            aria-controls="panel-body"
+            [attr.aria-selected]="panelTab() === 'links'"
+            [class.active]="panelTab() === 'links'"
+            (click)="settings.showPanelTab('links')"
+          >
+            Links
+          </button>
+        }
+      </div>
+      <div class="panel-body" id="panel-body" role="tabpanel" [attr.aria-labelledby]="'panel-tab-' + panelTab()">
+        @if (panelTab() === "outline") {
+          <app-outline />
+        } @else {
+          <app-backlinks (error)="showToast($event)" />
+        }
+      </div>
     </div>
   }
 

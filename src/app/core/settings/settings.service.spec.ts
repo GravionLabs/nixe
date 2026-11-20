@@ -141,3 +141,41 @@ describe("SettingsService theme", () => {
     expect(document.documentElement.classList.contains("app-dark")).toBe(true);
   });
 });
+
+describe("SettingsService right panel tabs", () => {
+  beforeEach(() => {
+    vi.spyOn(backend, "readAppSettings").mockResolvedValue(null);
+    vi.spyOn(backend, "writeAppSettings").mockResolvedValue(undefined);
+    localStorage.clear();
+    stubMatchMedia();
+    TestBed.resetTestingModule();
+  });
+
+  it("is closed by default and shows one tab at a time", () => {
+    const settings = TestBed.inject(SettingsService);
+    expect(settings.panelOpen()).toBe(false);
+    settings.showPanelTab("links");
+    expect(settings.panelOpen()).toBe(true);
+    expect(settings.panelTab()).toBe("links");
+    settings.showPanelTab("outline");
+    expect(settings.panelTab()).toBe("outline");
+    expect(settings.backlinksVisible()).toBe(false);
+  });
+
+  it("toggles a tab: opens it, switches to it, closes it when it is the open one", () => {
+    const settings = TestBed.inject(SettingsService);
+    settings.togglePanelTab("outline");
+    expect([settings.panelOpen(), settings.panelTab()]).toEqual([true, "outline"]);
+    settings.togglePanelTab("links");
+    expect([settings.panelOpen(), settings.panelTab()]).toEqual([true, "links"]);
+    settings.togglePanelTab("links");
+    expect(settings.panelOpen()).toBe(false);
+  });
+
+  it("shows the outline when an old setting has both panels on", () => {
+    const settings = TestBed.inject(SettingsService);
+    settings.outlineVisible.set(true);
+    settings.backlinksVisible.set(true);
+    expect(settings.panelTab()).toBe("outline");
+  });
+});

@@ -40,7 +40,48 @@ main {
 
 .panel {
   display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 280px;
   height: 100%;
+  border-left: 1px solid var(--h-content-border-color);
+  background: var(--h-surface-frame);
+}
+
+.panel-tabs {
+  display: flex;
+  flex: none;
+  height: 34px;
+  border-bottom: 1px solid var(--h-content-border-color);
+}
+
+.panel-tabs button {
+  flex: 1;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--h-text-muted-color);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.panel-tabs button:hover {
+  color: var(--h-text-color);
+}
+
+.panel-tabs button.active {
+  border-bottom-color: var(--h-accent-color, currentColor);
+  color: var(--h-text-color);
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 hx-app-shell {
