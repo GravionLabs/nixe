@@ -110,6 +110,8 @@ Each commit row offers `Restore this version`, which writes that commit's text i
 
 While a note is edited, the status bar shows its words and characters, or those of the selection (`EditorService.stats`, `countText` in `core/editor/text-stats.ts`). Frontmatter, `<!-- -->` and `%% %%` comments and fenced code blocks do not count; the title attribute shows the reading time at 200 words a minute. The editor recounts 150 ms after the last change or selection change.
 
+With a vault and an open note the status bar shows `n backlinks` (`BacklinksService.backlinks`); a click opens the Links tab of the right panel. The bar reads the lists itself (the panel only while it is mounted) and again whenever the index changes.
+
 ## Start page
 
 `StartComponent` (`features/start`) is the page of the empty tab, in the shell while there is only one empty tab and in the pane of every other empty tab. Without a vault it shows Open folder, Clone vault, Open file and the recent vaults; in a vault it shows the daily note, New note and Quick switcher, each with its current shortcut (`ShortcutService.display`), and the recently opened notes. The actions run commands of the `CommandRegistry`; the palette lists the other shortcuts.

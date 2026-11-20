@@ -12,6 +12,7 @@ import { CommandRegistry } from "../../core/commands/command-registry";
 import { EditorService } from "../../core/editor/editor.service";
 import { countText } from "../../core/editor/text-stats";
 import { GitStatus } from "../../core/file/backend";
+import { BacklinksService } from "../../core/index/backlinks.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
 import { ReviewService } from "../../core/git/review.service";
@@ -32,6 +33,8 @@ interface Options {
   pulled?: number;
   waiting?: number;
   stats?: ReturnType<typeof countText> | null;
+  backlinks?: number;
+  linksState?: string;
 }
 
 function render(o: Options = {}) {
@@ -42,6 +45,10 @@ function render(o: Options = {}) {
   const install = vi.fn();
   const execute = vi.fn();
   const zoom = signal(o.zoom ?? 100);
+  const showPanelTab = vi.fn();
+  const backlinks = signal(Array.from({ length: o.backlinks ?? 0 }, (_, i) => ({ path: `b${i}.md` })));
+  const key = signal("a|ready|1");
+  const refresh = vi.fn();
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -49,8 +56,9 @@ function render(o: Options = {}) {
       { provide: ChangesService, useValue: { pulled: signal(Array.from({ length: o.pulled ?? 0 }, (_, i) => ({ path: `n${i}.md`, kind: "modified" }))), showSync } },
       { provide: ReviewService, useValue: { count: signal(o.waiting ?? 0) } },
       { provide: ShellService, useValue: { show } },
-      { provide: SettingsService, useValue: { zoom } },
+      { provide: SettingsService, useValue: { zoom, showPanelTab } },
       { provide: EditorService, useValue: { stats: signal(o.stats ?? null) } },
+      { provide: BacklinksService, useValue: { state: signal(o.linksState ?? "idle"), backlinks, key, refresh } },
       { provide: CommandRegistry, useValue: { execute } },
       {
         provide: UpdateService,
@@ -69,7 +77,7 @@ function render(o: Options = {}) {
   const fixture = TestBed.createComponent(StatusBarComponent);
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
-  return { el, show, showSync, sync, check, install, execute, zoom, fixture, text: () => el.textContent ?? "" };
+  return { el, showPanelTab, backlinks, key, refresh, show, showSync, sync, check, install, execute, zoom, fixture, text: () => el.textContent ?? "" };
 }
 
 const repo: GitStatus = { branch: "main", changes: [{ path: "a.md", kind: "added" }], ahead: 2, behind: 3 };
@@ -104,6 +112,33 @@ describe("StatusBarComponent", () => {
     expect(item.querySelector("[title]")?.getAttribute("title")).toBe("Reading time: under a minute");
     const sel = render({ stats: countText("one", true) });
     expect(sel.el.querySelector(".words")!.textContent).toContain("1 word, 3 characters selected");
+  });
+
+  describe("backlinks", () => {
+    it("shows the count of the open note, singular and plural", () => {
+      expect(render({ linksState: "ready", backlinks: 0 }).el.querySelector(".backlinks")!.textContent).toContain("0 backlinks");
+      expect(render({ linksState: "ready", backlinks: 1 }).el.querySelector(".backlinks")!.textContent).toContain("1 backlink");
+      expect(render({ linksState: "ready", backlinks: 4 }).el.querySelector(".backlinks")!.textContent).toContain("4 backlinks");
+    });
+
+    it("is hidden without a vault or an open note, or while the index is not ready", () => {
+      expect(render({ linksState: "idle" }).el.querySelector(".backlinks")).toBeNull();
+      expect(render({ linksState: "loading" }).el.querySelector(".backlinks")).toBeNull();
+    });
+
+    it("opens the links panel on click", () => {
+      const r = render({ linksState: "ready", backlinks: 2 });
+      r.el.querySelector<HTMLElement>(".backlinks button")!.click();
+      expect(r.showPanelTab).toHaveBeenCalledWith("links");
+    });
+
+    it("reads the lists again when the index changes", () => {
+      const r = render({ linksState: "ready" });
+      expect(r.refresh).toHaveBeenCalledTimes(1);
+      r.key.set("a|ready|2");
+      r.fixture.detectChanges();
+      expect(r.refresh).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("shows the Git view in the sidebar", () => {
