@@ -36,10 +36,10 @@ interface Session {
   tracker: ExternalChangeTracker;
 }
 
-/** CodeMirror 6 editor of the open note. Lives in its own lazy chunk (loaded by `@defer`). */
 /** Pause after the last change before the counts are recomputed. */
 const STATS_DELAY_MS = 150;
 
+/** CodeMirror 6 editor of the open note. Lives in its own lazy chunk (loaded by `@defer`). */
 @Component({
   selector: "app-editor",
   template: `
