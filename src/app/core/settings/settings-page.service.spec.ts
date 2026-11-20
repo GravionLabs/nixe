@@ -58,6 +58,7 @@ describe("settings page", () => {
       "Editor",
       "Export and print",
       "Files and links",
+      "Capture",
       "Appearance",
       "Git",
       "Shortcuts",

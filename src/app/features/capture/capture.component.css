@@ -1,0 +1,65 @@
+:host {
+  display: block;
+  height: 100vh;
+  background: var(--h-content-background);
+  color: var(--h-text-color);
+}
+
+.capture {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+textarea {
+  flex: 1;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+  background: var(--h-content-background);
+  color: inherit;
+  font: inherit;
+  resize: none;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  max-height: 96px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+}
+
+li button {
+  display: block;
+  width: 100%;
+  padding: 3px 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+li button.selected,
+li button:hover {
+  background: var(--h-content-border-color);
+}
+
+.error {
+  margin: 0;
+  color: var(--h-danger-color, #c62828);
+}
+
+.hint {
+  margin: 0;
+  color: var(--h-text-muted-color);
+  font-size: 11px;
+}

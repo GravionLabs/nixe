@@ -12,6 +12,34 @@ mod appearance;
 mod attachments;
 mod bookmarks;
 #[cfg(desktop)]
+mod capture;
+#[cfg(desktop)]
+mod capture_app;
+/// Mobile has no global shortcut or capture window; the commands exist so the handler list is shared.
+#[cfg(not(desktop))]
+mod capture_app {
+    const UNSUPPORTED: &str = "capture is not available on mobile";
+
+    #[tauri::command]
+    pub fn capture_save(_text: String) -> Result<String, String> {
+        Err(UNSUPPORTED.into())
+    }
+    #[tauri::command]
+    pub fn capture_note_names() -> Vec<String> {
+        Vec::new()
+    }
+    #[tauri::command]
+    pub fn capture_link_title(_url: String) -> Option<String> {
+        None
+    }
+    #[tauri::command]
+    pub fn capture_hide() {}
+    #[tauri::command]
+    pub fn capture_apply() -> Result<(), String> {
+        Ok(())
+    }
+}
+#[cfg(desktop)]
 pub mod cli;
 #[cfg(desktop)]
 pub mod cli_export;
@@ -1086,7 +1114,13 @@ pub fn run() {
     {
         builder = builder
             .plugin(tauri_plugin_updater::Builder::new().build())
-            .plugin(tauri_plugin_process::init());
+            .plugin(tauri_plugin_process::init())
+            .plugin(tauri_plugin_clipboard_manager::init());
+    }
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(capture_app::plugin());
     }
 
     #[cfg(desktop)]
@@ -1121,6 +1155,11 @@ pub fn run() {
         #[cfg(not(desktop))]
         if let Some(path) = path_from_args(&args, &cwd) {
             *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
+        }
+        // A shortcut that cannot be registered leaves capture off; the settings page shows why.
+        #[cfg(desktop)]
+        if let Err(e) = capture_app::apply(app.handle()) {
+            eprintln!("capture: {e}");
         }
         #[cfg(mobile)]
         if app
@@ -1232,6 +1271,11 @@ pub fn run() {
         credentials::git_token_delete,
         gitclone::git_clone_vault,
         gitclone::git_clone_cancel,
+        capture_app::capture_save,
+        capture_app::capture_note_names,
+        capture_app::capture_link_title,
+        capture_app::capture_hide,
+        capture_app::capture_apply,
         gitsync::git_clone,
         gitsync::git_spike_edit,
         gitsync::git_commit,
@@ -1334,7 +1378,12 @@ pub fn run() {
         credentials::git_token_set,
         credentials::git_token_delete,
         gitclone::git_clone_vault,
-        gitclone::git_clone_cancel
+        gitclone::git_clone_cancel,
+        capture_app::capture_save,
+        capture_app::capture_note_names,
+        capture_app::capture_link_title,
+        capture_app::capture_hide,
+        capture_app::capture_apply
     ]);
 
     let app = builder

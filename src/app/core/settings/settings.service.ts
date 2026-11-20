@@ -6,7 +6,7 @@ import type { TreeSort } from "../workspace/tree-model";
 import type { LinkPreviewMode } from "../preview/preview-core";
 import type { VaultState, VaultStates } from "../workspace/recent-vaults";
 import { addRecent, pruneStates, removeRecent } from "../workspace/recent-vaults";
-import type { PropertiesDisplay, StoredSettings, ThemeMode } from "./settings-core";
+import type { CaptureTarget, PropertiesDisplay, StoredSettings, ThemeMode } from "./settings-core";
 import {
   LEGACY_STORAGE_KEY,
   ZOOM_MAX,
@@ -146,6 +146,12 @@ export class SettingsService {
   /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
   readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
+  /** The capture window (#118): its global shortcut ("" is off), the target and the inbox. */
+  readonly captureShortcut = signal<string>(this.stored.captureShortcut);
+  readonly captureTarget = signal<CaptureTarget>(this.stored.captureTarget);
+  readonly captureInbox = signal<string>(this.stored.captureInbox);
+  readonly captureTemplate = signal<string>(this.stored.captureTemplate);
+
   private readonly systemDark = signal(false);
   readonly dark = computed(
     () => this.themeMode() === "dark" || (this.themeMode() === "system" && this.systemDark()),
@@ -205,6 +211,10 @@ export class SettingsService {
       treeSort: this.treeSort(),
       treeGitStatus: this.treeGitStatus(),
       shortcuts: this.shortcuts(),
+      captureShortcut: this.captureShortcut(),
+      captureTarget: this.captureTarget(),
+      captureInbox: this.captureInbox(),
+      captureTemplate: this.captureTemplate(),
     };
   }
 
@@ -250,6 +260,10 @@ export class SettingsService {
     this.treeSort.set(s.treeSort);
     this.treeGitStatus.set(s.treeGitStatus);
     this.shortcuts.set(s.shortcuts);
+    this.captureShortcut.set(s.captureShortcut);
+    this.captureTarget.set(s.captureTarget);
+    this.captureInbox.set(s.captureInbox);
+    this.captureTemplate.set(s.captureTemplate);
   }
 
   /** True once the settings file is known to be readable; only then it is written. */

@@ -44,6 +44,19 @@ describe("sanitizeSettings", () => {
     expect(s.treeGitStatus).toBe(true);
     expect(sanitizeSettings({ treeGitStatus: false }).treeGitStatus).toBe(false);
     expect(sanitizeSettings({ treeGitStatus: "no" }).treeGitStatus).toBe(true);
+    expect(s.captureShortcut).toBe("");
+    expect(s.captureTarget).toBe("daily");
+    expect(
+      sanitizeSettings({
+        captureShortcut: " Alt+Space ",
+        captureTarget: "inbox",
+        captureInbox: "In",
+      }),
+    ).toMatchObject({ captureShortcut: "Alt+Space", captureTarget: "inbox", captureInbox: "In" });
+    expect(sanitizeSettings({ captureTarget: "x", captureShortcut: 3 })).toMatchObject({
+      captureTarget: "daily",
+      captureShortcut: "",
+    });
     expect(s.propertiesDisplay).toBe("visible");
     expect(sanitizeSettings({ propertiesDisplay: "folded" }).propertiesDisplay).toBe("folded");
     expect(sanitizeSettings({ propertiesDisplay: "hidden" }).propertiesDisplay).toBe("hidden");
