@@ -23,7 +23,12 @@ import { slugify } from "../../core/markdown/markdown-renderer";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { decorateCodeBlocks, handleCopyClick } from "../../core/markdown/code-blocks";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
-import { assetFilePath, decorateImages, imageNaturalSize, revealLabel } from "../../core/markdown/image-zoom";
+import {
+  assetFilePath,
+  decorateImages,
+  imageNaturalSize,
+  revealLabel,
+} from "../../core/markdown/image-zoom";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
@@ -133,8 +138,12 @@ const DIALOG_ZOOM_STEP = 1.1;
             </svg>
           </button>
           @if (dialogFile(); as file) {
-            <button type="button" class="text" (click)="openDialogFile(file)">Open with default app</button>
-            <button type="button" class="text" (click)="revealDialogFile(file)">{{ revealText }}</button>
+            <button type="button" class="text" (click)="openDialogFile(file)">
+              Open with default app
+            </button>
+            <button type="button" class="text" (click)="revealDialogFile(file)">
+              {{ revealText }}
+            </button>
           }
         </div>
         <button type="button" class="close" (click)="closeDiagram()" aria-label="Close">✕</button>
@@ -152,9 +161,22 @@ const DIALOG_ZOOM_STEP = 1.1;
     </div>
 
     @if (imageMenu(); as m) {
-      <div class="menu-backdrop" (click)="imageMenu.set(null)" (contextmenu)="$event.preventDefault(); imageMenu.set(null)" role="presentation"></div>
-      <ul class="menu" role="menu" [style.left.px]="m.x" [style.top.px]="m.y" (keydown.escape)="imageMenu.set(null)">
-        <li role="none"><button type="button" role="menuitem" (click)="openMenuImage()">Open image</button></li>
+      <div
+        class="menu-backdrop"
+        (click)="imageMenu.set(null)"
+        (contextmenu)="$event.preventDefault(); imageMenu.set(null)"
+        role="presentation"
+      ></div>
+      <ul
+        class="menu"
+        role="menu"
+        [style.left.px]="m.x"
+        [style.top.px]="m.y"
+        (keydown.escape)="imageMenu.set(null)"
+      >
+        <li role="none">
+          <button type="button" role="menuitem" (click)="openMenuImage()">Open image</button>
+        </li>
       </ul>
     }
   `,
@@ -195,7 +217,9 @@ export class ViewerComponent {
   /** File of the image in the dialog (offers "Open with default app" and reveal); null for diagrams and remote images. */
   protected readonly dialogFile = signal<string | null>(null);
   /** The "Open image" menu of an image that sits inside a link. */
-  protected readonly imageMenu = signal<{ x: number; y: number; img: HTMLImageElement } | null>(null);
+  protected readonly imageMenu = signal<{ x: number; y: number; img: HTMLImageElement } | null>(
+    null,
+  );
   protected readonly revealText = revealLabel(navigator.userAgent);
   protected readonly panning = signal(false);
   private pan: { x: number; y: number; left: number; top: number } | null = null;
@@ -523,7 +547,9 @@ export class ViewerComponent {
    * of stretching an already-rasterized bitmap — the latter looks blurry when zoomed in.
    */
   private applyDialogZoom(): void {
-    const svg = this.dialogContent()?.nativeElement.querySelector<SVGSVGElement | HTMLImageElement>("svg, img");
+    const svg = this.dialogContent()?.nativeElement.querySelector<SVGSVGElement | HTMLImageElement>(
+      "svg, img",
+    );
     const size = this.dialogNaturalSize;
     if (!svg || !size) return;
     const zoom = this.dialogZoom();
@@ -546,7 +572,12 @@ export class ViewerComponent {
   protected onPanStart(event: PointerEvent): void {
     if (event.button !== 0) return;
     const viewport = event.currentTarget as HTMLElement;
-    this.pan = { x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop };
+    this.pan = {
+      x: event.clientX,
+      y: event.clientY,
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop,
+    };
     this.panning.set(true);
     viewport.setPointerCapture?.(event.pointerId);
   }
@@ -607,7 +638,12 @@ export class ViewerComponent {
   /** Enter on a focused image opens it. */
   protected onContentKeydown(event: KeyboardEvent): void {
     const target = event.target;
-    if (event.key !== "Enter" || !(target instanceof HTMLImageElement) || !target.hasAttribute("data-zoomable")) return;
+    if (
+      event.key !== "Enter" ||
+      !(target instanceof HTMLImageElement) ||
+      !target.hasAttribute("data-zoomable")
+    )
+      return;
     event.preventDefault();
     this.openImage(target);
   }
@@ -670,7 +706,10 @@ export class ViewerComponent {
       return;
     }
 
-    if (target instanceof HTMLInputElement && target.classList.contains("task-list-item-checkbox")) {
+    if (
+      target instanceof HTMLInputElement &&
+      target.classList.contains("task-list-item-checkbox")
+    ) {
       const run = this.toggleQueue.then(() => this.toggleTask(event, target));
       this.toggleQueue = run.catch(() => undefined);
       await run;

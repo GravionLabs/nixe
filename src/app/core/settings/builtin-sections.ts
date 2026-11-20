@@ -180,8 +180,17 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       title: "Editor",
       order: 20,
       items: () => [
-        toggle("math", "LaTeX math", s.math, "Render $…$ and $$…$$ with KaTeX.", ["formula", "katex"]),
-        toggle("wrap-code", "Wrap lines in code blocks", s.wrapCode, "Wrap long lines instead of scrolling sideways.", ["code", "scroll", "horizontal"]),
+        toggle("math", "LaTeX math", s.math, "Render $…$ and $$…$$ with KaTeX.", [
+          "formula",
+          "katex",
+        ]),
+        toggle(
+          "wrap-code",
+          "Wrap lines in code blocks",
+          s.wrapCode,
+          "Wrap long lines instead of scrolling sideways.",
+          ["code", "scroll", "horizontal"],
+        ),
       ],
     },
     {

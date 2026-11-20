@@ -18,7 +18,9 @@ export function sourceOf(block: HTMLElement): string {
 }
 
 function language(pre: HTMLElement): string {
-  const cls = Array.from(pre.querySelector("code")?.classList ?? []).find((c) => c.startsWith("language-"));
+  const cls = Array.from(pre.querySelector("code")?.classList ?? []).find((c) =>
+    c.startsWith("language-"),
+  );
   return cls ? cls.slice("language-".length) : "";
 }
 
@@ -53,18 +55,23 @@ function makeBar(label: string): HTMLElement {
  */
 export function decorateCodeBlocks(root: HTMLElement): void {
   for (const pre of Array.from(root.querySelectorAll<HTMLElement>("pre"))) {
-    if (pre.classList.contains("mermaid") || pre.closest(`.${CODE_BLOCK_CLASS}, .mermaid-error`)) continue;
+    if (pre.classList.contains("mermaid") || pre.closest(`.${CODE_BLOCK_CLASS}, .mermaid-error`))
+      continue;
     const wrap = document.createElement("div");
     wrap.className = CODE_BLOCK_CLASS;
     // Scroll sync looks for the top-level blocks with a source line.
     // markdown-it puts it on the `<code>` of a fence.
-    const line = pre.dataset["line"] ?? pre.querySelector<HTMLElement>(":scope > code")?.dataset["line"];
+    const line =
+      pre.dataset["line"] ?? pre.querySelector<HTMLElement>(":scope > code")?.dataset["line"];
     if (line !== undefined) wrap.dataset["line"] = line;
     pre.replaceWith(wrap);
     wrap.append(pre, makeBar(language(pre)));
   }
-  for (const block of Array.from(root.querySelectorAll<HTMLElement>(".katex-display, .mermaid-diagram"))) {
-    if (block.querySelector(`:scope > .code-tools`) || block.closest(`.${CODE_BLOCK_CLASS}`)) continue;
+  for (const block of Array.from(
+    root.querySelectorAll<HTMLElement>(".katex-display, .mermaid-diagram"),
+  )) {
+    if (block.querySelector(`:scope > .code-tools`) || block.closest(`.${CODE_BLOCK_CLASS}`))
+      continue;
     block.classList.add(CODE_BLOCK_CLASS, "code-block-source");
     block.append(makeBar(""));
   }

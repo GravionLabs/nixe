@@ -4,11 +4,15 @@ import { assetFilePath, decorateImages, imageNaturalSize, revealLabel } from "./
 
 describe("assetFilePath", () => {
   it("reverses convertFileSrc on macOS/Linux", () => {
-    expect(assetFilePath(`asset://localhost/${encodeURIComponent("/home/me/notes/a b.png")}`)).toBe("/home/me/notes/a b.png");
+    expect(assetFilePath(`asset://localhost/${encodeURIComponent("/home/me/notes/a b.png")}`)).toBe(
+      "/home/me/notes/a b.png",
+    );
   });
 
   it("reverses convertFileSrc on Windows", () => {
-    expect(assetFilePath(`http://asset.localhost/${encodeURIComponent("C:\\notes\\x.svg")}`)).toBe("C:\\notes\\x.svg");
+    expect(assetFilePath(`http://asset.localhost/${encodeURIComponent("C:\\notes\\x.svg")}`)).toBe(
+      "C:\\notes\\x.svg",
+    );
   });
 
   it("has no file for remote, data and invalid sources", () => {
@@ -30,14 +34,23 @@ describe("revealLabel", () => {
 
 describe("imageNaturalSize", () => {
   it("uses the natural size", () => {
-    expect(imageNaturalSize({ naturalWidth: 800, naturalHeight: 600, clientWidth: 100, clientHeight: 75 })).toEqual({
+    expect(
+      imageNaturalSize({
+        naturalWidth: 800,
+        naturalHeight: 600,
+        clientWidth: 100,
+        clientHeight: 75,
+      }),
+    ).toEqual({
       width: 800,
       height: 600,
     });
   });
 
   it("falls back to the shown size for an SVG without intrinsic size", () => {
-    expect(imageNaturalSize({ naturalWidth: 0, naturalHeight: 0, clientWidth: 400, clientHeight: 200 })).toEqual({
+    expect(
+      imageNaturalSize({ naturalWidth: 0, naturalHeight: 0, clientWidth: 400, clientHeight: 200 }),
+    ).toEqual({
       width: 400,
       height: 200,
     });
