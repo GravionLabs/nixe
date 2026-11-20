@@ -184,6 +184,14 @@ export function viewerTopLine(blocks: readonly LineBlock[], viewportTop: number)
   return block.line + 1;
 }
 
+/** How long the Undo of a reload from the external-change bar stays offered (#247). */
+export const UNDO_RELOAD_MS = 10_000;
+
+/** The text a reload throws away: the editor text before it, or null when the reload loses nothing. */
+export function discardedByReload(before: string, after: string): string | null {
+  return before === after ? null : before;
+}
+
 /**
  * The smallest single replacement that turns `from` into `to`: common start and end are kept, so
  * a cursor outside the change stays where it is. Null when the texts are equal.
