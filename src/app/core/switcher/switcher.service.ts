@@ -17,12 +17,15 @@ export class SwitcherService {
   readonly selected = signal(0);
   private readonly entries = signal<SwitcherEntry[]>([]);
   /** Vault-relative paths of opened notes, newest first. */
-  private readonly recent = signal<string[]>([]);
-  /** The recently opened notes (vault-relative paths), newest first. */
-  readonly recentNotes = this.recent.asReadonly();
+  private readonly opened = signal<{ root: string; rel: string }[]>([]);
+  /** The recently opened notes of the current vault (vault-relative paths), newest first. */
+  readonly recentNotes = computed(() => {
+    const root = this.workspace.vaultRoot();
+    return this.opened().filter((o) => o.root === root).map((o) => o.rel);
+  });
 
   readonly matches = computed<SwitcherMatch[]>(() =>
-    rank(this.entries(), this.query(), this.recent()).slice(0, MAX_RESULTS),
+    rank(this.entries(), this.query(), this.recentNotes()).slice(0, MAX_RESULTS),
   );
 
   async open(): Promise<void> {
@@ -57,7 +60,7 @@ export class SwitcherService {
     const root = this.workspace.vaultRoot();
     if (!root || !absolutePath.startsWith(root + "/")) return;
     const rel = absolutePath.slice(root.length + 1);
-    this.recent.update((r) => [rel, ...r.filter((p) => p !== rel)].slice(0, MAX_RECENT));
+    this.opened.update((r) => [{ root, rel }, ...r.filter((o) => o.root !== root || o.rel !== rel)].slice(0, MAX_RECENT));
   }
 
   private async loadEntries(): Promise<SwitcherEntry[]> {
