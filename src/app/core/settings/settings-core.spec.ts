@@ -24,6 +24,9 @@ describe("sanitizeSettings", () => {
     expect(s.extractEmbed).toBe(false);
     expect(sanitizeSettings({ extractEmbed: true }).extractEmbed).toBe(true);
     expect(sanitizeSettings({ extractEmbed: 1 }).extractEmbed).toBe(false);
+    expect(s.treeSort).toBe("name-asc");
+    expect(sanitizeSettings({ treeSort: "modified-desc" }).treeSort).toBe("modified-desc");
+    expect(sanitizeSettings({ treeSort: "bogus" }).treeSort).toBe("name-asc");
     expect(s.appearanceTheme).toBe("");
     expect(s.snippets).toEqual([]);
     expect(s.accentColor).toBe("");

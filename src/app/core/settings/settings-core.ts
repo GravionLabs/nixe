@@ -2,6 +2,7 @@ import { sanitizeAccent, sanitizeFont, sanitizeNames } from "../appearance/appea
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
 import { LinkPreviewMode, sanitizeMode } from "../preview/preview-core";
+import { TreeSort, sanitizeTreeSort } from "../workspace/tree-model";
 import { VaultStates, sanitizeRecent, sanitizeStates } from "../workspace/recent-vaults";
 
 export type ThemeMode = "system" | "light" | "dark";
@@ -53,6 +54,8 @@ export interface StoredSettings {
   /** Font families of the text and of the code; "" keeps the default (#114). */
   fontText: string;
   fontMono: string;
+  /** Order of the file tree (#230). */
+  treeSort: TreeSort;
   /** Shortcut of a command id that differs from its default; "" means removed. */
   shortcuts: Record<string, string>;
 }
@@ -89,6 +92,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   accentColor: "",
   fontText: "",
   fontMono: "",
+  treeSort: "name-asc",
   shortcuts: {},
 };
 
@@ -133,6 +137,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     accentColor: sanitizeAccent(o["accentColor"]),
     fontText: sanitizeFont(o["fontText"]),
     fontMono: sanitizeFont(o["fontMono"]),
+    treeSort: sanitizeTreeSort(o["treeSort"]),
     shortcuts: sanitizeShortcuts(o["shortcuts"]),
   };
 }

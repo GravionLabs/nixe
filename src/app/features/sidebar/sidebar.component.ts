@@ -6,7 +6,7 @@ import { ChangesService } from "../../core/git/changes.service";
 import { basename } from "../../core/markdown/paths";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
-import { conflictPaths } from "../../core/workspace/tree-model";
+import { TREE_SORTS, TREE_SORT_LABELS, TreeSort, conflictPaths } from "../../core/workspace/tree-model";
 import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
 
 /** The context menu: where it is shown and what it acts on (`null`: the empty area, i.e. the root). */
@@ -28,12 +28,15 @@ export class SidebarComponent {
   private readonly ops = inject(VaultOpsService);
   private readonly tabs = inject(TabsService);
   private readonly bookmarks = inject(BookmarksService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly error = output<string>();
 
   /** Files of a sync conflict: the copies and the originals next to them. */
   protected readonly conflicted = computed(() =>
     conflictPaths(this.workspace.visible().flatMap((n) => (n.filePath ? [n.filePath] : []))),
   );
+  protected readonly sortMenu = signal<{ x: number; y: number } | null>(null);
+  protected readonly sortOptions = TREE_SORTS.map((value) => ({ value, label: TREE_SORT_LABELS[value] }));
   protected readonly menu = signal<MenuState | null>(null);
   /** Path of the entry whose name is being edited. */
   protected readonly renaming = signal<string | null>(null);
@@ -47,6 +50,11 @@ export class SidebarComponent {
       : "Show in file manager";
 
   constructor() {
+    // Reveal the active note: once the expanded folders are rendered, scroll its row into view.
+    effect(() => {
+      if (this.workspace.revealRequest() === 0) return;
+      setTimeout(() => this.host.nativeElement.querySelector(".row.active")?.scrollIntoView?.({ block: "nearest" }));
+    });
     effect(() => {
       const input = this.renameInput()?.nativeElement;
       if (!input) return;
@@ -54,6 +62,16 @@ export class SidebarComponent {
       const dot = input.value.lastIndexOf(".");
       input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
     });
+  }
+
+  protected openSortMenu(event: MouseEvent): void {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.sortMenu.set({ x: rect.left, y: rect.bottom });
+  }
+
+  protected chooseSort(sort: TreeSort): Promise<void> {
+    this.sortMenu.set(null);
+    return this.attempt(() => this.workspace.setSort(sort));
   }
 
   protected path(node: TreeNode): string {

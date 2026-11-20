@@ -18,6 +18,16 @@ pub struct DirEntry {
     pub is_dir: bool,
     /// Directory contains an Azure DevOps `.order` file.
     pub has_order: bool,
+    /// Last modification in milliseconds since the Unix epoch; 0 when unknown.
+    pub modified: u64,
+}
+
+fn modified_ms(path: &Path) -> u64 {
+    std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |d| d.as_millis() as u64)
 }
 
 fn is_markdown(path: &Path) -> bool {
@@ -82,6 +92,7 @@ pub fn list_dir(dir: &Path) -> Result<Vec<DirEntry>, String> {
         if visible {
             entries.push(DirEntry {
                 has_order: is_dir && path.join(".order").is_file(),
+                modified: modified_ms(&path),
                 path: crate::path_to_string(&path),
                 name,
                 is_dir,
@@ -129,6 +140,18 @@ mod tests {
             .map(|e| e.name)
             .collect();
         assert_eq!(names, ["Home.md", "Zeta", "Alpha.md", "Beta.md"]);
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn reports_the_modified_time_in_milliseconds() {
+        let root = std::env::temp_dir().join(format!("nixe-tree-mtime-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("Note.md"), "").unwrap();
+        let entries = list_dir(&root).unwrap();
+        // After 2001-09-09 in milliseconds, so not seconds and not the 0 of an unknown time.
+        assert!(entries[0].modified > 1_000_000_000_000);
         fs::remove_dir_all(&root).unwrap();
     }
 }

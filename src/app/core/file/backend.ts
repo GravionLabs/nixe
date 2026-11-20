@@ -7,6 +7,8 @@ export interface DirEntry {
   isDir: boolean;
   /** Directory contains an Azure DevOps `.order` file. */
   hasOrder: boolean;
+  /** Last modification in milliseconds since the epoch; 0 when unknown. */
+  modified: number;
 }
 
 export interface IndexStatus {

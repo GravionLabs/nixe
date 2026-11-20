@@ -2,6 +2,7 @@ import { Injectable, computed, effect, inject, signal } from "@angular/core";
 import { HxTheme } from "@gravionlabs/helix-ui";
 
 import { backend } from "../file/backend";
+import type { TreeSort } from "../workspace/tree-model";
 import { LinkPreviewMode } from "../preview/preview-core";
 import {
   VaultState,
@@ -98,6 +99,9 @@ export class SettingsService {
   readonly fontText = signal<string>(this.stored.fontText);
   readonly fontMono = signal<string>(this.stored.fontMono);
 
+  /** Order of the file tree (#230). */
+  readonly treeSort = signal<TreeSort>(this.stored.treeSort);
+
   /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
   readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
@@ -151,6 +155,7 @@ export class SettingsService {
       accentColor: this.accentColor(),
       fontText: this.fontText(),
       fontMono: this.fontMono(),
+      treeSort: this.treeSort(),
       shortcuts: this.shortcuts(),
     };
   }
@@ -188,6 +193,7 @@ export class SettingsService {
     this.accentColor.set(s.accentColor);
     this.fontText.set(s.fontText);
     this.fontMono.set(s.fontMono);
+    this.treeSort.set(s.treeSort);
     this.shortcuts.set(s.shortcuts);
   }
 
