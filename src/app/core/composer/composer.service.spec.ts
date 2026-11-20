@@ -14,8 +14,12 @@ import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { SettingsService } from "../settings/settings.service";
+import { VaultUndoService } from "../workspace/vault-undo.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { ComposerService } from "./composer.service";
+
+const author = { name: "A", email: "a@x" };
+const undo = { author: () => author, offer: vi.fn() };
 
 describe("ComposerService", () => {
   const path = signal<string | null>("/v/A.md");
@@ -58,6 +62,7 @@ describe("ComposerService", () => {
         { provide: DocumentService, useValue: doc },
         { provide: EditorService, useValue: editor },
         { provide: SettingsService, useValue: settings },
+        { provide: VaultUndoService, useValue: undo },
       ],
     });
     composer = TestBed.inject(ComposerService);
@@ -98,7 +103,8 @@ describe("ComposerService", () => {
     expect(await composer.choose({ path: "B.md", create: false })).toBe(true);
     const what = { kind: "selection", start: 2, end: 5, expected: "abc" };
     expect(preview).toHaveBeenCalledWith("/v/A.md", "/v/B.md", what, false);
-    expect(extract).toHaveBeenCalledWith("/v/A.md", "/v/B.md", what, false);
+    expect(extract).toHaveBeenCalledWith("/v/A.md", "/v/B.md", what, false, author);
+    expect(undo.offer).toHaveBeenCalled();
     expect(vi.mocked(ask).mock.calls[0][0]).toContain("B.md (text added)");
     expect(doc.reload).toHaveBeenCalled();
     expect(composer.visible()).toBe(false);
@@ -116,6 +122,7 @@ describe("ComposerService", () => {
       "/v/Idea.md",
       { kind: "heading", line: 3 },
       true,
+      author,
     );
   });
 
@@ -133,7 +140,8 @@ describe("ComposerService", () => {
     const merge = vi.spyOn(backend, "mergeNote").mockResolvedValue([]);
     await composer.mergeInto();
     await composer.choose({ path: "B.md", create: false });
-    expect(merge).toHaveBeenCalledWith("/v/A.md", "/v/B.md");
+    expect(merge).toHaveBeenCalledWith("/v/A.md", "/v/B.md", author);
+    expect(undo.offer).toHaveBeenCalled();
     expect(doc.open).toHaveBeenCalledWith("/v/B.md", { addToHistory: false });
   });
 });
