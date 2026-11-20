@@ -336,6 +336,24 @@ export interface DeletedNote {
 }
 
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
+export type RootKind = "obsidian" | "wiki" | "folder";
+
+export interface WorkspaceRoot {
+  path: string;
+  name: string;
+  kind: RootKind;
+}
+
+export interface Workspace {
+  name: string;
+  roots: WorkspaceRoot[];
+}
+
+export interface ResolvedLink {
+  root: string;
+  path: string;
+}
+
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
@@ -421,6 +439,17 @@ export const backend = {
   findWikiRoot: (path: string) => invoke<string>("find_wiki_root", { path }),
   findVaultRoot: (path: string) => invoke<string>("find_vault_root", { path }),
   listVaultFiles: (root: string) => invoke<string[]>("list_vault_files", { root }),
+  /** The names of the saved workspaces (app data directory, never the folders). */
+  workspaceList: () => invoke<string[]>("workspace_list"),
+  workspaceLoad: (name: string) => invoke<Workspace>("workspace_load", { name }),
+  workspaceSave: (workspace: Workspace) => invoke<void>("workspace_save", { workspace }),
+  workspaceDelete: (name: string) => invoke<void>("workspace_delete", { name }),
+  /** `workspace` with the folder added as a root; the backend detects its kind. */
+  workspaceAddRoot: (workspace: Workspace, path: string) =>
+    invoke<Workspace>("workspace_add_root", { workspace, path }),
+  /** Resolves link targets of a note in root `from`; `Root name:Note` reaches another root. */
+  workspaceResolveLinks: (workspace: Workspace, from: string, targets: string[]) =>
+    invoke<(ResolvedLink | null)[]>("workspace_resolve_links", { workspace, from, targets }),
   /** Starts the background scan of the vault index; returns at once. */
   indexStart: (root: string) => invoke<void>("index_start", { root }),
   indexStatus: () => invoke<IndexStatus>("index_status"),

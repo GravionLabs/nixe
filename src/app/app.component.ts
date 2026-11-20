@@ -46,6 +46,7 @@ import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
 import { TemplateService } from "./core/templates/template.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
+import { WorkspacesService } from "./core/workspace/workspaces.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
 import { TREE_SORTS, TREE_SORT_LABELS } from "./core/workspace/tree-model";
 import { VaultOpsService } from "./core/workspace/vault-ops.service";
@@ -140,6 +141,7 @@ export class AppComponent {
   private readonly commands = inject(CommandRegistry);
   protected readonly palette = inject(PaletteService);
   protected readonly recent = inject(RecentPickerService);
+  private readonly workspaces = inject(WorkspacesService);
   protected readonly settingsPage = inject(SettingsPageService);
   /** Applies the user's shortcuts to the key handling and the native menu. */
   private readonly shortcuts = inject(ShortcutService);
@@ -249,6 +251,7 @@ export class AppComponent {
       await this.updater.init();
       await this.index.init();
       await this.bookmarks.init();
+      await this.workspaces.refreshSaved();
       await this.autoSync.listenWindow();
       await listen<string>(MENU_EVENT, (e) => this.commands.execute(e.payload));
 
@@ -537,6 +540,18 @@ export class AppComponent {
         title: "Check for updates…",
         when: () => !isPrerelease(this.updater.version()),
         run: () => this.updater.check(),
+      },
+      {
+        id: "add-folder-to-workspace",
+        title: "Add folder to workspace…",
+        when: () => this.workspace.root() !== null,
+        run: () => this.run(() => this.workspaces.addFolderWithDialog()),
+      },
+      {
+        id: "save-workspace",
+        title: "Save workspace",
+        when: () => this.workspaces.current() !== null,
+        run: () => this.run(() => this.workspaces.save()),
       },
       {
         id: "open-recent",
