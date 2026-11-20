@@ -32,6 +32,16 @@ export interface Backlink {
   context: string;
 }
 
+/** A note close to another one, ranked in the Rust index. */
+export interface RelatedNote {
+  /** Vault-relative path. */
+  path: string;
+  title: string;
+  score: number;
+  /** Why it is related, strongest first: `links here`, `2 shared tags`, `both linked from X`. */
+  reasons: string[];
+}
+
 /** A plain-text mention of the title or an alias of a note in another note. */
 export interface UnlinkedMention {
   /** Vault-relative path of the note holding the mention. */
@@ -471,6 +481,8 @@ export const backend = {
   indexStatus: () => invoke<IndexStatus>("index_status"),
   notes: () => invoke<NoteSummary[]>("notes"),
   backlinks: (path: string) => invoke<Backlink[]>("backlinks", { path }),
+  /** Notes close to the note, nearest first, each with the reasons. */
+  relatedNotes: (path: string) => invoke<RelatedNote[]>("related_notes", { path }),
   /** Plain-text mentions of the title or an alias of the note, computed on demand. */
   unlinkedMentions: (path: string) => invoke<UnlinkedMention[]>("unlinked_mentions", { path }),
   /** Turns a mention into a `[[link]]` to `target` (both vault-relative paths). */

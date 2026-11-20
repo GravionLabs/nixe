@@ -1,0 +1,35 @@
+@switch (related.state()) {
+  @case ("loading") {
+    <p class="status" role="status">Indexing the vault…</p>
+  }
+  @case ("error") {
+    <p class="status" role="alert">The vault index is not available.</p>
+  }
+  @case ("ready") {
+    <section aria-label="Related notes">
+      <h2>
+        Related notes <span class="count">{{ related.notes().length }}</span>
+      </h2>
+      @if (related.notes().length === 0) {
+        <p class="status">No related notes</p>
+      } @else {
+        <ul>
+          @for (note of related.notes(); track note.path) {
+            <li>
+              <button
+                type="button"
+                (click)="open(note, $event)"
+                (mousemove)="hover($event, note)"
+                (mouseleave)="leave()"
+                [title]="note.path"
+              >
+                <span class="name">{{ note.title }}</span>
+                <span class="context">{{ note.reasons.join(", ") }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+}
