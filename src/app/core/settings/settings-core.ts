@@ -11,6 +11,12 @@ import { sanitizeRecent, sanitizeStates } from "../workspace/recent-vaults";
 
 export type ThemeMode = "system" | "light" | "dark";
 
+export type PropertiesDisplay = "visible" | "folded" | "hidden";
+
+export function sanitizePropertiesDisplay(value: unknown): PropertiesDisplay {
+  return value === "folded" || value === "hidden" ? value : "visible";
+}
+
 /** Key of the settings in `localStorage` before they moved to the app config directory. */
 export const LEGACY_STORAGE_KEY = "nixe.settings";
 
@@ -53,6 +59,8 @@ export interface StoredSettings {
   extractEmbed: boolean;
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   wrapCode: boolean;
+  /** How the properties of a note show in the document: all, one summary line or not at all (#290). */
+  propertiesDisplay: PropertiesDisplay;
   /** Name of the theme file (without `.css`) in `themes/` of the app config directory; "" is the built-in look (#114). */
   appearanceTheme: string;
   /** Names of the enabled snippets of `snippets/` (#114). */
@@ -99,6 +107,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   bookmarksInVault: false,
   extractEmbed: false,
   wrapCode: false,
+  propertiesDisplay: "visible",
   appearanceTheme: "",
   snippets: [],
   accentColor: "",
@@ -157,6 +166,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     bookmarksInVault: o["bookmarksInVault"] === true,
     extractEmbed: o["extractEmbed"] === true,
     wrapCode: o["wrapCode"] === true,
+    propertiesDisplay: sanitizePropertiesDisplay(o["propertiesDisplay"]),
     appearanceTheme: text(o["appearanceTheme"], d.appearanceTheme),
     snippets: sanitizeNames(o["snippets"]),
     accentColor: sanitizeAccent(o["accentColor"]),

@@ -8,6 +8,7 @@ import type { SettingItem, SettingsSection } from "./settings-registry";
 import type { SettingsService } from "./settings.service";
 import { ZOOM_MAX, ZOOM_MIN } from "./settings.service";
 import type { ThemeMode } from "./settings-core";
+import { sanitizePropertiesDisplay } from "./settings-core";
 
 /** What the built-in sections read besides the settings themselves. */
 export interface SectionSources {
@@ -325,6 +326,20 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           ],
           get: () => s.linkPreview(),
           set: (v) => s.linkPreview.set(sanitizeMode(v)),
+        },
+        {
+          kind: "select",
+          id: "properties-display",
+          label: "Properties in document",
+          description: "How the properties of a note show above its text.",
+          keywords: ["frontmatter", "fold", "hide", "yaml"],
+          options: [
+            { value: "visible", label: "Visible" },
+            { value: "folded", label: "Folded" },
+            { value: "hidden", label: "Hidden" },
+          ],
+          get: () => s.propertiesDisplay(),
+          set: (v) => s.propertiesDisplay.set(sanitizePropertiesDisplay(v)),
         },
         ...appearanceItems(),
       ],
