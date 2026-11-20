@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   frontend:
-    name: frontend (test, build)
+    name: frontend (format, test, build)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -29,6 +29,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
       - run: pnpm test
       - run: pnpm build
 
