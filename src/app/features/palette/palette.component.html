@@ -1,5 +1,4 @@
-<div class="backdrop" (click)="palette.close()" role="presentation"></div>
-<div class="dialog" role="dialog" aria-label="Command palette">
+<hx-dialog [visible]="true" (hidden)="palette.close()" ariaLabel="Command palette" [closable]="false" dismissableMask position="top" width="min(560px, 90vw)">
   <input
     #input
     type="text"
@@ -25,4 +24,4 @@
     }
   </ul>
   <app-key-hints [hints]="hints" />
-</div>
+</hx-dialog>

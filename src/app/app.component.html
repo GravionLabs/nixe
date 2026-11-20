@@ -14,7 +14,7 @@
   (collapsedChange)="settings.sidebarVisible.set(!$event)"
   [activeId]="shell.activeView()"
 >
-  <app-toolbar slot="toolbar" (error)="showToast($event)" />
+  <app-toolbar slot="toolbar" (error)="showError($event)" />
 
   <hx-activity-bar
     slot="activity"
@@ -27,10 +27,10 @@
 
   @switch (shell.shownView()) {
     @case ("files") {
-      <app-sidebar slot="sidebar" (error)="showToast($event)" />
+      <app-sidebar slot="sidebar" (error)="showError($event)" />
     }
     @case ("search") {
-      <app-search slot="sidebar" (error)="showToast($event)" />
+      <app-search slot="sidebar" (error)="showError($event)" />
     }
     @case ("bookmarks") {
       <app-bookmarks slot="sidebar" />
@@ -39,7 +39,7 @@
       <app-history slot="sidebar" />
     }
     @case ("git") {
-      <app-git slot="sidebar" (error)="showToast($event)" (committed)="showToast('Committed')" />
+      <app-git slot="sidebar" (error)="showError($event)" (committed)="showToast('Committed')" />
     }
   }
 
@@ -52,14 +52,14 @@
   }
 
   @if (doc.path()) {
-    <app-conflict-bar (error)="showToast($event)" />
+    <app-conflict-bar (error)="showError($event)" />
   }
 
   <main>
     @if (tabs.showWorkspace()) {
       <app-workspace class="pane" />
     } @else {
-    <app-start class="pane" (error)="showToast($event)" />
+    <app-start class="pane" (error)="showError($event)" />
     }
   </main>
   </div>
@@ -107,7 +107,7 @@
         @if (panelTab() === "outline") {
           <app-outline />
         } @else {
-          <app-backlinks (error)="showToast($event)" />
+          <app-backlinks (error)="showError($event)" />
         }
       </div>
     </div>
@@ -117,15 +117,15 @@
 </hx-app-shell>
 
 @if (showSwitcher()) {
-  <app-switcher (error)="showToast($event)" />
+  <app-switcher (error)="showError($event)" />
 }
 
 @if (composer.visible()) {
-  <app-composer (error)="showToast($event)" />
+  <app-composer (error)="showError($event)" />
 }
 
 @if (templates.visible()) {
-  <app-templates (error)="showToast($event)" />
+  <app-templates (error)="showError($event)" />
 }
 
 @if (cloneVault.visible()) {
@@ -142,6 +142,4 @@
 
 <app-link-preview />
 
-@if (toast(); as message) {
-  <div class="toast" role="status">{{ message }}</div>
-}
+<hx-toast position="bottom-center" />

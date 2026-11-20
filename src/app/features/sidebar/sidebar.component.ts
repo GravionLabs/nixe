@@ -1,4 +1,5 @@
 import { Component, ElementRef, computed, effect, inject, output, signal, viewChild } from "@angular/core";
+import { HxMenu, HxMenuItem } from "@gravionlabs/helix-ui";
 
 import { DocumentService } from "../../core/file/document.service";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
@@ -17,10 +18,8 @@ import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.servi
 /** How long the row of a revealed note flashes. */
 export const FLASH_MS = 2000;
 
-/** The context menu: where it is shown and what it acts on (`null`: the empty area, i.e. the root). */
+/** The context menu: what it acts on (`null`: the empty area, i.e. the root). */
 export interface MenuState {
-  x: number;
-  y: number;
   node: TreeNode | null;
 }
 
@@ -28,6 +27,7 @@ export interface MenuState {
   selector: "app-sidebar",
   templateUrl: "./sidebar.component.html",
   styleUrl: "./sidebar.component.css",
+  imports: [HxMenu],
 })
 export class SidebarComponent {
   protected readonly workspace = inject(WorkspaceService);
@@ -58,9 +58,33 @@ export class SidebarComponent {
   protected readonly conflicted = computed(() =>
     conflictPaths(this.rows().flatMap((n) => (n.filePath ? [n.filePath] : []))),
   );
-  protected readonly sortMenu = signal<{ x: number; y: number } | null>(null);
   protected readonly sortOptions = TREE_SORTS.map((value) => ({ value, label: TREE_SORT_LABELS[value] }));
   protected readonly menu = signal<MenuState | null>(null);
+  private readonly contextMenu = viewChild<HxMenu>("contextMenu");
+  private readonly sortPopup = viewChild<HxMenu>("sortPopup");
+  /** The sort orders as menu entries; the current one is marked. */
+  protected readonly sortItems = computed<HxMenuItem[]>(() =>
+    this.sortOptions.map((option) => ({
+      label: `${this.workspace.sort() === option.value ? "✓ " : ""}${option.label}`,
+      command: () => void this.chooseSort(option.value),
+    })),
+  );
+  /** The entries of the context menu for the node it was opened on. */
+  protected readonly menuItems = computed<HxMenuItem[]>(() => {
+    const node = this.menu()?.node ?? null;
+    return [
+      { label: "New note", command: () => void this.newNote(node) },
+      { label: "New folder", command: () => void this.newFolder(node) },
+      ...(node?.filePath ? [{ label: this.bookmarkLabel(node), command: () => this.bookmark(node) }] : []),
+      ...(node
+        ? [
+            { label: "Rename", command: () => this.beginRename(node) },
+            { label: "Delete", command: () => void this.trashSelection(node) },
+          ]
+        : []),
+      { label: this.revealLabel, command: () => void this.reveal(node) },
+    ];
+  });
   /** Path of the entry whose name is being edited. */
   protected readonly renaming = signal<string | null>(null);
   private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>("renameInput");
@@ -136,12 +160,10 @@ export class SidebarComponent {
   }
 
   protected openSortMenu(event: MouseEvent): void {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    this.sortMenu.set({ x: rect.left, y: rect.bottom });
+    this.sortPopup()?.toggle(event);
   }
 
   protected chooseSort(sort: TreeSort): Promise<void> {
-    this.sortMenu.set(null);
     return this.attempt(() => this.workspace.setSort(sort));
   }
 
@@ -324,11 +346,8 @@ export class SidebarComponent {
   protected openMenu(event: MouseEvent, node: TreeNode | null): void {
     event.preventDefault();
     event.stopPropagation();
-    this.menu.set({ x: event.clientX, y: event.clientY, node });
-  }
-
-  protected closeMenu(): void {
-    this.menu.set(null);
+    this.menu.set({ node });
+    this.contextMenu()?.showAt({ x: event.clientX, y: event.clientY }, event.currentTarget as Element | null);
   }
 
   /** The folder a new entry goes to: the folder itself, the folder of a file, else the tree root. */
@@ -347,9 +366,7 @@ export class SidebarComponent {
     }
   }
 
-  protected newNote(): Promise<void> {
-    const node = this.menu()?.node ?? null;
-    this.closeMenu();
+  protected newNote(node: TreeNode | null = null): Promise<void> {
     return this.attempt(async () => {
       const dir = this.targetDir(node);
       if (!dir) return;
@@ -359,21 +376,13 @@ export class SidebarComponent {
     });
   }
 
-  protected newFolder(): Promise<void> {
-    const node = this.menu()?.node ?? null;
-    this.closeMenu();
+  protected newFolder(node: TreeNode | null = null): Promise<void> {
     return this.attempt(async () => {
       const dir = this.targetDir(node);
       if (!dir) return;
       if (node?.dirPath) await this.workspace.toggle(node, true);
       this.startRenaming(await this.ops.createFolder(dir));
     });
-  }
-
-  protected startRename(): void {
-    const node = this.menu()?.node;
-    this.closeMenu();
-    if (node) this.beginRename(node);
   }
 
   protected beginRename(node: TreeNode): void {
@@ -399,12 +408,6 @@ export class SidebarComponent {
     this.renaming.set(null);
   }
 
-  protected trash(): Promise<void> {
-    const node = this.menu()?.node;
-    this.closeMenu();
-    return node ? this.trashSelection(node) : Promise.resolve();
-  }
-
   /** The label of the bookmark entry for the note of the menu. */
   protected bookmarkLabel(node: TreeNode): string {
     const rel = this.bookmarks.relative(node.filePath);
@@ -413,15 +416,11 @@ export class SidebarComponent {
       : "Bookmark";
   }
 
-  protected bookmark(): void {
-    const node = this.menu()?.node;
-    this.closeMenu();
-    if (node?.filePath) this.bookmarks.toggleNote(node.filePath);
+  protected bookmark(node: TreeNode): void {
+    if (node.filePath) this.bookmarks.toggleNote(node.filePath);
   }
 
-  protected reveal(): Promise<void> {
-    const node = this.menu()?.node;
-    this.closeMenu();
+  protected reveal(node: TreeNode | null): Promise<void> {
     const path = node ? this.path(node) : this.workspace.root();
     return path ? this.attempt(() => this.ops.reveal(path)) : Promise.resolve();
   }

@@ -1,4 +1,5 @@
 import { Component, ElementRef, effect, inject, output, viewChild } from "@angular/core";
+import { HxDialog } from "@gravionlabs/helix-ui";
 
 import { KeyHintsComponent, KeyHint, isMac, modKey } from "./key-hints.component";
 import { DocumentService } from "../../core/file/document.service";
@@ -14,7 +15,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
   selector: "app-switcher",
   templateUrl: "./switcher.component.html",
   styleUrl: "./switcher.component.css",
-  imports: [KeyHintsComponent],
+  imports: [HxDialog, KeyHintsComponent],
 })
 export class SwitcherComponent {
   protected readonly switcher = inject(SwitcherService);

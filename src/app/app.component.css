@@ -24,20 +24,6 @@ main {
   min-width: 0;
 }
 
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  max-width: min(560px, calc(100vw - 32px));
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: var(--h-toast-contrast-background);
-  color: var(--h-toast-contrast-color);
-  font-size: 13px;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
-}
-
 .panel {
   display: flex;
   flex-direction: column;

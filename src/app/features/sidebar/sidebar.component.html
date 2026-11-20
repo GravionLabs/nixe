@@ -116,31 +116,5 @@
   }
 </nav>
 
-@if (sortMenu(); as m) {
-  <div class="menu-backdrop" (click)="sortMenu.set(null)" (contextmenu)="$event.preventDefault(); sortMenu.set(null)" role="presentation"></div>
-  <ul class="menu" role="menu" [style.left.px]="m.x" [style.top.px]="m.y" (keydown.escape)="sortMenu.set(null)">
-    @for (option of sortOptions; track option.value) {
-      <li role="none">
-        <button type="button" role="menuitemradio" [attr.aria-checked]="workspace.sort() === option.value" (click)="chooseSort(option.value)">
-          {{ workspace.sort() === option.value ? "✓ " : "" }}{{ option.label }}
-        </button>
-      </li>
-    }
-  </ul>
-}
-
-@if (menu(); as m) {
-  <div class="menu-backdrop" (click)="closeMenu()" (contextmenu)="$event.preventDefault(); closeMenu()" role="presentation"></div>
-  <ul class="menu" role="menu" [style.left.px]="m.x" [style.top.px]="m.y" (keydown.escape)="closeMenu()">
-    <li role="none"><button type="button" role="menuitem" (click)="newNote()">New note</button></li>
-    <li role="none"><button type="button" role="menuitem" (click)="newFolder()">New folder</button></li>
-    @if (m.node) {
-      @if (m.node.filePath) {
-        <li role="none"><button type="button" role="menuitem" (click)="bookmark()">{{ bookmarkLabel(m.node) }}</button></li>
-      }
-      <li role="none"><button type="button" role="menuitem" (click)="startRename()">Rename</button></li>
-      <li role="none"><button type="button" role="menuitem" (click)="trash()">Delete</button></li>
-    }
-    <li role="none"><button type="button" role="menuitem" (click)="reveal()">{{ revealLabel }}</button></li>
-  </ul>
-}
+<hx-menu #sortPopup popup ariaLabel="Sort order" [model]="sortItems()" />
+<hx-menu #contextMenu popup ariaLabel="File actions" [model]="menuItems()" (hidden)="menu.set(null)" />

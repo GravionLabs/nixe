@@ -1,4 +1,5 @@
 import { Component, inject } from "@angular/core";
+import { HxDialog } from "@gravionlabs/helix-ui";
 
 import { CloneService } from "../../core/git/clone.service";
 import { GitService } from "../../core/git/git.service";
@@ -8,10 +9,16 @@ import { GitService } from "../../core/git/git.service";
   selector: "app-clone",
   templateUrl: "./clone.component.html",
   styleUrl: "./clone.component.css",
+  imports: [HxDialog],
 })
 export class CloneComponent {
   protected readonly clone = inject(CloneService);
   protected readonly git = inject(GitService);
+
+  /** Escape, the close button or the mask; also fires when the dialog is destroyed after the service closed it. */
+  protected onHidden(): void {
+    if (this.clone.visible()) void this.clone.close();
+  }
 
   protected submit(event: Event): void {
     event.preventDefault();
