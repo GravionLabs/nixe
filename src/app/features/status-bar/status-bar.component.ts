@@ -1,9 +1,10 @@
-import { Component, computed, inject } from "@angular/core";
+import { Component, computed, effect, inject, untracked } from "@angular/core";
 import { HxStatusBar, HxStatusItem, HxStatusPopover, HxStatusVersion, HxStatusZoom, getHxPlatform, getHxPlatformKind } from "@gravionlabs/helix-desktop";
 
 import { EditorService } from "../../core/editor/editor.service";
 import { readingTime } from "../../core/editor/text-stats";
 import { CommandRegistry } from "../../core/commands/command-registry";
+import { BacklinksService } from "../../core/index/backlinks.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
 import { ReviewService } from "../../core/git/review.service";
@@ -76,6 +77,17 @@ import { UpdateService } from "../../core/updater/update.service";
           </ng-container>
         }
 
+        @if (links.state() === "ready") {
+          <hx-status-item
+            slot="end"
+            kind="button"
+            class="backlinks"
+            title="Show the links panel"
+            (click)="settings.showPanelTab('links')"
+          >
+            {{ links.backlinks().length }} {{ links.backlinks().length === 1 ? "backlink" : "backlinks" }}
+          </hx-status-item>
+        }
         @if (editor.stats(); as stats) {
           <hx-status-item slot="end" class="words" [title]="readingTime(stats)">
             {{ stats.words }} {{ stats.words === 1 ? "word" : "words" }}, {{ stats.characters }} {{ stats.characters === 1 ? "character" : "characters" }}{{ stats.selection ? " selected" : "" }}
@@ -152,6 +164,7 @@ export class StatusBarComponent {
   protected readonly updater = inject(UpdateService);
   protected readonly commands = inject(CommandRegistry);
   protected readonly editor = inject(EditorService);
+  protected readonly links = inject(BacklinksService);
   protected readonly readingTime = readingTime;
 
   protected readonly zoomMin = ZOOM_MIN;
@@ -170,6 +183,14 @@ export class StatusBarComponent {
     const phase = this.updater.phase();
     return phase === "available" ? "accent" : phase === "error" ? "error" : "neutral";
   });
+
+  constructor() {
+    // The links panel reads the lists only while it is mounted; the count in the bar must follow the index too.
+    effect(() => {
+      this.links.key();
+      untracked(() => void this.links.refresh());
+    });
+  }
 
   /** Opens the list of the notes the last pull changed. */
   protected showPulled(): void {
