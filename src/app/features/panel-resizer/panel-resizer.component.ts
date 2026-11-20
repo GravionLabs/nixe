@@ -34,7 +34,6 @@ import { GRAB_WIDTH, MIN_PANEL_WIDTH, clampPanelWidth, maxPanelWidth, widthAfter
     :host(:focus-visible),
     :host(.dragging) {
       background: var(--h-primary-color);
-      outline: none;
     }
   `,
 })

@@ -44,8 +44,8 @@
 .markdown-body .embed {
   margin: 1em 0;
   padding: 0 1em;
-  border-left: 3px solid var(--border-color, #8884);
-  background: #8881;
+  border-left: 3px solid color-mix(in srgb, var(--h-text-muted-color) 40%, transparent);
+  background: color-mix(in srgb, var(--h-text-muted-color) 8%, transparent);
   border-radius: 4px;
 }
 
@@ -104,16 +104,12 @@
   background: var(--h-primary-color);
 }
 
-.markdown-body:focus {
-  outline: none;
-}
-
 .markdown-body mark.find-hit {
   color: inherit;
-  background: rgb(255 200 0 / 0.4);
+  background: color-mix(in srgb, var(--h-yellow-400) 40%, transparent);
   border-radius: 2px;
 }
 
 .markdown-body mark.find-hit.find-active {
-  background: rgb(255 140 0 / 0.7);
+  background: color-mix(in srgb, var(--h-orange-500) 70%, transparent);
 }

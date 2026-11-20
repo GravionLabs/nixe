@@ -94,7 +94,7 @@ button.close {
 }
 
 mark {
-  background: color-mix(in srgb, gold 45%, transparent);
+  background: color-mix(in srgb, var(--h-yellow-400) 45%, transparent);
   color: var(--h-text-color);
 }
 
@@ -175,11 +175,11 @@ header .bookmark:disabled {
 }
 
 .lines del {
-  background: color-mix(in srgb, #e5484d 25%, transparent);
+  background: color-mix(in srgb, var(--h-red-500) 25%, transparent);
 }
 
 .lines ins {
-  background: color-mix(in srgb, #30a46c 25%, transparent);
+  background: color-mix(in srgb, var(--h-green-500) 25%, transparent);
 }
 
 .line {
