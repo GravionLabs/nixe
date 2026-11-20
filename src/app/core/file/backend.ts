@@ -74,6 +74,22 @@ export interface SearchHit {
   /** Matching lines of the note; `snippets` holds only the first few. */
   matches: number;
   snippets: SearchSnippet[];
+  /** Name of the workspace root the note is in; set by a search over a workspace only (#117). */
+  root?: string;
+  /** Absolute path of that root; `path` is relative to it. */
+  rootPath?: string;
+}
+
+/** A folder of the workspace a search or the quick switcher covers. */
+export interface RootArg {
+  path: string;
+  name: string;
+}
+
+/** A note of a workspace, with its root. */
+export interface WorkspaceNote extends NoteSummary {
+  root: string;
+  rootPath: string;
 }
 
 export interface BrokenLink {
@@ -470,6 +486,13 @@ export const backend = {
   /** Metadata of one indexed note (vault-relative path); null when it is not indexed. */
   noteMeta: (path: string) => invoke<NoteRecord | null>("note_meta", { path }),
   searchNotes: (query: string) => invoke<SearchHit[]>("search_notes", { query }),
+  /** Brings the index of every root up to date; resolves when all are done (#117). */
+  workspaceIndex: (roots: RootArg[]) => invoke<void>("workspace_index", { roots }),
+  /** Search over all roots; each hit names its root. `root:name` in the query narrows it. */
+  searchWorkspace: (roots: RootArg[], query: string) =>
+    invoke<SearchHit[]>("search_workspace", { roots, query }),
+  /** The notes of all roots, for the quick switcher. */
+  workspaceNotes: (roots: RootArg[]) => invoke<WorkspaceNote[]>("workspace_notes", { roots }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Git state of the vault; null when the vault is not a Git repository. */

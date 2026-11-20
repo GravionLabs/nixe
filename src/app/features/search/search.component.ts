@@ -18,12 +18,14 @@ import type { SearchSort } from "../../core/index/search.service";
 import {
   SEARCH_SORTS,
   SearchService,
+  hitKey,
   segments,
   sortHits,
   withOperator,
 } from "../../core/index/search.service";
 import { joinPath } from "../../core/markdown/paths";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { WorkspacesService } from "../../core/workspace/workspaces.service";
 
 const SORT_KEY = "nixe.search.sort";
 
@@ -33,6 +35,12 @@ export const SEARCH_OPERATORS = [
   { insert: "path:", text: "notes in a folder, for example path:work/" },
   { insert: '""', text: "an exact phrase" },
 ] as const;
+
+/** Offered while the workspace has several folders. */
+export const ROOT_OPERATOR = {
+  insert: "root:",
+  text: "notes of one folder of the workspace, for example root:Wiki",
+} as const;
 
 function storedSort(): SearchSort {
   try {
@@ -55,11 +63,15 @@ export class SearchComponent {
   private readonly workspace = inject(WorkspaceService);
   protected readonly replace = inject(ReplaceService);
   private readonly bookmarks = inject(BookmarksService);
+  private readonly workspaces = inject(WorkspacesService);
 
   readonly failed = output<string>();
   protected readonly segments = segments;
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("input");
-  protected readonly operators = SEARCH_OPERATORS;
+  protected readonly operators = computed(() =>
+    this.workspaces.searchRoots() ? [...SEARCH_OPERATORS, ROOT_OPERATOR] : [...SEARCH_OPERATORS],
+  );
+  protected readonly hitKey = hitKey;
   protected readonly sorts = SEARCH_SORTS;
   protected readonly sort = signal<SearchSort>(storedSort());
   protected readonly helpOpen = signal(false);
@@ -68,7 +80,7 @@ export class SearchComponent {
   protected readonly sorted = computed(() => sortHits(this.search.hits(), this.sort()));
   protected readonly allCollapsed = computed(() => {
     const hits = this.search.hits();
-    return hits.length > 0 && hits.every((h) => this.collapsed().has(h.path));
+    return hits.length > 0 && hits.every((h) => this.collapsed().has(hitKey(h)));
   });
 
   constructor() {
@@ -113,9 +125,7 @@ export class SearchComponent {
   }
 
   protected toggleAll(): void {
-    this.collapsed.set(
-      this.allCollapsed() ? new Set() : new Set(this.search.hits().map((h) => h.path)),
-    );
+    this.collapsed.set(this.allCollapsed() ? new Set() : new Set(this.search.hits().map(hitKey)));
   }
 
   protected insertOperator(operator: string): void {
@@ -150,11 +160,11 @@ export class SearchComponent {
   }
 
   protected openHit(hit: SearchHit, snippet?: SearchSnippet): Promise<void> {
-    return this.open(hit.path, snippet?.line ?? null);
+    return this.open(hit.rootPath ?? null, hit.path, snippet?.line ?? null);
   }
 
-  private async open(rel: string, line: number | null): Promise<void> {
-    const root = this.workspace.vaultRoot();
+  private async open(rootPath: string | null, rel: string, line: number | null): Promise<void> {
+    const root = rootPath ?? this.workspace.vaultRoot();
     if (!root) return;
     try {
       await this.doc.open(joinPath(root, rel), { line });

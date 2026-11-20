@@ -402,3 +402,150 @@ fn append_inbox_writes_to_the_inbox_folder() {
         "third\n"
     );
 }
+
+mod several_roots {
+    use super::*;
+
+    /// Two small vaults named `alpha` and `beta` below a temp directory.
+    fn two_vaults(name: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let base = data_dir(&format!("{name}-vaults"));
+        let (a, b) = (base.join("alpha"), base.join("beta"));
+        std::fs::create_dir_all(&a).unwrap();
+        std::fs::create_dir_all(&b).unwrap();
+        std::fs::write(a.join("One.md"), "#red\nshared words\n").unwrap();
+        std::fs::write(b.join("Two.md"), "#red #blue\nshared more\n").unwrap();
+        (base, a, b)
+    }
+
+    fn run_in(base: &Path, name: &str, args: &[&str]) -> Result<String, CliError> {
+        let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+        let mut out = Vec::new();
+        execute(&args, base, &data_dir(name), &mut out)?;
+        Ok(String::from_utf8(out).unwrap())
+    }
+
+    #[test]
+    fn search_covers_every_vault_and_names_the_root() {
+        let (base, _, _) = two_vaults("search");
+        let out = run_in(
+            &base,
+            "search",
+            &[
+                "search", "shared", "--vault", "alpha", "--vault", "beta", "--json",
+            ],
+        )
+        .unwrap();
+        let hits: Value = serde_json::from_str(&out).unwrap();
+        let found: Vec<(String, String)> = hits
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| {
+                (
+                    h["root"].as_str().unwrap().into(),
+                    h["path"].as_str().unwrap().into(),
+                )
+            })
+            .collect();
+        assert!(
+            found.contains(&("alpha".into(), "One.md".into())),
+            "{found:?}"
+        );
+        assert!(
+            found.contains(&("beta".into(), "Two.md".into())),
+            "{found:?}"
+        );
+
+        let text = run_in(
+            &base,
+            "search-text",
+            &[
+                "search",
+                "shared",
+                "root:beta",
+                "--vault",
+                "alpha",
+                "--vault",
+                "beta",
+            ],
+        )
+        .unwrap();
+        assert!(
+            text.contains("beta:Two.md") && !text.contains("One.md"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn tags_add_up_and_notes_name_the_root() {
+        let (base, _, _) = two_vaults("tags");
+        let out = run_in(
+            &base,
+            "tags",
+            &["tags", "--vault", "alpha", "--vault=beta", "--json"],
+        )
+        .unwrap();
+        let tags: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(tags[0], json!({"tag": "red", "count": 2}));
+        assert_eq!(tags[1], json!({"tag": "blue", "count": 1}));
+
+        let out = run_in(
+            &base,
+            "notes",
+            &["notes", "--vault", "alpha", "--vault", "beta", "--json"],
+        )
+        .unwrap();
+        let notes: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(notes[0]["root"], "alpha");
+        assert_eq!(notes[0]["path"], "One.md");
+        assert_eq!(notes[1]["root"], "beta");
+    }
+
+    #[test]
+    fn a_saved_workspace_names_the_roots() {
+        let (base, a, b) = two_vaults("ws");
+        let data = data_dir("ws-data");
+        let mut ws = nixe_lib::workspace::Workspace::new("both").unwrap();
+        ws.add_root(&a).unwrap();
+        ws.add_root(&b).unwrap();
+        nixe_lib::workspace::save(&data, &ws).unwrap();
+        let args: Vec<String> = ["search", "shared", "--workspace", "both"]
+            .map(String::from)
+            .into();
+        let mut out = Vec::new();
+        execute(&args, &base, &data, &mut out).unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(
+            text.contains("alpha:One.md") && text.contains("beta:Two.md"),
+            "{text}"
+        );
+
+        let missing: Vec<String> = ["search", "x", "--workspace", "nope"]
+            .map(String::from)
+            .into();
+        assert!(matches!(
+            execute(&missing, &base, &data, &mut Vec::new()),
+            Err(CliError::Failed(_))
+        ));
+        let both: Vec<String> = ["search", "x", "--workspace", "both", "--vault", "alpha"]
+            .map(String::from)
+            .into();
+        assert!(matches!(
+            execute(&both, &base, &data, &mut Vec::new()),
+            Err(CliError::Usage(_))
+        ));
+    }
+
+    #[test]
+    fn commands_about_one_note_refuse_several_vaults() {
+        let (base, _, _) = two_vaults("one");
+        for args in [
+            &["backlinks", "One", "--vault", "alpha", "--vault", "beta"][..],
+            &["check", "--vault", "alpha", "--vault", "beta"][..],
+            &["daily", "--vault", "alpha", "--vault", "beta"][..],
+        ] {
+            let err = run_in(&base, "one", args).unwrap_err();
+            assert!(matches!(err, CliError::Usage(_)), "{args:?}: {err:?}");
+        }
+    }
+}

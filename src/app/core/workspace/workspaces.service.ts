@@ -1,7 +1,7 @@
-import { Injectable, effect, inject, signal, untracked } from "@angular/core";
+import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import type { Workspace } from "../file/backend";
+import type { RootArg, Workspace } from "../file/backend";
 import { backend } from "../file/backend";
 import { CommandRegistry } from "../commands/command-registry";
 import { basename } from "../markdown/paths";
@@ -34,6 +34,13 @@ export class WorkspacesService {
   /** The workspace of the window; null while only one folder is open. */
   readonly current = signal<Workspace | null>(null);
   readonly saved = signal<string[]>([]);
+  /** The folders search and quick switcher cover; null while the window has one folder. */
+  readonly searchRoots = computed<RootArg[] | null>(() => {
+    const roots = this.current()?.roots ?? [];
+    return roots.length > 1 ? roots.map((r) => ({ path: r.path, name: r.name })) : null;
+  });
+  /** Counts the finished index passes over the further roots, so searches run again. */
+  readonly indexRevision = signal(0);
   private unregister: (() => void)[] = [];
 
   constructor() {
@@ -128,11 +135,23 @@ export class WorkspacesService {
   }
 
   private show(ws: Workspace): void {
+    void this.indexRoots(ws);
     this.workspace.clearExtraRoots();
     const first = this.workspace.vaultRoot();
     for (const root of ws.roots) {
       if (root.path !== first)
         this.workspace.addExtraRoot(root.path, root.name || basename(root.path));
     }
+  }
+
+  /** Scans the folders of the workspace so that search finds their notes (#117). */
+  private async indexRoots(ws: Workspace): Promise<void> {
+    if (ws.roots.length < 2) return;
+    try {
+      await backend.workspaceIndex(ws.roots.map((r) => ({ path: r.path, name: r.name })));
+    } catch (err) {
+      console.warn("workspace index failed", err);
+    }
+    this.indexRevision.update((n) => n + 1);
   }
 }

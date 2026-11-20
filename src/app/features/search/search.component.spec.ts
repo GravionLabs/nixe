@@ -17,6 +17,7 @@ import { ReplaceService } from "../../core/index/replace.service";
 import type { SearchState } from "../../core/index/search.service";
 import { SearchService, segments } from "../../core/index/search.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { WorkspacesService } from "../../core/workspace/workspaces.service";
 import { SearchComponent } from "./search.component";
 
 const hit: SearchHit = {
@@ -55,7 +56,12 @@ function tick(): void {
   TestBed.inject(ApplicationRef).tick();
 }
 
-function render(state: SearchState, hits: SearchHit[], replace = replaceMock(false)) {
+function render(
+  state: SearchState,
+  hits: SearchHit[],
+  replace = replaceMock(false),
+  roots: { path: string; name: string }[] | null = null,
+) {
   const open = vi.fn().mockResolvedValue(undefined);
   const setQuery = vi.fn();
   const close = vi.fn();
@@ -80,6 +86,7 @@ function render(state: SearchState, hits: SearchHit[], replace = replaceMock(fal
       { provide: DocumentService, useValue: { open } },
       { provide: BookmarksService, useValue: { bookmarkSearch } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
+      { provide: WorkspacesService, useValue: { searchRoots: signal(roots) } },
     ],
   });
   TestBed.overrideComponent(SearchComponent, {
@@ -247,5 +254,45 @@ describe("SearchComponent", () => {
     expect(replace.replacement()).toBe("x");
     el.querySelector<HTMLButtonElement>("button.toggle-replace")!.click();
     expect(replace.toggle).toHaveBeenCalled();
+  });
+
+  describe("over a workspace (#117)", () => {
+    const roots = [
+      { path: "/vault", name: "Notes" },
+      { path: "/wiki", name: "Wiki" },
+    ];
+    const wikiHit: SearchHit = { ...hit, root: "Wiki", rootPath: "/wiki" };
+
+    it("shows the root of each result and opens the note in that root", () => {
+      const { el, open } = render("ready", [wikiHit], replaceMock(false), roots);
+      expect(el.querySelector("button.note .root")?.textContent).toBe("Wiki");
+      el.querySelector<HTMLButtonElement>("button.snippet")!.click();
+      expect(open).toHaveBeenLastCalledWith("/wiki/work/b.md", { line: 4 });
+    });
+
+    it("keeps two notes with the same path of different roots apart", () => {
+      const other: SearchHit = { ...hit, root: "Notes", rootPath: "/vault" };
+      const { el } = render("ready", [wikiHit, other], replaceMock(false), roots);
+      expect(el.querySelectorAll("button.note").length).toBe(2);
+      el.querySelector<HTMLButtonElement>("button.fold")!.click();
+      tick();
+      expect(el.querySelectorAll("button.snippet").length).toBe(2);
+    });
+
+    it("offers the root: operator only while the workspace has several folders", () => {
+      const withRoots = render("ready", [hit], replaceMock(false), roots);
+      withRoots.el.querySelector<HTMLButtonElement>("button.help")!.click();
+      tick();
+      expect(
+        [...withRoots.el.querySelectorAll(".operator code")].map((c) => c.textContent),
+      ).toContain("root:");
+      const single = render("ready", [hit]);
+      single.el.querySelector<HTMLButtonElement>("button.help")!.click();
+      tick();
+      expect(
+        [...single.el.querySelectorAll(".operator code")].map((c) => c.textContent),
+      ).not.toContain("root:");
+      expect(single.el.querySelector("button.note .root")).toBeNull();
+    });
   });
 });

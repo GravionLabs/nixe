@@ -9,8 +9,10 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 import { backend } from "../file/backend";
+import type { RootArg } from "../file/backend";
+import { WorkspacesService } from "../workspace/workspaces.service";
 import { IndexService } from "./index.service";
-import { SearchService, segments, sortHits, withOperator } from "./search.service";
+import { SearchService, hitKey, segments, sortHits, withOperator } from "./search.service";
 
 describe("segments", () => {
   it("splits a snippet at the match markers", () => {
@@ -27,6 +29,8 @@ describe("segments", () => {
 
 describe("SearchService", () => {
   const status = signal<{ state: string }>({ state: "ready" });
+  const searchRoots = signal<RootArg[] | null>(null);
+  const indexRevision = signal(0);
   let search: SearchService;
 
   beforeAll(() => {
@@ -35,12 +39,41 @@ describe("SearchService", () => {
 
   beforeEach(() => {
     status.set({ state: "ready" });
+    searchRoots.set(null);
+    indexRevision.set(0);
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: IndexService, useValue: { status, revision: signal(0) } }],
+      providers: [
+        { provide: IndexService, useValue: { status, revision: signal(0) } },
+        { provide: WorkspacesService, useValue: { searchRoots, indexRevision } },
+      ],
     });
     search = TestBed.inject(SearchService);
+  });
+
+  it("searches all roots of a workspace and again when they are indexed (#117)", async () => {
+    const roots = [
+      { path: "/a", name: "A" },
+      { path: "/b", name: "B" },
+    ];
+    searchRoots.set(roots);
+    const hits = [{ path: "a.md", title: "a", root: "B", rootPath: "/b", snippets: [] }];
+    const spy = vi.spyOn(backend, "searchWorkspace").mockResolvedValue(hits as never);
+    const single = vi.spyOn(backend, "searchNotes");
+    await search.setQuery("x root:B");
+    expect(spy).toHaveBeenCalledWith(roots, "x root:B");
+    expect(single).not.toHaveBeenCalled();
+    expect(search.hits()).toEqual(hits);
+    const before = search.key();
+    indexRevision.set(1);
+    expect(search.key()).not.toBe(before);
+  });
+
+  it("tells hits of equal path in different roots apart", () => {
+    const a = { path: "t.md", rootPath: "/a" } as never;
+    const b = { path: "t.md", rootPath: "/b" } as never;
+    expect(hitKey(a)).not.toBe(hitKey(b));
   });
 
   it("sets a query and searches the index", async () => {

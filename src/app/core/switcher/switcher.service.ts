@@ -2,8 +2,9 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 
 import { backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { WorkspacesService } from "../workspace/workspaces.service";
 import type { SwitcherEntry, SwitcherMatch } from "./fuzzy";
-import { fileLabel, rank } from "./fuzzy";
+import { fileLabel, rank, splitRootFilter } from "./fuzzy";
 
 const MAX_RECENT = 50;
 const MAX_RESULTS = 50;
@@ -12,6 +13,7 @@ const MAX_RESULTS = 50;
 @Injectable({ providedIn: "root" })
 export class SwitcherService {
   private readonly workspace = inject(WorkspaceService);
+  private readonly workspaces = inject(WorkspacesService);
 
   readonly visible = signal(false);
   readonly query = signal("");
@@ -27,7 +29,14 @@ export class SwitcherService {
       .map((o) => o.rel);
   });
 
-  private readonly ranked = computed(() => rank(this.entries(), this.query(), this.recentNotes()));
+  private readonly ranked = computed(() => {
+    // `root:name` narrows the list to the notes of that root (#117).
+    const { roots, text } = splitRootFilter(this.query());
+    const entries = roots.length
+      ? this.entries().filter((e) => e.root && roots.includes(e.root.toLowerCase()))
+      : this.entries();
+    return rank(entries, text, this.recentNotes());
+  });
   readonly matches = computed<SwitcherMatch[]>(() => this.ranked().slice(0, MAX_RESULTS));
   /** True when more notes match than the list shows. */
   readonly truncated = computed(() => this.ranked().length > MAX_RESULTS);
@@ -71,6 +80,11 @@ export class SwitcherService {
 
   private async loadEntries(): Promise<SwitcherEntry[]> {
     try {
+      const roots = this.workspaces.searchRoots();
+      if (roots) {
+        const all = await backend.workspaceNotes(roots);
+        if (all.length) return all;
+      }
       const notes = await backend.notes();
       if (notes.length) return notes;
     } catch {

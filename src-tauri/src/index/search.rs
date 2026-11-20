@@ -21,11 +21,14 @@ pub struct Query {
     pub tags: Vec<String>,
     /// `path:` operands: a vault-relative prefix.
     pub paths: Vec<String>,
+    /// `root:` operands (#117): names of workspace roots, lower-cased. A search in one vault
+    /// ignores them; a workspace search keeps only the notes of the named roots.
+    pub roots: Vec<String>,
 }
 
 impl Query {
     pub fn is_empty(&self) -> bool {
-        self.fts.is_none() && self.tags.is_empty() && self.paths.is_empty()
+        self.fts.is_none() && self.tags.is_empty() && self.paths.is_empty() && self.roots.is_empty()
     }
 }
 
@@ -46,10 +49,17 @@ pub struct SearchHit {
     /// Lines of the note that match; `snippets` shows the first few of them.
     pub matches: usize,
     pub snippets: Vec<SearchSnippet>,
+    /// Name of the root the note is in; set by a workspace search only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
+    /// Absolute path of that root; set by a workspace search only.
+    #[serde(rename = "rootPath", skip_serializing_if = "Option::is_none")]
+    pub root_path: Option<String>,
 }
 
 /// Translates `input`: bare words match as prefixes (so results appear while typing), `"quoted
-/// text"` matches exactly as a phrase, `tag:#name` and `path:folder/` narrow the result.
+/// text"` matches exactly as a phrase, `tag:#name`, `path:folder/` and `root:name` (a workspace
+/// root; `root:"two words"`) narrow the result.
 pub fn parse_query(input: &str) -> Query {
     let mut q = Query::default();
     let mut fts: Vec<String> = Vec::new();
@@ -64,6 +74,11 @@ pub fn parse_query(input: &str) -> Query {
             let tag = tag.trim_start_matches('#').trim_end_matches('/');
             if !tag.is_empty() {
                 q.tags.push(tag.to_lowercase());
+            }
+        } else if let Some(root) = token.strip_prefix("root:") {
+            let root = root.trim();
+            if !root.is_empty() {
+                q.roots.push(root.to_lowercase());
             }
         } else if let Some(path) = token.strip_prefix("path:") {
             let path = path.trim_start_matches("./").trim_start_matches('/');
@@ -107,13 +122,33 @@ fn tokenize(input: &str) -> Vec<(String, bool)> {
                 if c.is_whitespace() {
                     break;
                 }
-                s.push(c);
                 chars.next();
+                if c == '"' && s.ends_with(':') {
+                    // `root:"two words"`: the quoted text belongs to the operator.
+                    for c in chars.by_ref() {
+                        if c == '"' {
+                            break;
+                        }
+                        s.push(c);
+                    }
+                    break;
+                }
+                s.push(c);
             }
             out.push((s, false));
         }
     }
     out
+}
+
+/// A note that matches, before its snippets are cut.
+struct Candidate {
+    id: i64,
+    path: String,
+    title: String,
+    modified: i64,
+    /// FTS5 rank (lower is better); 0 without text terms.
+    rank: f64,
 }
 
 /// Notes matching `query`, best first, with up to three matching lines each.
@@ -122,9 +157,64 @@ pub fn search(conn: &Connection, input: &str) -> rusqlite::Result<Vec<SearchHit>
     if q.is_empty() {
         return Ok(Vec::new());
     }
-    let mut sql = String::from(
-        "SELECT n.id, n.path, n.title, COALESCE(f.mtime_ns / 1000000, 0) FROM notes n \
-         LEFT JOIN files f ON f.path = n.path",
+    candidates(conn, &q)?
+        .into_iter()
+        .map(|c| hit(conn, &q, c))
+        .collect()
+}
+
+/// One folder of a workspace search.
+pub struct SearchRoot<'a> {
+    pub name: &'a str,
+    pub path: &'a str,
+    pub conn: &'a Connection,
+}
+
+/// Notes of all `roots` matching `input`, best first (the rank of the FTS index decides, ties go
+/// by root order and path), at most `MAX_HITS`; each hit names its root. A `root:` operand keeps
+/// only the roots it names. Snippets are cut for the winners only.
+pub fn search_roots(roots: &[SearchRoot], input: &str) -> rusqlite::Result<Vec<SearchHit>> {
+    let q = parse_query(input);
+    if q.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut all: Vec<(usize, Candidate)> = Vec::new();
+    for (i, root) in roots.iter().enumerate() {
+        if !q.roots.is_empty() && !q.roots.iter().any(|n| root.name.eq_ignore_ascii_case(n)) {
+            continue;
+        }
+        for c in candidates(root.conn, &q)? {
+            all.push((i, c));
+        }
+    }
+    all.sort_by(|(ia, a), (ib, b)| {
+        a.rank
+            .total_cmp(&b.rank)
+            .then(ia.cmp(ib))
+            .then_with(|| a.path.cmp(&b.path))
+    });
+    all.truncate(MAX_HITS);
+    all.into_iter()
+        .map(|(i, c)| {
+            let root = &roots[i];
+            let mut h = hit(root.conn, &q, c)?;
+            h.root = Some(root.name.to_string());
+            h.root_path = Some(root.path.to_string());
+            Ok(h)
+        })
+        .collect()
+}
+
+fn candidates(conn: &Connection, q: &Query) -> rusqlite::Result<Vec<Candidate>> {
+    // Operands that only name a root leave every note of the root.
+    let rank = if q.fts.is_some() {
+        "notes_fts.rank"
+    } else {
+        "0.0"
+    };
+    let mut sql = format!(
+        "SELECT n.id, n.path, n.title, COALESCE(f.mtime_ns / 1000000, 0), {rank} FROM notes n \
+         LEFT JOIN files f ON f.path = n.path"
     );
     let mut args: Vec<Sql> = Vec::new();
     let mut wheres: Vec<String> = Vec::new();
@@ -146,6 +236,9 @@ pub fn search(conn: &Connection, input: &str) -> rusqlite::Result<Vec<SearchHit>
         wheres.push("n.path LIKE ? ESCAPE '\\'".into());
         args.push(format!("{}%", escape_like(path)).into());
     }
+    if wheres.is_empty() {
+        wheres.push("1".into());
+    }
     sql.push_str(" WHERE ");
     sql.push_str(&wheres.join(" AND "));
     sql.push_str(if q.fts.is_some() {
@@ -154,33 +247,38 @@ pub fn search(conn: &Connection, input: &str) -> rusqlite::Result<Vec<SearchHit>
         " ORDER BY n.path"
     });
     sql.push_str(&format!(" LIMIT {MAX_HITS}"));
-
-    let rows: Vec<(i64, String, String, i64)> = conn
-        .prepare_cached(&sql)?
+    conn.prepare_cached(&sql)?
         .query_map(params_from_iter(args), |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+            Ok(Candidate {
+                id: r.get(0)?,
+                path: r.get(1)?,
+                title: r.get(2)?,
+                modified: r.get(3)?,
+                rank: r.get(4)?,
+            })
         })?
-        .collect::<Result<_, _>>()?;
-    let mut hits = Vec::with_capacity(rows.len());
-    for (id, path, title, modified) in rows {
-        let (snippets, matches) = if q.terms.is_empty() {
-            (Vec::new(), 0)
-        } else {
-            let body: String =
-                conn.query_row("SELECT body FROM notes_fts WHERE rowid = ?1", [id], |r| {
-                    r.get(0)
-                })?;
-            snippets(&body, &q.terms)
-        };
-        hits.push(SearchHit {
-            path,
-            title,
-            modified,
-            matches,
-            snippets,
-        });
-    }
-    Ok(hits)
+        .collect()
+}
+
+fn hit(conn: &Connection, q: &Query, c: Candidate) -> rusqlite::Result<SearchHit> {
+    let (snippets, matches) = if q.terms.is_empty() {
+        (Vec::new(), 0)
+    } else {
+        let body: String =
+            conn.query_row("SELECT body FROM notes_fts WHERE rowid = ?1", [c.id], |r| {
+                r.get(0)
+            })?;
+        snippets(&body, &q.terms)
+    };
+    Ok(SearchHit {
+        path: c.path,
+        title: c.title,
+        modified: c.modified,
+        matches,
+        snippets,
+        root: None,
+        root_path: None,
+    })
 }
 
 fn escape_like(s: &str) -> String {

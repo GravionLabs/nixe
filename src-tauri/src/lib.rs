@@ -36,7 +36,7 @@ mod review;
 mod settings;
 mod tree;
 mod vault;
-mod workspace;
+pub mod workspace;
 mod write;
 
 /// Event telling the frontend that a file or folder is waiting in `take_pending_file`.
@@ -981,6 +981,9 @@ pub fn run() {
         link_mention,
         index::commands::tags,
         index::commands::search_notes,
+        index::commands::workspace_index,
+        index::commands::search_workspace,
+        index::commands::workspace_notes,
         index::commands::vault_health,
         watch_file,
         git_vault_status,
@@ -1073,6 +1076,9 @@ pub fn run() {
         link_mention,
         index::commands::tags,
         index::commands::search_notes,
+        index::commands::workspace_index,
+        index::commands::search_workspace,
+        index::commands::workspace_notes,
         index::commands::vault_health,
         watch_file,
         git_vault_status,

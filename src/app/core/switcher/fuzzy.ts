@@ -3,6 +3,10 @@ export interface SwitcherEntry {
   path: string;
   title: string;
   aliases: readonly string[];
+  /** Name of the workspace root the note is in; set only while a workspace is open (#117). */
+  root?: string;
+  /** Absolute path of that root; `path` is relative to it. */
+  rootPath?: string;
 }
 
 export interface SwitcherMatch {
@@ -146,4 +150,23 @@ export function rank(
       recency(a.entry.path) - recency(b.entry.path) ||
       a.entry.path.localeCompare(b.entry.path),
   );
+}
+
+/**
+ * Splits a `root:name` (or `root:"two words"`) filter off the query (#117). `roots` are the names
+ * lower-cased, `text` is the rest of the query.
+ */
+export function splitRootFilter(query: string): { roots: string[]; text: string } {
+  const roots: string[] = [];
+  const text = query
+    .replace(
+      /(^|\s)root:(?:"([^"]*)"|(\S*))/giu,
+      (_all, lead: string, quoted?: string, bare?: string) => {
+        const name = (quoted ?? bare ?? "").trim().toLowerCase();
+        if (name) roots.push(name);
+        return lead;
+      },
+    )
+    .trim();
+  return { roots, text };
 }
