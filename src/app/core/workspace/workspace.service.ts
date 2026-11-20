@@ -1,3 +1,4 @@
+import { DEFAULT_PANEL_WIDTH } from "../panel/panel-width";
 import { Injectable, WritableSignal, computed, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -132,6 +133,7 @@ export class WorkspaceService {
     if (state) {
       this.settings.backlinksVisible.set(state.backlinks);
       this.settings.outlineVisible.set(state.outline);
+      this.settings.panelWidth.set(state.panelWidth ?? DEFAULT_PANEL_WIDTH);
     }
 
     if (switching) this.tabs.reset();
@@ -183,6 +185,7 @@ export class WorkspaceService {
       sidebar: this.settings.sidebarVisible(),
       backlinks: this.settings.backlinksVisible(),
       outline: this.settings.outlineVisible(),
+      panelWidth: this.settings.panelWidth(),
       layout,
     });
   }

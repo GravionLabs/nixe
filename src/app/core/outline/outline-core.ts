@@ -78,3 +78,49 @@ export function currentHeading(headings: readonly OutlineHeading[], topLine: num
   }
   return current;
 }
+
+/** Indexes of the headings that have children; only these can be folded. */
+export function foldable(tree: readonly OutlineNode[]): number[] {
+  const out: number[] = [];
+  const walk = (list: readonly OutlineNode[]): void => {
+    for (const n of list) {
+      if (n.children.length > 0) out.push(n.index);
+      walk(n.children);
+    }
+  };
+  walk(tree);
+  return out;
+}
+
+/** The folded set that shows only the headings down to `level`: every heading at `level` or deeper with children is folded. */
+export function collapseToLevel(tree: readonly OutlineNode[], level: number): Set<number> {
+  const out = new Set<number>();
+  const walk = (list: readonly OutlineNode[]): void => {
+    for (const n of list) {
+      if (n.children.length > 0 && n.level >= level) out.add(n.index);
+      walk(n.children);
+    }
+  };
+  walk(tree);
+  return out;
+}
+
+/**
+ * The heading to mark as current: `current` itself, or, when a folded heading hides it, the
+ * outermost folded ancestor.
+ */
+export function markedHeading(tree: readonly OutlineNode[], current: number, folded: ReadonlySet<number>): number {
+  if (current < 0) return -1;
+  const path: OutlineNode[] = [];
+  const find = (list: readonly OutlineNode[]): boolean => {
+    for (const n of list) {
+      path.push(n);
+      if (n.index === current || find(n.children)) return true;
+      path.pop();
+    }
+    return false;
+  };
+  if (!find(tree)) return current;
+  const hiding = path.slice(0, -1).find((n) => folded.has(n.index));
+  return hiding ? hiding.index : current;
+}

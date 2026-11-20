@@ -1,6 +1,7 @@
 import { sanitizeAccent, sanitizeFont, sanitizeNames } from "../appearance/appearance-core";
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
+import { DEFAULT_PANEL_WIDTH, sanitizePanelWidth } from "../panel/panel-width";
 import { LinkPreviewMode, sanitizeMode } from "../preview/preview-core";
 import { TreeSort, sanitizeTreeSort } from "../workspace/tree-model";
 import { VaultStates, sanitizeRecent, sanitizeStates } from "../workspace/recent-vaults";
@@ -23,6 +24,8 @@ export interface StoredSettings {
   activeView: string;
   backlinks: boolean;
   outline: boolean;
+  /** Width of the right panel of the open vault, in px. */
+  panelWidth: number;
   linkPreview: LinkPreviewMode;
   lastFolder: string | null;
   recentVaults: string[];
@@ -72,6 +75,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   activeView: "files",
   backlinks: false,
   outline: false,
+  panelWidth: DEFAULT_PANEL_WIDTH,
   linkPreview: "modifier",
   lastFolder: null,
   recentVaults: [],
@@ -119,6 +123,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     activeView: text(o["activeView"], d.activeView),
     backlinks: bool(o["backlinks"], d.backlinks),
     outline: o["outline"] === true,
+    panelWidth: sanitizePanelWidth(o["panelWidth"]),
     linkPreview: sanitizeMode(o["linkPreview"]),
     lastFolder: typeof o["lastFolder"] === "string" ? o["lastFolder"] : null,
     recentVaults: sanitizeRecent(o["recentVaults"]),
