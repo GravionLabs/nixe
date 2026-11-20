@@ -1,11 +1,11 @@
 import { Injectable, computed, inject } from "@angular/core";
 import type { HxActivityBarItem } from "@gravionlabs/helix-desktop";
 
-import { CommandRegistry } from "../commands/command-registry";
+import { CommandRegistry, formatShortcut } from "../commands/command-registry";
 import { GitService } from "../git/git.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { ViewContext, availableViews, findView, isSidebarView, resolveView } from "./views";
+import { NixeView, ViewContext, availableViews, findView, isSidebarView, resolveView } from "./views";
 
 /** The activity bar and the sidebar: one active view, shown or collapsed. */
 @Injectable({ providedIn: "root" })
@@ -37,8 +37,22 @@ export class ShellService {
 
   /** The items of the activity bar. */
   readonly items = computed<HxActivityBarItem[]>(() =>
-    availableViews(this.context()).map(({ id, label, icon, position, kind }) => ({ id, label, icon, position, kind })),
+    availableViews(this.context()).map((view) => ({
+      id: view.id,
+      label: this.tooltip(view),
+      icon: view.icon,
+      position: view.position,
+      kind: view.kind,
+    })),
   );
+
+  /** The name of an item with its shortcut, e.g. `Search (Ctrl+Shift+F)`; the bar shows it as tooltip. */
+  private tooltip(view: NixeView): string {
+    const id = view.shortcutCommand ?? view.command;
+    const command = this.commands.all().find((c) => c.id === id); // all() is reactive: the tooltip follows later registrations
+    const shortcut = command ? this.commands.shortcutOf(command) : "";
+    return shortcut ? `${view.label} (${formatShortcut(shortcut, navigator.userAgent.includes("Mac"))})` : view.label;
+  }
 
   /** A click on the activity bar: the active view collapses the sidebar, another view switches to it. */
   select(id: string): void {

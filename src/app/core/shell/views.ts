@@ -10,6 +10,8 @@ export interface NixeView extends HelixView {
   readonly command?: string;
   /** An action is a plain button; it never becomes the active view. */
   readonly kind: "view" | "action";
+  /** The command whose shortcut the tooltip shows; defaults to `command`. */
+  readonly shortcutCommand?: string;
   /** The view needs an open vault. */
   readonly needsVault?: boolean;
   /** The view needs a vault under Git. */
@@ -20,14 +22,13 @@ export interface NixeView extends HelixView {
 export const DEFAULT_VIEW = "files";
 
 export const VIEWS: readonly NixeView[] = [
-  { id: "files", label: "Files", icon: "files", placement: "sidebar", position: "top", kind: "view" },
-  { id: "search", label: "Search", icon: "search", placement: "sidebar", position: "top", kind: "view", needsVault: true },
-  { id: "bookmarks", label: "Bookmarks", icon: "bookmark", placement: "sidebar", position: "top", kind: "view", needsVault: true },
-  { id: "git", label: "Git", icon: "git", placement: "sidebar", position: "top", kind: "view", needsVault: true, needsGit: true },
-  { id: "history", label: "Note history", icon: "history", placement: "sidebar", position: "top", kind: "view", needsVault: true, needsGit: true },
-  { id: "health", label: "Vault health", icon: "health", placement: "tab", position: "top", kind: "action", command: "vault-health", needsVault: true },
-  { id: "daily-note", label: "Daily note", icon: "calendar", placement: "tab", position: "top", kind: "action", command: "daily-note", needsVault: true },
-  { id: "command-palette", label: "Command palette", icon: "palette", placement: "tab", position: "top", kind: "action", command: "command-palette" },
+  { id: "files", shortcutCommand: "toggle-sidebar", label: "Files", icon: "files", placement: "sidebar", position: "top", kind: "view" },
+  { id: "search", shortcutCommand: "search", label: "Search", icon: "search", placement: "sidebar", position: "top", kind: "view", needsVault: true },
+  { id: "bookmarks", shortcutCommand: "show-bookmarks", label: "Bookmarks", icon: "bookmark", placement: "sidebar", position: "top", kind: "view", needsVault: true },
+  { id: "git", shortcutCommand: "git-changes", label: "Git", icon: "git", placement: "sidebar", position: "top", kind: "view", needsVault: true, needsGit: true },
+  { id: "history", shortcutCommand: "note-history", label: "Note history", icon: "history", placement: "sidebar", position: "top", kind: "view", needsVault: true, needsGit: true },
+  { id: "daily-note", label: "Daily note", icon: "calendar", placement: "tab", position: "bottom", kind: "action", command: "daily-note", needsVault: true },
+  { id: "health", label: "Vault health", icon: "health", placement: "tab", position: "bottom", kind: "action", command: "vault-health", needsVault: true },
   { id: "settings", label: "Settings", icon: "settings", placement: "tab", position: "bottom", kind: "action", command: "open-settings" },
 ];
 
