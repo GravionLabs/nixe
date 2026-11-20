@@ -16,6 +16,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Documentation
 - ADR 0003, Nixe as a vault app with editing and Git sync (#44) (#45)
+- Update CHANGELOG.md for v1.6.1 [skip ci]
 
 
 ### Features
