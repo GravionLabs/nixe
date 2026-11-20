@@ -11,7 +11,6 @@ import { OutlineService } from "../../core/outline/outline.service";
 @Component({
   selector: "app-outline",
   template: `
-    <header>Outline</header>
     @if (outline.tree().length === 0) {
       <p class="status">No headings</p>
     } @else {

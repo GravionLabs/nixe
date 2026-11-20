@@ -200,6 +200,59 @@ pub fn backlinks(conn: &Connection, path: &str) -> rusqlite::Result<Vec<Backlink
     rows.collect()
 }
 
+/// A plain-text mention of a note's title or alias in another note.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct UnlinkedMention {
+    /// The note holding the mention.
+    pub source: String,
+    /// 1-based line.
+    pub line: usize,
+    /// Byte range of the mention in that line.
+    pub start: usize,
+    pub end: usize,
+    /// The trimmed line.
+    pub context: String,
+    /// The mention as written.
+    pub text: String,
+}
+
+/// Mentions of the title or an alias of `path` in the other notes, as plain text: not inside code,
+/// comments, frontmatter or a link. Reads the note bodies kept for full text search.
+pub fn unlinked_mentions(conn: &Connection, path: &str) -> rusqlite::Result<Vec<UnlinkedMention>> {
+    let Some((title, aliases)) = conn
+        .query_row(
+            "SELECT title, aliases FROM notes WHERE path = ?1",
+            [path],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+        )
+        .optional()?
+    else {
+        return Ok(Vec::new());
+    };
+    let mut terms = vec![title];
+    terms.extend(serde_json::from_str::<Vec<String>>(&aliases).unwrap_or_default());
+    let mut stmt = conn.prepare(
+        "SELECT n.path, f.body FROM notes n JOIN notes_fts f ON f.rowid = n.id
+         WHERE n.path <> ?1 ORDER BY n.path",
+    )?;
+    let mut rows = stmt.query([path])?;
+    let mut out = Vec::new();
+    while let Some(row) = rows.next()? {
+        let (source, body): (String, String) = (row.get(0)?, row.get(1)?);
+        for m in crate::vault::mentions::find(&body, &terms) {
+            out.push(UnlinkedMention {
+                source: source.clone(),
+                line: m.line,
+                start: m.start,
+                end: m.end,
+                context: m.context,
+                text: m.text,
+            });
+        }
+    }
+    Ok(out)
+}
+
 /// The notes that link to any of `paths` (resolved targets), each once, sorted. Includes notes
 /// that link to themselves.
 pub fn referrers(conn: &Connection, paths: &[String]) -> rusqlite::Result<Vec<String>> {

@@ -32,6 +32,21 @@ export interface Backlink {
   context: string;
 }
 
+/** A plain-text mention of the title or an alias of a note in another note. */
+export interface UnlinkedMention {
+  /** Vault-relative path of the note holding the mention. */
+  source: string;
+  /** 1-based line. */
+  line: number;
+  /** Byte range of the mention in that line. */
+  start: number;
+  end: number;
+  /** The trimmed line. */
+  context: string;
+  /** The mention as written. */
+  text: string;
+}
+
 export interface IndexedLink {
   target: string;
   heading: string | null;
@@ -394,6 +409,18 @@ export const backend = {
   indexStatus: () => invoke<IndexStatus>("index_status"),
   notes: () => invoke<NoteSummary[]>("notes"),
   backlinks: (path: string) => invoke<Backlink[]>("backlinks", { path }),
+  /** Plain-text mentions of the title or an alias of the note, computed on demand. */
+  unlinkedMentions: (path: string) => invoke<UnlinkedMention[]>("unlinked_mentions", { path }),
+  /** Turns a mention into a `[[link]]` to `target` (both vault-relative paths). */
+  linkMention: (target: string, mention: UnlinkedMention) =>
+    invoke<void>("link_mention", {
+      source: mention.source,
+      target,
+      line: mention.line,
+      start: mention.start,
+      end: mention.end,
+      text: mention.text,
+    }),
   /** Metadata of one indexed note (vault-relative path); null when it is not indexed. */
   noteMeta: (path: string) => invoke<NoteRecord | null>("note_meta", { path }),
   searchNotes: (query: string) => invoke<SearchHit[]>("search_notes", { query }),

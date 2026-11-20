@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
-import { Backlink, IndexedLink, backend } from "../file/backend";
+import { Backlink, IndexedLink, UnlinkedMention, backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { basename } from "../markdown/paths";
 import { WorkspaceService } from "../workspace/workspace.service";
@@ -27,8 +27,12 @@ export class BacklinksService {
 
   readonly backlinks = signal<Backlink[]>([]);
   readonly outgoing = signal<OutgoingLink[]>([]);
+  /** Plain-text mentions of the open note; filled by `loadUnlinked`, on demand. */
+  readonly unlinked = signal<UnlinkedMention[]>([]);
+  readonly unlinkedState = signal<"idle" | "loading" | "error" | "ready">("idle");
   private readonly failed = signal(false);
   private request = 0;
+  private unlinkedRequest = 0;
 
   /** Vault-relative path of the open note; null outside a vault. */
   readonly notePath = computed(() => {
@@ -77,6 +81,39 @@ export class BacklinksService {
       this.backlinks.set([]);
       this.outgoing.set([]);
       this.failed.set(true);
+    }
+  }
+
+  /** Reads the unlinked mentions of the open note. A newer call wins over an older one. */
+  async loadUnlinked(): Promise<void> {
+    const request = ++this.unlinkedRequest;
+    const path = this.notePath();
+    if (path === null || this.index.status().state !== "ready") {
+      this.unlinked.set([]);
+      this.unlinkedState.set("idle");
+      return;
+    }
+    this.unlinkedState.set("loading");
+    try {
+      const found = await backend.unlinkedMentions(path);
+      if (request !== this.unlinkedRequest) return;
+      this.unlinked.set(found);
+      this.unlinkedState.set("ready");
+    } catch {
+      if (request !== this.unlinkedRequest) return;
+      this.unlinked.set([]);
+      this.unlinkedState.set("error");
+    }
+  }
+
+  /** Turns a mention into a `[[link]]` and reads the mentions again. */
+  async linkMention(mention: UnlinkedMention): Promise<void> {
+    const path = this.notePath();
+    if (path === null) return;
+    try {
+      await backend.linkMention(path, mention);
+    } finally {
+      await this.loadUnlinked();
     }
   }
 }

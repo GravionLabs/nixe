@@ -1,6 +1,6 @@
-import { Component, effect, inject, output, untracked } from "@angular/core";
+import { Component, effect, inject, output, signal, untracked } from "@angular/core";
 
-import { Backlink } from "../../core/file/backend";
+import { Backlink, UnlinkedMention } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { BacklinksService, OutgoingLink } from "../../core/index/backlinks.service";
 import { joinPath } from "../../core/markdown/paths";
@@ -23,11 +23,34 @@ export class BacklinksComponent {
 
   readonly error = output<string>();
 
+  /** The section of unlinked mentions starts collapsed: it is read from the index only when opened. */
+  protected readonly unlinkedOpen = signal(false);
+
   constructor() {
     effect(() => {
       this.links.key();
       untracked(() => void this.links.refresh());
     });
+    effect(() => {
+      this.links.key();
+      if (this.unlinkedOpen()) untracked(() => void this.links.loadUnlinked());
+    });
+  }
+
+  protected toggleUnlinked(): void {
+    this.unlinkedOpen.update((open) => !open);
+  }
+
+  protected openMention(mention: UnlinkedMention, event?: MouseEvent): Promise<void> {
+    return this.open(mention.source, mention.line, null, event);
+  }
+
+  protected async linkMention(mention: UnlinkedMention): Promise<void> {
+    try {
+      await this.links.linkMention(mention);
+    } catch (err) {
+      this.error.emit(String(err));
+    }
   }
 
   protected openBacklink(link: Backlink, event?: MouseEvent): Promise<void> {

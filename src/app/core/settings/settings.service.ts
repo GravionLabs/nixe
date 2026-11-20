@@ -24,6 +24,7 @@ import {
 
 export { ZOOM_MAX, ZOOM_MIN };
 export type { ThemeMode };
+export type PanelTab = "outline" | "links";
 
 const ZOOM_STEP = 10;
 
@@ -51,6 +52,28 @@ export class SettingsService {
   readonly backlinksVisible = signal<boolean>(this.stored.backlinks);
   /** Right-hand outline panel (the headings of the open note). */
   readonly outlineVisible = signal<boolean>(this.stored.outline);
+  /**
+   * The tab of the right panel. The panel is open when `outlineVisible` or `backlinksVisible` is
+   * set; they are stored per vault, so the open tab survives a restart. Both set (an old
+   * setting) shows the outline.
+   */
+  readonly panelTab = computed<PanelTab>(() => (this.outlineVisible() || !this.backlinksVisible() ? "outline" : "links"));
+  readonly panelOpen = computed(() => this.outlineVisible() || this.backlinksVisible());
+
+  /** Opens the panel on `tab`. */
+  showPanelTab(tab: PanelTab): void {
+    this.outlineVisible.set(tab === "outline");
+    this.backlinksVisible.set(tab === "links");
+  }
+
+  /** Opens the panel on `tab`; closes it when that tab is the open one. */
+  togglePanelTab(tab: PanelTab): void {
+    if (this.panelOpen() && this.panelTab() === tab) {
+      this.outlineVisible.set(false);
+      this.backlinksVisible.set(false);
+    } else this.showPanelTab(tab);
+  }
+
   /** Hover preview of links: with ⌘/Ctrl held, or always. */
   readonly linkPreview = signal<LinkPreviewMode>(this.stored.linkPreview);
   /** Folder reopened on the next start. */

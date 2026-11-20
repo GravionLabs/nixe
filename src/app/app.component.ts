@@ -16,7 +16,7 @@ import { AutoSyncService } from "./core/git/auto-sync.service";
 import { CloneService } from "./core/git/clone.service";
 import { GitService } from "./core/git/git.service";
 import { SettingsPageService } from "./core/settings/settings-page.service";
-import { SettingsService } from "./core/settings/settings.service";
+import { PanelTab, SettingsService } from "./core/settings/settings.service";
 import { isPrerelease } from "./core/updater/update-logic";
 import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
@@ -103,11 +103,14 @@ export class AppComponent {
     return this.shell.items().map((item) => ({ ...item, icon: templates.get(String(item.icon)) ?? item.icon }));
   });
 
-  protected readonly showBacklinks = computed(
-    () => this.workspace.vaultRoot() !== null && this.doc.path() !== null && this.settings.backlinksVisible(),
-  );
+  /** The Links tab needs a vault; outside one the panel only has the outline. */
+  protected readonly linksAvailable = computed(() => this.workspace.vaultRoot() !== null);
 
-  protected readonly showOutline = computed(() => this.doc.path() !== null && this.settings.outlineVisible());
+  protected readonly showPanel = computed(() => this.doc.path() !== null && this.settings.panelOpen());
+
+  protected readonly panelTab = computed<PanelTab>(() =>
+    this.settings.panelTab() === "links" && this.linksAvailable() ? "links" : "outline",
+  );
 
   protected readonly showSwitcher = computed(() => this.workspace.vaultRoot() !== null && this.switcher.visible());
 
@@ -286,8 +289,8 @@ export class AppComponent {
       { id: "forward", title: "Forward", shortcut: "Mod+]", keys: ["Alt+ArrowRight"], run: () => this.run(() => this.doc.forward()) },
       { id: "vault-health", title: "Vault health", when: inVault, run: () => this.run(async () => void this.tabs.openView("health")) },
       { id: "git-sync", title: "Sync with the remote", shortcut: "Mod+Shift+S", keys: ["Mod+Shift+S"], when: () => this.git.available(), run: () => this.git.sync() },
-      { id: "toggle-backlinks", title: "Toggle backlinks panel", shortcut: "Mod+Shift+B", when: inVault, run: () => this.settings.backlinksVisible.update((v) => !v) },
-      { id: "toggle-outline", title: "Toggle outline panel", shortcut: "Mod+Shift+L", when: noteOpen, run: () => this.settings.outlineVisible.update((v) => !v) },
+      { id: "toggle-backlinks", title: "Toggle backlinks panel", shortcut: "Mod+Shift+B", when: inVault, run: () => this.settings.togglePanelTab("links") },
+      { id: "toggle-outline", title: "Toggle outline panel", shortcut: "Mod+Shift+L", when: noteOpen, run: () => this.settings.togglePanelTab("outline") },
       {
         id: "toggle-link-preview",
         title: "Link preview: always on hover / only with ⌘/Ctrl held",

@@ -1,27 +1,7 @@
 :host {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  width: 280px;
-  min-width: 0;
-  overflow-y: auto;
-  border-left: 1px solid var(--h-content-border-color);
-  background: var(--h-surface-frame);
+  display: block;
   color: var(--h-text-color);
   font-size: 13px;
-}
-
-header {
-  display: flex;
-  align-items: center;
-  height: 34px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--h-content-border-color);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--h-text-muted-color);
 }
 
 h2 {
@@ -92,4 +72,42 @@ button:disabled {
   align-self: flex-start;
   font-size: 11px;
   color: var(--h-text-muted-color);
+}
+
+h2 button.fold {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+h2 button.fold:hover:not(:disabled) {
+  background: none;
+}
+
+.chevron {
+  width: 10px;
+}
+
+.mention {
+  display: flex;
+  align-items: center;
+}
+
+.mention .open {
+  flex: 1;
+  min-width: 0;
+}
+
+.mention .link-it {
+  flex: none;
+  width: auto;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+  font-size: 12px;
 }

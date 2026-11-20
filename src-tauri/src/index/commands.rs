@@ -12,7 +12,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use super::watch::{apply_changes, known_files, map_events};
 
 use super::health::{self, HealthReport};
-use super::read::{self, IndexStatus};
+use super::read::{self, IndexStatus, UnlinkedMention};
 use super::search;
 use super::{index_path, open, scan, Backlink, NoteRecord, NoteSummary, SearchHit, TagCount};
 
@@ -206,6 +206,19 @@ pub fn note_meta(state: State<'_, IndexState>, path: String) -> Result<Option<No
 #[tauri::command]
 pub fn backlinks(state: State<'_, IndexState>, path: String) -> Result<Vec<Backlink>, String> {
     read::backlinks(&state.conn()?, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn unlinked_mentions(
+    state: State<'_, IndexState>,
+    path: String,
+) -> Result<Vec<UnlinkedMention>, String> {
+    let conn = state.conn()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        read::unlinked_mentions(&conn, &path).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
