@@ -5,6 +5,8 @@ import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { basename } from "../../core/markdown/paths";
 import { TabsService } from "../../core/tabs/tabs.service";
+import { FocusKey, focusTarget, parentIndex, rangeBetween, typeAheadMatch } from "../../core/workspace/tree-nav";
+import { topLevelPaths } from "../../core/workspace/file-ops";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { TREE_SORTS, TREE_SORT_LABELS, TreeSort, conflictPaths } from "../../core/workspace/tree-model";
 import { TreeNode, WorkspaceService } from "../../core/workspace/workspace.service";
@@ -42,6 +44,21 @@ export class SidebarComponent {
   protected readonly renaming = signal<string | null>(null);
   private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>("renameInput");
   private renameDone = false;
+  /** Paths of the selected rows; the click, Ctrl/Cmd, Shift and Space keys change it. */
+  protected readonly selection = signal<ReadonlySet<string>>(new Set());
+  /** The row with the focus, the one tab stop of the tree (roving tabindex). */
+  protected readonly focused = signal<string | null>(null);
+  /** The folder under the pointer while dragging. */
+  protected readonly dropTarget = signal<string | null>(null);
+  private anchor: string | null = null;
+  private dragPaths: string[] = [];
+  private typed = "";
+  private typedAt = 0;
+  protected readonly tabStop = computed(() => {
+    const rows = this.workspace.visible();
+    const focused = this.focused();
+    return rows.some((n) => this.path(n) === focused) ? focused : rows.length ? this.path(rows[0]) : null;
+  });
   protected readonly basename = basename;
   protected readonly revealLabel = /Mac/u.test(navigator.userAgent)
     ? "Reveal in Finder"
@@ -78,10 +95,26 @@ export class SidebarComponent {
     return (node.filePath ?? node.dirPath) as string;
   }
 
+  protected rowTabindex(node: TreeNode): number {
+    return this.path(node) === this.tabStop() ? 0 : -1;
+  }
+
   protected async select(node: TreeNode, event?: MouseEvent): Promise<void> {
+    const path = this.path(node);
+    this.focused.set(path);
+    if (event && (event.metaKey || event.ctrlKey)) {
+      this.toggleSelected(path);
+      return;
+    }
+    if (event?.shiftKey && this.anchor !== null) {
+      this.selectRange(this.anchor, path);
+      return;
+    }
+    this.selection.set(new Set([path]));
+    this.anchor = path;
     try {
       if (node.filePath) {
-        if (event && (event.metaKey || event.ctrlKey)) await this.tabs.openInNewTab(node.filePath);
+        if (event?.altKey) await this.tabs.openInNewTab(node.filePath);
         else await this.doc.open(node.filePath);
         if (node.dirPath && !node.expanded()) await this.workspace.toggle(node, true);
       } else {
@@ -90,6 +123,138 @@ export class SidebarComponent {
     } catch (err) {
       this.error.emit(String(err));
     }
+  }
+
+  private toggleSelected(path: string): void {
+    const next = new Set(this.selection());
+    if (!next.delete(path)) next.add(path);
+    this.selection.set(next);
+    this.anchor = path;
+  }
+
+  private selectRange(from: string, to: string): void {
+    const paths = this.workspace.visible().map((n) => this.path(n));
+    const [a, b] = [paths.indexOf(from), paths.indexOf(to)];
+    if (a < 0 || b < 0) return;
+    this.selection.set(new Set(rangeBetween(a, b).map((i) => paths[i])));
+  }
+
+  private focusRow(index: number): void {
+    const node = this.workspace.visible()[index];
+    if (!node) return;
+    const path = this.path(node);
+    this.focused.set(path);
+    const row = [...this.host.nativeElement.querySelectorAll<HTMLElement>(".row")].find((r) => r.dataset["path"] === path);
+    row?.focus();
+    row?.scrollIntoView?.({ block: "nearest" });
+  }
+
+  /** Keyboard handling of one row, after the WAI-ARIA tree pattern. */
+  protected onKeydown(node: TreeNode, event: KeyboardEvent): void {
+    const path = this.path(node);
+    if (this.renaming() === path) return;
+    const rows = this.workspace.visible();
+    const index = rows.indexOf(node);
+    switch (event.key) {
+      case "ArrowDown":
+      case "ArrowUp":
+      case "Home":
+      case "End": {
+        event.preventDefault();
+        const target = focusTarget(rows.length, index, event.key as FocusKey);
+        if (event.shiftKey && target >= 0) {
+          this.anchor ??= path;
+          this.selectRange(this.anchor, this.path(rows[target]));
+        }
+        this.focusRow(target);
+        return;
+      }
+      case "ArrowRight":
+        event.preventDefault();
+        if (!node.dirPath) return;
+        if (!node.expanded()) void this.attempt(() => this.workspace.toggle(node, true));
+        else if (rows[index + 1]?.depth > node.depth) this.focusRow(index + 1);
+        return;
+      case "ArrowLeft": {
+        event.preventDefault();
+        if (node.dirPath && node.expanded()) void this.attempt(() => this.workspace.toggle(node, false));
+        else this.focusRow(parentIndex(rows.map((n) => n.depth), index));
+        return;
+      }
+      case "Enter":
+        event.preventDefault();
+        void this.select(node);
+        return;
+      case " ":
+        event.preventDefault();
+        this.toggleSelected(path);
+        return;
+      case "F2":
+        this.beginRename(node);
+        return;
+      case "Delete":
+        event.preventDefault();
+        void this.trashSelection(node);
+        return;
+    }
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const now = Date.now();
+      this.typed = now - this.typedAt > 700 ? event.key : this.typed + event.key;
+      this.typedAt = now;
+      const hit = typeAheadMatch(rows.map((n) => n.name), index, this.typed);
+      if (hit >= 0) this.focusRow(hit);
+    }
+  }
+
+  /** The paths an action on `node` covers: the selection when `node` is part of it, else `node`. */
+  private actionPaths(node: TreeNode): string[] {
+    const path = this.path(node);
+    const selected = this.selection();
+    return selected.has(path) ? this.workspace.visible().map((n) => this.path(n)).filter((p) => selected.has(p)) : [path];
+  }
+
+  private trashSelection(node: TreeNode): Promise<void> {
+    return this.attempt(async () => {
+      for (const path of topLevelPaths(this.actionPaths(node))) await this.ops.trash(path);
+      this.selection.set(new Set());
+    });
+  }
+
+  protected dragStart(event: DragEvent, node: TreeNode): void {
+    const path = this.path(node);
+    if (!this.selection().has(path)) {
+      this.selection.set(new Set([path]));
+      this.anchor = path;
+    }
+    this.dragPaths = this.actionPaths(node);
+    event.dataTransfer?.setData("text/plain", this.dragPaths.join("\n"));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  /** Only a folder, or the empty area (the root), takes a drop. */
+  protected dragOver(event: DragEvent, node: TreeNode | null): void {
+    event.stopPropagation();
+    if (this.dragPaths.length === 0 || (node && !node.dirPath)) {
+      this.dropTarget.set(null);
+      return;
+    }
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    this.dropTarget.set(node ? node.dirPath : this.workspace.root());
+  }
+
+  protected drop(event: DragEvent, node: TreeNode | null): Promise<void> {
+    event.stopPropagation();
+    const dir = node ? node.dirPath : this.workspace.root();
+    const paths = this.dragPaths;
+    this.dragPaths = [];
+    this.dropTarget.set(null);
+    if (!dir || paths.length === 0) return Promise.resolve();
+    event.preventDefault();
+    return this.attempt(async () => {
+      const moved = await this.ops.move(paths, dir);
+      if (moved.length > 0) this.selection.set(new Set(moved));
+    });
   }
 
   protected async toggle(node: TreeNode, event: Event): Promise<void> {
@@ -178,8 +343,7 @@ export class SidebarComponent {
   protected trash(): Promise<void> {
     const node = this.menu()?.node;
     this.closeMenu();
-    if (!node) return Promise.resolve();
-    return this.attempt(() => this.ops.trash(this.path(node)));
+    return node ? this.trashSelection(node) : Promise.resolve();
   }
 
   /** The label of the bookmark entry for the note of the menu. */
