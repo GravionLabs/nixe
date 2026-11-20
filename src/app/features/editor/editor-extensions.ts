@@ -79,7 +79,6 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
   return EditorView.theme(
     {
       "&": { height: "100%", fontSize: `${fontSizePx}px`, color: "var(--h-text-color)", backgroundColor: "var(--h-content-background)" },
-      "&.cm-focused": { outline: "none" },
       ".cm-scroller": { overflow: "auto", fontFamily: "inherit", lineHeight: "1.6" },
       ".cm-content": { maxWidth: "var(--nixe-content-width, 980px)", margin: "0 auto", padding: "var(--nixe-content-padding-top, 32px) var(--nixe-content-padding-x, 40px) var(--nixe-content-padding-bottom, 80px)", caretColor: "var(--h-text-color)" },
       ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--h-text-color)" },
