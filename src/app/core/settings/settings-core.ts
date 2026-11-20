@@ -76,7 +76,17 @@ export interface StoredSettings {
   treeGitStatus: boolean;
   /** Shortcut of a command id that differs from its default; "" means removed. */
   shortcuts: Record<string, string>;
+  /** Global shortcut (Tauri accelerator) that opens the capture window; "" turns capture off (#118). */
+  captureShortcut: string;
+  /** Where a capture goes: today's daily note or a new note in the inbox folder. */
+  captureTarget: CaptureTarget;
+  /** Vault-relative inbox folder; "" uses the new-note folder of the vault, else `Inbox`. */
+  captureInbox: string;
+  /** Vault-relative template note of a new inbox note; `{{content}}` marks the text. */
+  captureTemplate: string;
 }
+
+export type CaptureTarget = "daily" | "inbox";
 
 export const DEFAULT_SETTINGS: StoredSettings = {
   theme: "system",
@@ -116,6 +126,10 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   treeSort: "name-asc",
   treeGitStatus: true,
   shortcuts: {},
+  captureShortcut: "",
+  captureTarget: "daily",
+  captureInbox: "",
+  captureTemplate: "",
 };
 
 const bool = (value: unknown, fallback: boolean): boolean =>
@@ -175,6 +189,10 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     treeSort: sanitizeTreeSort(o["treeSort"]),
     treeGitStatus: o["treeGitStatus"] !== false,
     shortcuts: sanitizeShortcuts(o["shortcuts"]),
+    captureShortcut: text(o["captureShortcut"], d.captureShortcut).trim(),
+    captureTarget: o["captureTarget"] === "inbox" ? "inbox" : "daily",
+    captureInbox: text(o["captureInbox"], d.captureInbox),
+    captureTemplate: text(o["captureTemplate"], d.captureTemplate),
   };
 }
 

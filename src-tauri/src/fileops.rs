@@ -64,7 +64,7 @@ pub fn template_folder(root: &Path) -> Option<String> {
 
 /// The Daily notes plugin settings from `.obsidian/daily-notes.json`; a key that is missing, empty
 /// or not a string is `None`. Folder and template are vault-relative with forward slashes.
-#[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct DailyNotesConfig {
     pub folder: Option<String>,
     pub format: Option<String>,

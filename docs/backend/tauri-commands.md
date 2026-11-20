@@ -91,3 +91,7 @@ try/catch scattered through the services.
 ## Automatic sync
 
 Off by default; settings (Git panel, stored in `nixe.settings`): `autoSync`, `autoSyncMinutes` (1–1440, default 10), `autoSyncOnFocus`, `autoSyncOnQuit`. `AutoSyncService` runs `GitService.sync({ auto: true })` through `AutoSyncScheduler` (`core/git/auto-sync.ts`): a request (interval tick, window focus) waits until there has been no keyboard or pointer input for 5 s, and never overlaps a running sync (requests that arrive meanwhile merge into one follow-up). On quit the window close is held until the sync has finished (at most 15 s). An automatic sync never asks for a token, and an error already shown is not shown again until a sync succeeds or the error changes.
+
+## Capture window
+
+`capture_save(text)`, `capture_note_names()`, `capture_link_title(url)`, `capture_hide()` and `capture_apply()` belong to the capture window (see [../capture.md](../capture.md)). `capture_apply` registers the global shortcut of the settings file again and creates or removes the window and the tray icon.

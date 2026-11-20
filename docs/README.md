@@ -13,6 +13,7 @@ links and Mermaid rendering all at once.
 
 - [architecture.md](architecture.md) — process boundary, IPC, startup sequence
 - [workspaces.md](workspaces.md) — several folders in one window
+- [capture.md](capture.md) — the global shortcut and the capture window
 - [cli.md](cli.md) — querying the vault from the terminal
 - [mcp.md](mcp.md) — the read-only MCP server for agents
 - [updater.md](updater.md) — auto update, signing and key handling

@@ -1,0 +1,35 @@
+<form class="capture" (submit)="$event.preventDefault()">
+  <textarea
+    #input
+    rows="5"
+    aria-label="Capture"
+    placeholder="Capture… Enter saves, Shift+Enter adds a line, Escape discards"
+    [value]="capture.text()"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"
+    (keyup)="syncCaret()"
+    (click)="syncCaret()"
+  ></textarea>
+  @if (capture.suggestions().length > 0) {
+    <ul role="listbox" aria-label="Notes">
+      @for (name of capture.suggestions(); track name; let i = $index) {
+        <li role="option" [attr.aria-selected]="i === capture.selected()">
+          <button
+            type="button"
+            tabindex="-1"
+            [class.selected]="i === capture.selected()"
+            (mousedown)="$event.preventDefault(); pick(name)"
+          >
+            {{ name }}
+          </button>
+        </li>
+      }
+    </ul>
+  }
+  @if (capture.error(); as error) {
+    <p class="error" role="alert">{{ error }}</p>
+  }
+  <p class="hint">
+    Ctrl/Cmd+Shift+V inserts the clipboard · a URL becomes a link · [[ completes a note
+  </p>
+</form>
