@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from "@angular/core";
 
 import { DocumentService } from "../file/document.service";
 import { backend } from "../file/backend";
+import type { TextStats } from "./text-stats";
 
 /** What the open editor offers to the app. */
 export interface EditorHandle {
@@ -33,6 +34,8 @@ export class EditorService {
   readonly blocked = signal(false);
   /** 1-based line the editor scrolls to when it opens. */
   readonly startLine = signal<number | null>(null);
+  /** Words and characters of the open editor (its selection when there is one); null when none is open. */
+  readonly stats = signal<TextStats | null>(null);
   handle: EditorHandle | null = null;
 
   /** `viewerLine`: the 1-based line at the top of the viewer, mapped to the editor. */

@@ -1,6 +1,8 @@
 import { Component, computed, inject } from "@angular/core";
 import { HxStatusBar, HxStatusItem, HxStatusPopover, HxStatusVersion, HxStatusZoom, getHxPlatform, getHxPlatformKind } from "@gravionlabs/helix-desktop";
 
+import { EditorService } from "../../core/editor/editor.service";
+import { readingTime } from "../../core/editor/text-stats";
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
@@ -74,6 +76,11 @@ import { UpdateService } from "../../core/updater/update.service";
           </ng-container>
         }
 
+        @if (editor.stats(); as stats) {
+          <hx-status-item slot="end" class="words" [title]="readingTime(stats)">
+            {{ stats.words }} {{ stats.words === 1 ? "word" : "words" }}, {{ stats.characters }} {{ stats.characters === 1 ? "character" : "characters" }}{{ stats.selection ? " selected" : "" }}
+          </hx-status-item>
+        }
         <hx-status-zoom slot="end" [value]="settings.zoom()" (valueChange)="settings.zoom.set($event)" [min]="zoomMin" [max]="zoomMax" [step]="10" [reset]="100" />
         @if (updater.version(); as version) {
           <hx-status-version slot="end" [version]="version" [channel]="rc() ? 'RC' : null" />
@@ -144,6 +151,8 @@ export class StatusBarComponent {
   protected readonly settings = inject(SettingsService);
   protected readonly updater = inject(UpdateService);
   protected readonly commands = inject(CommandRegistry);
+  protected readonly editor = inject(EditorService);
+  protected readonly readingTime = readingTime;
 
   protected readonly zoomMin = ZOOM_MIN;
   protected readonly zoomMax = ZOOM_MAX;

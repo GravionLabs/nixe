@@ -9,6 +9,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 import { CommandRegistry } from "../../core/commands/command-registry";
+import { EditorService } from "../../core/editor/editor.service";
+import { countText } from "../../core/editor/text-stats";
 import { GitStatus } from "../../core/file/backend";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
@@ -29,6 +31,7 @@ interface Options {
   zoom?: number;
   pulled?: number;
   waiting?: number;
+  stats?: ReturnType<typeof countText> | null;
 }
 
 function render(o: Options = {}) {
@@ -47,6 +50,7 @@ function render(o: Options = {}) {
       { provide: ReviewService, useValue: { count: signal(o.waiting ?? 0) } },
       { provide: ShellService, useValue: { show } },
       { provide: SettingsService, useValue: { zoom } },
+      { provide: EditorService, useValue: { stats: signal(o.stats ?? null) } },
       { provide: CommandRegistry, useValue: { execute } },
       {
         provide: UpdateService,
@@ -89,6 +93,17 @@ describe("StatusBarComponent", () => {
     expect(el.querySelector(".sync-button")).toBeNull();
     expect(text()).toContain("1.2.0");
     expect(el.querySelector("hx-status-zoom")).not.toBeNull();
+  });
+
+  it("shows words and characters with the reading time as tooltip while editing", () => {
+    const none = render();
+    expect(none.el.querySelector(".words")).toBeNull();
+    const r = render({ stats: countText("one two three") });
+    const item = r.el.querySelector(".words")!;
+    expect(item.textContent).toContain("3 words, 11 characters");
+    expect(item.querySelector("[title]")?.getAttribute("title")).toBe("Reading time: under a minute");
+    const sel = render({ stats: countText("one", true) });
+    expect(sel.el.querySelector(".words")!.textContent).toContain("1 word, 3 characters selected");
   });
 
   it("shows the Git view in the sidebar", () => {
