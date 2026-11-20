@@ -635,6 +635,13 @@ export class AppComponent {
         run: () => this.settings.togglePanelTab("outline"),
       },
       {
+        id: "toggle-properties",
+        title: "Toggle properties",
+        shortcut: "Mod+Alt+P",
+        when: noteOpen,
+        run: () => this.settings.toggleProperties(),
+      },
+      {
         id: "toggle-link-preview",
         title: "Link preview: always on hover / only with ⌘/Ctrl held",
         run: () =>
