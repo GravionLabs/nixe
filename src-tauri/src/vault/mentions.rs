@@ -34,7 +34,11 @@ pub fn find(text: &str, terms: &[String]) -> Vec<Mention> {
         .collect();
     terms.sort_by_key(|t| std::cmp::Reverse(t.len()));
     terms.dedup();
-    let original: Vec<&str> = text.lines().collect();
+    let original: Vec<&str> = text
+        .strip_prefix('\u{feff}')
+        .unwrap_or(text)
+        .lines()
+        .collect();
     let mut out = Vec::new();
     for (number, prose) in prose_lines(text) {
         // Lowercasing can change the width of a char; search per char instead of per string.
@@ -92,6 +96,13 @@ pub fn link(
     let mut at = 0;
     for (n, raw) in text.split_inclusive('\n').enumerate() {
         if n + 1 == line {
+            // Offsets count from after a byte order mark, as `find` reports them.
+            let bom = if n == 0 && raw.starts_with('\u{feff}') {
+                '\u{feff}'.len_utf8()
+            } else {
+                0
+            };
+            let (start, end) = (start + bom, end + bom);
             let found = raw.get(start..end)?;
             if found != expected {
                 return None;
@@ -197,6 +208,17 @@ mod tests {
         assert!(link("see plan\n", 1, 4, 8, "task", "Plan").is_none());
         assert!(link("see plan\n", 5, 4, 8, "plan", "Plan").is_none());
         assert!(link("see plan\n", 1, 4, 99, "plan", "Plan").is_none());
+    }
+
+    #[test]
+    fn offsets_ignore_a_byte_order_mark_on_the_first_line() {
+        let text = "\u{feff}see plan now\n";
+        let m = &find(text, &terms(&["plan"]))[0];
+        assert_eq!(m.text, "plan");
+        assert_eq!(
+            link(text, 1, m.start, m.end, &m.text, "Plan").unwrap(),
+            "\u{feff}see [[Plan|plan]] now\n"
+        );
     }
 
     #[test]
