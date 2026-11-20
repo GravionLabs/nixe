@@ -30,6 +30,9 @@ describe("sanitizeSettings", () => {
     expect(s.extractEmbed).toBe(false);
     expect(sanitizeSettings({ extractEmbed: true }).extractEmbed).toBe(true);
     expect(sanitizeSettings({ extractEmbed: 1 }).extractEmbed).toBe(false);
+    expect(s.wrapCode).toBe(false);
+    expect(sanitizeSettings({ wrapCode: true }).wrapCode).toBe(true);
+    expect(sanitizeSettings({ wrapCode: "yes" }).wrapCode).toBe(false);
     expect(s.treeSort).toBe("name-asc");
     expect(sanitizeSettings({ treeSort: "modified-desc" }).treeSort).toBe("modified-desc");
     expect(sanitizeSettings({ treeSort: "bogus" }).treeSort).toBe("name-asc");

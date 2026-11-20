@@ -45,6 +45,8 @@ export interface StoredSettings {
   bookmarksInVault: boolean;
   /** Extracting text leaves an embed (`![[note]]`) instead of a link (#113). */
   extractEmbed: boolean;
+  /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
+  wrapCode: boolean;
   /** Name of the theme file (without `.css`) in `themes/` of the app config directory; "" is the built-in look (#114). */
   appearanceTheme: string;
   /** Names of the enabled snippets of `snippets/` (#114). */
@@ -87,6 +89,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   reviewBranchPrefix: "claude/",
   bookmarksInVault: false,
   extractEmbed: false,
+  wrapCode: false,
   appearanceTheme: "",
   snippets: [],
   accentColor: "",
@@ -142,6 +145,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     reviewBranchPrefix: text(o["reviewBranchPrefix"], d.reviewBranchPrefix),
     bookmarksInVault: o["bookmarksInVault"] === true,
     extractEmbed: o["extractEmbed"] === true,
+    wrapCode: o["wrapCode"] === true,
     appearanceTheme: text(o["appearanceTheme"], d.appearanceTheme),
     snippets: sanitizeNames(o["snippets"]),
     accentColor: sanitizeAccent(o["accentColor"]),
