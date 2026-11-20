@@ -115,6 +115,9 @@ export class SettingsService {
   /** Extracting text leaves an embed instead of a link (#113). */
   readonly extractEmbed = signal<boolean>(this.stored.extractEmbed);
 
+  /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
+  readonly wrapCode = signal<boolean>(this.stored.wrapCode);
+
   /** Appearance (#114): the theme file, the enabled snippets, the accent color and the fonts. */
   readonly appearanceTheme = signal<string>(this.stored.appearanceTheme);
   readonly snippets = signal<string[]>(this.stored.snippets);
@@ -173,6 +176,7 @@ export class SettingsService {
       reviewBranchPrefix: this.reviewBranchPrefix(),
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
+      wrapCode: this.wrapCode(),
       appearanceTheme: this.appearanceTheme(),
       snippets: this.snippets(),
       accentColor: this.accentColor(),
@@ -211,6 +215,7 @@ export class SettingsService {
     this.reviewBranchPrefix.set(s.reviewBranchPrefix);
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
+    this.wrapCode.set(s.wrapCode);
     this.appearanceTheme.set(s.appearanceTheme);
     this.snippets.set(s.snippets);
     this.accentColor.set(s.accentColor);

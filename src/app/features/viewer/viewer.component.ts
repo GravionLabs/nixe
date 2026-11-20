@@ -21,6 +21,7 @@ import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
 import { slugify } from "../../core/markdown/markdown-renderer";
 import { MarkdownService } from "../../core/markdown/markdown.service";
+import { decorateCodeBlocks, handleCopyClick } from "../../core/markdown/code-blocks";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
@@ -81,6 +82,7 @@ const DIALOG_ZOOM_STEP = 1.1;
     <article
       #content
       class="markdown-body"
+      [class.wrap-code]="settings.wrapCode()"
       tabindex="-1"
       [style.zoom.%]="settings.zoom()"
       (click)="onClick($event)"
@@ -184,6 +186,7 @@ export class ViewerComponent {
           this.host.nativeElement.scrollTop = 0;
         }
         this.findMarks = [];
+        decorateCodeBlocks(el);
         this.enableTasks();
         void this.syncFolds();
         this.applyPendingAnchor(false);
@@ -202,6 +205,7 @@ export class ViewerComponent {
           })
           .catch(() => undefined)
           .then(() => this.mermaid.render(el, dark))
+          .then(() => decorateCodeBlocks(el))
           .then(() => this.syncFolds())
           .then(() => {
             this.enableTasks();
@@ -467,6 +471,7 @@ export class ViewerComponent {
 
   async onClick(event: MouseEvent): Promise<void> {
     const target = event.target as Element;
+    if (await handleCopyClick(target)) return;
 
     const marker = target.closest<HTMLElement>(".fold-marker");
     if (marker?.parentElement) {

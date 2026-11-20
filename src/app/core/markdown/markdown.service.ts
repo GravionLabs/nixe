@@ -20,6 +20,9 @@ export interface RenderContext {
   vaultRoot?: string | null;
 }
 
+/** DOMPurify keeps the TeX source of a math block (`<annotation>`), which its copy button reads. */
+export const SANITIZE = { ADD_TAGS: ["annotation"], ADD_ATTR: ["encoding"] };
+
 /** Markdown → sanitized HTML, with local image paths mapped to Tauri's asset protocol. */
 @Injectable({ providedIn: "root" })
 export class MarkdownService {
@@ -50,7 +53,7 @@ export class MarkdownService {
     this.current = ctx;
     try {
       const note = renderNote(md, text, ctx.vaultFiles ?? undefined, ctx.vaultRoot ?? undefined);
-      return { ...note, html: DOMPurify.sanitize(note.html), body: DOMPurify.sanitize(note.body) };
+      return { ...note, html: DOMPurify.sanitize(note.html, SANITIZE), body: DOMPurify.sanitize(note.body, SANITIZE) };
     } finally {
       this.current = null;
     }
