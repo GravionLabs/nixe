@@ -14,7 +14,9 @@ describe("findMatches", () => {
   });
 
   it("respects the case option", () => {
-    expect(findMatches("Foo foo", "foo", { ...plain, caseSensitive: true })).toEqual([{ from: 4, to: 7 }]);
+    expect(findMatches("Foo foo", "foo", { ...plain, caseSensitive: true })).toEqual([
+      { from: 4, to: 7 },
+    ]);
   });
 
   it("treats the query literally unless regex is on", () => {

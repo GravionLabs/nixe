@@ -5,7 +5,7 @@ import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { type Mock, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn() }));
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
@@ -20,7 +20,12 @@ function fakeUpdate(version: string, download = vi.fn().mockResolvedValue(undefi
 }
 
 describe("UpdateService", () => {
-  const editor = { handle: { flush: vi.fn(), dirty: vi.fn() } as { flush: ReturnType<typeof vi.fn>; dirty: ReturnType<typeof vi.fn> } | null };
+  const editor = {
+    handle: { flush: vi.fn(), dirty: vi.fn() } as {
+      flush: Mock<() => Promise<void>>;
+      dirty: Mock<() => boolean>;
+    } | null,
+  };
   let updater: UpdateService;
 
   beforeAll(() => {
@@ -29,7 +34,10 @@ describe("UpdateService", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    editor.handle = { flush: vi.fn().mockResolvedValue(undefined), dirty: vi.fn().mockReturnValue(false) };
+    editor.handle = {
+      flush: vi.fn().mockResolvedValue(undefined),
+      dirty: vi.fn().mockReturnValue(false),
+    };
     vi.mocked(getVersion).mockResolvedValue("1.0.0");
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [{ provide: EditorService, useValue: editor }] });
@@ -88,7 +96,10 @@ describe("UpdateService", () => {
   });
 
   it("keeps the update available after a failed install and retries", async () => {
-    const download = vi.fn().mockRejectedValueOnce(new Error("signature")).mockResolvedValueOnce(undefined);
+    const download = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("signature"))
+      .mockResolvedValueOnce(undefined);
     vi.mocked(check).mockResolvedValue(fakeUpdate("1.1.0", download) as never);
     await updater.check();
     await updater.install();

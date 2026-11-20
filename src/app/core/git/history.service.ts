@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 
-import { DeletedNote, HistoryEntry, backend } from "../file/backend";
+import type { DeletedNote, HistoryEntry } from "../file/backend";
+import { backend } from "../file/backend";
 import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
 import { IndexService } from "../index/index.service";
@@ -33,7 +34,7 @@ export interface Comparison {
 
 /** The vault-relative path of `file`, or null when it is outside the vault. */
 export function relativeTo(root: string, file: string): string | null {
-  const r = toSlashes(root).replace(/\/+$/, "") + "/";
+  const r = `${toSlashes(root).replace(/\/+$/, "")}/`;
   const f = toSlashes(file);
   return f.startsWith(r) ? f.slice(r.length) : null;
 }
@@ -134,7 +135,7 @@ export class HistoryService {
       await this.git.refresh();
       this.notice.set(`Restored ${this.label(entry)}`);
     } catch (err) {
-      this.notice.set(`Restore failed: ${err}`);
+      this.notice.set(`Restore failed: ${String(err)}`);
     }
   }
 
@@ -159,7 +160,7 @@ export class HistoryService {
       await this.doc.open(file);
       this.notice.set(`Restored ${note.path}`);
     } catch (err) {
-      this.notice.set(`Restore failed: ${err}`);
+      this.notice.set(`Restore failed: ${String(err)}`);
     }
   }
 
@@ -233,15 +234,30 @@ export class HistoryService {
           revision === undefined ? Promise.resolve("") : backend.gitNoteVersion(path, revision),
           backend.gitNoteVersion(entry.path, entry.id),
         ]);
-        result = { oldText, newText, oldLabel: "before", newLabel: this.label(entry), path: entry.path };
+        result = {
+          oldText,
+          newText,
+          oldLabel: "before",
+          newLabel: this.label(entry),
+          path: entry.path,
+        };
       } else {
         // Older side first: the timeline is newest first.
-        const [newer, older] = rows.indexOf(chosen[0]) < rows.indexOf(chosen[1]) ? [chosen[0], chosen[1]] : [chosen[1], chosen[0]];
+        const [newer, older] =
+          rows.indexOf(chosen[0]) < rows.indexOf(chosen[1])
+            ? [chosen[0], chosen[1]]
+            : [chosen[1], chosen[0]];
         const [oldText, newText] = await Promise.all([
           backend.gitNoteVersion(older.path, older.id),
           backend.gitNoteVersion(newer.path, newer.id),
         ]);
-        result = { oldText, newText, oldLabel: this.label(older), newLabel: this.label(newer), path: newer.path };
+        result = {
+          oldText,
+          newText,
+          oldLabel: this.label(older),
+          newLabel: this.label(newer),
+          path: newer.path,
+        };
       }
       if (request === this.compareRequest) this.comparison.set(result);
     } catch (err) {

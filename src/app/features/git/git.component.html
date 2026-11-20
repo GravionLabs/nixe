@@ -11,9 +11,16 @@
   </p>
 
   <section aria-label="Changes">
-    <h2>Changes <span class="count">{{ status.changes.length }}</span></h2>
+    <h2>
+      Changes <span class="count">{{ status.changes.length }}</span>
+    </h2>
     @for (change of status.changes; track change.path) {
-      <button type="button" [disabled]="change.kind === 'deleted'" (click)="open(change.path)" [title]="change.path">
+      <button
+        type="button"
+        [disabled]="change.kind === 'deleted'"
+        (click)="open(change.path)"
+        [title]="change.path"
+      >
         <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
         <span class="name">{{ change.path }}</span>
       </button>
@@ -48,7 +55,13 @@
         (change)="settings.gitAuthorEmail.set($any($event.target).value)"
       />
     </details>
-    <button type="submit" class="primary" [disabled]="git.committing() || status.changes.length === 0">Commit all</button>
+    <button
+      type="submit"
+      class="primary"
+      [disabled]="git.committing() || status.changes.length === 0"
+    >
+      Commit all
+    </button>
   </form>
 
   <section aria-label="Automatic sync" class="auto-sync">
@@ -98,13 +111,27 @@
     <h2>Access token</h2>
     @if (git.tokenPrompt(); as prompt) {
       <p class="status" role="alert">
-        {{ prompt.reason === "failed" ? "GitHub rejected the token. Enter a new one." : "Enter a personal access token to reach GitHub." }}
+        {{
+          prompt.reason === "failed"
+            ? "GitHub rejected the token. Enter a new one."
+            : "Enter a personal access token to reach GitHub."
+        }}
         <button type="button" (click)="git.cancelTokenPrompt()">Cancel</button>
       </p>
     }
-    <p class="status">{{ git.tokenStored() ? "A token is stored in the system keychain." : "No token stored." }}</p>
-    <input #token type="password" autocomplete="off" aria-label="Personal access token" placeholder="Personal access token" />
-    <button type="button" (click)="saveToken(token)">{{ git.tokenStored() ? "Replace token" : "Save token" }}</button>
+    <p class="status">
+      {{ git.tokenStored() ? "A token is stored in the system keychain." : "No token stored." }}
+    </p>
+    <input
+      #token
+      type="password"
+      autocomplete="off"
+      aria-label="Personal access token"
+      placeholder="Personal access token"
+    />
+    <button type="button" (click)="saveToken(token)">
+      {{ git.tokenStored() ? "Replace token" : "Save token" }}
+    </button>
     @if (git.tokenStored()) {
       <button type="button" (click)="deleteToken()">Delete token</button>
     }

@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { GitStatus } from "../../core/file/backend";
+import type { GitStatus } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { GitService } from "../../core/git/git.service";
 import { SettingsService } from "../../core/settings/settings.service";
@@ -49,7 +49,9 @@ function render(
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
-      { provide: GitService, useValue: {
+      {
+        provide: GitService,
+        useValue: {
           status: signal(value),
           committing: signal(false),
           commit,
@@ -59,7 +61,8 @@ function render(
           saveToken,
           deleteToken,
           cancelTokenPrompt,
-        } },
+        },
+      },
       { provide: SettingsService, useValue: settings },
       { provide: DocumentService, useValue: { open } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
@@ -76,9 +79,20 @@ function render(
   });
   const fixture = TestBed.createComponent(GitComponent);
   const errors: string[] = [];
-  fixture.componentInstance.error.subscribe((e) => errors.push(e));
+  fixture.componentInstance.failed.subscribe((e) => errors.push(e));
   fixture.detectChanges();
-  return { settings, fixture, el: fixture.nativeElement as HTMLElement, open, close, commit, errors, saveToken, deleteToken, cancelTokenPrompt };
+  return {
+    settings,
+    fixture,
+    el: fixture.nativeElement as HTMLElement,
+    open,
+    close,
+    commit,
+    errors,
+    saveToken,
+    deleteToken,
+    cancelTokenPrompt,
+  };
 }
 
 describe("GitComponent", () => {
@@ -107,7 +121,9 @@ describe("GitComponent", () => {
     minutes.value = "0";
     minutes.dispatchEvent(new Event("change"));
     expect(settings.autoSyncMinutes()).toBe(1);
-    const [, focus, quit] = el.querySelectorAll<HTMLInputElement>(".auto-sync input[type=checkbox]");
+    const [, focus, quit] = el.querySelectorAll<HTMLInputElement>(
+      ".auto-sync input[type=checkbox]",
+    );
     focus.checked = true;
     focus.dispatchEvent(new Event("change"));
     quit.checked = true;
@@ -147,7 +163,9 @@ describe("GitComponent", () => {
 
   describe("access token", () => {
     const buttonByText = (el: HTMLElement, text: string) =>
-      [...el.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === text);
+      [...el.querySelectorAll<HTMLButtonElement>("button")].find(
+        (b) => b.textContent?.trim() === text,
+      );
 
     it("offers to save a token when none is stored", () => {
       const { el } = render(status);
@@ -174,7 +192,9 @@ describe("GitComponent", () => {
       const { el } = render(status, undefined, { prompt: { reason: "failed" } });
       expect(el.querySelector("[role=alert]")!.textContent).toContain("rejected the token");
       const required = render(status, undefined, { prompt: { reason: "required" } });
-      expect(required.el.querySelector("[role=alert]")!.textContent).toContain("Enter a personal access token");
+      expect(required.el.querySelector("[role=alert]")!.textContent).toContain(
+        "Enter a personal access token",
+      );
     });
 
     it("reports a failed save", async () => {

@@ -4,11 +4,53 @@
   -webkit-user-select: none;
 }
 
-.name {
+.crumbs {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 12px;
+}
+
+.sep,
+.gap {
+  flex: none;
+  opacity: 0.55;
+  padding: 0 1px;
+}
+
+.crumb {
+  display: block;
+  height: 22px;
+  line-height: 20px;
+  min-width: 0;
+  padding: 0 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+}
+
+.crumb.folder {
+  flex: 0 1 auto;
+  max-width: 14ch;
+  opacity: 0.75;
+}
+
+.crumb.note {
+  flex: 0 0 auto;
+  max-width: 100%;
+  font-weight: 600;
+}
+
+.rename {
+  min-width: 12ch;
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid var(--h-primary-color);
+  border-radius: 4px;
+  background: var(--h-content-background);
+  color: inherit;
+  font: inherit;
   font-weight: 600;
 }
 
@@ -29,11 +71,6 @@ button {
 
 button:hover:not(:disabled) {
   background: var(--h-surface-hover);
-}
-
-button:focus-visible {
-  outline: 2px solid var(--h-primary-color);
-  outline-offset: 1px;
 }
 
 button:disabled {

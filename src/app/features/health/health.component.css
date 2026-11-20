@@ -94,7 +94,7 @@ button.close {
 }
 
 mark {
-  background: color-mix(in srgb, gold 45%, transparent);
+  background: color-mix(in srgb, var(--h-yellow-400) 45%, transparent);
   color: var(--h-text-color);
 }
 

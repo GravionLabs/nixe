@@ -40,9 +40,7 @@ describe("editorExtensions", () => {
     const { view, theme } = create(14);
     const before = view.dom.className;
     view.dispatch({
-      effects: theme.reconfigure(
-        EditorView.theme({ "&": { fontSize: "20px" } }),
-      ),
+      effects: theme.reconfigure(EditorView.theme({ "&": { fontSize: "20px" } })),
     });
     expect(view.dom.className).not.toBe(before);
   });

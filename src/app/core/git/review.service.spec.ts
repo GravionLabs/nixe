@@ -9,7 +9,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { GitChange, ReviewBranch, ReviewHunk, backend } from "../file/backend";
+import type { GitChange, ReviewBranch, ReviewHunk } from "../file/backend";
+import { backend } from "../file/backend";
 import { IndexService } from "../index/index.service";
 import { SettingsService } from "../settings/settings.service";
 import { GitService } from "./git.service";
@@ -26,7 +27,15 @@ const branch = (name: string, tip: string): ReviewBranch => ({
   notes: 1,
 });
 const changes: GitChange[] = [{ path: "a.md", kind: "modified" }];
-const hunk = (index: number): ReviewHunk => ({ index, oldStart: index, oldLines: 1, newStart: index, newLines: 1, old: "o\n", new: "n\n" });
+const hunk = (index: number): ReviewHunk => ({
+  index,
+  oldStart: index,
+  oldLines: 1,
+  newStart: index,
+  newLines: 1,
+  old: "o\n",
+  new: "n\n",
+});
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe("ReviewService", () => {
@@ -51,12 +60,23 @@ describe("ReviewService", () => {
       providers: [
         { provide: GitService, useValue: { available, status, refresh } },
         { provide: IndexService, useValue: { revision: signal(0) } },
-        { provide: SettingsService, useValue: { reviewBranchPrefix: prefix, gitAuthorName: signal(" Me "), gitAuthorEmail: signal("") } },
+        {
+          provide: SettingsService,
+          useValue: {
+            reviewBranchPrefix: prefix,
+            gitAuthorName: signal(" Me "),
+            gitAuthorEmail: signal(""),
+          },
+        },
       ],
     });
-    branches = vi.spyOn(backend, "gitReviewBranches").mockResolvedValue([branch("claude/a", "t1"), branch("claude/b", "t2")]);
+    branches = vi
+      .spyOn(backend, "gitReviewBranches")
+      .mockResolvedValue([branch("claude/a", "t1"), branch("claude/b", "t2")]);
     vi.spyOn(backend, "gitReviewChanges").mockResolvedValue({ base: "base1", changes });
-    vi.spyOn(backend, "gitNoteVersion").mockImplementation(async (_p, rev) => (rev === "t1" ? "after" : "before"));
+    vi.spyOn(backend, "gitNoteVersion").mockImplementation(async (_p, rev) =>
+      rev === "t1" ? "after" : "before",
+    );
     vi.spyOn(backend, "gitReviewHunks").mockResolvedValue([hunk(0), hunk(1)]);
     vi.spyOn(backend, "gitReviewStateLoad").mockResolvedValue(null);
     save = vi.spyOn(backend, "gitReviewStateSave").mockResolvedValue(undefined);
@@ -203,17 +223,37 @@ describe("ReviewService", () => {
     });
 
     it("finishing with everything rejected deletes the branch without changes", async () => {
-      vi.spyOn(backend, "gitReviewFinish").mockResolvedValue({ commit: null, applied: [], conflicts: [], branchDeleted: true, warning: "the branch stays on origin: offline" });
+      vi.spyOn(backend, "gitReviewFinish").mockResolvedValue({
+        commit: null,
+        applied: [],
+        conflicts: [],
+        branchDeleted: true,
+        warning: "the branch stays on origin: offline",
+      });
       await open();
       await service.finish();
-      expect(service.result()).toBe("Nothing accepted: claude/a deleted without changes. the branch stays on origin: offline");
+      expect(service.result()).toBe(
+        "Nothing accepted: claude/a deleted without changes. the branch stays on origin: offline",
+      );
     });
 
     it("keeps the review open and lists the conflicts, then finishes with the resolution", async () => {
       const finish = vi
         .spyOn(backend, "gitReviewFinish")
-        .mockResolvedValueOnce({ commit: null, applied: [], conflicts: [{ path: "a.md", mine: "m", branch: "b" }], branchDeleted: false, warning: null })
-        .mockResolvedValueOnce({ commit: "c", applied: [], conflicts: [], branchDeleted: true, warning: null });
+        .mockResolvedValueOnce({
+          commit: null,
+          applied: [],
+          conflicts: [{ path: "a.md", mine: "m", branch: "b" }],
+          branchDeleted: false,
+          warning: null,
+        })
+        .mockResolvedValueOnce({
+          commit: "c",
+          applied: [],
+          conflicts: [],
+          branchDeleted: true,
+          warning: null,
+        });
       await open();
       service.setNote("a.md", true);
       await service.finish();

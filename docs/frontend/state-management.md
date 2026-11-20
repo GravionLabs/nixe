@@ -106,6 +106,11 @@ is watched for external changes; the watcher event goes to every tab showing tha
 - Commands: `new-tab` (⌘/Ctrl+T), `close-tab` (⌘/Ctrl+W; closes the window when only an empty tab is
   left), `next-tab` / `previous-tab` (⌃Tab, ⌃⇧Tab), `split-right`, `unsplit`, `focus-other-pane`.
   ⌘/Ctrl+click on a link, a tree entry or a backlink opens the note in a new tab.
+- Focus regions: `FocusService` (`core/shell/focus.service.ts`) registers `focus-file-tree` (⌘/Ctrl+Shift+E),
+  `focus-note` (⌘/Ctrl+Shift+N) and `focus-panel` (⌘/Ctrl+Shift+I); the shortcuts can be changed like any other.
+  A collapsed sidebar or panel opens first. Escape in the sidebar or the panel returns the focus to the note
+  (not in a text field, where Escape cancels the edit). While the focus was moved by a command, `<html>` has
+  `data-keyboard-focus` (removed on the next pointer press) and the editor, the viewer and the panel tab show a ring.
 - Views as tabs: settings and the vault health report are not notes; they open as a tab
   (`TabsService.openView`, at most one of each: the open one is focused, also in the other pane).
   The tab keeps an empty document, so it never reaches the back/forward history; opening a note into
@@ -135,3 +140,27 @@ is watched for external changes; the watcher event goes to every tab showing tha
   read from `.obsidian/` by `obsidian_settings` and shown read-only with their source file.
 - **Apply at once.** Items read and write the `SettingsService` signals, so changes need no restart.
   The search field filters items by label, description, keywords and section title.
+
+## File tree header
+
+The header of the file tree has the buttons New note, New folder, Sort, Reveal the active note and
+Collapse all; each is a command of the palette too (`new-note`, `new-folder`,
+`sort-file-tree-<order>`, `reveal-active-note`, `collapse-all-folders`). The tree is kept current by
+the file watcher, so there is no Refresh button; the command "Reload file tree" reads it again.
+
+Sort offers file name and modified time, ascending and descending (`treeSort` in `settings.json`,
+default `name-asc`). Folders stay first. Name ascending keeps the order of the backend, which honors
+an Azure DevOps `.order` file. Reveal expands the folders of the open note and scrolls its row into
+view (`WorkspaceService.revealActive`).
+The button or command only flashes the row for 2 s; the reveal on a tab switch stays quiet.
+
+In a vault with Git a changed note shows a letter at the right of its row (`M` modified, `A`
+added, `U` untracked) and its name in the color of the status; a folder with such notes shows a
+dot. The status is the one of `GitService.status()`; the colors are `light-dark()` pairs of Helix
+tokens whose contrast on the sidebar is checked in `theme-tokens.spec.ts`. The setting "Git status
+in the file tree" (`treeGitStatus`, default on) turns it off.
+
+The filter field above the tree (command `filter-file-tree`, "Filter file tree", Ctrl/⌘+Alt+E)
+narrows the tree to the notes and folders whose name contains the text, case-insensitive. Matching
+parts are highlighted, the folders of the matches are expanded (`WorkspaceService.setTreeFilter`
+loads the folders from the vault file list) and Escape clears the field.

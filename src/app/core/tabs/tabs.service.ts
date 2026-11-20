@@ -1,16 +1,27 @@
-import { Injectable, InjectionToken, Injector, Provider, WritableSignal, computed, inject, isSignal, signal } from "@angular/core";
+import type { Provider, WritableSignal } from "@angular/core";
+import {
+  Injectable,
+  InjectionToken,
+  Injector,
+  computed,
+  inject,
+  isSignal,
+  signal,
+} from "@angular/core";
 
 import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { OutlineService } from "../outline/outline.service";
 import { toSlashes } from "../markdown/paths";
-import { LayoutState, MAX_TABS, TabState, TabView, clampRatio } from "./layout";
+import type { LayoutState, TabState, TabView } from "./layout";
+import { MAX_TABS, clampRatio } from "./layout";
 
 /** What the viewer of a tab offers to the app. */
 export interface ViewerHandle {
   topLine(): number | null;
   openFind(): void;
+  fold(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void;
 }
 
 /**
@@ -108,13 +119,18 @@ export class TabsService {
   readonly showWorkspace = computed(() => {
     const panes = this.panes();
     return (
-      panes.length > 1 || panes[0].tabs.length > 1 || this.activeTab().doc.path() !== null || this.activeTab().view() !== null
+      panes.length > 1 ||
+      panes[0].tabs.length > 1 ||
+      this.activeTab().doc.path() !== null ||
+      this.activeTab().view() !== null
     );
   });
 
   private readonly hook = {
-    typed: (source: DocumentService, path: string, text: string) => this.sync(source, path, text, false),
-    wrote: (source: DocumentService, path: string, text: string) => this.sync(source, path, text, true),
+    typed: (source: DocumentService, path: string, text: string) =>
+      this.sync(source, path, text, false),
+    wrote: (source: DocumentService, path: string, text: string) =>
+      this.sync(source, path, text, true),
   };
 
   constructor() {
@@ -158,7 +174,15 @@ export class TabsService {
   /** Moves a tab of a pane to position `to` (the position it has after the move). */
   moveTab(paneId: number, from: number, to: number): void {
     const pane = this.panes().find((p) => p.id === paneId);
-    if (!pane || from === to || from < 0 || from >= pane.tabs.length || to < 0 || to >= pane.tabs.length) return;
+    if (
+      !pane ||
+      from === to ||
+      from < 0 ||
+      from >= pane.tabs.length ||
+      to < 0 ||
+      to >= pane.tabs.length
+    )
+      return;
     const tabs = [...pane.tabs];
     const [tab] = tabs.splice(from, 1);
     tabs.splice(to, 0, tab);
@@ -178,10 +202,22 @@ export class TabsService {
     const rest = from.tabs.filter((t) => t.id !== tabId);
     const next = panes
       .map((p) => {
-        if (p.id === toPaneId) return { ...p, tabs: [...p.tabs.slice(0, at), tab, ...p.tabs.slice(at)], activeId: tab.id };
+        if (p.id === toPaneId)
+          return {
+            ...p,
+            tabs: [...p.tabs.slice(0, at), tab, ...p.tabs.slice(at)],
+            activeId: tab.id,
+          };
         if (p.id !== fromPaneId) return p;
         const wasShown = p.activeId === tabId;
-        return { ...p, tabs: rest, activeId: wasShown && rest.length ? rest[Math.min(from.tabs.indexOf(tab), rest.length - 1)].id : p.activeId };
+        return {
+          ...p,
+          tabs: rest,
+          activeId:
+            wasShown && rest.length
+              ? rest[Math.min(from.tabs.indexOf(tab), rest.length - 1)].id
+              : p.activeId,
+        };
       })
       .filter((p) => p.tabs.length > 0);
     this.panes.set(next);
@@ -190,7 +226,10 @@ export class TabsService {
   }
 
   /** Opens a note in a new tab of the focused pane; the tab is dropped again when it fails. */
-  async openInNewTab(path: string, options: Parameters<DocumentService["open"]>[1] = {}): Promise<void> {
+  async openInNewTab(
+    path: string,
+    options: Parameters<DocumentService["open"]>[1] = {},
+  ): Promise<void> {
     const paneId = this.focusedPane().id;
     const tab = this.newTab();
     try {
@@ -335,9 +374,15 @@ export class TabsService {
     return {
       panes: panes.map((pane) => ({
         tabs: pane.tabs.map((tab) => this.tabState(tab)),
-        active: Math.max(0, pane.tabs.findIndex((t) => t.id === pane.activeId)),
+        active: Math.max(
+          0,
+          pane.tabs.findIndex((t) => t.id === pane.activeId),
+        ),
       })),
-      focused: Math.max(0, panes.findIndex((p) => p.id === this.focusedPane().id)),
+      focused: Math.max(
+        0,
+        panes.findIndex((p) => p.id === this.focusedPane().id),
+      ),
       ratio: this.ratio(),
     };
   }
@@ -350,11 +395,15 @@ export class TabsService {
     const built = await Promise.all(
       layout.panes.map(async (pane) => {
         const tabs = await Promise.all(pane.tabs.map((state) => this.restoreTab(state)));
-        const kept = tabs.map((tab, i) => ({ tab, i })).filter((x) => x.tab !== null) as { tab: Tab; i: number }[];
+        const kept = tabs.map((tab, i) => ({ tab, i })).filter((x) => x.tab !== null) as {
+          tab: Tab;
+          i: number;
+        }[];
         return { pane, kept };
       }),
     );
-    if (!built.some((b) => b.kept.some((k) => k.tab.doc.path() !== null || k.tab.view() !== null))) return false;
+    if (!built.some((b) => b.kept.some((k) => k.tab.doc.path() !== null || k.tab.view() !== null)))
+      return false;
     const panes: Pane[] = [];
     let focused = -1;
     built.forEach((b, i) => {
@@ -399,11 +448,23 @@ export class TabsService {
   private tabState(tab: Tab): TabState {
     const path = tab.doc.path();
     const { history, index } = tab.doc.historyState();
-    return { view: tab.view(), path, history, index, editing: path !== null && tab.editor.editing(), line: this.lineOf(tab) };
+    return {
+      view: tab.view(),
+      path,
+      history,
+      index,
+      editing: path !== null && tab.editor.editing(),
+      line: this.lineOf(tab),
+    };
   }
 
   private lineOf(tab: Tab): number | null {
-    return tab.viewer?.topLine() ?? tab.editor.handle?.topLine() ?? tab.scrollLine ?? tab.doc.pendingLine();
+    return (
+      tab.viewer?.topLine() ??
+      tab.editor.handle?.topLine() ??
+      tab.scrollLine ??
+      tab.doc.pendingLine()
+    );
   }
 
   /** Remembers where the tab is scrolled to, so it comes back there when it is shown again. */
@@ -431,6 +492,8 @@ export class TabsService {
   private watch(): void {
     const path = this.activeTab().doc.path();
     if (path) backend.watchFile(path).catch(() => undefined);
+    // Only the watched note reports a deletion: look at the others when the focus moves.
+    for (const tab of this.allTabs()) void tab.doc.checkMissing();
   }
 
   /** Typing or saving in one tab reaches the other tabs showing the same note. */

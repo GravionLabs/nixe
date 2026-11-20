@@ -11,6 +11,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ revealItemInDir: vi.fn() }));
 
 import { ask } from "@tauri-apps/plugin-dialog";
 
+import { BookmarksService } from "../bookmarks/bookmarks.service";
 import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
@@ -22,6 +23,10 @@ describe("VaultOpsService", () => {
   const doc = { path, open: vi.fn(), close: vi.fn() };
   const workspace = { vaultRoot: signal("/v"), reloadTree: vi.fn() };
   const editor = { editing: signal(false), handle: null };
+  const bookmarks = {
+    relative: (p: string) => (p.startsWith("/v/") ? p.slice(3) : null),
+    renamed: vi.fn(),
+  };
   let ops: VaultOpsService;
 
   beforeAll(() => {
@@ -34,12 +39,14 @@ describe("VaultOpsService", () => {
     doc.close = vi.fn();
     workspace.reloadTree = vi.fn().mockResolvedValue(undefined);
     path.set(null);
+    bookmarks.renamed.mockReset();
     editor.editing.set(false);
     vi.spyOn(backend, "newNoteLocation").mockResolvedValue({ location: "root", folder: "" });
     vi.spyOn(backend, "listDir").mockResolvedValue([]);
     vi.spyOn(backend, "createDir").mockResolvedValue(undefined);
     vi.spyOn(backend, "createFile").mockResolvedValue(undefined);
     vi.spyOn(backend, "renamePath").mockResolvedValue([]);
+    vi.spyOn(backend, "pathExists").mockResolvedValue(false);
     vi.spyOn(backend, "isDir").mockResolvedValue(false);
     vi.spyOn(backend, "relinkPreview").mockResolvedValue([]);
     vi.mocked(ask).mockReset();
@@ -51,9 +58,15 @@ describe("VaultOpsService", () => {
         { provide: WorkspaceService, useValue: workspace },
         { provide: DocumentService, useValue: doc },
         { provide: EditorService, useValue: editor },
+        { provide: BookmarksService, useValue: bookmarks },
       ],
     });
     ops = TestBed.inject(VaultOpsService);
+  });
+
+  it("tells the bookmarks about a rename, with vault-relative paths", async () => {
+    await ops.rename("/v/dir/a.md", "b.md");
+    expect(bookmarks.renamed).toHaveBeenCalledWith("dir/a.md", "dir/b.md");
   });
 
   it("creates Untitled.md in the vault root and opens it", async () => {
@@ -148,7 +161,7 @@ describe("VaultOpsService", () => {
   });
 
   it("refuses an invalid name before it calls the backend", async () => {
-    await expect(ops.rename("/v/a.md", "x/y")).rejects.toThrow();
+    await expect(ops.rename("/v/a.md", "x/y")).rejects.toThrow("That is not a valid name.");
     expect(backend.renamePath).not.toHaveBeenCalled();
   });
 
@@ -166,5 +179,50 @@ describe("VaultOpsService", () => {
     await ops.trash("/v/b.md");
     expect(doc.close).not.toHaveBeenCalled();
     expect(workspace.reloadTree).toHaveBeenCalled();
+  });
+
+  describe("move", () => {
+    it("moves the entries into the folder", async () => {
+      await expect(ops.move(["/v/a.md", "/v/b"], "/v/d")).resolves.toEqual(["/v/d/a.md", "/v/d/b"]);
+      expect(backend.renamePath).toHaveBeenCalledWith("/v/a.md", "/v/d/a.md");
+      expect(backend.renamePath).toHaveBeenCalledWith("/v/b", "/v/d/b");
+      expect(bookmarks.renamed).toHaveBeenCalledWith("a.md", "d/a.md");
+      expect(workspace.reloadTree).toHaveBeenCalled();
+    });
+
+    it("moves nothing when one name is taken in the folder", async () => {
+      vi.spyOn(backend, "listDir").mockResolvedValue([
+        { name: "A.md", path: "/v/d/A.md", isDir: false, hasOrder: false },
+      ]);
+      await expect(ops.move(["/v/b.md", "/v/a.md"], "/v/d")).rejects.toThrow(
+        /a\.md already exists in d/,
+      );
+      expect(backend.renamePath).not.toHaveBeenCalled();
+    });
+
+    it("moves nothing when the name is taken by an entry the tree hides", async () => {
+      vi.mocked(backend.pathExists).mockImplementation(async (p) => p === "/v/d/b");
+      await expect(ops.move(["/v/a.md", "/v/b"], "/v/d")).rejects.toThrow(/b already exists/);
+      expect(backend.renamePath).not.toHaveBeenCalled();
+    });
+
+    it("lists the notes with rewritten links and moves nothing when declined", async () => {
+      vi.spyOn(backend, "relinkPreview").mockResolvedValue([{ path: "/v/n.md", links: 2 }]);
+      vi.mocked(ask).mockResolvedValue(false);
+      await expect(ops.move(["/v/a.md"], "/v/d")).resolves.toEqual([]);
+      expect(vi.mocked(ask).mock.calls[0][0]).toContain("/v/n.md (2)");
+      expect(backend.renamePath).not.toHaveBeenCalled();
+    });
+
+    it("follows the open note", async () => {
+      path.set("/v/b/x.md");
+      await ops.move(["/v/b"], "/v/d");
+      expect(doc.open).toHaveBeenCalledWith("/v/d/b/x.md", { addToHistory: false });
+    });
+
+    it("does nothing for an entry already in the folder", async () => {
+      await expect(ops.move(["/v/d/a.md"], "/v/d")).resolves.toEqual([]);
+      expect(backend.renamePath).not.toHaveBeenCalled();
+    });
   });
 });

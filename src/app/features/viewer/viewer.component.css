@@ -7,9 +7,9 @@
 
 .properties-host {
   box-sizing: border-box;
-  max-width: 980px;
+  max-width: var(--nixe-content-width, 980px);
   margin: 0 auto;
-  padding: 24px 40px 0;
+  padding: 24px var(--nixe-content-padding-x, 40px) 0;
 }
 
 :host .properties-host + .markdown-body {
@@ -19,9 +19,10 @@
 /* `:host article` outranks github-markdown-css (`:root:not(.app-dark) .markdown-body`), which sets `margin: 0`. */
 :host article.markdown-body {
   box-sizing: border-box;
-  max-width: 980px;
+  max-width: var(--nixe-content-width, 980px);
   margin: 0 auto;
-  padding: 32px 40px 80px;
+  padding: var(--nixe-content-padding-top, 32px) var(--nixe-content-padding-x, 40px)
+    var(--nixe-content-padding-bottom, 80px);
   background: transparent;
 }
 
@@ -44,8 +45,8 @@
 .markdown-body .embed {
   margin: 1em 0;
   padding: 0 1em;
-  border-left: 3px solid var(--border-color, #8884);
-  background: #8881;
+  border-left: 3px solid color-mix(in srgb, var(--h-text-muted-color) 40%, transparent);
+  background: color-mix(in srgb, var(--h-text-muted-color) 8%, transparent);
   border-radius: 4px;
 }
 
@@ -104,16 +105,12 @@
   background: var(--h-primary-color);
 }
 
-.markdown-body:focus {
-  outline: none;
-}
-
 .markdown-body mark.find-hit {
   color: inherit;
-  background: rgb(255 200 0 / 0.4);
+  background: color-mix(in srgb, var(--h-yellow-400) 40%, transparent);
   border-radius: 2px;
 }
 
 .markdown-body mark.find-hit.find-active {
-  background: rgb(255 140 0 / 0.7);
+  background: color-mix(in srgb, var(--h-orange-500) 70%, transparent);
 }

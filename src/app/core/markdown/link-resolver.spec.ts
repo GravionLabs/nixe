@@ -5,11 +5,26 @@ import { dirname, joinPath } from "./paths";
 describe("classifyHref", () => {
   it("classifies anchors, external and local links", () => {
     expect(classifyHref("#abschnitt-2")).toEqual({ kind: "anchor", anchor: "abschnitt-2" });
-    expect(classifyHref("https://example.com")).toEqual({ kind: "external", url: "https://example.com" });
+    expect(classifyHref("https://example.com")).toEqual({
+      kind: "external",
+      url: "https://example.com",
+    });
     expect(classifyHref("mailto:a@b.de")).toEqual({ kind: "external", url: "mailto:a@b.de" });
-    expect(classifyHref("./other.md#sec")).toEqual({ kind: "local", path: "./other.md", anchor: "sec" });
-    expect(classifyHref("/Parent/Child-Page")).toEqual({ kind: "local", path: "/Parent/Child-Page", anchor: null });
-    expect(classifyHref("C:/docs/a.md")).toEqual({ kind: "local", path: "C:/docs/a.md", anchor: null });
+    expect(classifyHref("./other.md#sec")).toEqual({
+      kind: "local",
+      path: "./other.md",
+      anchor: "sec",
+    });
+    expect(classifyHref("/Parent/Child-Page")).toEqual({
+      kind: "local",
+      path: "/Parent/Child-Page",
+      anchor: null,
+    });
+    expect(classifyHref("C:/docs/a.md")).toEqual({
+      kind: "local",
+      path: "C:/docs/a.md",
+      anchor: null,
+    });
   });
 
   it("ignores unsafe or empty links", () => {
@@ -19,8 +34,16 @@ describe("classifyHref", () => {
   });
 
   it("handles file:// URLs", () => {
-    expect(classifyHref("file:///Users/me/a%20b.md")).toEqual({ kind: "local", path: "/Users/me/a b.md", anchor: null });
-    expect(classifyHref("file:///C:/x.md")).toEqual({ kind: "local", path: "C:/x.md", anchor: null });
+    expect(classifyHref("file:///Users/me/a%20b.md")).toEqual({
+      kind: "local",
+      path: "/Users/me/a b.md",
+      anchor: null,
+    });
+    expect(classifyHref("file:///C:/x.md")).toEqual({
+      kind: "local",
+      path: "C:/x.md",
+      anchor: null,
+    });
   });
 });
 
@@ -50,17 +73,27 @@ describe("resolveLocalLink", () => {
   });
 
   it("resolves the first existing candidate", async () => {
-    const files = new Set(["/wiki/Architektur/Data Flow.md", "/wiki/img/logo.png", "/wiki/Q%2DA.md"]);
+    const files = new Set([
+      "/wiki/Architektur/Data Flow.md",
+      "/wiki/img/logo.png",
+      "/wiki/Q%2DA.md",
+    ]);
     const exists = async (p: string) => files.has(p);
-    expect(await resolveLocalLink("/Architektur/Data-Flow", { ...ctx, exists })).toBe("/wiki/Architektur/Data Flow.md");
-    expect(await resolveLocalLink("../img/logo.png", { ...ctx, exists })).toBe("/wiki/img/logo.png");
+    expect(await resolveLocalLink("/Architektur/Data-Flow", { ...ctx, exists })).toBe(
+      "/wiki/Architektur/Data Flow.md",
+    );
+    expect(await resolveLocalLink("../img/logo.png", { ...ctx, exists })).toBe(
+      "/wiki/img/logo.png",
+    );
     expect(await resolveLocalLink("/Q%2DA", { ...ctx, exists })).toBe("/wiki/Q%2DA.md");
     expect(await resolveLocalLink("Missing", { ...ctx, exists })).toBeNull();
   });
 
   it("falls back to real absolute paths", async () => {
     const exists = async (p: string) => p === "/Users/me/notes.md";
-    expect(await resolveLocalLink("/Users/me/notes.md", { ...ctx, exists })).toBe("/Users/me/notes.md");
+    expect(await resolveLocalLink("/Users/me/notes.md", { ...ctx, exists })).toBe(
+      "/Users/me/notes.md",
+    );
   });
 });
 

@@ -1,11 +1,40 @@
-<ng-template navIcon="files"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg></ng-template>
-<ng-template navIcon="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></svg></ng-template>
-<ng-template navIcon="git"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="9" r="2.5" /><path d="M6 8.5v7M18 11.5c0 4-6 3-11 5" /></svg></ng-template>
-<ng-template navIcon="history"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" /></svg></ng-template>
-<ng-template navIcon="health"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4" /></svg></ng-template>
-<ng-template navIcon="calendar"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg></ng-template>
-<ng-template navIcon="palette"><svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8" /></svg></ng-template>
-<ng-template navIcon="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" /></svg></ng-template>
+<ng-template appNavIcon="files"
+  ><svg viewBox="0 0 24 24">
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg
+></ng-template>
+<ng-template appNavIcon="search"
+  ><svg viewBox="0 0 24 24">
+    <circle cx="11" cy="11" r="7" />
+    <path d="M21 21l-4.35-4.35" /></svg
+></ng-template>
+<ng-template appNavIcon="bookmark"
+  ><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z" /></svg
+></ng-template>
+<ng-template appNavIcon="git"
+  ><svg viewBox="0 0 24 24">
+    <circle cx="6" cy="6" r="2.5" />
+    <circle cx="6" cy="18" r="2.5" />
+    <circle cx="18" cy="9" r="2.5" />
+    <path d="M6 8.5v7M18 11.5c0 4-6 3-11 5" /></svg
+></ng-template>
+<ng-template appNavIcon="history"
+  ><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" /></svg
+></ng-template>
+<ng-template appNavIcon="health"
+  ><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4" /></svg
+></ng-template>
+<ng-template appNavIcon="calendar"
+  ><svg viewBox="0 0 24 24">
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M3 10h18M8 3v4M16 3v4" /></svg
+></ng-template>
+<ng-template appNavIcon="settings"
+  ><svg viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="3" />
+    <path
+      d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"
+    /></svg
+></ng-template>
 
 <hx-app-shell
   [sidebarWidth]="settings.sidebarWidth()"
@@ -14,7 +43,7 @@
   (collapsedChange)="settings.sidebarVisible.set(!$event)"
   [activeId]="shell.activeView()"
 >
-  <app-toolbar slot="toolbar" />
+  <app-toolbar slot="toolbar" (failed)="showError($event)" />
 
   <hx-activity-bar
     slot="activity"
@@ -27,70 +56,94 @@
 
   @switch (shell.shownView()) {
     @case ("files") {
-      <app-sidebar slot="sidebar" (error)="showToast($event)" />
+      <app-sidebar slot="sidebar" (failed)="showError($event)" />
     }
     @case ("search") {
-      <app-search slot="sidebar" (error)="showToast($event)" />
+      <app-search slot="sidebar" (failed)="showError($event)" />
+    }
+    @case ("bookmarks") {
+      <app-bookmarks slot="sidebar" />
     }
     @case ("history") {
       <app-history slot="sidebar" />
     }
     @case ("git") {
-      <app-git slot="sidebar" (error)="showToast($event)" (committed)="showToast('Committed')" />
+      <app-git slot="sidebar" (failed)="showError($event)" (committed)="showToast('Committed')" />
     }
   }
 
   <div class="content">
-  @if (gitSpike) {
-    @defer {
-      <app-git-spike />
-      <app-editor-spike />
+    @if (gitSpike) {
+      @defer {
+        <app-git-spike />
+        <app-editor-spike />
+      }
     }
-  }
 
-  @if (doc.path()) {
-    <app-conflict-bar (error)="showToast($event)" />
-  }
-
-  <main>
-    @if (tabs.showWorkspace()) {
-      <app-workspace class="pane" />
-    } @else {
-    <section class="welcome">
-      <h1>Nixe</h1>
-      <p>Markdown viewer with Mermaid, Azure DevOps wiki, and LaTeX</p>
-      <div class="actions">
-        <button type="button" class="primary" (click)="run(doc.openWithDialog.bind(doc))">Open file</button>
-        <button type="button" (click)="run(workspace.openFolderWithDialog.bind(workspace))">Open folder</button>
-        <button type="button" (click)="cloneVault.open()">Clone vault</button>
-      </div>
-      <p class="hint">or drop a file or folder onto the window</p>
-      <dl class="shortcuts">
-        <dt>{{ mod }}N</dt><dd>New note</dd>
-        <dt>{{ mod }}O</dt><dd>Quick switcher</dd>
-        <dt>{{ mod }}P</dt><dd>Command palette</dd>
-        <dt>{{ mod }}⇧P</dt><dd>Open file</dd>
-        <dt>{{ mod }}⇧O</dt><dd>Open folder</dd>
-        <dt>{{ mod }}E</dt><dd>Edit / view the note</dd>
-        <dt>{{ mod }}B</dt><dd>Toggle sidebar</dd>
-        <dt>{{ mod }}⇧B</dt><dd>Toggle backlinks</dd>
-        <dt>{{ mod }}⇧L</dt><dd>Toggle outline</dd>
-        <dt>{{ mod }}⇧F</dt><dd>Search the vault</dd>
-        <dt>{{ mod }}[ / ]</dt><dd>Back / forward</dd>
-      </dl>
-    </section>
+    @if (doc.path()) {
+      <app-conflict-bar (failed)="showError($event)" />
     }
-  </main>
+
+    <main>
+      @if (tabs.showWorkspace()) {
+        <app-workspace class="pane" />
+      } @else {
+        <app-start class="pane" (failed)="showError($event)" />
+      }
+    </main>
   </div>
 
-  @if (tabs.showWorkspace() && (showOutline() || showBacklinks())) {
-    <div slot="panel" class="panel">
-      @if (showOutline()) {
-        <app-outline />
-      }
-      @if (showBacklinks()) {
-        <app-backlinks (error)="showToast($event)" />
-      }
+  @if (tabs.showWorkspace() && showPanel()) {
+    <div
+      slot="panel"
+      class="panel"
+      [class.overlay]="panelOverlays()"
+      [style.width.px]="panelWidthShown()"
+    >
+      <app-panel-resizer
+        [width]="panelWidthShown()"
+        [windowWidth]="windowWidth()"
+        [sidebarWidth]="sidebarShown()"
+        (widthChange)="settings.panelWidth.set($event)"
+      />
+      <div class="panel-tabs" role="tablist" aria-label="Note panel">
+        <button
+          type="button"
+          role="tab"
+          id="panel-tab-outline"
+          aria-controls="panel-body"
+          [attr.aria-selected]="panelTab() === 'outline'"
+          [class.active]="panelTab() === 'outline'"
+          (click)="settings.showPanelTab('outline')"
+        >
+          Outline
+        </button>
+        @if (linksAvailable()) {
+          <button
+            type="button"
+            role="tab"
+            id="panel-tab-links"
+            aria-controls="panel-body"
+            [attr.aria-selected]="panelTab() === 'links'"
+            [class.active]="panelTab() === 'links'"
+            (click)="settings.showPanelTab('links')"
+          >
+            Links
+          </button>
+        }
+      </div>
+      <div
+        class="panel-body"
+        id="panel-body"
+        role="tabpanel"
+        [attr.aria-labelledby]="'panel-tab-' + panelTab()"
+      >
+        @if (panelTab() === "outline") {
+          <app-outline />
+        } @else {
+          <app-backlinks (failed)="showError($event)" />
+        }
+      </div>
     </div>
   }
 
@@ -98,11 +151,15 @@
 </hx-app-shell>
 
 @if (showSwitcher()) {
-  <app-switcher (error)="showToast($event)" />
+  <app-switcher (failed)="showError($event)" />
+}
+
+@if (composer.visible()) {
+  <app-composer (failed)="showError($event)" />
 }
 
 @if (templates.visible()) {
-  <app-templates (error)="showToast($event)" />
+  <app-templates (failed)="showError($event)" />
 }
 
 @if (cloneVault.visible()) {
@@ -119,6 +176,4 @@
 
 <app-link-preview />
 
-@if (toast(); as message) {
-  <div class="toast" role="status">{{ message }}</div>
-}
+<hx-toast position="bottom-center" />

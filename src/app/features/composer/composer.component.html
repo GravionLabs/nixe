@@ -1,0 +1,37 @@
+<hx-dialog
+  [visible]="true"
+  (hidden)="composer.close()"
+  [ariaLabel]="composer.title()"
+  [closable]="false"
+  dismissableMask
+  position="top"
+  width="min(560px, 90vw)"
+>
+  <input
+    #input
+    type="text"
+    [placeholder]="composer.title()"
+    aria-label="Find a note or type the name of a new one"
+    role="combobox"
+    aria-expanded="true"
+    aria-controls="composer-list"
+    [value]="composer.query()"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"
+  />
+  <ul id="composer-list" role="listbox">
+    @for (option of composer.options(); track option.path; let i = $index) {
+      <li
+        role="option"
+        [attr.aria-selected]="i === composer.selected()"
+        [class.selected]="i === composer.selected()"
+      >
+        <button type="button" tabindex="-1" (click)="choose(option)" [title]="option.path">
+          <span class="name">{{ option.create ? "New: " : "" }}{{ option.path }}</span>
+        </button>
+      </li>
+    } @empty {
+      <li class="empty">No matching note</li>
+    }
+  </ul>
+</hx-dialog>

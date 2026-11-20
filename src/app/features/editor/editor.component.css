@@ -21,8 +21,14 @@
   color: light-dark(var(--h-red-700), var(--h-red-300));
 }
 
-.bar span {
+.bar .message {
   flex: 1;
+}
+
+.bar .hints {
+  display: block;
+  font-size: 12px;
+  opacity: 0.85;
 }
 
 .bar button {

@@ -4,7 +4,8 @@ import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CommandRegistry, KeyInput, formatShortcut, matchesBinding } from "./command-registry";
+import type { KeyInput } from "./command-registry";
+import { CommandRegistry, formatShortcut, matchesBinding, shortcutKeys } from "./command-registry";
 import { PaletteService } from "./palette.service";
 
 const key = (k: string, mods: Partial<KeyInput> = {}): KeyInput => ({
@@ -31,9 +32,17 @@ describe("matchesBinding / formatShortcut", () => {
     expect(matchesBinding(key("Tab", { ctrlKey: true }), "Ctrl+Tab")).toBe(true);
     expect(matchesBinding(key("Tab", { metaKey: true }), "Ctrl+Tab")).toBe(false);
     expect(matchesBinding(key("Tab", { ctrlKey: true, shiftKey: true }), "Ctrl+Tab")).toBe(false);
-    expect(matchesBinding(key("Tab", { ctrlKey: true, shiftKey: true }), "Ctrl+Shift+Tab")).toBe(true);
+    expect(matchesBinding(key("Tab", { ctrlKey: true, shiftKey: true }), "Ctrl+Shift+Tab")).toBe(
+      true,
+    );
     expect(formatShortcut("Ctrl+Tab", true)).toBe("⌃Tab");
     expect(formatShortcut("Ctrl+Tab", false)).toBe("Ctrl+Tab");
+  });
+
+  it("splits a shortcut into key caps per platform", () => {
+    expect(shortcutKeys("Mod+Shift+F", true)).toEqual(["⌘", "⇧", "F"]);
+    expect(shortcutKeys("Mod+Shift+F", false)).toEqual(["Ctrl", "Shift", "F"]);
+    expect(shortcutKeys("", false)).toEqual([]);
   });
 
   it("formats per platform", () => {
@@ -141,7 +150,9 @@ describe("matchesBinding with the physical key", () => {
   });
 
   it("matches Plus and Space by name", () => {
-    expect(matchesBinding(key("+", { ctrlKey: true, shiftKey: true }), "Mod+Shift+Plus")).toBe(true);
+    expect(matchesBinding(key("+", { ctrlKey: true, shiftKey: true }), "Mod+Shift+Plus")).toBe(
+      true,
+    );
     expect(matchesBinding(key(" ", { ctrlKey: true }), "Mod+Space")).toBe(true);
     expect(formatShortcut("Mod+Shift+Plus", true)).toBe("⌘⇧+");
     expect(formatShortcut("Mod+Shift+Plus", false)).toBe("Ctrl+Shift++");

@@ -1,0 +1,32 @@
+<details class="spike">
+  <summary>Editor spike (#59)</summary>
+  <div class="row">
+    <select #pick (change)="open(pick.value)">
+      <option value="">choose a note</option>
+      @for (n of names(); track n) {
+        <option [value]="n">{{ n }}</option>
+      }
+    </select>
+    <button type="button" (click)="refresh()">Reload list</button>
+    <button type="button" (click)="resize(-1)">A-</button>
+    <span>{{ fontSize() }}px</span>
+    <button type="button" (click)="resize(1)">A+</button>
+    <button type="button" (click)="openExternal()">Open external file (iCloud)</button>
+    <button type="button" (click)="save()" [disabled]="!current()">Save</button>
+  </div>
+  <p style="white-space: pre-wrap">{{ status() }}</p>
+  <div #host class="host"></div>
+  <h4>Checklist</h4>
+  @for (item of items; track item) {
+    <div class="item">
+      <span>{{ item }}</span>
+      @for (r of ratingsList; track r) {
+        <button type="button" [class.on]="ratings()[item] === r" (click)="rate(item, r)">
+          {{ r }}
+        </button>
+      }
+      <input placeholder="note" (input)="note(item, $any($event.target).value)" />
+    </div>
+  }
+  <button type="button" (click)="copy()">Copy result as markdown</button>
+</details>

@@ -26,5 +26,4 @@
 .divider:hover,
 .divider:focus-visible {
   background: var(--h-primary-color);
-  outline: none;
 }

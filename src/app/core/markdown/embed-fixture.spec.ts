@@ -10,10 +10,13 @@ const walk = (dir: string): string[] =>
 
 describe("fixtures/vault/Embeds.md", () => {
   it("covers every embed form", () => {
-    const html = createMarkdownRenderer({ math: false }).render(readFileSync(`${vault}/Embeds.md`, "utf8"), {
-      vaultFiles: walk(""),
-      vaultRoot: "/vault",
-    });
+    const html = createMarkdownRenderer({ math: false }).render(
+      readFileSync(`${vault}/Embeds.md`, "utf8"),
+      {
+        vaultFiles: walk(""),
+        vaultRoot: "/vault",
+      },
+    );
     for (const t of ["Note", "Note#Second heading", "Note#^block1", "Loop A", "L1"]) {
       expect(html).toContain(`<div class="embed" data-embed="${t}">`);
     }

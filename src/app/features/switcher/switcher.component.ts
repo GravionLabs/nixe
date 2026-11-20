@@ -1,9 +1,15 @@
-import { Component, ElementRef, effect, inject, output, viewChild } from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import { Component, effect, inject, output, viewChild } from "@angular/core";
+import { HxDialog } from "@gravionlabs/helix-ui";
 
+import type { KeyHint } from "./key-hints.component";
+import { KeyHintsComponent, isMac, modKey } from "./key-hints.component";
 import { DocumentService } from "../../core/file/document.service";
 import { joinPath } from "../../core/markdown/paths";
-import { SwitcherMatch } from "../../core/switcher/fuzzy";
+import type { SwitcherMatch } from "../../core/switcher/fuzzy";
+import { highlightParts } from "../../core/switcher/fuzzy";
 import { SwitcherService } from "../../core/switcher/switcher.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
@@ -12,15 +18,37 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
   selector: "app-switcher",
   templateUrl: "./switcher.component.html",
   styleUrl: "./switcher.component.css",
+  imports: [HxDialog, KeyHintsComponent],
 })
 export class SwitcherComponent {
   protected readonly switcher = inject(SwitcherService);
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
+  private readonly tabs = inject(TabsService);
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("input");
+
+  protected readonly parts = highlightParts;
+
+  /** The keys of the dialog; "Enter to create" replaces "open" when nothing matches. */
+  protected hints(): KeyHint[] {
+    const none = this.switcher.matches().length === 0;
+    return [
+      none ? { keys: "Enter", label: "to create" } : { keys: "Enter", label: "open" },
+      { keys: `${modKey()}+Enter`, label: "new tab" },
+      { keys: "↑↓", label: "move" },
+      { keys: "Esc", label: "close" },
+    ];
+  }
+
+  /** Text for the live region: the number of results, or that nothing matches. */
+  protected announcement(): string {
+    const n = this.switcher.matches().length;
+    if (!n) return this.switcher.query().trim() ? "No notes match" : "No notes";
+    return n === 1 ? "1 result" : `${n} results`;
+  }
 
   constructor() {
     effect(() => this.input()?.nativeElement.focus());
@@ -40,7 +68,7 @@ export class SwitcherComponent {
         break;
       case "Enter": {
         const match = this.switcher.current();
-        if (match) void this.choose(match);
+        if (match) void this.choose(match, isMac() ? event.metaKey : event.ctrlKey);
         else void this.create();
         break;
       }
@@ -61,18 +89,20 @@ export class SwitcherComponent {
     try {
       await this.ops.createNoteForLink(query);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 
-  protected async choose(match: SwitcherMatch): Promise<void> {
+  protected async choose(match: SwitcherMatch, newTab = false): Promise<void> {
     const root = this.workspace.vaultRoot();
     if (!root) return;
     this.switcher.close();
     try {
-      await this.doc.open(joinPath(root, match.entry.path));
+      const path = joinPath(root, match.entry.path);
+      if (newTab) await this.tabs.openInNewTab(path);
+      else await this.doc.open(path);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

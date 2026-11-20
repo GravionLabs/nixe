@@ -12,7 +12,12 @@ interface SettingBase {
 export type SettingItem = SettingBase &
   (
     | { kind: "toggle"; get: () => boolean; set: (value: boolean) => void }
-    | { kind: "select"; options: readonly { value: string; label: string }[]; get: () => string; set: (value: string) => void }
+    | {
+        kind: "select";
+        options: readonly { value: string; label: string }[];
+        get: () => string;
+        set: (value: string) => void;
+      }
     | { kind: "text"; placeholder?: string; get: () => string; set: (value: string) => void }
     | { kind: "number"; min: number; max: number; get: () => number; set: (value: number) => void }
     /** The keyboard shortcut of a command; the page records, changes, removes and resets it. */
@@ -43,7 +48,9 @@ export function filterSections(sections: readonly ShownSection[], query: string)
   const shown: ShownSection[] = [];
   for (const section of sections) {
     const items = section.items.filter((item) => {
-      const haystack = [section.title, item.label, item.description ?? "", ...(item.keywords ?? [])].join(" ").toLowerCase();
+      const haystack = [section.title, item.label, item.description ?? "", ...(item.keywords ?? [])]
+        .join(" ")
+        .toLowerCase();
       return words.every((w) => haystack.includes(w));
     });
     if (items.length) shown.push({ ...section, items });
@@ -57,7 +64,9 @@ export class SettingsRegistry {
   private readonly registered = signal<readonly SettingsSection[]>([]);
 
   readonly sections = computed(() =>
-    [...this.registered()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100) || a.title.localeCompare(b.title)),
+    [...this.registered()].sort(
+      (a, b) => (a.order ?? 100) - (b.order ?? 100) || a.title.localeCompare(b.title),
+    ),
   );
 
   /** Registers a section, replacing one with the same id. Returns a function that removes it. */

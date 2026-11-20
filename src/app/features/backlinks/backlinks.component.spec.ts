@@ -10,9 +10,10 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { Backlink } from "../../core/file/backend";
+import type { Backlink, UnlinkedMention } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
-import { BacklinksService, BacklinksState, OutgoingLink } from "../../core/index/backlinks.service";
+import type { BacklinksState, OutgoingLink } from "../../core/index/backlinks.service";
+import { BacklinksService } from "../../core/index/backlinks.service";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { BacklinksComponent } from "./backlinks.component";
@@ -34,7 +35,23 @@ const out = (label: string, resolved: string | null): OutgoingLink => ({
   kind: "link",
 });
 
-function render(state: BacklinksState, backlinks: Backlink[], outgoing: OutgoingLink[]) {
+const mention: UnlinkedMention = {
+  source: "M.md",
+  line: 3,
+  start: 4,
+  end: 5,
+  context: "see a here",
+  text: "a",
+};
+
+function render(
+  state: BacklinksState,
+  backlinks: Backlink[],
+  outgoing: OutgoingLink[],
+  unlinked: UnlinkedMention[] = [],
+) {
+  const loadUnlinked = vi.fn();
+  const linkMention = vi.fn().mockResolvedValue(undefined);
   const open = vi.fn().mockResolvedValue(undefined);
   const refresh = vi.fn();
   const preview = { hover: vi.fn(), leave: vi.fn() };
@@ -48,6 +65,10 @@ function render(state: BacklinksState, backlinks: Backlink[], outgoing: Outgoing
           backlinks: signal(backlinks),
           outgoing: signal(outgoing),
           key: signal("k"),
+          unlinked: signal(unlinked),
+          unlinkedState: signal("ready"),
+          loadUnlinked,
+          linkMention,
           refresh,
         },
       },
@@ -65,7 +86,15 @@ function render(state: BacklinksState, backlinks: Backlink[], outgoing: Outgoing
   });
   const fixture = TestBed.createComponent(BacklinksComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, open, refresh, preview };
+  return {
+    el: fixture.nativeElement as HTMLElement,
+    open,
+    refresh,
+    preview,
+    loadUnlinked,
+    linkMention,
+    fixture,
+  };
 }
 
 describe("BacklinksComponent", () => {
@@ -100,7 +129,51 @@ describe("BacklinksComponent", () => {
     const { el } = render("ready", [], []);
     expect(el.textContent).toContain("No backlinks");
     expect(el.textContent).toContain("No outgoing links");
-    expect(el.querySelectorAll("button").length).toBe(0);
+    // Only the fold button of the unlinked mentions.
+    expect(el.querySelectorAll("button").length).toBe(1);
+  });
+
+  it("keeps the unlinked mentions collapsed and unread until they are opened", () => {
+    const { el, loadUnlinked, fixture } = render("ready", [], [], [mention]);
+    const fold = el.querySelector<HTMLButtonElement>("button.fold")!;
+    expect(fold.getAttribute("aria-expanded")).toBe("false");
+    expect(el.textContent).not.toContain("see a here");
+    expect(loadUnlinked).not.toHaveBeenCalled();
+    fold.click();
+    fixture.detectChanges();
+    expect(fold.getAttribute("aria-expanded")).toBe("true");
+    expect(loadUnlinked).toHaveBeenCalled();
+    expect(el.textContent).toContain("see a here");
+    expect(el.textContent).toContain("M.md");
+  });
+
+  it("turns a mention into a link with its button and opens it at its line", () => {
+    const { el, linkMention, open, fixture } = render("ready", [], [], [mention]);
+    el.querySelector<HTMLButtonElement>("button.fold")!.click();
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>("button.link-it")!.click();
+    expect(linkMention).toHaveBeenCalledWith(mention);
+    el.querySelector<HTMLButtonElement>("button.open")!.click();
+    expect(open).toHaveBeenCalledWith("/vault/M.md", { line: 3, anchor: null });
+  });
+
+  it("says so when nothing is mentioned", () => {
+    const { el, fixture } = render("ready", [], [], []);
+    el.querySelector<HTMLButtonElement>("button.fold")!.click();
+    fixture.detectChanges();
+    expect(el.textContent).toContain("No unlinked mentions");
+  });
+
+  it("reports a failing link as an error", async () => {
+    const { el, linkMention, fixture } = render("ready", [], [], [mention]);
+    const errors: string[] = [];
+    fixture.componentInstance.failed.subscribe((e: string) => errors.push(e));
+    linkMention.mockRejectedValue("M.md changed");
+    el.querySelector<HTMLButtonElement>("button.fold")!.click();
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>("button.link-it")!.click();
+    await fixture.whenStable();
+    expect(errors).toEqual(["M.md changed"]);
   });
 
   it("shows a loading note while the index is being built", () => {

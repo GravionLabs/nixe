@@ -6,9 +6,12 @@ use std::path::{Path, PathBuf};
 use ignore::WalkBuilder;
 
 // Not called yet: the vault index (a later item of the same feature) is the first user.
+pub mod composer;
 #[allow(dead_code)]
+pub mod mentions;
 pub mod meta;
 pub mod relink;
+pub mod replace;
 #[allow(dead_code)]
 pub mod resolve;
 

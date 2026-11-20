@@ -1,0 +1,29 @@
+@if (doc.missing() && doc.path()) {
+  <div class="bar" role="alert">
+    <span>This file was not found. It may have been deleted or moved.</span>
+    @if (editor.editing()) {
+      <button type="button" (click)="saveCopy()">Save as copy</button>
+    }
+    <button type="button" (click)="close()">Close</button>
+  </div>
+}
+@if (tab.view() === "settings") {
+  <app-settings class="view" />
+} @else if (tab.view() === "health") {
+  <app-health class="view" (failed)="tabs.notice.set($event)" />
+} @else if (doc.path()) {
+  @if (editor.editing()) {
+    @defer (on immediate) {
+      <app-editor class="note" (failed)="tabs.notice.set($event)" />
+    }
+  } @else {
+    <app-viewer
+      class="note"
+      [html]="html()"
+      [dark]="settings.dark()"
+      (notify)="tabs.notice.set($event)"
+    />
+  }
+} @else {
+  <app-start class="view" (failed)="tabs.notice.set($event)" />
+}

@@ -203,6 +203,11 @@ pub fn rename_path(root: &Path, from: &Path, to: &Path) -> Result<(), String> {
     fs::rename(&from_abs, &to_abs).map_err(|e| format!("{}: {e}", from.display()))
 }
 
+/// Whether anything is at `path`, hidden files and folders without notes included.
+pub fn entry_exists(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_ok()
+}
+
 /// Moves `path` into `.trash/` at the vault root (Obsidian's default); a taken name gets a
 /// number. Returns the new location.
 pub fn trash_path(root: &Path, path: &Path) -> Result<PathBuf, String> {
@@ -237,6 +242,18 @@ mod tests {
         let _ = fs::remove_dir_all(&p);
         fs::create_dir_all(&p).unwrap();
         dunce::canonicalize(p).unwrap()
+    }
+
+    #[test]
+    fn entry_exists_sees_hidden_and_non_markdown_entries() {
+        let root = tmp("exists");
+        fs::write(root.join(".hidden"), "").unwrap();
+        fs::write(root.join("a.txt"), "").unwrap();
+        fs::create_dir(root.join("empty")).unwrap();
+        assert!(entry_exists(&root.join(".hidden")));
+        assert!(entry_exists(&root.join("a.txt")));
+        assert!(entry_exists(&root.join("empty")));
+        assert!(!entry_exists(&root.join("missing")));
     }
 
     #[test]

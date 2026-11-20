@@ -1,5 +1,12 @@
-<div class="backdrop" (click)="palette.close()" role="presentation"></div>
-<div class="dialog" role="dialog" aria-label="Command palette">
+<hx-dialog
+  [visible]="true"
+  (hidden)="palette.close()"
+  ariaLabel="Command palette"
+  [closable]="false"
+  dismissableMask
+  position="top"
+  width="min(560px, 90vw)"
+>
   <input
     #input
     type="text"
@@ -14,14 +21,23 @@
   />
   <ul id="palette-list" role="listbox">
     @for (command of palette.matches(); track command.id; let i = $index) {
-      <li role="option" [attr.aria-selected]="i === palette.selected()" [class.selected]="i === palette.selected()">
+      <li
+        role="option"
+        [attr.aria-selected]="i === palette.selected()"
+        [class.selected]="i === palette.selected()"
+      >
         <button type="button" tabindex="-1" (click)="palette.run(command)">
           <span class="name">{{ command.title }}</span>
-          <span class="shortcut">{{ shortcut(command) }}</span>
+          @if (shortcuts.keys(command.id); as keys) {
+            @if (keys.length) {
+              <hx-kbd class="shortcut" [keys]="keys" size="sm" />
+            }
+          }
         </button>
       </li>
     } @empty {
       <li class="empty">No matching command</li>
     }
   </ul>
-</div>
+  <app-key-hints [hints]="hints" />
+</hx-dialog>

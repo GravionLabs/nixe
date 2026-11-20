@@ -1,4 +1,5 @@
-import { KeyInput, physicalKey } from "./command-registry";
+import type { KeyInput } from "./command-registry";
+import { physicalKey } from "./command-registry";
 
 export type Platform = "mac" | "windows" | "linux";
 
@@ -14,7 +15,16 @@ export interface RecordedKey extends KeyInput {
   code?: string;
 }
 
-const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "OS", "CapsLock", "Dead"]);
+const MODIFIER_KEYS = new Set([
+  "Shift",
+  "Control",
+  "Alt",
+  "Meta",
+  "AltGraph",
+  "OS",
+  "CapsLock",
+  "Dead",
+]);
 
 /** The key name of a binding for an event: a letter or digit from the physical key, else the key itself. */
 function keyName(event: RecordedKey): string | null {
@@ -63,13 +73,20 @@ const ORDER = ["mod", "ctrl", "alt", "shift"];
 export function canonicalBinding(binding: string, platform: Platform): string {
   const parts = binding.split("+");
   const key = (parts.pop() ?? "").toLowerCase();
-  const mods = new Set(parts.map((p) => p.toLowerCase()).map((p) => (p === "ctrl" && platform !== "mac" ? "mod" : p)));
+  const mods = new Set(
+    parts.map((p) => p.toLowerCase()).map((p) => (p === "ctrl" && platform !== "mac" ? "mod" : p)),
+  );
   return [...ORDER.filter((m) => mods.has(m)), key].join("+");
 }
 
 /** The binding as a Tauri menu accelerator (`CmdOrCtrl+Shift+F`). */
 export function toAccelerator(binding: string): string {
-  const NAMES: Record<string, string> = { arrowleft: "Left", arrowright: "Right", arrowup: "Up", arrowdown: "Down" };
+  const NAMES: Record<string, string> = {
+    arrowleft: "Left",
+    arrowright: "Right",
+    arrowup: "Up",
+    arrowdown: "Down",
+  };
   const parts = binding.split("+");
   const key = parts.pop() ?? "";
   const mods = parts.map((p) => (p.toLowerCase() === "mod" ? "CmdOrCtrl" : p));
@@ -80,7 +97,12 @@ export function toAccelerator(binding: string): string {
 export type Bindings = Readonly<Record<string, string>>;
 
 /** The commands (other than `id`) that already use `binding`. */
-export function findConflicts(bindings: Bindings, id: string, binding: string, platform: Platform): string[] {
+export function findConflicts(
+  bindings: Bindings,
+  id: string,
+  binding: string,
+  platform: Platform,
+): string[] {
   if (!binding) return [];
   const wanted = canonicalBinding(binding, platform);
   return Object.entries(bindings)
@@ -91,12 +113,15 @@ export function findConflicts(bindings: Bindings, id: string, binding: string, p
 /** The shortcut of every command: the user's own (`overrides`, "" is removed) or the default. */
 export function effectiveBindings(defaults: Bindings, overrides: Bindings): Bindings {
   const result: Record<string, string> = {};
-  for (const [id, shortcut] of Object.entries(defaults)) result[id] = id in overrides ? overrides[id] : shortcut;
+  for (const [id, shortcut] of Object.entries(defaults))
+    result[id] = id in overrides ? overrides[id] : shortcut;
   return result;
 }
 
 /** The overrides from any parsed JSON: only string values for string keys survive. */
 export function sanitizeShortcuts(raw: unknown): Record<string, string> {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return {};
-  return Object.fromEntries(Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === "string"));
+  return Object.fromEntries(
+    Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === "string"),
+  );
 }

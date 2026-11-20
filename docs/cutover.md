@@ -13,7 +13,7 @@ every shortcut can be changed in **Settings → Shortcuts**.
 | Template | In the editor, run **Insert template** from the palette. `{{date}}`, `{{time}}` and `{{title}}` are replaced. | [ ] |
 | Link | Type `[[` in the editor; click a link in the reading view to follow it; hover it for a preview. `Mod+Shift+B` shows the backlinks, `Mod+[` and `Mod+]` go back and forward. | [ ] |
 | Rename | Select the note in the sidebar and press `F2`, or use **Rename** in its context menu. Open a few notes that link to it afterwards and run **Vault health** (or `nixe check`) to confirm no link broke. | [ ] |
-| Search | `Mod+Shift+F` searches the vault; `Mod+O` is the quick switcher; `Mod+F` finds in the open note (find and replace in the editor). | [ ] |
+| Search | `Mod+Shift+F` searches the vault (the ⇄ button adds find and replace across the vault: a diff per match, notes and matches can be unchecked, one batch after a confirmation, a Git commit first); `Mod+O` is the quick switcher; `Mod+F` finds in the open note (find and replace in the editor). | [ ] |
 | Attach an image | Paste or drop the image into the editor. It is stored in the attachment folder of the vault (**Settings → Files and links**) and linked. | [ ] |
 | Sync | `Mod+Shift+S` pulls with rebase and pushes. Auto-commit and auto-sync run on an interval and on focus (**Settings → Git**). A conflict keeps both versions and marks the note. **Git changes** shows what is uncommitted. | [ ] |
 

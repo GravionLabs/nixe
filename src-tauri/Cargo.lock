@@ -2636,6 +2636,7 @@ dependencies = [
  "ignore",
  "keyring",
  "notify-debouncer-mini",
+ "regex",
  "rmcp",
  "rusqlite",
  "serde",

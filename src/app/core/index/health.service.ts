@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
-import { HealthReport, backend } from "../file/backend";
+import type { HealthReport } from "../file/backend";
+import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
 import { IndexService } from "./index.service";
 
@@ -25,7 +26,8 @@ export class HealthService {
 
   /** Changes whenever the report must be computed again: index updates, excluded folders. */
   readonly key = computed(
-    () => `${this.index.status().state}|${this.index.revision()}|${this.settings.healthExclude().join("\n")}`,
+    () =>
+      `${this.index.status().state}|${this.index.revision()}|${this.settings.healthExclude().join("\n")}`,
   );
 
   /** Sets the excluded folders from a comma or line separated list. */

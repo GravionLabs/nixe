@@ -1,12 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { parseWikilinkTarget, resolveWikilink } from "./wikilink-resolver";
 
-const files = ["Index.md", "Note.md", "folder/Deep.md", "folder/Twin.md", "Twin.md", "a/Same.md", "b/Same.md", "img/pic.png"];
+const files = [
+  "Index.md",
+  "Note.md",
+  "folder/Deep.md",
+  "folder/Twin.md",
+  "Twin.md",
+  "a/Same.md",
+  "b/Same.md",
+  "img/pic.png",
+];
 
 describe("parseWikilinkTarget", () => {
   it("splits note, heading and block", () => {
     expect(parseWikilinkTarget("Note")).toEqual({ note: "Note", heading: null, block: null });
-    expect(parseWikilinkTarget("Note#Head er")).toEqual({ note: "Note", heading: "Head er", block: null });
+    expect(parseWikilinkTarget("Note#Head er")).toEqual({
+      note: "Note",
+      heading: "Head er",
+      block: null,
+    });
     expect(parseWikilinkTarget("Note#^b1")).toEqual({ note: "Note", heading: null, block: "b1" });
     expect(parseWikilinkTarget("#Only")).toEqual({ note: "", heading: "Only", block: null });
   });

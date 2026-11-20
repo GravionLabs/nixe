@@ -31,9 +31,7 @@
               "src/styles.scss"
             ],
             "stylePreprocessorOptions": {
-              "includePaths": [
-                "node_modules"
-              ]
+              "includePaths": ["node_modules"]
             },
             "allowedCommonJsDependencies": [
               "@braintree/sanitize-url",

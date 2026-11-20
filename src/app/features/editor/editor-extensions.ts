@@ -1,26 +1,28 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxTree } from "@codemirror/language";
-import { getSearchQuery, openSearchPanel, search, searchKeymap, searchPanelOpen } from "@codemirror/search";
-import { EditorState, Extension, Range } from "@codemirror/state";
 import {
-  Decoration,
-  DecorationSet,
-  EditorView,
-  ViewPlugin,
-  ViewUpdate,
-  Command,
-  drawSelection,
-  keymap,
-} from "@codemirror/view";
+  getSearchQuery,
+  openSearchPanel,
+  search,
+  searchKeymap,
+  searchPanelOpen,
+} from "@codemirror/search";
+import type { EditorState, Extension, Range } from "@codemirror/state";
+import type { DecorationSet, ViewUpdate, Command } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, drawSelection, keymap } from "@codemirror/view";
 
-import { CompletionData, completionExtension } from "./completion";
+import type { CompletionData } from "./completion";
+import { completionExtension } from "./completion";
 import { inlineTokens, nodeClass, tokenAt } from "../../core/editor/editor-core";
 
 const CODE_NODES = new Set(["FencedCode", "CodeBlock", "InlineCode", "CommentBlock", "HTMLBlock"]);
 
 export function inCode(state: EditorState, pos: number): boolean {
-  for (let node: { name: string; parent: unknown } | null = syntaxTree(state).resolveInner(pos, 1); node; ) {
+  for (
+    let node: { name: string; parent: unknown } | null = syntaxTree(state).resolveInner(pos, 1);
+    node;
+  ) {
     if (CODE_NODES.has(node.name)) return true;
     node = node.parent as typeof node;
   }
@@ -36,12 +38,17 @@ function build(view: EditorView): DecorationSet {
       to,
       enter(node) {
         const cls = nodeClass(node.name);
-        if (cls && node.to > node.from) ranges.push(Decoration.mark({ class: cls }).range(node.from, node.to));
+        if (cls && node.to > node.from)
+          ranges.push(Decoration.mark({ class: cls }).range(node.from, node.to));
       },
     });
-    for (let pos = from; pos <= to; ) {
+    for (let pos = from; pos <= to;) {
       const line = state.doc.lineAt(pos);
-      if (line.length > 0 && (line.text.includes("[[") || line.text.includes("#")) && !inCode(state, line.from)) {
+      if (
+        line.length > 0 &&
+        (line.text.includes("[[") || line.text.includes("#")) &&
+        !inCode(state, line.from)
+      ) {
         for (const t of inlineTokens(line.text)) {
           ranges.push(
             Decoration.mark({ class: t.kind === "wikilink" ? "cm-wikilink" : "cm-tag" }).range(
@@ -65,7 +72,11 @@ export const markdownStyling = ViewPlugin.fromClass(
       this.decorations = build(view);
     }
     update(update: ViewUpdate): void {
-      if (update.docChanged || update.viewportChanged || syntaxTree(update.startState) !== syntaxTree(update.state)) {
+      if (
+        update.docChanged ||
+        update.viewportChanged ||
+        syntaxTree(update.startState) !== syntaxTree(update.state)
+      ) {
         this.decorations = build(update.view);
       }
     }
@@ -78,14 +89,25 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
   const heading = (size: number) => ({ fontSize: `${size}em`, fontWeight: "700" });
   return EditorView.theme(
     {
-      "&": { height: "100%", fontSize: `${fontSizePx}px`, color: "var(--h-text-color)", backgroundColor: "var(--h-content-background)" },
-      "&.cm-focused": { outline: "none" },
-      ".cm-scroller": { overflow: "auto", fontFamily: "inherit", lineHeight: "1.6" },
-      ".cm-content": { maxWidth: "980px", margin: "0 auto", padding: "32px 40px 80px", caretColor: "var(--h-text-color)" },
-      ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--h-text-color)" },
-      "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground": {
-        background: dark ? "rgb(63 184 194 / 0.3)" : "rgb(14 124 134 / 0.25)",
+      "&": {
+        height: "100%",
+        fontSize: `${fontSizePx}px`,
+        color: "var(--h-text-color)",
+        backgroundColor: "var(--h-content-background)",
       },
+      ".cm-scroller": { overflow: "auto", fontFamily: "inherit", lineHeight: "1.6" },
+      ".cm-content": {
+        maxWidth: "var(--nixe-content-width, 980px)",
+        margin: "0 auto",
+        padding:
+          "var(--nixe-content-padding-top, 32px) var(--nixe-content-padding-x, 40px) var(--nixe-content-padding-bottom, 80px)",
+        caretColor: "var(--h-text-color)",
+      },
+      ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--h-text-color)" },
+      "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground":
+        {
+          background: "var(--nixe-selection-background)",
+        },
       ".cm-md-h1": heading(1.8),
       ".cm-md-h2": heading(1.5),
       ".cm-md-h3": heading(1.25),
@@ -95,14 +117,18 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
       ".cm-md-strong": { fontWeight: "700" },
       ".cm-md-em": { fontStyle: "italic" },
       ".cm-md-code": {
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        fontFamily: "var(--nixe-font-mono)",
         backgroundColor: "var(--h-surface-frame)",
         borderRadius: "3px",
       },
       ".cm-md-syntax": { opacity: "0.4" },
       ".cm-wikilink": { color: "var(--h-primary-color)", textDecoration: "underline" },
       ".cm-tag": { color: "var(--h-primary-color)" },
-      ".cm-tooltip": { backgroundColor: "var(--h-surface-frame)", color: "var(--h-text-color)", border: "1px solid var(--h-text-muted-color)" },
+      ".cm-tooltip": {
+        backgroundColor: "var(--h-surface-frame)",
+        color: "var(--h-text-color)",
+        border: "1px solid var(--h-text-muted-color)",
+      },
       ".cm-tooltip.cm-tooltip-autocomplete > ul > li": { padding: "2px 8px" },
       ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": {
         backgroundColor: "var(--h-primary-color)",
@@ -120,12 +146,31 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
       },
       ".cm-search button:hover": { backgroundColor: "var(--h-surface-frame)" },
       ".cm-search label": { color: "var(--h-text-color)" },
-      ".cm-search [name=close]": { color: "var(--h-text-color)", border: "none", backgroundColor: "transparent" },
+      ".cm-search [name=close]": {
+        color: "var(--h-text-color)",
+        border: "none",
+        backgroundColor: "transparent",
+      },
       ".cm-search:not(.cm-replace-on) input[name=replace], .cm-search:not(.cm-replace-on) button[name=replace], .cm-search:not(.cm-replace-on) button[name=replaceAll]":
         { display: "none" },
       ".cm-search-count": { margin: "0 8px", color: "var(--h-text-muted-color)" },
       ".cm-searchMatch": { backgroundColor: "rgb(255 200 0 / 0.35)" },
       ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "rgb(255 140 0 / 0.6)" },
+      ".cm-gutters": {
+        backgroundColor: "transparent",
+        color: "var(--h-text-muted-color)",
+        border: "none",
+      },
+      ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", padding: "0 4px", opacity: "0.5" },
+      ".cm-foldGutter .cm-gutterElement:hover": { opacity: "1" },
+      ".cm-foldPlaceholder": {
+        backgroundColor: "var(--h-surface-frame)",
+        color: "var(--h-text-muted-color)",
+        border: "1px solid var(--h-text-muted-color)",
+        borderRadius: "3px",
+        padding: "0 6px",
+        margin: "0 4px",
+      },
       ".cm-completionDetail": { opacity: "0.6", marginLeft: "0.8em", fontStyle: "normal" },
     },
     { dark },
@@ -140,7 +185,9 @@ export function openFind(view: EditorView, replace: boolean): boolean {
   if (!searchPanelOpen(view.state)) openSearchPanel(view);
   const panel = view.dom.querySelector<HTMLElement>(".cm-search");
   panel?.classList.toggle(REPLACE_CLASS, replace);
-  const field = panel?.querySelector<HTMLInputElement>(replace ? "input[name=replace]" : "input[name=search]");
+  const field = panel?.querySelector<HTMLInputElement>(
+    replace ? "input[name=replace]" : "input[name=search]",
+  );
   field?.focus();
   field?.select();
   return true;
@@ -196,7 +243,13 @@ export interface EditorHooks {
   /** ⌘/Ctrl+click on a `[[wikilink]]`; `value` is the text between the brackets. */
   onWikilink(value: string): void;
   /** The pointer is on a `[[wikilink]]` (`value` as above, `anchor` its place on screen) or left it (null). */
-  onWikilinkHover?(hover: { value: string; anchor: { left: number; top: number; bottom: number }; modifier: boolean } | null): void;
+  onWikilinkHover?(
+    hover: {
+      value: string;
+      anchor: { left: number; top: number; bottom: number };
+      modifier: boolean;
+    } | null,
+  ): void;
   /** Vault data for the `[[` and `#` completion; without it the editor does not complete. */
   completion?: CompletionData;
 }

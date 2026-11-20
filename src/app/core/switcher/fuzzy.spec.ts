@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { SwitcherEntry, fileLabel, fuzzyScore, rank } from "./fuzzy";
+import type { SwitcherEntry } from "./fuzzy";
+import { fileLabel, fuzzyMatch, fuzzyScore, highlightParts, rank } from "./fuzzy";
 
-const entry = (path: string, aliases: string[] = []): SwitcherEntry => ({ path, title: fileLabel(path), aliases });
+const entry = (path: string, aliases: string[] = []): SwitcherEntry => ({
+  path,
+  title: fileLabel(path),
+  aliases,
+});
 const paths = (query: string, entries: SwitcherEntry[], recent: string[] = []) =>
   rank(entries, query, recent).map((m) => m.entry.path);
 
@@ -37,7 +42,12 @@ describe("fuzzyScore", () => {
 });
 
 describe("rank", () => {
-  const all = [entry("a/Meeting Notes.md"), entry("Notes.md"), entry("Note to self.md"), entry("Other.md")];
+  const all = [
+    entry("a/Meeting Notes.md"),
+    entry("Notes.md"),
+    entry("Note to self.md"),
+    entry("Other.md"),
+  ];
 
   it("drops notes that do not match", () => {
     expect(paths("note", all)).not.toContain("Other.md");
@@ -66,7 +76,11 @@ describe("rank", () => {
 
   it("puts recently opened notes first on equal scores", () => {
     const list = [entry("a/Todo.md"), entry("b/Todo.md"), entry("c/Todo.md")];
-    expect(paths("todo", list, ["c/Todo.md", "b/Todo.md"])).toEqual(["c/Todo.md", "b/Todo.md", "a/Todo.md"]);
+    expect(paths("todo", list, ["c/Todo.md", "b/Todo.md"])).toEqual([
+      "c/Todo.md",
+      "b/Todo.md",
+      "a/Todo.md",
+    ]);
   });
 
   it("does not let recency beat a better match", () => {
@@ -82,5 +96,42 @@ describe("rank", () => {
 
   it("returns nothing when nothing matches", () => {
     expect(rank(all, "zzz", [])).toEqual([]);
+  });
+});
+
+describe("fuzzyMatch", () => {
+  it("returns the positions of the matched characters", () => {
+    expect(fuzzyMatch("mn", "Meeting Notes")?.positions).toEqual([0, 8]);
+    expect(fuzzyMatch("note", "note")?.positions).toEqual([0, 1, 2, 3]);
+  });
+
+  it("agrees with fuzzyScore and returns null without a match", () => {
+    expect(fuzzyMatch("abc", "a-b-c")?.score).toBe(fuzzyScore("abc", "a-b-c"));
+    expect(fuzzyMatch("xyz", "abc")).toBeNull();
+  });
+
+  it("has no positions for an empty query", () => {
+    expect(fuzzyMatch("", "abc")?.positions).toEqual([]);
+  });
+
+  it("carries the positions of the best label into rank", () => {
+    const [match] = rank([entry("Home.md", ["Start page"])], "sp", []);
+    expect(match?.isAlias).toBe(true);
+    expect(match?.positions).toEqual([0, 6]);
+  });
+});
+
+describe("highlightParts", () => {
+  it("splits a label into matched and unmatched runs", () => {
+    expect(highlightParts("Meeting", [0, 1, 4])).toEqual([
+      { text: "Me", matched: true },
+      { text: "et", matched: false },
+      { text: "i", matched: true },
+      { text: "ng", matched: false },
+    ]);
+  });
+
+  it("returns one unmatched run without positions", () => {
+    expect(highlightParts("abc", [])).toEqual([{ text: "abc", matched: false }]);
   });
 });

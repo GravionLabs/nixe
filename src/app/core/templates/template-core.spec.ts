@@ -42,9 +42,18 @@ describe("formatMoment", () => {
 
   it("writes the ordinal suffixes", () => {
     const day = (d: number) => formatMoment(new Date(2025, 0, d), "Do");
-    expect([day(1), day(2), day(3), day(4), day(11), day(12), day(13), day(21), day(22), day(23)]).toEqual([
-      "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd",
-    ]);
+    expect([
+      day(1),
+      day(2),
+      day(3),
+      day(4),
+      day(11),
+      day(12),
+      day(13),
+      day(21),
+      day(22),
+      day(23),
+    ]).toEqual(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd"]);
   });
 
   it("uses the 12-hour clock around noon and midnight", () => {
@@ -61,17 +70,21 @@ describe("formatMoment", () => {
 
 describe("expandTemplate", () => {
   it("replaces title, date and time with Obsidian's default formats", () => {
-    expect(expandTemplate("# {{title}}\n{{date}} {{time}}", ctx)).toBe("# Weekly review\n2025-05-07 14:05");
-  });
-
-  it("replaces date and time with a format", () => {
-    expect(expandTemplate("{{date:dddd, MMMM Do YYYY}} / {{time:hh:mm A}} / {{date:[W]W}}", ctx)).toBe(
-      "Wednesday, May 7th 2025 / 02:05 PM / W19",
+    expect(expandTemplate("# {{title}}\n{{date}} {{time}}", ctx)).toBe(
+      "# Weekly review\n2025-05-07 14:05",
     );
   });
 
+  it("replaces date and time with a format", () => {
+    expect(
+      expandTemplate("{{date:dddd, MMMM Do YYYY}} / {{time:hh:mm A}} / {{date:[W]W}}", ctx),
+    ).toBe("Wednesday, May 7th 2025 / 02:05 PM / W19");
+  });
+
   it("allows spaces inside the braces and replaces every occurrence", () => {
-    expect(expandTemplate("{{ title }} {{title}} {{ date : YYYY }}", ctx)).toBe("Weekly review Weekly review 2025");
+    expect(expandTemplate("{{ title }} {{title}} {{ date : YYYY }}", ctx)).toBe(
+      "Weekly review Weekly review 2025",
+    );
   });
 
   it("falls back to the default format when the format is empty", () => {
@@ -180,7 +193,9 @@ Wednesday, May 7th
   });
 
   it("refuses a note with invalid frontmatter", () => {
-    expect(() => insertTemplate("---\na: [1\n---\nx", 0, "---\nb: 1\n---\n")).toThrow(/not valid YAML/);
+    expect(() => insertTemplate("---\na: [1\n---\nx", 0, "---\nb: 1\n---\n")).toThrow(
+      /not valid YAML/,
+    );
   });
 
   it("reports the cursor after the inserted body", () => {

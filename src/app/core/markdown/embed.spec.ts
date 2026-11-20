@@ -17,11 +17,14 @@ describe("parseEmbed", () => {
   it("rejects empty targets", () => expect(parseEmbed(" |3")).toBeNull());
 });
 
-const note = "---\ntitle: x\n---\n# A\nintro\n## B\nb1\n```\n## not a heading\n```\n### C\nc1\n## D\nd1 ^blk\n\npara one\npara two ^p2\n\n- item ^li\n";
+const note =
+  "---\ntitle: x\n---\n# A\nintro\n## B\nb1\n```\n## not a heading\n```\n### C\nc1\n## D\nd1 ^blk\n\npara one\npara two ^p2\n\n- item ^li\n";
 
 describe("extractHeadingSection", () => {
   it("returns the section up to the next heading of the same level", () => {
-    expect(extractHeadingSection(note, "b")).toBe("## B\nb1\n```\n## not a heading\n```\n### C\nc1");
+    expect(extractHeadingSection(note, "b")).toBe(
+      "## B\nb1\n```\n## not a heading\n```\n### C\nc1",
+    );
   });
   it("runs to the end for the last section", () => {
     expect(extractHeadingSection(note, "D")).toContain("- item ^li");

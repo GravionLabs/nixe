@@ -1,34 +1,3 @@
-:host {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 12vh;
-}
-
-.backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgb(0 0 0 / 0.3);
-}
-
-.dialog {
-  position: relative;
-  width: min(560px, 90vw);
-  max-height: 60vh;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 8px;
-  background: var(--h-surface-frame);
-  color: var(--h-text-color);
-  font-size: 13px;
-  box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
-  overflow: hidden;
-}
-
 input {
   margin: 10px;
   padding: 7px 10px;
@@ -94,7 +63,5 @@ li button:hover {
 
 .shortcut {
   margin-left: auto;
-  color: var(--h-text-muted-color);
-  font-size: 11px;
   white-space: nowrap;
 }

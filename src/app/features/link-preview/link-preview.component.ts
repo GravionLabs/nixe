@@ -1,4 +1,13 @@
-import { Component, ElementRef, HostListener, computed, effect, inject, untracked, viewChild } from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import {
+  Component,
+  HostListener,
+  computed,
+  effect,
+  inject,
+  untracked,
+  viewChild,
+} from "@angular/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { backend } from "../../core/file/backend";
@@ -23,24 +32,7 @@ const HEIGHT = 320;
  */
 @Component({
   selector: "app-link-preview",
-  template: `
-    @if (preview.shown(); as shown) {
-      <div
-        class="link-preview"
-        [style.left.px]="place()?.left"
-        [style.top.px]="place()?.top"
-        [style.bottom.px]="place()?.bottom"
-        [style.width.px]="width"
-        [style.max-height.px]="height"
-        (mouseenter)="preview.keep()"
-        (mouseleave)="preview.leave()"
-        (mousedown)="$event.preventDefault()"
-        (click)="onClick($event)"
-      >
-        <article #body class="markdown-body"></article>
-      </div>
-    }
-  `,
+  templateUrl: "./link-preview.component.html",
   styleUrl: "./link-preview.component.css",
 })
 export class LinkPreviewComponent {
@@ -102,7 +94,8 @@ export class LinkPreviewComponent {
     if (wiki !== null) {
       const root = this.workspace.vaultRoot();
       const files = this.workspace.vaultFiles();
-      const rel = root && files && parseWikilinkTarget(wiki).note ? resolveWikilink(wiki, files) : null;
+      const rel =
+        root && files && parseWikilinkTarget(wiki).note ? resolveWikilink(wiki, files) : null;
       if (!root || !rel || !isMarkdownPath(rel)) return;
       this.preview.close();
       await this.open(joinPath(root, rel), parseWikilinkTarget(wiki).heading, newTab);

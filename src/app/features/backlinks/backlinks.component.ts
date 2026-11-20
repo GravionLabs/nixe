@@ -1,8 +1,9 @@
-import { Component, effect, inject, output, untracked } from "@angular/core";
+import { Component, effect, inject, output, signal, untracked } from "@angular/core";
 
-import { Backlink } from "../../core/file/backend";
+import type { Backlink, UnlinkedMention } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
-import { BacklinksService, OutgoingLink } from "../../core/index/backlinks.service";
+import type { OutgoingLink } from "../../core/index/backlinks.service";
+import { BacklinksService } from "../../core/index/backlinks.service";
 import { joinPath } from "../../core/markdown/paths";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { TabsService } from "../../core/tabs/tabs.service";
@@ -21,13 +22,36 @@ export class BacklinksComponent {
   private readonly tabs = inject(TabsService);
   private readonly preview = inject(LinkPreviewService);
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
+
+  /** The section of unlinked mentions starts collapsed: it is read from the index only when opened. */
+  protected readonly unlinkedOpen = signal(false);
 
   constructor() {
     effect(() => {
       this.links.key();
       untracked(() => void this.links.refresh());
     });
+    effect(() => {
+      this.links.key();
+      if (this.unlinkedOpen()) untracked(() => void this.links.loadUnlinked());
+    });
+  }
+
+  protected toggleUnlinked(): void {
+    this.unlinkedOpen.update((open) => !open);
+  }
+
+  protected openMention(mention: UnlinkedMention, event?: MouseEvent): Promise<void> {
+    return this.open(mention.source, mention.line, null, event);
+  }
+
+  protected async linkMention(mention: UnlinkedMention): Promise<void> {
+    try {
+      await this.links.linkMention(mention);
+    } catch (err) {
+      this.failed.emit(String(err));
+    }
   }
 
   protected openBacklink(link: Backlink, event?: MouseEvent): Promise<void> {
@@ -49,15 +73,21 @@ export class BacklinksComponent {
     this.preview.leave();
   }
 
-  private async open(rel: string, line: number | null, anchor: string | null, event?: MouseEvent): Promise<void> {
+  private async open(
+    rel: string,
+    line: number | null,
+    anchor: string | null,
+    event?: MouseEvent,
+  ): Promise<void> {
     const root = this.workspace.vaultRoot();
     if (!root) return;
     try {
       const options = { line, anchor: line === null ? anchor : null };
-      if (event && (event.metaKey || event.ctrlKey)) await this.tabs.openInNewTab(joinPath(root, rel), options);
+      if (event && (event.metaKey || event.ctrlKey))
+        await this.tabs.openInNewTab(joinPath(root, rel), options);
       else await this.doc.open(joinPath(root, rel), options);
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

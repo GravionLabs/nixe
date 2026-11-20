@@ -1,7 +1,9 @@
 import { Component, computed, inject, signal } from "@angular/core";
 
-import { DiffRow, diffLines, diffStat } from "../../core/git/line-diff";
-import { HistoryService, TimelineEntry } from "../../core/git/history.service";
+import type { DiffRow } from "../../core/git/line-diff";
+import { diffLines, diffStat } from "../../core/git/line-diff";
+import type { TimelineEntry } from "../../core/git/history.service";
+import { HistoryService } from "../../core/git/history.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 
@@ -32,7 +34,12 @@ export class HistoryComponent {
   protected readonly rendered = computed(() => {
     const c = this.history.comparison();
     if (!c) return null;
-    const ctx = { filePath: null, wikiRoot: null, math: false, vaultRoot: this.workspace.vaultRoot() };
+    const ctx = {
+      filePath: null,
+      wikiRoot: null,
+      math: false,
+      vaultRoot: this.workspace.vaultRoot(),
+    };
     return { old: this.markdown.render(c.oldText, ctx), new: this.markdown.render(c.newText, ctx) };
   });
 

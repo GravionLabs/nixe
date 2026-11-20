@@ -7,14 +7,42 @@
 // Theme. The helix tokens (`--h-*`, loaded in angular.json) carry every colour; `HxTheme` sets the class
 // `.app-dark` on <html> (SettingsService turns light, dark and system into that one switch).
 // ---------------------------------------------------------------------------
+// The look that themes and snippets change (docs/theming.md). Colours stay the `--h-*` tokens; the
+// settings (accent colour, fonts) and a theme override these `--nixe-*` variables.
+:root {
+  --nixe-font-text:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --nixe-font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --nixe-font-size: 14px;
+  --nixe-line-height: 1.5;
+  --nixe-radius: 6px;
+  --nixe-content-width: 980px;
+  --nixe-content-padding-x: 40px;
+  --nixe-content-padding-top: 32px;
+  --nixe-content-padding-bottom: 80px;
+  --nixe-accent: var(--h-primary-500);
+  --nixe-link-color: var(--nixe-accent);
+  --nixe-selection-background: color-mix(in srgb, var(--nixe-accent) 30%, transparent);
+  --nixe-callout-radius: var(--nixe-radius);
+  --nixe-added-color: #2da44e;
+  --nixe-removed-color: #cf222e;
+  --nixe-danger-color: #c0392b;
+  --nixe-note-text: var(--nixe-font-text);
+}
+
+::selection {
+  background: var(--nixe-selection-background);
+}
+
 html,
 body {
   margin: 0;
   height: 100%;
   background: var(--h-content-background);
   color: var(--h-text-color);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  font-family: var(--nixe-font-text);
+  font-size: var(--nixe-font-size);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -39,8 +67,30 @@ body {
   padding: 0;
 }
 
+.markdown-body {
+  font-family: var(--nixe-note-text);
+  line-height: var(--nixe-line-height);
+
+  a {
+    color: var(--nixe-link-color);
+  }
+
+  code,
+  tt,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--nixe-font-mono);
+  }
+}
+
 .markdown-body a {
   cursor: pointer;
+}
+
+// Images open in the zoom dialog (the ones inside a link follow the link).
+.markdown-body img[data-zoomable] {
+  cursor: zoom-in;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,10 +151,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: grab;
+  touch-action: none;
+
+  &.panning {
+    cursor: grabbing;
+  }
 }
 
-.diagram-dialog-content svg {
+// `margin: auto` (not centering in the viewport) keeps the top/left of a large content reachable by scrolling.
+.diagram-dialog-content {
+  margin: auto;
+}
+
+.diagram-dialog-content svg,
+.diagram-dialog-content img {
   display: block;
+  user-select: none;
 }
 
 .diagram-dialog .close {
@@ -139,6 +202,10 @@ body {
   border: 1px solid var(--h-content-border-color);
   box-shadow: 0 2px 6px rgb(0 0 0 / 0.15);
   cursor: default;
+
+  button.text {
+    white-space: nowrap;
+  }
 
   button {
     display: flex;
@@ -224,14 +291,14 @@ body {
 // ---------------------------------------------------------------------------
 .markdown-body {
   .callout {
-    --callout-rgb: 8 109 221;
+    --callout-color: light-dark(var(--h-blue-700), var(--h-blue-300));
     --callout-icon: none;
     margin: 0 0 16px;
     padding: 0;
-    border: 1px solid rgb(var(--callout-rgb) / 0.35);
+    border: 1px solid color-mix(in srgb, var(--callout-color) 35%, transparent);
     border-left-width: 4px;
-    border-radius: 6px;
-    background: rgb(var(--callout-rgb) / 0.1);
+    border-radius: var(--nixe-callout-radius);
+    background: color-mix(in srgb, var(--callout-color) 10%, transparent);
     overflow: hidden;
   }
 
@@ -241,7 +308,7 @@ body {
     gap: 8px;
     padding: 8px 12px;
     font-weight: 600;
-    color: rgb(var(--callout-rgb));
+    color: var(--callout-color);
 
     &::before {
       content: "";
@@ -294,126 +361,74 @@ body {
   mark {
     padding: 0 2px;
     border-radius: 2px;
-    background: rgb(255 208 0 / 0.4);
+    background: color-mix(in srgb, var(--h-yellow-400) 40%, transparent);
     color: inherit;
   }
 }
 
 .markdown-body .callout-note {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 20h9%22/%3E%3Cpath d=%22M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z%22/%3E%3C/svg%3E");
-  --callout-rgb: 8 109 221;
-}
-
-:root.app-dark .markdown-body .callout-note {
-  --callout-rgb: 107 166 255;
+  --callout-color: light-dark(var(--h-blue-700), var(--h-blue-300));
 }
 
 .markdown-body .callout-abstract {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%228%22 y=%222%22 width=%228%22 height=%224%22 rx=%221%22/%3E%3Cpath d=%22M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2%22/%3E%3Cpath d=%22M9 12h6M9 16h6%22/%3E%3C/svg%3E");
-  --callout-rgb: 0 191 188;
-}
-
-:root.app-dark .markdown-body .callout-abstract {
-  --callout-rgb: 83 223 221;
+  --callout-color: light-dark(var(--h-cyan-700), var(--h-cyan-300));
 }
 
 .markdown-body .callout-info {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3E%3Cpath d=%22M12 16v-4M12 8h.01%22/%3E%3C/svg%3E");
-  --callout-rgb: 8 109 221;
-}
-
-:root.app-dark .markdown-body .callout-info {
-  --callout-rgb: 107 166 255;
+  --callout-color: light-dark(var(--h-blue-700), var(--h-blue-300));
 }
 
 .markdown-body .callout-todo {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3E%3Cpath d=%22m9 12 2 2 4-4%22/%3E%3C/svg%3E");
-  --callout-rgb: 8 109 221;
-}
-
-:root.app-dark .markdown-body .callout-todo {
-  --callout-rgb: 107 166 255;
+  --callout-color: light-dark(var(--h-blue-700), var(--h-blue-300));
 }
 
 .markdown-body .callout-tip {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.4 1-3 0 1.7 1 3 2.5 3Z%22/%3E%3C/svg%3E");
-  --callout-rgb: 0 191 188;
-}
-
-:root.app-dark .markdown-body .callout-tip {
-  --callout-rgb: 83 223 221;
+  --callout-color: light-dark(var(--h-cyan-700), var(--h-cyan-300));
 }
 
 .markdown-body .callout-success {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M20 6 9 17l-5-5%22/%3E%3C/svg%3E");
-  --callout-rgb: 8 185 78;
-}
-
-:root.app-dark .markdown-body .callout-success {
-  --callout-rgb: 79 214 125;
+  --callout-color: light-dark(var(--h-green-700), var(--h-green-300));
 }
 
 .markdown-body .callout-question {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3E%3Cpath d=%22M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01%22/%3E%3C/svg%3E");
-  --callout-rgb: 224 172 0;
-}
-
-:root.app-dark .markdown-body .callout-question {
-  --callout-rgb: 240 198 64;
+  --callout-color: light-dark(var(--h-yellow-700), var(--h-yellow-300));
 }
 
 .markdown-body .callout-warning {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z%22/%3E%3Cpath d=%22M12 9v4M12 17h.01%22/%3E%3C/svg%3E");
-  --callout-rgb: 236 117 0;
-}
-
-:root.app-dark .markdown-body .callout-warning {
-  --callout-rgb: 255 152 56;
+  --callout-color: light-dark(var(--h-orange-700), var(--h-orange-300));
 }
 
 .markdown-body .callout-failure {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M18 6 6 18M6 6l12 12%22/%3E%3C/svg%3E");
-  --callout-rgb: 233 49 71;
-}
-
-:root.app-dark .markdown-body .callout-failure {
-  --callout-rgb: 255 105 120;
+  --callout-color: light-dark(var(--h-red-700), var(--h-red-300));
 }
 
 .markdown-body .callout-danger {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M13 2 3 14h9l-1 8 10-12h-9Z%22/%3E%3C/svg%3E");
-  --callout-rgb: 233 49 71;
-}
-
-:root.app-dark .markdown-body .callout-danger {
-  --callout-rgb: 255 105 120;
+  --callout-color: light-dark(var(--h-red-700), var(--h-red-300));
 }
 
 .markdown-body .callout-bug {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m8 2 1.9 1.9M16 2l-1.9 1.9%22/%3E%3Cpath d=%22M9 7.1V6a3 3 0 0 1 6 0v1.1%22/%3E%3Cpath d=%22M12 20a6 6 0 0 1-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3a6 6 0 0 1-6 6ZM12 20v-9M6 13H2M18 13h4M6 17l-3 2M18 17l3 2M6 9 3 7M18 9l3-2%22/%3E%3C/svg%3E");
-  --callout-rgb: 233 49 71;
-}
-
-:root.app-dark .markdown-body .callout-bug {
-  --callout-rgb: 255 105 120;
+  --callout-color: light-dark(var(--h-red-700), var(--h-red-300));
 }
 
 .markdown-body .callout-example {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01%22/%3E%3C/svg%3E");
-  --callout-rgb: 120 82 238;
-}
-
-:root.app-dark .markdown-body .callout-example {
-  --callout-rgb: 167 139 250;
+  --callout-color: light-dark(var(--h-violet-700), var(--h-violet-300));
 }
 
 .markdown-body .callout-quote {
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 21c3 0 7-1 7-8V5c0-1.3-.9-2-2-2H4c-1.100 0-2 .9-2 2v6c0 1.100.9 2 2 2h4c0 3.200-.8 4-4 4ZM15 21c3 0 7-1 7-8V5c0-1.300-.9-2-2-2h-4c-1.100 0-2 .9-2 2v6c0 1.100.9 2 2 2h4c0 3.200-.8 4-4 4Z%22/%3E%3C/svg%3E");
-  --callout-rgb: 158 158 158;
-}
-
-:root.app-dark .markdown-body .callout-quote {
-  --callout-rgb: 180 180 180;
+  --callout-color: light-dark(var(--h-gray-700), var(--h-gray-300));
 }
 
 // ---------------------------------------------------------------------------
@@ -478,7 +493,7 @@ body {
     display: inline-block;
     padding: 0 8px;
     border-radius: 999px;
-    background: rgb(14 124 134 / 0.14);
+    background: color-mix(in srgb, var(--nixe-accent) 14%, transparent);
     color: var(--h-primary-color);
     text-decoration: none;
     cursor: default;
@@ -486,5 +501,136 @@ body {
 
   .property-chip {
     cursor: default;
+  }
+}
+
+/* Folding headings in the reading view (#110) */
+.markdown-body .fold-hidden {
+  display: none;
+}
+
+.markdown-body .fold-marker {
+  display: inline-block;
+  width: 1em;
+  margin-left: -1.1em;
+  cursor: pointer;
+  opacity: 0;
+  font-size: 0.7em;
+  font-weight: 400;
+  user-select: none;
+}
+
+.markdown-body .fold-marker::before {
+  content: "▾";
+}
+
+.markdown-body .folded > .fold-marker::before {
+  content: "▸";
+}
+
+.markdown-body .folded > .fold-marker,
+.markdown-body .foldable:hover > .fold-marker {
+  opacity: 0.6;
+}
+
+// ---------------------------------------------------------------------------
+// One focus ring (#253): every control shows it on keyboard focus, built from the helix tokens.
+// Components set no `outline` of their own; at most an `outline-offset` where the ring would be clipped.
+// ---------------------------------------------------------------------------
+:focus-visible {
+  outline: var(--h-focus-ring-width) var(--h-focus-ring-style) var(--h-focus-ring-color);
+  outline-offset: var(--h-focus-ring-offset);
+  box-shadow: var(--h-focus-ring-shadow);
+}
+
+/* The editor shows no ring for a click into it; the region a command moved the focus to (focus file tree,
+   note, panel) shows it, like any other control. */
+html .cm-editor.cm-focused {
+  outline: none;
+}
+
+[data-keyboard-focus] .cm-editor.cm-focused,
+[data-keyboard-focus] .markdown-body:focus,
+[data-keyboard-focus] .panel-tabs button:focus {
+  outline: var(--h-focus-ring-width) var(--h-focus-ring-style) var(--h-focus-ring-color);
+  outline-offset: calc(-1 * var(--h-focus-ring-width));
+}
+
+// Reduced motion (#253): no transition or animation, and scripted scrolling (outline click, reveal in the
+// tree, jump to a search hit) jumps instead of gliding.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Code blocks: copy button and language label (#245)
+// ---------------------------------------------------------------------------
+.markdown-body .code-block {
+  position: relative;
+
+  > pre {
+    margin-bottom: 16px;
+  }
+
+  // the tools are never part of a selection, so they are not copied with it
+  .code-tools {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+    font-size: 12px;
+    font-family: var(--nixe-note-text);
+  }
+
+  .code-lang {
+    color: var(--h-text-muted-color, #888);
+  }
+
+  .code-copy {
+    cursor: pointer;
+    font: inherit;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--h-border-color, #8885);
+    background: var(--h-surface-color, canvas);
+    color: inherit;
+    opacity: 0;
+  }
+
+  &:hover .code-copy,
+  .code-copy:focus-visible {
+    opacity: 1;
+  }
+
+  @media (hover: none) {
+    .code-copy {
+      opacity: 1;
+    }
+  }
+
+  &.code-block-source .code-tools {
+    top: 2px;
+    right: 2px;
+  }
+}
+
+.markdown-body.wrap-code pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+
+  code {
+    white-space: pre-wrap;
   }
 }

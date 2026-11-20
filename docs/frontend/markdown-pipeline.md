@@ -85,3 +85,7 @@ into a regular fence token with info `"mermaid"`) end up as the same
 The diagram just above this paragraph, and the ones throughout `docs/`, all go through
 exactly this path — opening this folder in Nixe is as much an integration test for this
 pipeline as it is documentation.
+
+## Code blocks
+
+After each render the viewer calls `decorateCodeBlocks` (`core/markdown/code-blocks.ts`). It wraps every `<pre>` in `.code-block` and adds a tools bar with the language label and a copy button; KaTeX blocks and rendered Mermaid diagrams get the button too. The button copies the source (the Mermaid renderer keeps it in `data-source`; DOMPurify keeps the KaTeX `<annotation>`) and reads "Copied" for 2 s. The bar is `user-select: none`, so it is not part of a selection. The setting "Wrap lines in code blocks" (`wrapCode`, default off) adds `.wrap-code` to the note.

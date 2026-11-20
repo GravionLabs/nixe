@@ -43,7 +43,8 @@ export function placePopover(
   const left = Math.max(MARGIN, Math.min(anchor.left, viewport.width - size.width - MARGIN));
   const fitsBelow = anchor.bottom + GAP + size.height <= viewport.height - MARGIN;
   const fitsAbove = anchor.top - GAP - size.height >= MARGIN;
-  if (!fitsBelow && fitsAbove) return { left, top: null, bottom: viewport.height - anchor.top + GAP };
+  if (!fitsBelow && fitsAbove)
+    return { left, top: null, bottom: viewport.height - anchor.top + GAP };
   return { left, top: anchor.bottom + GAP, bottom: null };
 }
 
@@ -78,7 +79,8 @@ export class PreviewCache {
   set(key: string, source: string, stamp: unknown, html: string): void {
     this.entries.delete(key);
     this.entries.set(key, { source, stamp, html });
-    while (this.entries.size > this.max) this.entries.delete(this.entries.keys().next().value as string);
+    while (this.entries.size > this.max)
+      this.entries.delete(this.entries.keys().next().value as string);
   }
 
   get size(): number {

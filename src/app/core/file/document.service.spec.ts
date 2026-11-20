@@ -34,12 +34,7 @@ describe("DocumentService writing", () => {
   it("does not touch the content when the write fails", async () => {
     const doc = await opened();
     invoke.mockRejectedValueOnce("denied");
-    try {
-      await doc.write("/v/a.md", "new");
-      expect.unreachable();
-    } catch (e) {
-      expect(e).toBe("denied");
-    }
+    await expect(doc.write("/v/a.md", "new")).rejects.toBe("denied");
     expect(doc.content()).toBe("old");
   });
 
@@ -58,5 +53,49 @@ describe("DocumentService writing", () => {
     invoke.mockResolvedValue("from disk");
     await doc.onExternalChange("/v/a.md");
     expect(doc.content()).toBe("from disk");
+  });
+
+  describe("missing file", () => {
+    function gone(exists: boolean): void {
+      invoke.mockImplementation(async (cmd: string) => {
+        if (cmd === "read_text_file") throw "no such file";
+        if (cmd === "path_exists") return exists;
+        return undefined;
+      });
+    }
+
+    it("marks the note missing when the file is gone", async () => {
+      const doc = await opened();
+      gone(false);
+      await doc.onExternalChange("/v/a.md");
+      expect(doc.missing()).toBe(true);
+      expect(doc.content()).toBe("old");
+    });
+
+    it("does not mark it missing while the file is only being replaced", async () => {
+      const doc = await opened();
+      gone(true);
+      await doc.onExternalChange("/v/a.md");
+      expect(doc.missing()).toBe(false);
+    });
+
+    it("clears the state when the file returns", async () => {
+      const doc = await opened();
+      gone(false);
+      await doc.onExternalChange("/v/a.md");
+      invoke.mockReset();
+      invoke.mockResolvedValue("back");
+      await doc.onExternalChange("/v/a.md");
+      expect(doc.missing()).toBe(false);
+      expect(doc.content()).toBe("back");
+    });
+
+    it("clears the state when another note is opened or the note is closed", async () => {
+      const doc = await opened();
+      gone(false);
+      await doc.onExternalChange("/v/a.md");
+      doc.close();
+      expect(doc.missing()).toBe(false);
+    });
   });
 });

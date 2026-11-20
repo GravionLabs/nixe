@@ -1,23 +1,29 @@
-import { Completion, CompletionContext, CompletionResult, CompletionSource, autocompletion } from "@codemirror/autocomplete";
-import { Extension } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import type {
+  Completion,
+  CompletionContext,
+  CompletionResult,
+  CompletionSource,
+} from "@codemirror/autocomplete";
+import { autocompletion } from "@codemirror/autocomplete";
+import type { Extension } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 
-import {
+import type {
   BlockRef,
   HeadingRef,
   PlainOption,
   WikilinkStage,
+} from "../../core/editor/completion-core";
+import {
   blockOptions,
-  blocksOf,
   headingOptions,
-  headingsOf,
   noteOptions,
   tagOptions,
   tagStage,
   wikilinkStage,
 } from "../../core/editor/completion-core";
-import { LinkFormat, TagCount } from "../../core/file/backend";
-import { SwitcherEntry } from "../../core/switcher/fuzzy";
+import type { LinkFormat, TagCount } from "../../core/file/backend";
+import type { SwitcherEntry } from "../../core/switcher/fuzzy";
 import { inCode } from "./editor-extensions";
 
 /** What the completion needs to know about the vault; the editor component supplies it. */
@@ -49,7 +55,11 @@ function applyLink(insert: string, close: boolean): Completion["apply"] {
 }
 
 function toCompletions(options: readonly PlainOption[], close: boolean): Completion[] {
-  return options.map((o) => ({ label: o.label, detail: o.detail, apply: applyLink(o.insert, close) }));
+  return options.map((o) => ({
+    label: o.label,
+    detail: o.detail,
+    apply: applyLink(o.insert, close),
+  }));
 }
 
 function result(from: number, options: Completion[]): CompletionResult | null {
@@ -68,7 +78,11 @@ export function wikilinkSource(data: CompletionData): CompletionSource {
   };
 }
 
-async function stageOptions(data: CompletionData, stage: WikilinkStage, context: CompletionContext): Promise<Completion[] | null> {
+async function stageOptions(
+  data: CompletionData,
+  stage: WikilinkStage,
+  context: CompletionContext,
+): Promise<Completion[] | null> {
   const doc = context.state.doc.toString();
   switch (stage.kind) {
     case "note": {

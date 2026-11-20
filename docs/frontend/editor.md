@@ -16,9 +16,21 @@ The toolbar button shows `editing()` as `active`/`aria-pressed` and is disabled 
   root, or the folder of the open note). CRLF notes keep CRLF; notes with invalid UTF-8 are not editable.
 - **External changes**: the watcher cannot tell who wrote, so every text about to be written is
   tracked: the text editor and disk agree on, plus writes in flight or finished within 2 s, are ignored; anything else (even an older text restored by `git checkout`) is foreign. A foreign change is loaded at once
-  when nothing is unsaved; otherwise a bar offers *Reload* or *Keep mine*, and saving is paused
-  until one is chosen. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
+  when nothing is unsaved; otherwise a bar (`role="alert"`) offers *Reload* (discards the unsaved edits), *Keep mine*
+  (the next save replaces the version on disk) and *Compare*, and saving is paused until one is
+  chosen. *Compare* opens a dialog (`app-external-compare`) with the line diff of the disk version
+  against the editor text and the same two choices. After a reload from the bar a toast offers
+  *Undo* for 10 s, which puts the discarded text back as an ordinary edit that is saved. The editor cannot be closed meanwhile; switching note or closing the window saves unsaved text to `<name> (unsaved copy).md` instead of overwriting the note.
+- **Missing file**: when the watcher reports the open note and it can no longer be read and `path_exists` is false, `DocumentService.missing` is set (per tab). The tab shows its name struck through with the tooltip "File not found" (`HxTabBarItem.missing`), the pane shows a bar with *Close* and, in the editor, *Save as copy* (writes the editor text to `<name> (unsaved copy …).md`). The autosave is paused meanwhile, so the note is not re-created behind the user's back. A file that returns clears the state and resumes saving.
 - **Scroll**: the viewer's top block (`data-line`) becomes the editor's first line and back.
+
+## Folding
+
+Headings, list items and the frontmatter fold in the editor; headings also fold in the reading view.
+
+- **Editor**: a gutter marker (▾ / ▸) next to every foldable line, and the commands *Fold at the cursor*, *Unfold at the cursor*, *Fold all* and *Unfold all* (palette; keys `Ctrl+Shift+[` / `]` in the editor). A heading folds down to the next heading of its level or a higher one, a list item with its deeper lines, the frontmatter between its `---` lines. Code fences are skipped. Code: `features/editor/folding.ts` (CodeMirror `foldService`), ranges from the pure `core/fold/fold-core.ts`.
+- **Reading view**: a marker left of each heading with content; clicking it hides the blocks below (`core/fold/viewer-folds.ts`). The same four commands act in the reading view on the heading at or above the top of the view (*fold all* on every heading); list items and the frontmatter stay open there.
+- **Remembered per note**: the folded start lines are kept in `folds.json` in the app data directory (commands `read_folds` / `write_folds`, `folds.rs`), keyed by the path of the note, never in the vault. Editor and reading view share them; a line that no longer folds after the note changed is ignored. A file that cannot be read is not overwritten.
 
 ## Find and replace
 
@@ -56,6 +68,14 @@ CodeMirror completion for links and tags; nothing is offered in code.
   nothing matches.
 - The **sidebar context menu** (right click, F2 renames inline) offers New note, New folder,
   Rename, Delete and Reveal in Finder/Explorer. Delete moves to `.trash/` of the vault.
+- The **file tree** follows the WAI-ARIA tree pattern (`role="tree"`, `aria-multiselectable`,
+  `aria-selected`, one tab stop that moves with the focus). Up/Down, Home/End move the focus, Right
+  expands a folder or enters it, Left collapses it or goes to the parent folder, letters jump to the
+  next name that starts with them, Space toggles the selection of a row, Enter opens it, Delete moves
+  the selection to the trash. Ctrl/Cmd-click toggles and Shift-click (or Shift with the arrows)
+  extends the selection; Alt-click opens a note in a new tab. Dragging the selection onto a folder
+  (or the empty area for the vault root) moves it, rewriting links as a rename does and listing the
+  notes that change first. A move onto a name that is taken is refused before anything is moved.
 - Renaming or moving a note or folder rewrites the links to it in the notes that contain them
   (`[[wikilinks]]`, `![[embeds]]` and Markdown links), like Obsidian's `alwaysUpdateLinks`.
   Aliases, headings and block references stay; the path form follows `newLinkFormat` of
@@ -90,3 +110,10 @@ Pasting an image or dropping a file into the editor copies it into the vault and
 - **Names:** a pasted image is `Pasted image YYYYMMDDHHmmss.png` (the extension follows the image type); a pasted or dropped file keeps its name. A taken name gets a number (`name 1.png`), nothing is overwritten.
 - **Links:** the link holds the file name, or the vault-relative path when another file of the vault has the same name.
 - **Dropped files inside the vault** are not copied; only the link is inserted. Dropping while the editor is closed still opens the file or folder.
+
+## Note composer
+
+`Extract selection to a note`, `Extract heading to a note` (the heading at the cursor and everything below it up to the next heading of the same or a higher level) and `Merge into…` are commands of the palette. Each asks for the target note (type to find one; extract also offers a typed name as a new note), lists the notes that change in a confirmation, and then runs as one batch in the backend (`vault/composer.rs`), so the watcher reports one debounced change. Code: `core/composer/`, `features/composer/`.
+
+- **Extract:** the text goes to the end of the target (or into a new note, folders are created) and a link `[[note]]` stays; the setting `Leave an embed when extracting` leaves `![[note]]`. Links to a heading or block id that moved (`[[Source#Heading]]`, `[[#Heading]]`, `[[Source#^id]]`) name the target, `[[#Other]]` in the moved text names the source, and Markdown links with a relative path are recomputed. Not rewritten: Markdown links with a `#heading`, the frontmatter, code and comments.
+- **Merge:** the open note is appended to the target without its frontmatter, every link to it names the target (in the form `newLinkFormat` asks for, heading and block kept) and the original moves to `.trash/`. The target is written first; if that fails nothing else changes.

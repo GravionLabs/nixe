@@ -11,6 +11,33 @@ export interface SwitcherMatch {
   label: string;
   isAlias: boolean;
   score: number;
+  /** Indices in `label` of the matched characters; empty without a query. */
+  positions: readonly number[];
+}
+
+export interface FuzzyMatch {
+  score: number;
+  /** Indices in the text of the matched characters, ascending. */
+  positions: number[];
+}
+
+/** A run of text of a label, matched or not. */
+export interface LabelPart {
+  text: string;
+  matched: boolean;
+}
+
+/** Splits `label` into runs of matched and unmatched characters at `positions`. */
+export function highlightParts(label: string, positions: readonly number[]): LabelPart[] {
+  const hit = new Set(positions);
+  const parts: LabelPart[] = [];
+  for (const [i, ch] of [...label].entries()) {
+    const matched = hit.has(i);
+    const last = parts[parts.length - 1];
+    if (last && last.matched === matched) last.text += ch;
+    else parts.push({ text: ch, matched });
+  }
+  return parts;
 }
 
 const SEPARATORS = /[\s\-_./\\]/u;
@@ -21,11 +48,17 @@ const SEPARATORS = /[\s\-_./\\]/u;
  * word starts and consecutive runs, and penalises gaps and long texts.
  */
 export function fuzzyScore(query: string, text: string): number | null {
+  return fuzzyMatch(query, text)?.score ?? null;
+}
+
+/** Like `fuzzyScore`, and also returns the positions of the matched characters. */
+export function fuzzyMatch(query: string, text: string): FuzzyMatch | null {
   const q = query.toLowerCase();
   const t = text.toLowerCase();
-  if (!q) return 0;
+  if (!q) return { score: 0, positions: [] };
   if (q.length > t.length) return null;
 
+  const positions: number[] = [];
   let score = 0;
   let from = 0;
   let previous = -2;
@@ -46,12 +79,13 @@ export function fuzzyScore(query: string, text: string): number | null {
     else score -= Math.min(at - previous - 1, 5);
     if (isWordStart(t, at)) score += 6;
     if (at === 0) score += 4;
+    positions.push(at);
     previous = at;
     from = at + 1;
   }
   if (t === q) score += 100;
   else if (t.startsWith(q)) score += 20;
-  return score - t.length * 0.1;
+  return { score: score - t.length * 0.1, positions };
 }
 
 function isSubsequence(query: string, text: string, from: number): boolean {
@@ -77,7 +111,11 @@ export function fileLabel(path: string): string {
  * recently opened note (`recent` lists vault-relative paths, newest first). Without a query
  * the recent notes come first, then the rest alphabetically.
  */
-export function rank(entries: readonly SwitcherEntry[], query: string, recent: readonly string[] = []): SwitcherMatch[] {
+export function rank(
+  entries: readonly SwitcherEntry[],
+  query: string,
+  recent: readonly string[] = [],
+): SwitcherMatch[] {
   const order = new Map(recent.map((path, i) => [path, i]));
   const recency = (path: string) => order.get(path) ?? Number.POSITIVE_INFINITY;
   const q = query.trim();
@@ -86,13 +124,18 @@ export function rank(entries: readonly SwitcherEntry[], query: string, recent: r
   for (const entry of entries) {
     const name = fileLabel(entry.path);
     if (!q) {
-      matches.push({ entry, label: name, isAlias: false, score: 0 });
+      matches.push({ entry, label: name, isAlias: false, score: 0, positions: [] });
       continue;
     }
     let best: SwitcherMatch | null = null;
-    for (const [label, isAlias] of [[name, false], ...entry.aliases.map((a) => [a, true] as const)] as const) {
-      const score = fuzzyScore(q, label);
-      if (score !== null && (!best || score > best.score)) best = { entry, label, isAlias, score };
+    for (const [label, isAlias] of [
+      [name, false],
+      ...entry.aliases.map((a) => [a, true] as const),
+    ] as const) {
+      const found = fuzzyMatch(q, label);
+      if (found && (!best || found.score > best.score)) {
+        best = { entry, label, isAlias, score: found.score, positions: found.positions };
+      }
     }
     if (best) matches.push(best);
   }

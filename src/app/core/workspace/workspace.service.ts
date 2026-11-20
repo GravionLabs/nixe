@@ -1,4 +1,6 @@
-import { Injectable, WritableSignal, computed, effect, inject, signal, untracked } from "@angular/core";
+import { DEFAULT_PANEL_WIDTH } from "../panel/panel-width";
+import type { WritableSignal } from "@angular/core";
+import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { backend } from "../file/backend";
@@ -7,7 +9,9 @@ import { basename, joinPath, toSlashes } from "../markdown/paths";
 import { SettingsService } from "../settings/settings.service";
 import { layoutHasNote } from "../tabs/layout";
 import { TabsService } from "../tabs/tabs.service";
-import { TreeItem, buildTreeItems, defaultPage } from "./tree-model";
+import { filterTree, matchesFilter } from "./tree-filter";
+import type { TreeItem, TreeSort } from "./tree-model";
+import { buildTreeItems, defaultPage, sortItems } from "./tree-model";
 
 export interface TreeNode extends TreeItem {
   depth: number;
@@ -24,6 +28,8 @@ export class WorkspaceService {
   private readonly tabs = inject(TabsService);
 
   readonly root = signal<string | null>(null);
+  /** Order of the tree. */
+  readonly sort = computed(() => this.settings.treeSort());
   readonly rootName = computed(() => {
     const r = this.root();
     return r ? basename(r) : null;
@@ -45,7 +51,7 @@ export class WorkspaceService {
       this.tabs.panes();
       this.tabs.focusedId();
       // Closing every note stores the empty layout too, so the old tabs do not come back.
-      if (root && !this.opening && (note === null || note.startsWith(root + "/"))) {
+      if (root && !this.opening && (note === null || note.startsWith(`${root}/`))) {
         untracked(() => this.rememberState(root, note));
       }
     });
@@ -67,6 +73,33 @@ export class WorkspaceService {
     walk(this.rootNodes());
     return rows;
   });
+
+  /** The text the file tree is narrowed to by name (#248); empty shows the whole tree. */
+  readonly treeFilter = signal("");
+
+  /** With a filter: the loaded notes and folders that match, with the folders leading to them. */
+  readonly filteredRows = computed(() => filterTree(this.rootNodes(), this.treeFilter()));
+
+  /** Sets the filter and expands the folders of the matches that are not loaded yet. */
+  async setTreeFilter(text: string): Promise<void> {
+    this.treeFilter.set(text);
+    const vaultRoot = this.vaultRoot();
+    if (text.trim() === "" || !vaultRoot) return;
+    const targets = new Set<string>();
+    for (const rel of this.vaultFiles() ?? []) {
+      const parts = rel.split("/");
+      parts.forEach((part, i) => {
+        if (!matchesFilter(part, text)) return;
+        const last = i === parts.length - 1;
+        targets.add(joinPath(vaultRoot, last ? rel : `${parts.slice(0, i + 1).join("/")}/.`));
+      });
+      if (targets.size > 500) break;
+    }
+    for (const target of targets) {
+      if (this.treeFilter() !== text) return;
+      await this.reveal(target);
+    }
+  }
 
   /** True while a folder is being opened: the state stored for it must not be overwritten yet. */
   private opening = false;
@@ -102,6 +135,7 @@ export class WorkspaceService {
     if (state) {
       this.settings.backlinksVisible.set(state.backlinks);
       this.settings.outlineVisible.set(state.outline);
+      this.settings.panelWidth.set(state.panelWidth ?? DEFAULT_PANEL_WIDTH);
     }
 
     if (switching) this.tabs.reset();
@@ -143,7 +177,7 @@ export class WorkspaceService {
 
   private noteIn(root: string): string | null {
     const note = this.doc.path();
-    return note && note.startsWith(root + "/") ? note : null;
+    return note && note.startsWith(`${root}/`) ? note : null;
   }
 
   private rememberState(root: string, note: string | null): void {
@@ -153,6 +187,7 @@ export class WorkspaceService {
       sidebar: this.settings.sidebarVisible(),
       backlinks: this.settings.backlinksVisible(),
       outline: this.settings.outlineVisible(),
+      panelWidth: this.settings.panelWidth(),
       layout,
     });
   }
@@ -191,16 +226,54 @@ export class WorkspaceService {
     this.vaultFiles.set(files);
   }
 
-  private async loadOpen(dir: string, hasOrder: boolean, depth: number, open: Set<string>): Promise<TreeNode[]> {
+  private async loadOpen(
+    dir: string,
+    hasOrder: boolean,
+    depth: number,
+    open: Set<string>,
+  ): Promise<TreeNode[]> {
     const nodes = await this.load(dir, hasOrder, depth);
     await Promise.all(
       nodes.map(async (node) => {
         if (!node.dirPath || !open.has(node.dirPath)) return;
-        node.children.set(await this.loadOpen(node.dirPath, node.hasOrder, depth + 1, open).catch(() => []));
+        node.children.set(
+          await this.loadOpen(node.dirPath, node.hasOrder, depth + 1, open).catch(() => []),
+        );
         node.expanded.set(true);
       }),
     );
     return nodes;
+  }
+
+  /** Counts the requests to scroll the open note into view; the sidebar acts on it. */
+  readonly revealRequest = signal(0);
+
+  /** Changes the order of the tree; it is kept across restarts. */
+  async setSort(sort: TreeSort): Promise<void> {
+    if (this.settings.treeSort() === sort) return;
+    this.settings.treeSort.set(sort);
+    await this.reloadTree();
+  }
+
+  /** Folds every folder of the tree. */
+  collapseAll(): void {
+    const fold = (nodes: TreeNode[]) => {
+      for (const n of nodes) {
+        n.expanded.set(false);
+        fold(n.children() ?? []);
+      }
+    };
+    fold(this.rootNodes());
+  }
+
+  /** Expands the folders of the open note and asks the sidebar to scroll it into view. */
+  async revealActive(): Promise<void> {
+    const current = this.doc.path();
+    if (!current) return;
+    // A filter that hides the note would hide the reveal too.
+    if (this.treeFilter() !== "") await this.setTreeFilter("");
+    await this.reveal(current);
+    this.revealRequest.update((n) => n + 1);
   }
 
   async toggle(node: TreeNode, expand = !node.expanded()): Promise<void> {
@@ -214,12 +287,12 @@ export class WorkspaceService {
   /** Expands the folders leading to `filePath` so it is visible in the tree. */
   async reveal(filePath: string): Promise<void> {
     const root = this.root();
-    if (!root || !filePath.startsWith(root + "/")) return;
+    if (!root || !filePath.startsWith(`${root}/`)) return;
 
     let nodes = this.rootNodes();
     for (;;) {
       if (nodes.some((n) => n.filePath === filePath)) return;
-      const parent = nodes.find((n) => n.dirPath && filePath.startsWith(n.dirPath + "/"));
+      const parent = nodes.find((n) => n.dirPath && filePath.startsWith(`${n.dirPath}/`));
       if (!parent) return;
       await this.toggle(parent, true);
       nodes = parent.children() ?? [];
@@ -228,7 +301,7 @@ export class WorkspaceService {
 
   private async load(dir: string, hasOrder: boolean, depth: number): Promise<TreeNode[]> {
     const entries = await backend.listDir(dir);
-    return buildTreeItems(entries, hasOrder).map((item) => ({
+    return sortItems(buildTreeItems(entries, hasOrder), this.settings.treeSort()).map((item) => ({
       ...item,
       depth,
       expanded: signal(false),

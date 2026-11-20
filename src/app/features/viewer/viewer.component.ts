@@ -10,16 +10,29 @@ import {
   untracked,
   viewChild,
 } from "@angular/core";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import type { HxMenuItem } from "@gravionlabs/helix-ui";
+import { HxMenu } from "@gravionlabs/helix-ui";
+import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 import { viewerTopLine } from "../../core/editor/editor-core";
-import { TextPart, findInParts, stepIndex } from "../../core/find/find-core";
+import { FoldStateService } from "../../core/fold/fold-state.service";
+import type { HeadingFold } from "../../core/fold/viewer-folds";
+import { applyHeadingFolds, commandTarget } from "../../core/fold/viewer-folds";
+import type { TextPart } from "../../core/find/find-core";
+import { findInParts, stepIndex } from "../../core/find/find-core";
 import { STDIN_FILE_SUFFIX, backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
 import { slugify } from "../../core/markdown/markdown-renderer";
 import { MarkdownService } from "../../core/markdown/markdown.service";
+import { decorateCodeBlocks, handleCopyClick } from "../../core/markdown/code-blocks";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
+import {
+  assetFilePath,
+  decorateImages,
+  imageNaturalSize,
+  revealLabel,
+} from "../../core/markdown/image-zoom";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
@@ -39,81 +52,9 @@ const DIALOG_ZOOM_STEP = 1.1;
 
 @Component({
   selector: "app-viewer",
-  template: `
-    @if (findOpen()) {
-      <div class="find-bar" role="search" (keydown)="onFindKeydown($event)">
-        <input
-          #findInput
-          type="text"
-          class="find-input"
-          placeholder="Find"
-          aria-label="Find in note"
-          [value]="findQuery()"
-          (input)="setFindQuery($any($event.target).value)"
-        />
-        <span class="find-count" aria-live="polite">{{ findStatus() }}</span>
-        <button type="button" (click)="findStep(-1)" title="Previous match" aria-label="Previous match">↑</button>
-        <button type="button" (click)="findStep(1)" title="Next match" aria-label="Next match">↓</button>
-        <button
-          type="button"
-          [class.active]="findCase()"
-          [attr.aria-pressed]="findCase()"
-          (click)="toggleFindOption('case')"
-          title="Match case"
-        >
-          Aa
-        </button>
-        <button
-          type="button"
-          [class.active]="findRegex()"
-          [attr.aria-pressed]="findRegex()"
-          (click)="toggleFindOption('regex')"
-          title="Regular expression"
-        >
-          .*
-        </button>
-        <button type="button" (click)="closeFind()" title="Close" aria-label="Close find bar">✕</button>
-      </div>
-    }
-    <app-properties class="properties-host" [style.zoom.%]="settings.zoom()" (error)="notify.emit($event)" />
-    <article
-      #content
-      class="markdown-body"
-      tabindex="-1"
-      [style.zoom.%]="settings.zoom()"
-      (click)="onClick($event)"
-      (wheel)="onWheel($event)"
-      (mousemove)="onHover($event)"
-      (mouseleave)="preview.leave()"
-    ></article>
-
-    <div
-      class="diagram-dialog-backdrop"
-      [class.open]="dialogOpen()"
-      (click)="closeDiagram()"
-      (wheel)="onDialogWheel($event)"
-    >
-      <div class="diagram-dialog" (click)="$event.stopPropagation()">
-        <div class="diagram-dialog-toolbar">
-          <button type="button" (click)="dialogZoomOut()" title="Zoom out" aria-label="Zoom out">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35M8 11h6" /></svg>
-          </button>
-          <button type="button" class="zoom-level" (click)="resetDialogZoom()" title="Reset zoom">
-            {{ dialogZoomPercent() }}%
-          </button>
-          <button type="button" (click)="dialogZoomIn()" title="Zoom in" aria-label="Zoom in">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35M11 8v6M8 11h6" /></svg>
-          </button>
-        </div>
-        <button type="button" class="close" (click)="closeDiagram()" aria-label="Close">✕</button>
-        <div class="diagram-dialog-viewport">
-          <div #dialogContent class="diagram-dialog-content"></div>
-        </div>
-      </div>
-    </div>
-  `,
+  templateUrl: "./viewer.component.html",
   styleUrl: "./viewer.component.css",
-  imports: [PropertiesComponent],
+  imports: [HxMenu, PropertiesComponent],
   host: { "(scroll)": "trackScroll()" },
 })
 export class ViewerComponent {
@@ -132,6 +73,7 @@ export class ViewerComponent {
   private readonly search = inject(SearchService);
   protected readonly settings = inject(SettingsService);
   private readonly markdown = inject(MarkdownService);
+  private readonly folds = inject(FoldStateService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly content = viewChild.required<ElementRef<HTMLElement>>("content");
   /** Always mounted (visibility toggled via CSS), so it's available as soon as a diagram is clicked. */
@@ -145,6 +87,20 @@ export class ViewerComponent {
   private toggleQueue: Promise<void> = Promise.resolve();
 
   protected readonly dialogOpen = signal(false);
+  /** File of the image in the dialog (offers "Open with default app" and reveal); null for diagrams and remote images. */
+  protected readonly dialogFile = signal<string | null>(null);
+  /** The "Open image" menu of an image that sits inside a link. */
+  private readonly imageMenu = viewChild<HxMenu>("imageMenu");
+  /** The image the context menu was opened on. */
+  private menuImage: HTMLImageElement | null = null;
+  protected readonly imageMenuItems: HxMenuItem[] = [
+    { label: "Open image", command: () => this.openMenuImage() },
+  ];
+  protected readonly revealText = revealLabel(navigator.userAgent);
+  protected readonly panning = signal(false);
+  private pan: { x: number; y: number; left: number; top: number } | null = null;
+  /** Element that opened the dialog; gets the focus back on close. */
+  private dialogOpener: HTMLElement | null = null;
   protected readonly dialogZoom = signal(1);
   protected readonly dialogZoomPercent = computed(() => Math.round(this.dialogZoom() * 100));
   protected readonly findOpen = signal(false);
@@ -157,7 +113,9 @@ export class ViewerComponent {
   protected readonly findStatus = computed(() => {
     if (this.findError()) return "Invalid";
     if (!this.findQuery()) return "";
-    return this.findCount() === 0 ? "No matches" : `${this.findCurrent() + 1} / ${this.findCount()}`;
+    return this.findCount() === 0
+      ? "No matches"
+      : `${this.findCurrent() + 1} / ${this.findCount()}`;
   });
   private findMarks: HTMLElement[][] = [];
 
@@ -181,7 +139,10 @@ export class ViewerComponent {
           this.host.nativeElement.scrollTop = 0;
         }
         this.findMarks = [];
+        decorateCodeBlocks(el);
+        decorateImages(el);
         this.enableTasks();
+        void this.syncFolds();
         this.applyPendingAnchor(false);
         this.applyPendingLine(false);
         this.trackScroll();
@@ -199,6 +160,11 @@ export class ViewerComponent {
           .catch(() => undefined)
           .then(() => this.mermaid.render(el, dark))
           .then(() => {
+            decorateCodeBlocks(el);
+            decorateImages(el);
+          })
+          .then(() => this.syncFolds())
+          .then(() => {
             this.enableTasks();
             this.applyPendingAnchor(true);
             this.applyPendingLine(true);
@@ -213,9 +179,55 @@ export class ViewerComponent {
       const line = this.doc.pendingLine();
       if (line === null) return;
       untracked(() => {
-        if (this.renderedPath === this.doc.path() && this.scrollToLine(line)) this.doc.pendingLine.set(null);
+        if (this.renderedPath === this.doc.path() && this.scrollToLine(line))
+          this.doc.pendingLine.set(null);
       });
     });
+  }
+
+  /** Headings of the shown note that can fold, after the last `syncFolds`. */
+  private headings: HeadingFold[] = [];
+  /** Folded source lines of the shown note (all kinds; the editor also folds lists and the frontmatter). */
+  private foldedLines = new Set<number>();
+
+  /** Applies the remembered folds of the note to the rendered headings. */
+  private async syncFolds(): Promise<void> {
+    const path = this.doc.path();
+    if (path) {
+      // The editor may have changed the folds since the last render, so they are read again.
+      const stored = this.folds.peek(path) ?? (await this.folds.linesOf(path));
+      if (this.doc.path() !== path) return;
+      this.foldedLines = new Set(stored);
+    } else {
+      this.foldedLines = new Set();
+    }
+    this.headings = applyHeadingFolds(this.content().nativeElement, this.foldedLines);
+  }
+
+  private setFolded(change: (lines: Set<number>) => void): void {
+    const path = this.doc.path();
+    if (!path) return;
+    change(this.foldedLines);
+    this.headings = applyHeadingFolds(this.content().nativeElement, this.foldedLines);
+    this.folds.set(path, [...this.foldedLines]);
+    this.trackScroll();
+  }
+
+  /** Folds or unfolds the heading at the top of the view, or every heading of the note. */
+  fold(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void {
+    if (action === "fold-all") {
+      this.setFolded((lines) =>
+        this.headings.filter((h) => h.foldable).forEach((h) => lines.add(h.line)),
+      );
+    } else if (action === "unfold-all") {
+      this.setFolded((lines) => this.headings.forEach((h) => lines.delete(h.line)));
+    } else {
+      const target = commandTarget(this.headings, this.topLine(), action);
+      if (target)
+        this.setFolded((lines) =>
+          action === "fold" ? lines.add(target.line) : lines.delete(target.line),
+        );
+    }
   }
 
   /** Opens the find bar (⌘/Ctrl+F), or focuses it when it is open. */
@@ -283,8 +295,14 @@ export class ViewerComponent {
     const query = this.findQuery();
     if (!query) return;
     const nodes = this.textNodes();
-    const parts: TextPart[] = nodes.map((n) => ({ text: n.data, group: blockId(n, this.content().nativeElement) }));
-    const result = findInParts(parts, query, { caseSensitive: this.findCase(), regex: this.findRegex() });
+    const parts: TextPart[] = nodes.map((n) => ({
+      text: n.data,
+      group: blockId(n, this.content().nativeElement),
+    }));
+    const result = findInParts(parts, query, {
+      caseSensitive: this.findCase(),
+      regex: this.findRegex(),
+    });
     if (typeof result === "string") {
       this.findError.set(result);
       return;
@@ -306,11 +324,14 @@ export class ViewerComponent {
       }
     }
     for (const group of marks) {
-      group.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+      group.sort((a, b) =>
+        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+      );
     }
     this.findMarks = marks;
     this.findCount.set(marks.length);
-    if (marks.length) this.activateMatch(jump ? 0 : Math.min(Math.max(previous, 0), marks.length - 1), jump);
+    if (marks.length)
+      this.activateMatch(jump ? 0 : Math.min(Math.max(previous, 0), marks.length - 1), jump);
   }
 
   private activateMatch(index: number, scroll = true): void {
@@ -339,12 +360,12 @@ export class ViewerComponent {
   /** 1-based source line at the top of the visible area; null when no block carries one. */
   topLine(): number | null {
     const top = this.host.nativeElement.getBoundingClientRect().top;
-    const blocks = Array.from(this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]")).map(
-      (el) => {
-        const rect = el.getBoundingClientRect();
-        return { line: Number(el.dataset["line"]), top: rect.top - top, bottom: rect.bottom - top };
-      },
-    );
+    const blocks = Array.from(
+      this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]"),
+    ).map((el) => {
+      const rect = el.getBoundingClientRect();
+      return { line: Number(el.dataset["line"]), top: rect.top - top, bottom: rect.bottom - top };
+    });
     return viewerTopLine(blocks, 0);
   }
 
@@ -402,7 +423,9 @@ export class ViewerComponent {
    * of stretching an already-rasterized bitmap — the latter looks blurry when zoomed in.
    */
   private applyDialogZoom(): void {
-    const svg = this.dialogContent()?.nativeElement.querySelector("svg");
+    const svg = this.dialogContent()?.nativeElement.querySelector<SVGSVGElement | HTMLImageElement>(
+      "svg, img",
+    );
     const size = this.dialogNaturalSize;
     if (!svg || !size) return;
     const zoom = this.dialogZoom();
@@ -413,7 +436,107 @@ export class ViewerComponent {
 
   closeDiagram(): void {
     this.dialogOpen.set(false);
+    this.pan = null;
+    this.panning.set(false);
     document.removeEventListener("keydown", this.onDialogKeydown);
+    const opener = this.dialogOpener;
+    this.dialogOpener = null;
+    if (opener?.isConnected) opener.focus({ preventScroll: true });
+  }
+
+  /** Drag to pan the zoomed content. */
+  protected onPanStart(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    const viewport = event.currentTarget as HTMLElement;
+    this.pan = {
+      x: event.clientX,
+      y: event.clientY,
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop,
+    };
+    this.panning.set(true);
+    viewport.setPointerCapture?.(event.pointerId);
+  }
+
+  protected onPanMove(event: PointerEvent): void {
+    if (!this.pan) return;
+    const viewport = event.currentTarget as HTMLElement;
+    viewport.scrollLeft = this.pan.left - (event.clientX - this.pan.x);
+    viewport.scrollTop = this.pan.top - (event.clientY - this.pan.y);
+  }
+
+  protected onPanEnd(event: PointerEvent): void {
+    if (!this.pan) return;
+    this.pan = null;
+    this.panning.set(false);
+    (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
+  }
+
+  /** Shows `img` in the zoom dialog; `size` is its size at zoom 1. */
+  private openImage(img: HTMLImageElement): void {
+    const container = this.dialogContent()?.nativeElement;
+    if (!container) return;
+    const copy = document.createElement("img");
+    copy.src = img.currentSrc || img.src;
+    copy.alt = img.alt;
+    copy.draggable = false;
+    container.replaceChildren(copy);
+    // Sized (not transformed) so an SVG is rendered again at every zoom level and stays sharp.
+    this.dialogNaturalSize = imageNaturalSize(img);
+    this.dialogFile.set(assetFilePath(copy.src));
+    this.dialogZoom.set(1);
+    this.applyDialogZoom();
+    this.showDialog(img);
+  }
+
+  private showDialog(opener: HTMLElement | null): void {
+    this.dialogOpener = opener;
+    this.dialogOpen.set(true);
+    document.addEventListener("keydown", this.onDialogKeydown);
+  }
+
+  protected async openDialogFile(path: string): Promise<void> {
+    try {
+      await openPath(path);
+    } catch (err) {
+      this.notify.emit(String(err));
+    }
+  }
+
+  protected async revealDialogFile(path: string): Promise<void> {
+    try {
+      await revealItemInDir(path);
+    } catch (err) {
+      this.notify.emit(String(err));
+    }
+  }
+
+  /** Enter on a focused image opens it. */
+  protected onContentKeydown(event: KeyboardEvent): void {
+    const target = event.target;
+    if (
+      event.key !== "Enter" ||
+      !(target instanceof HTMLImageElement) ||
+      !target.hasAttribute("data-zoomable")
+    )
+      return;
+    event.preventDefault();
+    this.openImage(target);
+  }
+
+  /** An image inside a link follows the link on click; its dialog is in the context menu. */
+  protected onContextMenu(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof HTMLImageElement) || !target.closest("a")) return;
+    event.preventDefault();
+    this.menuImage = target;
+    this.imageMenu()?.showAt({ x: event.clientX, y: event.clientY }, this.content().nativeElement);
+  }
+
+  private openMenuImage(): void {
+    const img = this.menuImage;
+    this.menuImage = null;
+    if (img) this.openImage(img);
   }
 
   private readonly onDialogKeydown = (event: KeyboardEvent): void => {
@@ -422,6 +545,18 @@ export class ViewerComponent {
 
   async onClick(event: MouseEvent): Promise<void> {
     const target = event.target as Element;
+    if (await handleCopyClick(target)) return;
+
+    const marker = target.closest<HTMLElement>(".fold-marker");
+    if (marker?.parentElement) {
+      const heading = this.headings.find((h) => h.el === marker.parentElement);
+      if (heading) {
+        this.setFolded((lines) =>
+          heading.folded ? lines.delete(heading.line) : lines.add(heading.line),
+        );
+        return;
+      }
+    }
 
     const diagram = target.closest<HTMLElement>(".mermaid-diagram");
     if (diagram && !target.closest("a")) {
@@ -429,6 +564,7 @@ export class ViewerComponent {
       const container = this.dialogContent()?.nativeElement;
       if (svg && container) {
         container.innerHTML = svg.outerHTML;
+        this.dialogFile.set(null);
         const clone = container.querySelector<SVGSVGElement>("svg");
         const viewBox = clone?.viewBox.baseVal;
         this.dialogNaturalSize =
@@ -437,13 +573,20 @@ export class ViewerComponent {
             : { width: clone?.clientWidth || 300, height: clone?.clientHeight || 150 };
         this.dialogZoom.set(1);
         this.applyDialogZoom();
-        this.dialogOpen.set(true);
-        document.addEventListener("keydown", this.onDialogKeydown);
+        this.showDialog(null);
       }
       return;
     }
 
-    if (target instanceof HTMLInputElement && target.classList.contains("task-list-item-checkbox")) {
+    if (target instanceof HTMLImageElement && target.hasAttribute("data-zoomable")) {
+      this.openImage(target);
+      return;
+    }
+
+    if (
+      target instanceof HTMLInputElement &&
+      target.classList.contains("task-list-item-checkbox")
+    ) {
       const run = this.toggleQueue.then(() => this.toggleTask(event, target));
       this.toggleQueue = run.catch(() => undefined);
       await run;
@@ -470,7 +613,9 @@ export class ViewerComponent {
       return;
     }
 
-    const wikiTarget = link.classList.contains("wikilink") ? link.getAttribute("data-target") : null;
+    const wikiTarget = link.classList.contains("wikilink")
+      ? link.getAttribute("data-target")
+      : null;
     if (wikiTarget !== null) {
       await this.openWikilink(wikiTarget, event.metaKey || event.ctrlKey);
       return;
@@ -510,7 +655,11 @@ export class ViewerComponent {
   /** Checkboxes are rendered disabled; here they are enabled where a source line is known to write to. */
   private enableTasks(): void {
     const piped = this.doc.path()?.endsWith(STDIN_FILE_SUFFIX) ?? false;
-    for (const box of Array.from(this.content().nativeElement.querySelectorAll<HTMLInputElement>("input.task-list-item-checkbox"))) {
+    for (const box of Array.from(
+      this.content().nativeElement.querySelectorAll<HTMLInputElement>(
+        "input.task-list-item-checkbox",
+      ),
+    )) {
       const embed = box.closest<HTMLElement>(".embed-body");
       const known = embed ? !!embed.dataset["sourcePath"] : !piped && !!this.doc.path();
       box.disabled = !known || !box.closest("[data-line]");
@@ -533,7 +682,8 @@ export class ViewerComponent {
       const text = isOpenNote ? this.doc.content() : await backend.readTextFile(path);
       const next = setTaskState(text, line, checked);
       const rendered = item.dataset["srcLine"];
-      const stale = embed && rendered !== undefined && taskShape(text.split("\n")[line] ?? "") !== rendered;
+      const stale =
+        embed && rendered !== undefined && taskShape(text.split("\n")[line] ?? "") !== rendered;
       if (next === null || stale) {
         // Not a `[ ]`/`[x]` line any more (the file changed): leave the file alone.
         box.checked = !checked;
@@ -550,7 +700,11 @@ export class ViewerComponent {
 
   /** Resolved links open the note (history included); unresolved ones create the note. */
   /** Opens a note in this tab, or in a new one (⌘/Ctrl+click). */
-  private async openNote(path: string, options: { anchor?: string | null }, newTab: boolean): Promise<void> {
+  private async openNote(
+    path: string,
+    options: { anchor?: string | null },
+    newTab: boolean,
+  ): Promise<void> {
     try {
       if (newTab) await this.tabs.openInNewTab(path, options);
       else await this.doc.open(path, options);
@@ -597,7 +751,8 @@ export class ViewerComponent {
 
   /** Scrolls to the last top-level block that starts at or before the 1-based source `line`. */
   private scrollToLine(line: number): boolean {
-    const blocks = this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]");
+    const blocks =
+      this.content().nativeElement.querySelectorAll<HTMLElement>(":scope > [data-line]");
     let best: HTMLElement | null = null;
     for (const block of Array.from(blocks)) {
       if (Number(block.dataset["line"]) <= line - 1) best = block;

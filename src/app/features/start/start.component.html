@@ -1,0 +1,42 @@
+<section class="start">
+  <h1>Nixe</h1>
+  <p class="subtitle">Your notes as Markdown files in a vault, linked and synced with Git</p>
+  <div class="actions">
+    @for (action of actions(); track action.id) {
+      <button type="button" [class.primary]="action.primary" (click)="run(action.id)">
+        {{ action.label }}
+        @if (action.shortcut.length) {
+          <hx-kbd [keys]="action.shortcut" size="sm" />
+        }
+      </button>
+    }
+  </div>
+  @if (inVault()) {
+    @if (notes().length) {
+      <h2>Recent notes</h2>
+      <ul class="recent notes">
+        @for (note of notes(); track note.path) {
+          <li>
+            <button type="button" [title]="note.path" (click)="openNote(note.path)">
+              {{ note.label }}
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  } @else {
+    @if (vaults().length) {
+      <h2>Recent vaults</h2>
+      <ul class="recent vaults">
+        @for (vault of vaults(); track vault.path) {
+          <li>
+            <button type="button" [title]="vault.path" (click)="openVault(vault.path)">
+              {{ vault.name }}
+            </button>
+          </li>
+        }
+      </ul>
+    }
+    <p class="hint">or drop a file or folder onto the window</p>
+  }
+</section>

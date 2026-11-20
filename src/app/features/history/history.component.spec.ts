@@ -10,7 +10,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { Comparison, HistoryService, TimelineEntry } from "../../core/git/history.service";
+import type { Comparison, TimelineEntry } from "../../core/git/history.service";
+import { HistoryService } from "../../core/git/history.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { HistoryComponent, formatCommitTime } from "./history.component";
@@ -45,7 +46,9 @@ function render(comparison: Comparison | null, notePath: string | null = "a.md")
           restoreDeleted,
           versionText,
           notice,
-          deleted: signal([{ path: "gone.md", id: "d1", parent: "p1", author: "Ann", time: 0, message: "delete" }]),
+          deleted: signal([
+            { path: "gone.md", id: "d1", parent: "p1", author: "Ann", time: 0, message: "delete" },
+          ]),
         },
       },
       { provide: MarkdownService, useValue: { render: (t: string) => `<p>${t}</p>` } },
@@ -53,11 +56,24 @@ function render(comparison: Comparison | null, notePath: string | null = "a.md")
     ],
   });
   TestBed.overrideComponent(HistoryComponent, {
-    set: { templateUrl: undefined, styleUrl: undefined, template: readFileSync("src/app/features/history/history.component.html", "utf8") },
+    set: {
+      templateUrl: undefined,
+      styleUrl: undefined,
+      template: readFileSync("src/app/features/history/history.component.html", "utf8"),
+    },
   });
   const fixture = TestBed.createComponent(HistoryComponent);
   fixture.detectChanges();
-  return { fixture, el: fixture.nativeElement as HTMLElement, loadMore, select, restore, restoreDeleted, versionText, notice };
+  return {
+    fixture,
+    el: fixture.nativeElement as HTMLElement,
+    loadMore,
+    select,
+    restore,
+    restoreDeleted,
+    versionText,
+    notice,
+  };
 }
 
 describe("HistoryComponent", () => {
@@ -71,7 +87,9 @@ describe("HistoryComponent", () => {
 
   it("lists the uncommitted state first, then date, author and message of a commit", () => {
     const { el } = render(null);
-    const rows = [...el.querySelectorAll(".timeline li")].map((l) => l.textContent!.replace(/\s+/g, " ").trim());
+    const rows = [...el.querySelectorAll(".timeline li")].map((l) =>
+      l.textContent!.replace(/\s+/g, " ").trim(),
+    );
     expect(rows[0]).toContain("Uncommitted changes");
     expect(rows[1]).toContain("edit");
     expect(rows[1]).toContain("1970-01-02 00:00 · Ann");
@@ -87,15 +105,26 @@ describe("HistoryComponent", () => {
   });
 
   it("shows the source diff with word highlighting, then the rendered versions", () => {
-    const { el, fixture } = render({ oldText: "the quick fox", newText: "the slow fox", oldLabel: "before", newLabel: "abc1234", path: "a.md" });
+    const { el, fixture } = render({
+      oldText: "the quick fox",
+      newText: "the slow fox",
+      oldLabel: "before",
+      newLabel: "abc1234",
+      path: "a.md",
+    });
     expect(el.querySelector(".row.del")).not.toBeNull();
     expect(el.querySelector(".row.add .word")?.textContent).toBe("slow");
     expect(el.querySelector(".stat")?.textContent).toContain("+1");
-    const rendered = [...el.querySelectorAll<HTMLButtonElement>(".toolbar button")].find((b) => b.textContent === "Rendered")!;
+    const rendered = [...el.querySelectorAll<HTMLButtonElement>(".toolbar button")].find(
+      (b) => b.textContent?.trim() === "Rendered",
+    )!;
     rendered.click();
     fixture.detectChanges();
     expect(el.querySelector(".diff")).toBeNull();
-    expect([...el.querySelectorAll(".md")].map((m) => m.textContent)).toEqual(["the quick fox", "the slow fox"]);
+    expect([...el.querySelectorAll(".md")].map((m) => m.textContent)).toEqual([
+      "the quick fox",
+      "the slow fox",
+    ]);
   });
 
   it("asks for a note when none is open", () => {

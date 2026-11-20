@@ -304,7 +304,7 @@ fn scan_body(body: &str, first_line: usize, meta: &mut NoteMeta) {
             push_unique(&mut meta.blocks, id);
         }
         let (links, markdown_links) = (meta.links.len(), meta.markdown_links.len());
-        let rest = scan_links(&plain, meta);
+        let rest = scan_links(&plain, meta, false);
         let number = first_line + offset;
         meta.links[links..].iter_mut().for_each(|l| l.line = number);
         meta.markdown_links[markdown_links..]
@@ -315,6 +315,103 @@ fn scan_body(body: &str, first_line: usize, meta: &mut NoteMeta) {
     for tag in inline_tags {
         push_unique(&mut meta.tags, tag);
     }
+}
+
+/// The prose of a note for text search: `(line number, line)` for every line outside the
+/// frontmatter and the fenced code blocks, with `%%comments%%`, code spans, wikilinks, embeds and
+/// Markdown links blanked out. A blanked char becomes spaces of the same byte length, so offsets
+/// in the returned line are offsets in the original line.
+pub fn prose_lines(text: &str) -> Vec<(usize, String)> {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let (body, first_line) = match split_frontmatter(text) {
+        Some((_, body)) => (
+            body,
+            text[..text.len() - body.len()].matches('\n').count() + 1,
+        ),
+        None => (text, 1),
+    };
+    let mut out = Vec::new();
+    let mut fence: Option<Fence> = None;
+    let mut in_comment = false;
+    for (offset, line) in body.lines().enumerate() {
+        if let Some(open) = &fence {
+            if closes_fence(line, open) {
+                fence = None;
+            }
+            continue;
+        }
+        if !in_comment {
+            if let Some(open) = opens_fence(line) {
+                fence = Some(open);
+                continue;
+            }
+        }
+        let masked = blank_code_and_comments(line, &mut in_comment);
+        let mut scratch = NoteMeta::default();
+        let rest = scan_links(&masked, &mut scratch, true);
+        out.push((first_line + offset, same_width(&masked, &rest)));
+    }
+    out
+}
+
+/// `line` with comments and code spans (backticks included) replaced by spaces of equal width.
+fn blank_code_and_comments(line: &str, in_comment: &mut bool) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut i = 0;
+    let blank = |out: &mut String, s: &str| {
+        out.extend(s.chars().flat_map(|c| (0..c.len_utf8()).map(|_| ' ')))
+    };
+    while i < line.len() {
+        let rest = &line[i..];
+        if *in_comment {
+            match rest.find("%%") {
+                Some(end) => {
+                    *in_comment = false;
+                    blank(&mut out, &rest[..end + 2]);
+                    i += end + 2;
+                }
+                None => {
+                    blank(&mut out, rest);
+                    break;
+                }
+            }
+        } else if rest.starts_with('`') {
+            let n = rest.bytes().take_while(|b| *b == b'`').count();
+            match find_backtick_run(&rest[n..], n) {
+                Some(close) => {
+                    let end = n + close + n;
+                    blank(&mut out, &rest[..end]);
+                    i += end;
+                }
+                None => {
+                    out.push_str(&rest[..n]);
+                    i += n;
+                }
+            }
+        } else if rest.starts_with("%%") {
+            *in_comment = true;
+            out.push_str("  ");
+            i += 2;
+        } else {
+            let c = rest.chars().next().unwrap_or(' ');
+            out.push(c);
+            i += c.len_utf8();
+        }
+    }
+    out
+}
+
+/// `blanked` has the chars of `original`, some replaced by a space: pad each space that replaced
+/// a wider char, so both strings have the same byte length.
+fn same_width(original: &str, blanked: &str) -> String {
+    original
+        .chars()
+        .zip(blanked.chars())
+        .flat_map(|(o, b)| {
+            let n = if b == o { 1 } else { o.len_utf8() };
+            std::iter::repeat_n(b, n)
+        })
+        .collect()
 }
 
 fn fence_start(line: &str) -> Option<(u8, usize, &str)> {
@@ -407,7 +504,7 @@ pub(super) fn find_backtick_run(s: &str, n: usize) -> Option<usize> {
     None
 }
 
-fn heading(line: &str) -> Option<Heading> {
+pub(super) fn heading(line: &str) -> Option<Heading> {
     let trimmed = line.trim_start_matches(' ');
     if line.len() - trimmed.len() > 3 {
         return None;
@@ -443,7 +540,7 @@ fn block_id(line: &str) -> Option<String> {
 
 /// Collects wikilinks, embeds and Markdown links of a line. Returns the line with the matched
 /// links blanked, so their targets are not mistaken for tags.
-fn scan_links(line: &str, meta: &mut NoteMeta) -> String {
+fn scan_links(line: &str, meta: &mut NoteMeta, whole_links: bool) -> String {
     let bytes = line.as_bytes();
     let mut blank = vec![false; bytes.len()];
     let mut open_brackets: Vec<usize> = Vec::new();
@@ -470,7 +567,7 @@ fn scan_links(line: &str, meta: &mut NoteMeta) -> String {
                                 meta.markdown_links.push(link);
                             }
                         }
-                        blank[i + 1..end].fill(true);
+                        blank[if whole_links { open } else { i + 1 }..end].fill(true);
                         i = end;
                         continue;
                     }

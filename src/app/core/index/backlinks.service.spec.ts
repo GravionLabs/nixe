@@ -6,13 +6,20 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { IndexStatus, backend } from "../file/backend";
+import type { IndexStatus } from "../file/backend";
+import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { BacklinksService } from "./backlinks.service";
 import { IndexService } from "./index.service";
 
-const status = (state: IndexStatus["state"]): IndexStatus => ({ state, done: 0, total: 0, notes: 0, error: null });
+const status = (state: IndexStatus["state"]): IndexStatus => ({
+  state,
+  done: 0,
+  total: 0,
+  notes: 0,
+  error: null,
+});
 
 function setup(indexState: IndexStatus["state"] = "ready") {
   const doc = { path: signal<string | null>("/vault/notes/A.md") };
@@ -58,7 +65,11 @@ describe("BacklinksService", () => {
     invoke.mockImplementation(async (cmd: string) =>
       cmd === "backlinks"
         ? [back]
-        : { path: "notes/A.md", title: "A", links: [link("sub/C", "sub/C.md"), link("Missing", null)] },
+        : {
+            path: "notes/A.md",
+            title: "A",
+            links: [link("sub/C", "sub/C.md"), link("Missing", null)],
+          },
     );
     const { service } = setup();
     await service.refresh();
@@ -126,5 +137,74 @@ describe("BacklinksService", () => {
     release([back]);
     await first;
     expect(service.backlinks()).toEqual([]);
+  });
+  describe("unlinked mentions", () => {
+    const mention = { source: "M.md", line: 2, start: 0, end: 1, context: "A here", text: "A" };
+
+    it("reads them on demand for the open note", async () => {
+      invoke.mockResolvedValue([mention]);
+      const { service } = setup();
+      expect(service.unlinkedState()).toBe("idle");
+      await service.loadUnlinked();
+      expect(invoke).toHaveBeenCalledWith("unlinked_mentions", { path: "notes/A.md" });
+      expect(service.unlinked()).toEqual([mention]);
+      expect(service.unlinkedState()).toBe("ready");
+    });
+
+    it("reads nothing while the index is being built", async () => {
+      const { service } = setup("scanning");
+      await service.loadUnlinked();
+      expect(invoke).not.toHaveBeenCalled();
+      expect(service.unlinkedState()).toBe("idle");
+    });
+
+    it("reports a failure", async () => {
+      vi.spyOn(backend, "unlinkedMentions").mockImplementation(async () => {
+        throw new Error("no index");
+      });
+      const { service } = setup();
+      await service.loadUnlinked();
+      expect(service.unlinkedState()).toBe("error");
+      expect(service.unlinked()).toEqual([]);
+    });
+
+    it("links a mention and reads the list again", async () => {
+      invoke.mockImplementation(async (cmd: string) =>
+        cmd === "unlinked_mentions" ? [] : undefined,
+      );
+      const { service } = setup();
+      await service.linkMention(mention);
+      expect(invoke).toHaveBeenCalledWith("link_mention", {
+        source: "M.md",
+        target: "notes/A.md",
+        line: 2,
+        start: 0,
+        end: 1,
+        text: "A",
+      });
+      expect(invoke).toHaveBeenCalledWith("unlinked_mentions", { path: "notes/A.md" });
+    });
+
+    it("reads again after a failed link and passes the error on", async () => {
+      invoke.mockImplementation(async (cmd: string) => {
+        if (cmd === "link_mention") throw "M.md changed";
+        return [mention];
+      });
+      const { service } = setup();
+      await expect(service.linkMention(mention)).rejects.toBe("M.md changed");
+      expect(service.unlinked()).toEqual([mention]);
+    });
+
+    it("ignores the answer of an older request", async () => {
+      let release: (v: unknown) => void = () => undefined;
+      invoke.mockImplementationOnce(() => new Promise((r) => (release = r)));
+      const { service } = setup();
+      const first = service.loadUnlinked();
+      invoke.mockResolvedValue([]);
+      await service.loadUnlinked();
+      release([mention]);
+      await first;
+      expect(service.unlinked()).toEqual([]);
+    });
   });
 });

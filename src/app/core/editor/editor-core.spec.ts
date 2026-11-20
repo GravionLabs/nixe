@@ -5,8 +5,10 @@ import {
   ExternalChangeTracker,
   OWN_WRITE_WINDOW_MS,
   SAVE_IDLE_MS,
+  UNDO_RELOAD_MS,
   changedRange,
   clampLine,
+  discardedByReload,
   inlineTokens,
   nodeClass,
   toCrlf,
@@ -70,7 +72,10 @@ describe("AutoSaver", () => {
 
   it("keeps the text dirty and reports when the write fails", async () => {
     const onError = vi.fn();
-    const write = vi.fn().mockRejectedValueOnce(new Error("disk full")).mockResolvedValue(undefined);
+    const write = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("disk full"))
+      .mockResolvedValue(undefined);
     const saver = new AutoSaver({ write, onError });
     saver.change("t");
     await saver.flush();
@@ -124,6 +129,41 @@ describe("AutoSaver", () => {
     await saver.flush();
     expect(write).not.toHaveBeenCalled();
     expect(saver.dirty).toBe(false);
+  });
+});
+
+describe("AutoSaver onDirtyChange", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("reports each flip once: change, write, held, failed write", async () => {
+    const flips: boolean[] = [];
+    const write = vi.fn().mockResolvedValue(undefined);
+    const saver = new AutoSaver({ write, onDirtyChange: (d) => flips.push(d) });
+    saver.change("a");
+    saver.change("b");
+    expect(flips).toEqual([true]);
+    await saver.flush();
+    expect(flips).toEqual([true, false]);
+    saver.hold(true);
+    saver.change("c");
+    await saver.flush();
+    expect(flips).toEqual([true, false, true]);
+    saver.discard();
+    expect(flips).toEqual([true, false, true, false]);
+  });
+
+  it("is dirty again after a failed write", async () => {
+    const flips: boolean[] = [];
+    const write = vi.fn().mockRejectedValue(new Error("full"));
+    const saver = new AutoSaver({
+      write,
+      onError: () => undefined,
+      onDirtyChange: (d) => flips.push(d),
+    });
+    saver.change("t");
+    await saver.flush();
+    expect(flips).toEqual([true, false, true]);
   });
 });
 
@@ -273,12 +313,23 @@ describe("changedRange", () => {
   });
 
   it("replaces only the middle", () => {
-    expect(changedRange("hello world", "hello brave world")).toEqual({ from: 6, to: 6, insert: "brave " });
+    expect(changedRange("hello world", "hello brave world")).toEqual({
+      from: 6,
+      to: 6,
+      insert: "brave ",
+    });
     expect(changedRange("abcd", "ad")).toEqual({ from: 1, to: 3, insert: "" });
   });
 
   it("turns one text into the other", () => {
-    for (const [a, b] of [["", "x"], ["x", ""], ["aaa", "aa"], ["aa", "aaa"], ["abc", "xyz"], ["a\nb", "a\nc\nb"]]) {
+    for (const [a, b] of [
+      ["", "x"],
+      ["x", ""],
+      ["aaa", "aa"],
+      ["aa", "aaa"],
+      ["abc", "xyz"],
+      ["a\nb", "a\nc\nb"],
+    ]) {
       expect(apply(a, b)).toBe(b);
     }
   });
@@ -286,5 +337,25 @@ describe("changedRange", () => {
   it("does not split a surrogate pair", () => {
     const r = changedRange("a😀b", "a😁b")!;
     expect(r).toEqual({ from: 1, to: 3, insert: "😁" });
+  });
+});
+
+describe("discardedByReload", () => {
+  it("is the editor text that the reload replaced", () => {
+    expect(discardedByReload("my edit", "disk")).toBe("my edit");
+  });
+
+  it("is null when the reload loses nothing", () => {
+    expect(discardedByReload("same", "same")).toBeNull();
+  });
+
+  it("offers the undo for 10 s", () => {
+    expect(UNDO_RELOAD_MS).toBe(10_000);
+  });
+
+  it("puts the discarded text back with a change from the reloaded text", () => {
+    const range = changedRange("disk v2\n", "disk v1\nmy edit")!;
+    const restored = "disk v2\n".slice(0, range.from) + range.insert + "disk v2\n".slice(range.to);
+    expect(restored).toBe("disk v1\nmy edit");
   });
 });

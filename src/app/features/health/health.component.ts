@@ -18,7 +18,7 @@ export class HealthComponent {
   private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
 
-  readonly error = output<string>();
+  readonly failed = output<string>();
 
   constructor() {
     effect(() => {
@@ -38,7 +38,7 @@ export class HealthComponent {
       // The health tab stays: the note opens in a tab of its own.
       await this.tabs.openInNewTab(joinPath(root, rel), { line });
     } catch (err) {
-      this.error.emit(String(err));
+      this.failed.emit(String(err));
     }
   }
 }

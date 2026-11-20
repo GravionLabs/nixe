@@ -1,0 +1,17 @@
+@if (preview.shown(); as shown) {
+  <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -- a hover preview that never takes the focus; the click only delegates the clicks on its links, which the keyboard activates natively -->
+  <div
+    class="link-preview"
+    [style.left.px]="place()?.left"
+    [style.top.px]="place()?.top"
+    [style.bottom.px]="place()?.bottom"
+    [style.width.px]="width"
+    [style.max-height.px]="height"
+    (mouseenter)="preview.keep()"
+    (mouseleave)="preview.leave()"
+    (mousedown)="$event.preventDefault()"
+    (click)="onClick($event)"
+  >
+    <article #body class="markdown-body"></article>
+  </div>
+}

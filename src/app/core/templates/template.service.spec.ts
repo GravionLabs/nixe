@@ -7,7 +7,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
-import { EditorHandle, EditorService } from "../editor/editor.service";
+import type { EditorHandle } from "../editor/editor.service";
+import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { SettingsService } from "../settings/settings.service";
@@ -28,9 +29,21 @@ describe("TemplateService", () => {
   beforeEach(() => {
     inserted = [];
     editor = {
-      handle: { topLine: () => 1, flush: async () => {}, blocked: () => false, insertTemplate: (t) => void inserted.push(t) },
+      handle: {
+        topLine: () => 1,
+        flush: async () => {},
+        blocked: () => false,
+        insertTemplate: (t) => void inserted.push(t),
+      },
     };
-    vaultFiles.set(["Templates/Daily.md", "Templates/Meeting.md", "Templates/sub/Deep.md", "Templates/logo.png", "Other/Daily.md", "Note.md"]);
+    vaultFiles.set([
+      "Templates/Daily.md",
+      "Templates/Meeting.md",
+      "Templates/sub/Deep.md",
+      "Templates/logo.png",
+      "Other/Daily.md",
+      "Note.md",
+    ]);
     templateFolderSetting.set("");
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
@@ -66,7 +79,11 @@ describe("TemplateService", () => {
   it("lists the Markdown files of the folder, below it too", async () => {
     vi.spyOn(backend, "templateFolder").mockResolvedValue("Templates");
     await templates.open();
-    expect(templates.matches().map((e) => e.path)).toEqual(["Templates/Daily.md", "Templates/sub/Deep.md", "Templates/Meeting.md"]);
+    expect(templates.matches().map((e) => e.path)).toEqual([
+      "Templates/Daily.md",
+      "Templates/sub/Deep.md",
+      "Templates/Meeting.md",
+    ]);
     templates.setQuery("meet");
     expect(templates.matches().map((e) => e.name)).toEqual(["Meeting"]);
   });

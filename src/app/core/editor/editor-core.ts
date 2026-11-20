@@ -12,6 +12,8 @@ export interface AutoSaverOptions {
   delayMs?: number;
   /** Called when a write fails; the text stays dirty. */
   onError?: (error: unknown) => void;
+  /** Called whenever `dirty` flips. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /**
@@ -25,6 +27,7 @@ export class AutoSaver {
   private pending: string | null = null;
   private held = false;
   private running: Promise<void> = Promise.resolve();
+  private reported = false;
 
   constructor(private readonly options: AutoSaverOptions) {
     this.delayMs = options.delayMs ?? SAVE_IDLE_MS;
@@ -40,8 +43,16 @@ export class AutoSaver {
     return this.pending !== null;
   }
 
+  private report(): void {
+    const dirty = this.pending !== null;
+    if (dirty === this.reported) return;
+    this.reported = dirty;
+    this.options.onDirtyChange?.(dirty);
+  }
+
   change(text: string): void {
     this.pending = text;
+    this.report();
     clearTimeout(this.timer);
     if (this.held) return;
     this.timer = setTimeout(() => void this.flush(), this.delayMs);
@@ -61,6 +72,7 @@ export class AutoSaver {
   discard(): void {
     clearTimeout(this.timer);
     this.pending = null;
+    this.report();
   }
 
   flush(): Promise<void> {
@@ -74,11 +86,13 @@ export class AutoSaver {
     const text = this.pending;
     if (text === null || this.held) return;
     this.pending = null;
+    this.report();
     try {
       await this.options.write(text);
     } catch (error) {
       // A newer change keeps its own text; otherwise the failed one stays dirty for the next flush.
       this.pending ??= text;
+      this.report();
       this.options.onError?.(error);
     }
   }
@@ -120,12 +134,16 @@ export class ExternalChangeTracker {
   /** The write of `text` succeeded. */
   written(text: string): void {
     this.base = text;
-    for (const r of this.recent) if (r.text === text && r.until === Number.POSITIVE_INFINITY) r.until = this.now() + OWN_WRITE_WINDOW_MS;
+    for (const r of this.recent)
+      if (r.text === text && r.until === Number.POSITIVE_INFINITY)
+        r.until = this.now() + OWN_WRITE_WINDOW_MS;
   }
 
   /** The write of `text` failed: the disk does not have it. */
   failed(text: string): void {
-    const at = this.recent.findIndex((r) => r.text === text && r.until === Number.POSITIVE_INFINITY);
+    const at = this.recent.findIndex(
+      (r) => r.text === text && r.until === Number.POSITIVE_INFINITY,
+    );
     if (at >= 0) this.recent.splice(at, 1);
   }
 
@@ -137,7 +155,8 @@ export class ExternalChangeTracker {
 
   classify(disk: string, dirty: boolean): ExternalChange {
     const now = this.now();
-    for (let i = this.recent.length - 1; i >= 0; i--) if (this.recent[i].until < now) this.recent.splice(i, 1);
+    for (let i = this.recent.length - 1; i >= 0; i--)
+      if (this.recent[i].until < now) this.recent.splice(i, 1);
     if (disk === this.base || this.recent.some((r) => r.text === disk)) return "ignore";
     return dirty ? "conflict" : "reload";
   }
@@ -165,11 +184,22 @@ export function viewerTopLine(blocks: readonly LineBlock[], viewportTop: number)
   return block.line + 1;
 }
 
+/** How long the Undo of a reload from the external-change bar stays offered (#247). */
+export const UNDO_RELOAD_MS = 10_000;
+
+/** The text a reload throws away: the editor text before it, or null when the reload loses nothing. */
+export function discardedByReload(before: string, after: string): string | null {
+  return before === after ? null : before;
+}
+
 /**
  * The smallest single replacement that turns `from` into `to`: common start and end are kept, so
  * a cursor outside the change stays where it is. Null when the texts are equal.
  */
-export function changedRange(from: string, to: string): { from: number; to: number; insert: string } | null {
+export function changedRange(
+  from: string,
+  to: string,
+): { from: number; to: number; insert: string } | null {
   if (from === to) return null;
   const max = Math.min(from.length, to.length);
   let start = 0;
@@ -205,7 +235,7 @@ export interface InlineToken {
   value: string;
 }
 
-const WIKILINK = /\[\[([^\[\]\n]+?)\]\]/g;
+const WIKILINK = /\[\[([^[\]\n]+?)\]\]/g;
 const TAG_CHAR = /[\p{L}\p{N}_\-/]/u;
 
 /** `[[wikilinks]]` and `#tags` of one line, in order of appearance. Code spans are skipped. */
@@ -245,7 +275,9 @@ function codeSpans(line: string): Array<[number, number]> {
 
 /** The token of `kind` that covers offset `at` of the line, if any. */
 export function tokenAt(line: string, at: number, kind?: InlineTokenKind): InlineToken | null {
-  return inlineTokens(line).find((t) => at >= t.from && at <= t.to && (!kind || t.kind === kind)) ?? null;
+  return (
+    inlineTokens(line).find((t) => at >= t.from && at <= t.to && (!kind || t.kind === kind)) ?? null
+  );
 }
 
 /** CSS class of a Lezer Markdown node, or null when the node is not styled. */

@@ -2,7 +2,8 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import { CLONE_CANCELLED, CLONE_PROGRESS_EVENT, CloneProgress, backend } from "../file/backend";
+import type { CloneProgress } from "../file/backend";
+import { CLONE_CANCELLED, CLONE_PROGRESS_EVENT, backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { GitService } from "./git.service";
 
@@ -29,7 +30,9 @@ export class CloneService {
     const p = this.progress();
     return p && p.total > 0 ? Math.min(100, Math.floor((p.received * 100) / p.total)) : null;
   });
-  readonly canStart = computed(() => !this.cloning() && isCloneUrl(this.url()) && this.parent() !== "");
+  readonly canStart = computed(
+    () => !this.cloning() && isCloneUrl(this.url()) && this.parent() !== "",
+  );
 
   open(): void {
     if (this.cloning()) return;
@@ -66,7 +69,9 @@ export class CloneService {
     this.progress.set(null);
     let unlisten: (() => void) | undefined;
     try {
-      unlisten = await listen<CloneProgress>(CLONE_PROGRESS_EVENT, (e) => this.progress.set(e.payload));
+      unlisten = await listen<CloneProgress>(CLONE_PROGRESS_EVENT, (e) =>
+        this.progress.set(e.payload),
+      );
     } catch {
       // No progress without events; the clone itself still works.
     }

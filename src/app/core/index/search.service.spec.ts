@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 import { backend } from "../file/backend";
 import { IndexService } from "./index.service";
-import { SearchService, segments } from "./search.service";
+import { SearchService, segments, sortHits, withOperator } from "./search.service";
 
 describe("segments", () => {
   it("splits a snippet at the match markers", () => {
@@ -76,5 +76,32 @@ describe("SearchService", () => {
     vi.spyOn(backend, "searchNotes").mockRejectedValue("boom");
     await search.setQuery("three");
     expect(search.state()).toBe("error");
+  });
+});
+
+describe("sortHits and withOperator", () => {
+  const hit = (path: string, title: string, modified: number) => ({
+    path,
+    title,
+    modified,
+    matches: 0,
+    snippets: [],
+  });
+  const hits = [hit("x/b.md", "b", 10), hit("a.md", "C", 30), hit("c.md", "a", 20)];
+
+  it("keeps the order of the backend for relevance and does not change the input", () => {
+    expect(sortHits(hits, "relevance")).toBe(hits);
+    sortHits(hits, "name");
+    expect(hits.map((h) => h.title)).toEqual(["b", "C", "a"]);
+  });
+
+  it("sorts by name and by modified time, newest first", () => {
+    expect(sortHits(hits, "name").map((h) => h.title)).toEqual(["a", "b", "C"]);
+    expect(sortHits(hits, "modified").map((h) => h.modified)).toEqual([30, 20, 10]);
+  });
+
+  it("appends an operator with a space", () => {
+    expect(withOperator("", "tag:#")).toBe("tag:#");
+    expect(withOperator("quick ", "path:")).toBe("quick path:");
   });
 });

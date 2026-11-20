@@ -10,18 +10,28 @@ describe("dailyPath", () => {
   });
 
   it("puts the note in the folder", () => {
-    expect(dailyPath(day, { folder: "/Journal/", format: "YYYY-MM-DD" })).toBe("Journal/2026-03-02.md");
+    expect(dailyPath(day, { folder: "/Journal/", format: "YYYY-MM-DD" })).toBe(
+      "Journal/2026-03-02.md",
+    );
   });
 
   it("builds nested formats", () => {
-    expect(dailyPath(day, { folder: "", format: "YYYY/MM/YYYY-MM-DD" })).toBe("2026/03/2026-03-02.md");
-    expect(dailyPath(day, { folder: "Daily", format: "YYYY/MMMM/DD dddd" })).toBe("Daily/2026/March/02 Monday.md");
+    expect(dailyPath(day, { folder: "", format: "YYYY/MM/YYYY-MM-DD" })).toBe(
+      "2026/03/2026-03-02.md",
+    );
+    expect(dailyPath(day, { folder: "Daily", format: "YYYY/MMMM/DD dddd" })).toBe(
+      "Daily/2026/March/02 Monday.md",
+    );
     expect(dailyPath(day, { folder: "Daily", format: "YYYY\\MM\\DD" })).toBe("Daily/2026/03/02.md");
   });
 
   it("refuses paths that leave the vault", () => {
-    expect(() => dailyPath(day, { folder: "../x", format: "YYYY" })).toThrow();
-    expect(() => dailyPath(day, { folder: "", format: "YYYY//DD" })).toThrow();
+    expect(() => dailyPath(day, { folder: "../x", format: "YYYY" })).toThrow(
+      "not a path in the vault",
+    );
+    expect(() => dailyPath(day, { folder: "", format: "YYYY//DD" })).toThrow(
+      "not a path in the vault",
+    );
   });
 });
 
@@ -40,8 +50,12 @@ describe("parseDailyPath", () => {
   });
 
   it("reads month names and ordinals; other tokens match anything", () => {
-    expect(parseDailyPath("March 2nd, 2026.md", { folder: "", format: "MMMM Do, YYYY" })).toEqual(new Date(2026, 2, 2));
-    expect(parseDailyPath("2026-03-02 Monday.md", { folder: "", format: "YYYY-MM-DD dddd" })).toEqual(new Date(2026, 2, 2));
+    expect(parseDailyPath("March 2nd, 2026.md", { folder: "", format: "MMMM Do, YYYY" })).toEqual(
+      new Date(2026, 2, 2),
+    );
+    expect(
+      parseDailyPath("2026-03-02 Monday.md", { folder: "", format: "YYYY-MM-DD dddd" }),
+    ).toEqual(new Date(2026, 2, 2));
   });
 
   it("cannot read a format without year, month and day", () => {
@@ -51,10 +65,18 @@ describe("parseDailyPath", () => {
 
 describe("neighborDaily", () => {
   const config = { folder: "", format: "YYYY/MM/YYYY-MM-DD" };
-  const files = ["2026/02/2026-02-27.md", "2026/03/2026-03-02.md", "2026/03/2026-03-05.md", "Note.md", "2026/03/2026-03-09.md"];
+  const files = [
+    "2026/02/2026-02-27.md",
+    "2026/03/2026-03-02.md",
+    "2026/03/2026-03-05.md",
+    "Note.md",
+    "2026/03/2026-03-09.md",
+  ];
 
   it("finds the nearest earlier and later note", () => {
-    expect(neighborDaily(files, new Date(2026, 2, 5, 18), -1, config)).toBe("2026/03/2026-03-02.md");
+    expect(neighborDaily(files, new Date(2026, 2, 5, 18), -1, config)).toBe(
+      "2026/03/2026-03-02.md",
+    );
     expect(neighborDaily(files, new Date(2026, 2, 5, 18), 1, config)).toBe("2026/03/2026-03-09.md");
     expect(neighborDaily(files, new Date(2026, 2, 3), 1, config)).toBe("2026/03/2026-03-05.md");
   });

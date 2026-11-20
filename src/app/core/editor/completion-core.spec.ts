@@ -26,9 +26,19 @@ describe("wikilinkStage", () => {
   });
 
   it("offers headings after # and blocks after #^", () => {
-    expect(wikilinkStage("[[Plan#Go", 9)).toEqual({ kind: "heading", from: 7, note: "Plan", query: "Go" });
+    expect(wikilinkStage("[[Plan#Go", 9)).toEqual({
+      kind: "heading",
+      from: 7,
+      note: "Plan",
+      query: "Go",
+    });
     expect(wikilinkStage("[[#", 3)).toEqual({ kind: "heading", from: 3, note: "", query: "" });
-    expect(wikilinkStage("[[Plan#^ab", 10)).toEqual({ kind: "block", from: 8, note: "Plan", query: "ab" });
+    expect(wikilinkStage("[[Plan#^ab", 10)).toEqual({
+      kind: "block",
+      from: 8,
+      note: "Plan",
+      query: "ab",
+    });
     expect(wikilinkStage("[[Plan#A#B", 10)).toBeNull();
   });
 });
@@ -66,7 +76,9 @@ describe("linkTarget", () => {
     expect(linkTarget("Work/Plan.md", "relative", "Ideas.md", all)).toBe("Work/Plan");
     expect(linkTarget("Ideas.md", "relative", "Work/Plan.md", all)).toBe("../Ideas");
     expect(linkTarget("Work/Deep/Plan.md", "relative", "Work/Plan.md", all)).toBe("Deep/Plan");
-    expect(linkTarget("Inbox/Plan.md", "relative", "Work/Deep/Plan.md", all)).toBe("../../Inbox/Plan");
+    expect(linkTarget("Inbox/Plan.md", "relative", "Work/Deep/Plan.md", all)).toBe(
+      "../../Inbox/Plan",
+    );
     expect(linkTarget("Work/Plan.md", "relative", "Work/Other.md", all)).toBe("Plan");
   });
 });
@@ -82,7 +94,9 @@ describe("noteOptions", () => {
     const [first] = noteOptions(entries, "road", "shortest", null);
     expect(first).toEqual({ label: "Roadmap", detail: "Projects/Roadmap.md", insert: "Roadmap" });
     expect(noteOptions(entries, "road", "absolute", null)[0]!.insert).toBe("Projects/Roadmap");
-    expect(noteOptions(entries, "road", "relative", "Ideas.md")[0]!.insert).toBe("Projects/Roadmap");
+    expect(noteOptions(entries, "road", "relative", "Ideas.md")[0]!.insert).toBe(
+      "Projects/Roadmap",
+    );
   });
 
   it("matches an alias and inserts Note|Alias", () => {

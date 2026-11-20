@@ -25,8 +25,17 @@ export interface KeyInput {
 }
 
 const PUNCTUATION: Record<string, string> = {
-  Comma: ",", Period: ".", Slash: "/", Semicolon: ";", Quote: "'", BracketLeft: "[",
-  BracketRight: "]", Backslash: "\\", Backquote: "`", Minus: "-", Equal: "=",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  Semicolon: ";",
+  Quote: "'",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backslash: "\\",
+  Backquote: "`",
+  Minus: "-",
+  Equal: "=",
 };
 
 /** The lower-case key name of a physical key code (`KeyA` → `a`, `Comma` → `,`); null for others. */
@@ -46,19 +55,40 @@ export function matchesBinding(event: KeyInput, binding: string): boolean {
   const physical = !/^[a-z0-9]$/i.test(event.key) && physicalKey(event.code) === key;
   return (
     (event.key.toLowerCase() === named || physical) &&
-    (mods.has("ctrl") ? event.ctrlKey && !event.metaKey : (event.metaKey || event.ctrlKey) === mods.has("mod")) &&
+    (mods.has("ctrl")
+      ? event.ctrlKey && !event.metaKey
+      : (event.metaKey || event.ctrlKey) === mods.has("mod")) &&
     event.shiftKey === mods.has("shift") &&
     event.altKey === mods.has("alt")
   );
 }
 
-const MAC_SYMBOLS: Record<string, string> = { mod: "⌘", ctrl: "⌃", shift: "⇧", alt: "⌥", arrowleft: "←", arrowright: "→", plus: "+" };
-const OTHER_NAMES: Record<string, string> = { mod: "Ctrl", arrowleft: "←", arrowright: "→", plus: "+" };
+const MAC_SYMBOLS: Record<string, string> = {
+  mod: "⌘",
+  ctrl: "⌃",
+  shift: "⇧",
+  alt: "⌥",
+  arrowleft: "←",
+  arrowright: "→",
+  plus: "+",
+};
+const OTHER_NAMES: Record<string, string> = {
+  mod: "Ctrl",
+  arrowleft: "←",
+  arrowright: "→",
+  plus: "+",
+};
 
 /** A shortcut as shown to the user: `⌘⇧F` on macOS, `Ctrl+Shift+F` elsewhere. */
 export function formatShortcut(shortcut: string, mac: boolean): string {
-  const parts = shortcut.split("+").map((p) => (mac ? MAC_SYMBOLS : OTHER_NAMES)[p.toLowerCase()] ?? p);
+  const parts = shortcutKeys(shortcut, mac);
   return mac ? parts.join("") : parts.join("+");
+}
+
+/** The key caps of a shortcut for `hx-kbd`: `["⌘", "⇧", "F"]` on macOS, `["Ctrl", "Shift", "F"]` elsewhere. */
+export function shortcutKeys(shortcut: string, mac: boolean): string[] {
+  if (!shortcut) return [];
+  return shortcut.split("+").map((p) => (mac ? MAC_SYMBOLS : OTHER_NAMES)[p.toLowerCase()] ?? p);
 }
 
 /** Every action of the app by id: menu, shortcuts and the palette all run commands from here. */

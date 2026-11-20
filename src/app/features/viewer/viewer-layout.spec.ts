@@ -9,15 +9,19 @@ describe("note layout", () => {
   it("centers the viewer content with a rule that outranks the github markdown margin", () => {
     const rule = viewer.match(/:host article\.markdown-body\s*\{([^}]*)\}/)?.[1] ?? "";
     expect(rule).toContain("margin: 0 auto");
-    expect(rule).toContain("max-width: 980px");
+    expect(rule).toContain("max-width: var(--nixe-content-width, 980px)");
     expect(rule).toContain("box-sizing: border-box");
   });
 
   it("keeps the padding of a narrow pane", () => {
-    expect(viewer).toMatch(/@media \(max-width: 700px\)[\s\S]*article\.markdown-body\s*\{\s*padding: 20px 16px 60px/);
+    expect(viewer).toMatch(
+      /@media \(max-width: 700px\)[\s\S]*article\.markdown-body\s*\{\s*padding: 20px 16px 60px/,
+    );
   });
 
   it("uses the same width and centering in the editor", () => {
-    expect(editor).toMatch(/"\.cm-content": \{[^}]*maxWidth: "980px", margin: "0 auto"/);
+    expect(editor).toMatch(
+      /"\.cm-content": \{[^}]*maxWidth: "var\(--nixe-content-width, 980px\)",\s*margin: "0 auto"/,
+    );
   });
 });

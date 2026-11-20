@@ -7,7 +7,8 @@ import { dirname, joinPath } from "../markdown/paths";
 import { SettingsService } from "../settings/settings.service";
 import { expandTemplate } from "../templates/template-core";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { DailyConfig, dailyPath, neighborDaily, parseDailyPath, trimSlashes } from "./daily-core";
+import type { DailyConfig } from "./daily-core";
+import { dailyPath, neighborDaily, parseDailyPath, trimSlashes } from "./daily-core";
 
 /** The daily notes: today's note, created from its template, and the ones before and after. */
 @Injectable({ providedIn: "root" })
@@ -50,7 +51,7 @@ export class DailyService {
     const root = this.vaultRoot();
     const config = await this.config();
     const current = this.doc.path();
-    const rel = current?.startsWith(root + "/") ? current.slice(root.length + 1) : null;
+    const rel = current?.startsWith(`${root}/`) ? current.slice(root.length + 1) : null;
     const from = (rel && parseDailyPath(rel, config)) || now;
     const found = neighborDaily(this.workspace.vaultFiles() ?? [], from, direction, config);
     if (!found) throw new Error(`No ${direction < 0 ? "previous" : "next"} daily note.`);

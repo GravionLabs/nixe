@@ -1,3 +1,4 @@
+/* oxlint-disable typescript/no-explicit-any -- the spec calls protected members of the component under test through `as any` */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const invoke = vi.hoisted(() => vi.fn());
@@ -82,9 +83,7 @@ describe("EditorSpikeComponent", () => {
     const c = new EditorSpikeComponent() as any;
     external({ spike_external_read: "Operation not permitted (os error 1)" });
     await c.openExternal();
-    expect(c.status()).toContain(
-      "read FAILED: Operation not permitted (os error 1)",
-    );
+    expect(c.status()).toContain("read FAILED: Operation not permitted (os error 1)");
   });
 
   it("reports the exact write error", async () => {

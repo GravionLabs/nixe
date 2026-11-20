@@ -1,7 +1,8 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
 import { fuzzyScore } from "../switcher/fuzzy";
-import { Command, CommandRegistry } from "./command-registry";
+import type { Command } from "./command-registry";
+import { CommandRegistry } from "./command-registry";
 
 /** Command palette state: the query and the available commands ranked by fuzzy title match. */
 @Injectable({ providedIn: "root" })

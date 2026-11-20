@@ -1,27 +1,7 @@
 :host {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  width: 240px;
-  min-width: 0;
-  overflow-y: auto;
-  border-left: 1px solid var(--h-content-border-color);
-  background: var(--h-surface-frame);
+  display: block;
   color: var(--h-text-color);
   font-size: 13px;
-}
-
-header {
-  display: flex;
-  align-items: center;
-  height: 34px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--h-content-border-color);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--h-text-muted-color);
 }
 
 ul {
@@ -33,6 +13,36 @@ ul {
 .status {
   margin: 8px 12px;
   color: var(--h-text-muted-color);
+}
+
+li {
+  position: relative;
+}
+
+.levels {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+button.level {
+  width: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+button.fold {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  width: 14px;
+  padding: 4px 0;
+  border: 0;
+  color: var(--h-text-muted-color);
+  font-size: 10px;
+  text-align: center;
 }
 
 button {

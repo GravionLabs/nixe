@@ -12,7 +12,10 @@ import { SettingsService } from "./settings.service";
 
 function stubMatchMedia(): void {
   vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: () => undefined }));
-  window.matchMedia = (() => ({ matches: false, addEventListener: () => undefined })) as unknown as typeof window.matchMedia;
+  window.matchMedia = (() => ({
+    matches: false,
+    addEventListener: () => undefined,
+  })) as unknown as typeof window.matchMedia;
 }
 
 describe("SettingsService storage", () => {
@@ -39,7 +42,9 @@ describe("SettingsService storage", () => {
   });
 
   it("restores the active view, the collapsed sidebar and its width", async () => {
-    read.mockResolvedValue(JSON.stringify({ activeView: "git", sidebar: false, sidebarWidth: 333 }));
+    read.mockResolvedValue(
+      JSON.stringify({ activeView: "git", sidebar: false, sidebarWidth: 333 }),
+    );
     const settings = TestBed.inject(SettingsService);
     await settings.load();
     expect(settings.activeView()).toBe("git");
@@ -58,14 +63,21 @@ describe("SettingsService storage", () => {
   });
 
   it("migrates the localStorage entry into the file on the first start", async () => {
-    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ theme: "light", lastFolder: "/v", recentVaults: ["/v"] }));
+    localStorage.setItem(
+      LEGACY_STORAGE_KEY,
+      JSON.stringify({ theme: "light", lastFolder: "/v", recentVaults: ["/v"] }),
+    );
     read.mockResolvedValue(null);
     const settings = TestBed.inject(SettingsService);
     await settings.load();
     await settings.flush();
     expect(settings.lastFolder()).toBe("/v");
     expect(write).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(write.mock.calls[0][0])).toMatchObject({ theme: "light", lastFolder: "/v", recentVaults: ["/v"] });
+    expect(JSON.parse(write.mock.calls[0][0])).toMatchObject({
+      theme: "light",
+      lastFolder: "/v",
+      recentVaults: ["/v"],
+    });
     expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
   });
 
@@ -134,10 +146,51 @@ describe("SettingsService theme", () => {
 
   it("follows the system in the mode system", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: () => undefined }));
-    window.matchMedia = (() => ({ matches: true, addEventListener: () => undefined })) as unknown as typeof window.matchMedia;
+    window.matchMedia = (() => ({
+      matches: true,
+      addEventListener: () => undefined,
+    })) as unknown as typeof window.matchMedia;
     const settings = TestBed.inject(SettingsService);
     TestBed.tick();
     expect(settings.themeMode()).toBe("system");
     expect(document.documentElement.classList.contains("app-dark")).toBe(true);
+  });
+});
+
+describe("SettingsService right panel tabs", () => {
+  beforeEach(() => {
+    vi.spyOn(backend, "readAppSettings").mockResolvedValue(null);
+    vi.spyOn(backend, "writeAppSettings").mockResolvedValue(undefined);
+    localStorage.clear();
+    stubMatchMedia();
+    TestBed.resetTestingModule();
+  });
+
+  it("is closed by default and shows one tab at a time", () => {
+    const settings = TestBed.inject(SettingsService);
+    expect(settings.panelOpen()).toBe(false);
+    settings.showPanelTab("links");
+    expect(settings.panelOpen()).toBe(true);
+    expect(settings.panelTab()).toBe("links");
+    settings.showPanelTab("outline");
+    expect(settings.panelTab()).toBe("outline");
+    expect(settings.backlinksVisible()).toBe(false);
+  });
+
+  it("toggles a tab: opens it, switches to it, closes it when it is the open one", () => {
+    const settings = TestBed.inject(SettingsService);
+    settings.togglePanelTab("outline");
+    expect([settings.panelOpen(), settings.panelTab()]).toEqual([true, "outline"]);
+    settings.togglePanelTab("links");
+    expect([settings.panelOpen(), settings.panelTab()]).toEqual([true, "links"]);
+    settings.togglePanelTab("links");
+    expect(settings.panelOpen()).toBe(false);
+  });
+
+  it("shows the outline when an old setting has both panels on", () => {
+    const settings = TestBed.inject(SettingsService);
+    settings.outlineVisible.set(true);
+    settings.backlinksVisible.set(true);
+    expect(settings.panelTab()).toBe("outline");
   });
 });

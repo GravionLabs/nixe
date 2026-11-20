@@ -57,7 +57,7 @@ describe("TabsService", () => {
 
   it("drops the new tab again when the note cannot be opened", async () => {
     await tabs.activeTab().doc.open("/v/a.md");
-    await expect(tabs.openInNewTab("/v/missing.md")).rejects.toThrow();
+    await expect(tabs.openInNewTab("/v/missing.md")).rejects.toThrow("missing");
     expect(tabs.panes()[0].tabs.length).toBe(1);
     expect(shown()).toBe("/v/a.md");
   });
@@ -147,7 +147,10 @@ describe("TabsService", () => {
       left.editor.editing.set(true);
       await tabs.splitRight();
       expect(tabs.split()).toBe(true);
-      expect(tabs.panes().map((p) => p.tabs.map((t) => t.doc.path()))).toEqual([["/v/b.md"], ["/v/b.md"]]);
+      expect(tabs.panes().map((p) => p.tabs.map((t) => t.doc.path()))).toEqual([
+        ["/v/b.md"],
+        ["/v/b.md"],
+      ]);
       const right = tabs.activeTab();
       expect(right).not.toBe(left);
       expect(right.editor.editing()).toBe(true);
@@ -240,10 +243,61 @@ describe("TabsService", () => {
       FILES["/v/a.md"] = "# A on disk";
       try {
         await tabs.onExternalChange("/v/a.md");
-        expect(tabs.panes().map((p) => p.tabs[0].doc.content())).toEqual(["# A on disk", "# A on disk"]);
+        expect(tabs.panes().map((p) => p.tabs[0].doc.content())).toEqual([
+          "# A on disk",
+          "# A on disk",
+        ]);
       } finally {
         FILES["/v/a.md"] = "# A";
       }
+    });
+  });
+
+  describe("missing file", () => {
+    it("is tracked per tab and cleared when the file returns", async () => {
+      await tabs.activeTab().doc.open("/v/a.md");
+      await tabs.splitRight();
+      const [left, right] = tabs.panes().map((p) => p.tabs[0]);
+      await right.doc.open("/v/b.md");
+      const read = FILES["/v/a.md"];
+      delete FILES["/v/a.md"];
+      invoke.mockImplementation(async (cmd: string, args: { path: string }) => {
+        if (cmd === "path_exists") return args.path in FILES;
+        if (cmd === "read_text_file") {
+          if (!(args.path in FILES)) throw new Error("missing");
+          return FILES[args.path];
+        }
+        return undefined;
+      });
+      try {
+        await tabs.onExternalChange("/v/a.md");
+        expect(left.doc.missing()).toBe(true);
+        expect(right.doc.missing()).toBe(false);
+      } finally {
+        FILES["/v/a.md"] = read;
+      }
+      await tabs.onExternalChange("/v/a.md");
+      expect(left.doc.missing()).toBe(false);
+    });
+  });
+
+  describe("missing file on activation", () => {
+    it("marks and clears the state of a tab that was not watched", async () => {
+      const first = tabs.activeTab();
+      await first.doc.open("/v/a.md");
+      tabs.newTab();
+      await tabs.activeTab().doc.open("/v/b.md");
+      let exists = false;
+      invoke.mockImplementation(async (cmd: string) =>
+        cmd === "path_exists" ? exists : undefined,
+      );
+      const pane = tabs.panes()[0];
+      tabs.activate(pane.id, pane.tabs[0].id);
+      await vi.waitFor(() => expect(first.doc.missing()).toBe(true));
+      exists = true;
+      tabs.activate(pane.id, pane.tabs[1].id);
+      tabs.activate(pane.id, pane.tabs[0].id);
+      await vi.waitFor(() => expect(first.doc.missing()).toBe(false));
     });
   });
 
@@ -263,7 +317,11 @@ describe("TabsService", () => {
       const layout = await laidOut();
       expect(layout.panes.length).toBe(2);
       expect(layout.panes[0].tabs.map((t) => t.path)).toEqual(["/v/b.md", "/v/c.md"]);
-      expect(layout.panes[0].tabs[0]).toMatchObject({ history: ["/v/a.md", "/v/b.md"], index: 1, editing: false });
+      expect(layout.panes[0].tabs[0]).toMatchObject({
+        history: ["/v/a.md", "/v/b.md"],
+        index: 1,
+        editing: false,
+      });
       expect(layout.panes[0].tabs[1].editing).toBe(true);
       expect(layout.focused).toBe(1);
       expect(layout.ratio).toBe(0.3);
@@ -377,7 +435,9 @@ describe("TabsService", () => {
     it("restores a layout that holds only a view", async () => {
       tabs.openView("settings");
       const layout = JSON.parse(JSON.stringify(tabs.snapshot()));
-      layout.panes[0].tabs = layout.panes[0].tabs.filter((t: { view: string | null }) => t.view !== null);
+      layout.panes[0].tabs = layout.panes[0].tabs.filter(
+        (t: { view: string | null }) => t.view !== null,
+      );
       layout.panes[0].active = 0;
       expect(await tabs.restore(layout)).toBe(true);
       expect(tabs.activeTab().view()).toBe("settings");
@@ -404,7 +464,7 @@ describe("TabsService", () => {
       expect(tabs.panes()[1].tabs[0]).toBe(moving);
       expect(tabs.panes()[1].activeId).toBe(moving.id);
       expect(tabs.focusedPane().id).toBe(right.id);
-      for (const t of [...tabs.panes()[0].tabs]) tabs.moveTabToPane(left.id, t.id, right.id, 0);
+      for (const t of tabs.panes()[0].tabs) tabs.moveTabToPane(left.id, t.id, right.id, 0);
       expect(tabs.panes().length).toBe(1);
     });
   });
@@ -414,7 +474,11 @@ describe("TabsService", () => {
     class Probe {
       readonly doc = inject(DocumentService);
     }
-    @Component({ selector: "app-host", imports: [NgComponentOutlet], template: "<ng-container *ngComponentOutlet=\"probe; injector: injector\" />" })
+    @Component({
+      selector: "app-host",
+      imports: [NgComponentOutlet],
+      template: '<ng-container *ngComponentOutlet="probe; injector: injector" />',
+    })
     class Host {
       probe = Probe;
       injector = tabs.panes()[0].tabs[0].injector;

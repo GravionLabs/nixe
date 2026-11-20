@@ -1,5 +1,12 @@
-<div class="backdrop" (click)="templates.close()" (keydown.escape)="templates.close()" role="presentation"></div>
-<div class="dialog" role="dialog" aria-label="Insert template">
+<hx-dialog
+  [visible]="true"
+  (hidden)="templates.close()"
+  ariaLabel="Insert template"
+  [closable]="false"
+  dismissableMask
+  position="top"
+  width="min(560px, 90vw)"
+>
   <input
     #input
     type="text"
@@ -14,7 +21,11 @@
   />
   <ul id="templates-list" role="listbox">
     @for (entry of templates.matches(); track entry.path; let i = $index) {
-      <li role="option" [attr.aria-selected]="i === templates.selected()" [class.selected]="i === templates.selected()">
+      <li
+        role="option"
+        [attr.aria-selected]="i === templates.selected()"
+        [class.selected]="i === templates.selected()"
+      >
         <button type="button" tabindex="-1" (click)="choose(entry)" [title]="entry.path">
           <span class="name">{{ entry.name }}</span>
           <span class="path">{{ entry.path }}</span>
@@ -24,4 +35,4 @@
       <li class="empty">No matching template</li>
     }
   </ul>
-</div>
+</hx-dialog>

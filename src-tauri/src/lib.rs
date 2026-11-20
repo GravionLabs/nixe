@@ -8,7 +8,9 @@ use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+mod appearance;
 mod attachments;
+mod bookmarks;
 #[cfg(desktop)]
 pub mod cli;
 #[cfg(target_os = "macos")]
@@ -19,6 +21,7 @@ mod conflict;
 mod credentials;
 mod daily;
 mod fileops;
+mod folds;
 mod git;
 mod gitclone;
 mod gitsync;
@@ -407,6 +410,132 @@ fn relink_preview(
     ))
 }
 
+/// The notes an extraction would change; changes nothing.
+#[tauri::command]
+fn extract_preview(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    source: String,
+    target: String,
+    what: vault::composer::What,
+    embed: bool,
+) -> Result<Vec<vault::composer::Change>, String> {
+    vault::composer::preview_extract(
+        &vault_root_of(&state)?,
+        &source,
+        &what,
+        &target,
+        embed,
+        |t| index.referrers(t),
+    )
+}
+
+/// Moves a selection or a section of `source` into the note `target` (created when missing) and
+/// leaves a link or an embed. One batch for the watcher. Returns the notes that changed.
+#[tauri::command]
+fn extract_text(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    source: String,
+    target: String,
+    what: vault::composer::What,
+    embed: bool,
+) -> Result<Vec<vault::composer::Change>, String> {
+    vault::composer::extract(
+        &vault_root_of(&state)?,
+        &source,
+        &what,
+        &target,
+        embed,
+        |t| index.referrers(t),
+    )
+}
+
+/// The notes a merge of `source` into `target` would change; changes nothing.
+#[tauri::command]
+fn merge_preview(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    source: String,
+    target: String,
+) -> Result<Vec<vault::composer::Change>, String> {
+    vault::composer::preview_merge(&vault_root_of(&state)?, &source, &target, |t| {
+        index.referrers(t)
+    })
+}
+
+/// Appends `source` to `target`, rewrites the links to it and moves it to `.trash/`.
+#[tauri::command]
+fn merge_note(
+    state: State<'_, AppState>,
+    index: State<'_, index::commands::IndexState>,
+    source: String,
+    target: String,
+) -> Result<Vec<vault::composer::Change>, String> {
+    vault::composer::merge(&vault_root_of(&state)?, &source, &target, |t| {
+        index.referrers(t)
+    })
+}
+
+/// Every replacement a find and replace would make, per note; changes nothing (#115).
+#[tauri::command]
+async fn replace_preview(
+    state: State<'_, AppState>,
+    options: vault::replace::Options,
+) -> Result<Vec<vault::replace::NoteReplacements>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || vault::replace::preview(&root, &options))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Replaces in the vault as one batch. In a Git repository the open changes are committed first,
+/// so that `git revert` undoes the replacement as a whole; a failing commit stops the batch.
+#[tauri::command]
+async fn replace_apply(
+    state: State<'_, AppState>,
+    options: vault::replace::Options,
+    exclusions: vault::replace::Exclusions,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<vault::replace::Applied, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = match (name, email) {
+        (Some(name), Some(email)) => Some(git::Identity { name, email }),
+        _ => None,
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        vault::replace::apply_with_checkpoint(&root, &options, &exclusions, fallback.as_ref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Turns the plain-text mention of `target` at `line`/`start..end` of the note `source` (both
+/// vault-relative) into a `[[link]]`. Refuses when the note changed since the mention was listed.
+#[tauri::command]
+fn link_mention(
+    state: State<'_, AppState>,
+    source: String,
+    target: String,
+    line: usize,
+    start: usize,
+    end: usize,
+    text: String,
+) -> Result<(), String> {
+    let root = vault_root_of(&state)?;
+    let path = root.join(&source);
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("{source}: {e}"))?;
+    let title = target
+        .rsplit('/')
+        .next()
+        .map(|n| n.rsplit_once('.').map_or(n, |(stem, _)| stem))
+        .unwrap_or(&target);
+    let linked = vault::mentions::link(&content, line, start, end, &text, title)
+        .ok_or_else(|| format!("{source} changed, the mention is gone"))?;
+    write::write_text_file(&root, &path, &linked)
+}
+
 /// Moves a file or folder to `.trash/` in the vault; returns its new path.
 #[tauri::command]
 fn trash_path(state: State<'_, AppState>, path: String) -> Result<String, String> {
@@ -477,6 +606,61 @@ fn write_app_settings(app: AppHandle, content: String) -> Result<(), String> {
     settings::write_settings(&dir, &content)
 }
 
+/// The `.css` files of `kind` (`themes` or `snippets`) in the app config directory (#114); creates the folders.
+#[tauri::command]
+fn read_appearance(app: AppHandle, kind: String) -> Result<Vec<appearance::CssFile>, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    appearance::ensure_folders(&dir)?;
+    appearance::read_css(&dir, &kind)
+}
+
+/// The app config directory, where `themes/` and `snippets/` live.
+#[tauri::command]
+fn appearance_dir(app: AppHandle) -> Result<String, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// The fold state file of the app data directory; `None` when there is none yet.
+#[tauri::command]
+fn read_folds(app: AppHandle) -> Result<Option<String>, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    folds::read_folds(&dir)
+}
+
+/// Replaces the fold state file of the app data directory.
+#[tauri::command]
+fn write_folds(app: AppHandle, content: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    folds::write_folds(&dir, &content)
+}
+
+/// `.obsidian/bookmarks.json` of the open vault; `None` when it has none.
+#[tauri::command]
+fn read_vault_bookmarks(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    bookmarks::read_vault(&vault_root_of(&state)?)
+}
+
+/// Replaces `.obsidian/bookmarks.json` of the open vault (it must have an `.obsidian` folder).
+#[tauri::command]
+fn write_vault_bookmarks(state: State<'_, AppState>, content: String) -> Result<(), String> {
+    bookmarks::write_vault(&vault_root_of(&state)?, &content)
+}
+
+/// The bookmarks file of the app data directory; `None` when there is none yet.
+#[tauri::command]
+fn read_app_bookmarks(app: AppHandle) -> Result<Option<String>, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    bookmarks::read_app(&dir)
+}
+
+/// Replaces the bookmarks file of the app data directory.
+#[tauri::command]
+fn write_app_bookmarks(app: AppHandle, content: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    bookmarks::write_app(&dir, &content)
+}
+
 /// Shows the user's shortcuts in the native menu: the accelerator per menu item id, `null` for none.
 #[tauri::command]
 fn set_menu_shortcuts(
@@ -512,6 +696,12 @@ fn is_file(path: String) -> bool {
 #[tauri::command]
 fn is_dir(path: String) -> bool {
     Path::new(&path).is_dir()
+}
+
+/// Whether an entry exists at `path`, also one the file tree hides.
+#[tauri::command]
+fn path_exists(path: String) -> bool {
+    fileops::entry_exists(Path::new(&path))
 }
 
 #[tauri::command]
@@ -686,6 +876,12 @@ pub fn run() {
         create_dir,
         rename_path,
         relink_preview,
+        extract_preview,
+        extract_text,
+        merge_preview,
+        merge_note,
+        replace_preview,
+        replace_apply,
         trash_path,
         conflict_pair,
         resolve_conflict,
@@ -695,6 +891,14 @@ pub fn run() {
         link_format,
         read_app_settings,
         write_app_settings,
+        read_appearance,
+        appearance_dir,
+        read_folds,
+        write_folds,
+        read_vault_bookmarks,
+        write_vault_bookmarks,
+        read_app_bookmarks,
+        write_app_bookmarks,
         set_menu_shortcuts,
         obsidian_settings,
         save_attachment,
@@ -702,6 +906,7 @@ pub fn run() {
         is_utf8_file,
         is_file,
         is_dir,
+        path_exists,
         list_dir,
         find_wiki_root,
         find_vault_root,
@@ -711,6 +916,8 @@ pub fn run() {
         index::commands::notes,
         index::commands::note_meta,
         index::commands::backlinks,
+        index::commands::unlinked_mentions,
+        link_mention,
         index::commands::tags,
         index::commands::search_notes,
         index::commands::vault_health,
@@ -755,6 +962,12 @@ pub fn run() {
         create_dir,
         rename_path,
         relink_preview,
+        extract_preview,
+        extract_text,
+        merge_preview,
+        merge_note,
+        replace_preview,
+        replace_apply,
         trash_path,
         conflict_pair,
         resolve_conflict,
@@ -764,6 +977,14 @@ pub fn run() {
         link_format,
         read_app_settings,
         write_app_settings,
+        read_appearance,
+        appearance_dir,
+        read_folds,
+        write_folds,
+        read_vault_bookmarks,
+        write_vault_bookmarks,
+        read_app_bookmarks,
+        write_app_bookmarks,
         set_menu_shortcuts,
         obsidian_settings,
         save_attachment,
@@ -771,6 +992,7 @@ pub fn run() {
         is_utf8_file,
         is_file,
         is_dir,
+        path_exists,
         list_dir,
         find_wiki_root,
         find_vault_root,
@@ -780,6 +1002,8 @@ pub fn run() {
         index::commands::notes,
         index::commands::note_meta,
         index::commands::backlinks,
+        index::commands::unlinked_mentions,
+        link_mention,
         index::commands::tags,
         index::commands::search_notes,
         index::commands::vault_health,

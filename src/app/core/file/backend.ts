@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { CssFile } from "../appearance/appearance-core";
 
 export interface DirEntry {
   name: string;
@@ -6,6 +7,8 @@ export interface DirEntry {
   isDir: boolean;
   /** Directory contains an Azure DevOps `.order` file. */
   hasOrder: boolean;
+  /** Last modification in milliseconds since the epoch; 0 when unknown. */
+  modified: number;
 }
 
 export interface IndexStatus {
@@ -27,6 +30,21 @@ export interface Backlink {
   line: number;
   /** The trimmed text of that line. */
   context: string;
+}
+
+/** A plain-text mention of the title or an alias of a note in another note. */
+export interface UnlinkedMention {
+  /** Vault-relative path of the note holding the mention. */
+  source: string;
+  /** 1-based line. */
+  line: number;
+  /** Byte range of the mention in that line. */
+  start: number;
+  end: number;
+  /** The trimmed line. */
+  context: string;
+  /** The mention as written. */
+  text: string;
 }
 
 export interface IndexedLink {
@@ -51,6 +69,10 @@ export interface SearchHit {
   /** Vault-relative path. */
   path: string;
   title: string;
+  /** Modification time of the file, milliseconds since the Unix epoch. */
+  modified: number;
+  /** Matching lines of the note; `snippets` holds only the first few. */
+  matches: number;
   snippets: SearchSnippet[];
 }
 
@@ -127,6 +149,59 @@ export interface RelinkChange {
   links: number;
 }
 
+/** What the note composer does to a note (#113). */
+export type ComposeAction = "create" | "append" | "update" | "trash";
+
+export interface ReplaceOptions {
+  find: string;
+  replace: string;
+  regex: boolean;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+}
+
+export interface Replacement {
+  /** 0-based number of the match in its note. */
+  index: number;
+  /** 1-based line where the match starts. */
+  line: number;
+  before: string;
+  after: string;
+}
+
+export interface NoteReplacements {
+  /** Vault-relative path. */
+  path: string;
+  /** Matches in the note, also those beyond the listed ones. */
+  count: number;
+  replacements: Replacement[];
+}
+
+export interface ReplaceExclusions {
+  notes: string[];
+  /** `[note, match index]`. */
+  matches: [string, number][];
+}
+
+export interface ReplaceApplied {
+  notes: number;
+  replacements: number;
+  paths: string[];
+}
+
+export interface ComposeChange {
+  /** Vault-relative path. */
+  path: string;
+  action: ComposeAction;
+  /** Number of links rewritten in the note. */
+  links: number;
+}
+
+/** The text an extraction moves: a selection (UTF-16 offsets and its text) or a heading's section. */
+export type ExtractWhat =
+  | { kind: "selection"; start: number; end: number; expected: string }
+  | { kind: "heading"; line: number };
+
 export interface NoteRecord {
   path: string;
   title: string;
@@ -137,6 +212,8 @@ export interface GitChange {
   /** Vault-relative path. */
   path: string;
   kind: "added" | "modified" | "deleted";
+  /** A new note Git does not track yet; only the working-tree status sets it. */
+  untracked?: boolean;
 }
 
 /** A branch that waits for review (#108). */
@@ -263,15 +340,39 @@ export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
   /** Atomic write; the Rust side only accepts the open note or a note inside the vault. */
-  writeTextFile: (path: string, content: string) => invoke<void>("write_text_file", { path, content }),
+  writeTextFile: (path: string, content: string) =>
+    invoke<void>("write_text_file", { path, content }),
   /** Creates an empty file inside the vault; fails when it exists. */
   createFile: (path: string) => invoke<void>("create_file", { path }),
   /** Creates a folder and its missing parents inside the vault. */
   createDir: (path: string) => invoke<void>("create_dir", { path }),
   /** Moves a file or folder inside the vault, fails rather than replace, and rewrites the links to it in one batch. */
   renamePath: (from: string, to: string) => invoke<RelinkChange[]>("rename_path", { from, to }),
+  /** The notes an extraction into `target` would change; changes nothing. */
+  extractPreview: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
+    invoke<ComposeChange[]>("extract_preview", { source, target, what, embed }),
+  /** Moves the text into `target` (created when missing) and leaves a link or an embed. */
+  extractText: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
+    invoke<ComposeChange[]>("extract_text", { source, target, what, embed }),
+  /** The notes a merge of `source` into `target` would change; changes nothing. */
+  mergePreview: (source: string, target: string) =>
+    invoke<ComposeChange[]>("merge_preview", { source, target }),
+  /** Appends `source` to `target`, rewrites the links to it and moves it to `.trash/`. */
+  mergeNote: (source: string, target: string) =>
+    invoke<ComposeChange[]>("merge_note", { source, target }),
+  /** Every replacement a find and replace would make, per note; changes nothing. */
+  replacePreview: (options: ReplaceOptions) =>
+    invoke<NoteReplacements[]>("replace_preview", { options }),
+  /** Replaces in the vault as one batch; in a Git repository the open changes are committed first. */
+  replaceApply: (
+    options: ReplaceOptions,
+    exclusions: ReplaceExclusions,
+    name: string | null,
+    email: string | null,
+  ) => invoke<ReplaceApplied>("replace_apply", { options, exclusions, name, email }),
   /** The notes whose links a rename would rewrite; changes nothing. */
-  relinkPreview: (from: string, to: string) => invoke<RelinkChange[]>("relink_preview", { from, to }),
+  relinkPreview: (from: string, to: string) =>
+    invoke<RelinkChange[]>("relink_preview", { from, to }),
   /** Moves a file or folder to `.trash/` of the vault; returns the new path. */
   trashPath: (path: string) => invoke<string>("trash_path", { path }),
   newNoteLocation: () => invoke<NewNoteLocation>("new_note_location"),
@@ -283,8 +384,23 @@ export const backend = {
   /** The app settings file (`settings.json` in the app config directory); null before the first save. */
   readAppSettings: () => invoke<string | null>("read_app_settings"),
   writeAppSettings: (content: string) => invoke<void>("write_app_settings", { content }),
+  /** The `.css` files of `themes` or `snippets` in the app config directory (#114). */
+  readAppearance: (kind: "themes" | "snippets") => invoke<CssFile[]>("read_appearance", { kind }),
+  /** The app config directory, which holds `themes/` and `snippets/`. */
+  appearanceDir: () => invoke<string>("appearance_dir"),
+  /** The fold state (`folds.json` in the app data directory, not in the vault); null before the first save. */
+  readFolds: () => invoke<string | null>("read_folds"),
+  writeFolds: (content: string) => invoke<void>("write_folds", { content }),
+  /** `.obsidian/bookmarks.json` of the vault; null when it has none. */
+  readVaultBookmarks: () => invoke<string | null>("read_vault_bookmarks"),
+  /** Replaces `.obsidian/bookmarks.json`; rejects for a vault without `.obsidian/`. */
+  writeVaultBookmarks: (content: string) => invoke<void>("write_vault_bookmarks", { content }),
+  /** The bookmarks of all vaults in the app data directory; null before the first save. */
+  readAppBookmarks: () => invoke<string | null>("read_app_bookmarks"),
+  writeAppBookmarks: (content: string) => invoke<void>("write_app_bookmarks", { content }),
   /** Shows shortcuts in the native menu: accelerator per menu item id, null for none. */
-  setMenuShortcuts: (shortcuts: Record<string, string | null>) => invoke<number>("set_menu_shortcuts", { shortcuts }),
+  setMenuShortcuts: (shortcuts: Record<string, string | null>) =>
+    invoke<number>("set_menu_shortcuts", { shortcuts }),
   /** The Obsidian settings of the open vault with the file each one comes from. */
   obsidianSettings: () => invoke<ObsidianSetting[]>("obsidian_settings"),
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
@@ -292,11 +408,14 @@ export const backend = {
   saveAttachment: (note: string, name: string, bytes: number[]) =>
     invoke<string>("save_attachment", { note, name, bytes }),
   /** Brings a dropped file into the vault (copied unless it is inside); returns the vault-relative path. */
-  importAttachment: (note: string, source: string) => invoke<string>("import_attachment", { note, source }),
+  importAttachment: (note: string, source: string) =>
+    invoke<string>("import_attachment", { note, source }),
   /** Every tag of the vault with the number of notes using it, most used first. */
   tags: () => invoke<TagCount[]>("tags"),
   isUtf8File: (path: string) => invoke<boolean>("is_utf8_file", { path }),
   isFile: (path: string) => invoke<boolean>("is_file", { path }),
+  /** Whether anything is at `path`, also what the file tree hides. */
+  pathExists: (path: string) => invoke<boolean>("path_exists", { path }),
   isDir: (path: string) => invoke<boolean>("is_dir", { path }),
   listDir: (path: string) => invoke<DirEntry[]>("list_dir", { path }),
   findWikiRoot: (path: string) => invoke<string>("find_wiki_root", { path }),
@@ -307,6 +426,18 @@ export const backend = {
   indexStatus: () => invoke<IndexStatus>("index_status"),
   notes: () => invoke<NoteSummary[]>("notes"),
   backlinks: (path: string) => invoke<Backlink[]>("backlinks", { path }),
+  /** Plain-text mentions of the title or an alias of the note, computed on demand. */
+  unlinkedMentions: (path: string) => invoke<UnlinkedMention[]>("unlinked_mentions", { path }),
+  /** Turns a mention into a `[[link]]` to `target` (both vault-relative paths). */
+  linkMention: (target: string, mention: UnlinkedMention) =>
+    invoke<void>("link_mention", {
+      source: mention.source,
+      target,
+      line: mention.line,
+      start: mention.start,
+      end: mention.end,
+      text: mention.text,
+    }),
   /** Metadata of one indexed note (vault-relative path); null when it is not indexed. */
   noteMeta: (path: string) => invoke<NoteRecord | null>("note_meta", { path }),
   searchNotes: (query: string) => invoke<SearchHit[]>("search_notes", { query }),
@@ -318,7 +449,8 @@ export const backend = {
   gitNoteHistory: (path: string, offset: number, limit: number) =>
     invoke<HistoryEntry[]>("git_note_history", { path, offset, limit }),
   /** A note at a commit (empty when it did not exist there), or the file on disk for `rev: null`. */
-  gitNoteVersion: (path: string, rev: string | null) => invoke<string>("git_note_version", { path, rev }),
+  gitNoteVersion: (path: string, rev: string | null) =>
+    invoke<string>("git_note_version", { path, rev }),
   /** Notes deleted by the last `commits` commits and not present now, newest first. */
   /** The notes (added, modified, deleted) that differ between the commit `from` and `to` (default HEAD). */
   gitChangesBetween: (from: string, to: string | null = null) =>
@@ -330,7 +462,8 @@ export const backend = {
   /** The notes the branch tip `rev` changed against the merge base with HEAD. */
   gitReviewChanges: (rev: string) => invoke<ReviewChanges>("git_review_changes", { rev }),
   /** The hunks of one note of the branch tip against the merge base. */
-  gitReviewHunks: (tip: string, path: string) => invoke<ReviewHunk[]>("git_review_hunks", { tip, path }),
+  gitReviewHunks: (tip: string, path: string) =>
+    invoke<ReviewHunk[]>("git_review_hunks", { tip, path }),
   /**
    * Commits the accepted changes onto the working branch and, with `deleteBranch`, deletes the
    * branch locally and on the remote. Conflicts come back in the outcome; nothing is changed then.
@@ -342,9 +475,18 @@ export const backend = {
     deleteBranch: boolean,
     name: string | null,
     email: string | null,
-  ) => invoke<ReviewOutcome>("git_review_finish", { branch, tip, decisions, deleteBranch, name, email }),
+  ) =>
+    invoke<ReviewOutcome>("git_review_finish", {
+      branch,
+      tip,
+      decisions,
+      deleteBranch,
+      name,
+      email,
+    }),
   /** The saved, unfinished decisions of a branch (text); null when there are none. */
-  gitReviewStateLoad: (branch: string) => invoke<string | null>("git_review_state_load", { branch }),
+  gitReviewStateLoad: (branch: string) =>
+    invoke<string | null>("git_review_state_load", { branch }),
   /** Saves the decisions of a branch; null removes them. */
   gitReviewStateSave: (branch: string, content: string | null) =>
     invoke<void>("git_review_state_save", { branch, content }),
@@ -369,7 +511,8 @@ export const backend = {
    * Keeps the text of this note (`this`) or of the other half of the pair (`other`): the original
    * gets that text and the copy moves to `.trash/`. Returns the path of the original.
    */
-  resolveConflict: (path: string, keep: "this" | "other") => invoke<string>("resolve_conflict", { path, keep }),
+  resolveConflict: (path: string, keep: "this" | "other") =>
+    invoke<string>("resolve_conflict", { path, keep }),
   /** Whether an access token is stored in the OS keychain for the remote host. The token is never returned. */
   gitTokenStatus: (host: string) => invoke<boolean>("git_token_status", { host }),
   /** Stores or replaces the token of a remote host in the OS keychain. */
@@ -380,7 +523,8 @@ export const backend = {
    * as `CLONE_PROGRESS_EVENT`. A failed or cancelled clone removes the folder it created. A missing or
    * rejected token rejects with `auth-required:<host>` / `auth-failed:<host>`, a cancel with `cancelled`.
    */
-  gitCloneVault: (url: string, parent: string) => invoke<string>("git_clone_vault", { url, parent }),
+  gitCloneVault: (url: string, parent: string) =>
+    invoke<string>("git_clone_vault", { url, parent }),
   /** Stops the running clone. */
   gitCloneCancel: () => invoke<void>("git_clone_cancel"),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),

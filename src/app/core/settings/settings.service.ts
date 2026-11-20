@@ -2,18 +2,13 @@ import { Injectable, computed, effect, inject, signal } from "@angular/core";
 import { HxTheme } from "@gravionlabs/helix-ui";
 
 import { backend } from "../file/backend";
-import { LinkPreviewMode } from "../preview/preview-core";
-import {
-  VaultState,
-  VaultStates,
-  addRecent,
-  pruneStates,
-  removeRecent,
-} from "../workspace/recent-vaults";
+import type { TreeSort } from "../workspace/tree-model";
+import type { LinkPreviewMode } from "../preview/preview-core";
+import type { VaultState, VaultStates } from "../workspace/recent-vaults";
+import { addRecent, pruneStates, removeRecent } from "../workspace/recent-vaults";
+import type { StoredSettings, ThemeMode } from "./settings-core";
 import {
   LEGACY_STORAGE_KEY,
-  StoredSettings,
-  ThemeMode,
   ZOOM_MAX,
   ZOOM_MIN,
   loadSettings,
@@ -23,6 +18,7 @@ import {
 
 export { ZOOM_MAX, ZOOM_MIN };
 export type { ThemeMode };
+export type PanelTab = "outline" | "links";
 
 const ZOOM_STEP = 10;
 
@@ -50,6 +46,32 @@ export class SettingsService {
   readonly backlinksVisible = signal<boolean>(this.stored.backlinks);
   /** Right-hand outline panel (the headings of the open note). */
   readonly outlineVisible = signal<boolean>(this.stored.outline);
+  /** Width of the right panel; kept per vault (#250). */
+  readonly panelWidth = signal<number>(this.stored.panelWidth);
+  /**
+   * The tab of the right panel. The panel is open when `outlineVisible` or `backlinksVisible` is
+   * set; they are stored per vault, so the open tab survives a restart. Both set (an old
+   * setting) shows the outline.
+   */
+  readonly panelTab = computed<PanelTab>(() =>
+    this.outlineVisible() || !this.backlinksVisible() ? "outline" : "links",
+  );
+  readonly panelOpen = computed(() => this.outlineVisible() || this.backlinksVisible());
+
+  /** Opens the panel on `tab`. */
+  showPanelTab(tab: PanelTab): void {
+    this.outlineVisible.set(tab === "outline");
+    this.backlinksVisible.set(tab === "links");
+  }
+
+  /** Opens the panel on `tab`; closes it when that tab is the open one. */
+  togglePanelTab(tab: PanelTab): void {
+    if (this.panelOpen() && this.panelTab() === tab) {
+      this.outlineVisible.set(false);
+      this.backlinksVisible.set(false);
+    } else this.showPanelTab(tab);
+  }
+
   /** Hover preview of links: with ⌘/Ctrl held, or always. */
   readonly linkPreview = signal<LinkPreviewMode>(this.stored.linkPreview);
   /** Folder reopened on the next start. */
@@ -85,6 +107,28 @@ export class SettingsService {
   /** Branches with this prefix that are ahead of the working branch wait for review (#108). */
   readonly reviewBranchPrefix = signal<string>(this.stored.reviewBranchPrefix);
 
+  /** Bookmarks go into `.obsidian/bookmarks.json` of the vault instead of the app data (#111). */
+  readonly bookmarksInVault = signal<boolean>(this.stored.bookmarksInVault);
+
+  /** Extracting text leaves an embed instead of a link (#113). */
+  readonly extractEmbed = signal<boolean>(this.stored.extractEmbed);
+
+  /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
+  readonly wrapCode = signal<boolean>(this.stored.wrapCode);
+
+  /** Appearance (#114): the theme file, the enabled snippets, the accent color and the fonts. */
+  readonly appearanceTheme = signal<string>(this.stored.appearanceTheme);
+  readonly snippets = signal<string[]>(this.stored.snippets);
+  readonly accentColor = signal<string>(this.stored.accentColor);
+  readonly fontText = signal<string>(this.stored.fontText);
+  readonly fontMono = signal<string>(this.stored.fontMono);
+
+  /** Order of the file tree (#230). */
+  readonly treeSort = signal<TreeSort>(this.stored.treeSort);
+
+  /** The file tree marks changed notes with their Git status (#248). */
+  readonly treeGitStatus = signal<boolean>(this.stored.treeGitStatus);
+
   /** The user's own shortcuts by command id; a command not listed keeps its default, "" is removed. */
   readonly shortcuts = signal<Record<string, string>>(this.stored.shortcuts);
 
@@ -114,6 +158,7 @@ export class SettingsService {
       activeView: this.activeView(),
       backlinks: this.backlinksVisible(),
       outline: this.outlineVisible(),
+      panelWidth: this.panelWidth(),
       linkPreview: this.linkPreview(),
       lastFolder: this.lastFolder(),
       recentVaults: this.recentVaults(),
@@ -131,6 +176,16 @@ export class SettingsService {
       autoSyncOnFocus: this.autoSyncOnFocus(),
       autoSyncOnQuit: this.autoSyncOnQuit(),
       reviewBranchPrefix: this.reviewBranchPrefix(),
+      bookmarksInVault: this.bookmarksInVault(),
+      extractEmbed: this.extractEmbed(),
+      wrapCode: this.wrapCode(),
+      appearanceTheme: this.appearanceTheme(),
+      snippets: this.snippets(),
+      accentColor: this.accentColor(),
+      fontText: this.fontText(),
+      fontMono: this.fontMono(),
+      treeSort: this.treeSort(),
+      treeGitStatus: this.treeGitStatus(),
       shortcuts: this.shortcuts(),
     };
   }
@@ -144,6 +199,7 @@ export class SettingsService {
     this.activeView.set(s.activeView);
     this.backlinksVisible.set(s.backlinks);
     this.outlineVisible.set(s.outline);
+    this.panelWidth.set(s.panelWidth);
     this.linkPreview.set(s.linkPreview);
     this.lastFolder.set(s.lastFolder);
     this.recentVaults.set(s.recentVaults);
@@ -161,6 +217,16 @@ export class SettingsService {
     this.autoSyncOnFocus.set(s.autoSyncOnFocus);
     this.autoSyncOnQuit.set(s.autoSyncOnQuit);
     this.reviewBranchPrefix.set(s.reviewBranchPrefix);
+    this.bookmarksInVault.set(s.bookmarksInVault);
+    this.extractEmbed.set(s.extractEmbed);
+    this.wrapCode.set(s.wrapCode);
+    this.appearanceTheme.set(s.appearanceTheme);
+    this.snippets.set(s.snippets);
+    this.accentColor.set(s.accentColor);
+    this.fontText.set(s.fontText);
+    this.fontMono.set(s.fontMono);
+    this.treeSort.set(s.treeSort);
+    this.treeGitStatus.set(s.treeGitStatus);
     this.shortcuts.set(s.shortcuts);
   }
 

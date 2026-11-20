@@ -1,0 +1,9 @@
+{
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": true,
+  "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
+  "[markdown]": { "editor.formatOnSave": false },
+  "oxc.enable": true,
+  "oxc.configPath": ".oxlintrc.json",
+  "eslint.validate": ["html"]
+}

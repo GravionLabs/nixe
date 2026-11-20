@@ -2,7 +2,8 @@ import { Injectable, computed, inject, signal } from "@angular/core";
 
 import { backend } from "../file/backend";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { SwitcherEntry, SwitcherMatch, fileLabel, rank } from "./fuzzy";
+import type { SwitcherEntry, SwitcherMatch } from "./fuzzy";
+import { fileLabel, rank } from "./fuzzy";
 
 const MAX_RECENT = 50;
 const MAX_RESULTS = 50;
@@ -17,11 +18,19 @@ export class SwitcherService {
   readonly selected = signal(0);
   private readonly entries = signal<SwitcherEntry[]>([]);
   /** Vault-relative paths of opened notes, newest first. */
-  private readonly recent = signal<string[]>([]);
+  private readonly opened = signal<{ root: string; rel: string }[]>([]);
+  /** The recently opened notes of the current vault (vault-relative paths), newest first. */
+  readonly recentNotes = computed(() => {
+    const root = this.workspace.vaultRoot();
+    return this.opened()
+      .filter((o) => o.root === root)
+      .map((o) => o.rel);
+  });
 
-  readonly matches = computed<SwitcherMatch[]>(() =>
-    rank(this.entries(), this.query(), this.recent()).slice(0, MAX_RESULTS),
-  );
+  private readonly ranked = computed(() => rank(this.entries(), this.query(), this.recentNotes()));
+  readonly matches = computed<SwitcherMatch[]>(() => this.ranked().slice(0, MAX_RESULTS));
+  /** True when more notes match than the list shows. */
+  readonly truncated = computed(() => this.ranked().length > MAX_RESULTS);
 
   async open(): Promise<void> {
     this.query.set("");
@@ -53,9 +62,11 @@ export class SwitcherService {
   /** Records an opened note (absolute path); notes outside the vault are ignored. */
   noteOpened(absolutePath: string): void {
     const root = this.workspace.vaultRoot();
-    if (!root || !absolutePath.startsWith(root + "/")) return;
+    if (!root || !absolutePath.startsWith(`${root}/`)) return;
     const rel = absolutePath.slice(root.length + 1);
-    this.recent.update((r) => [rel, ...r.filter((p) => p !== rel)].slice(0, MAX_RECENT));
+    this.opened.update((r) =>
+      [{ root, rel }, ...r.filter((o) => o.root !== root || o.rel !== rel)].slice(0, MAX_RECENT),
+    );
   }
 
   private async loadEntries(): Promise<SwitcherEntry[]> {

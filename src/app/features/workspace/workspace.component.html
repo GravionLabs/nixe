@@ -24,18 +24,34 @@
     <hx-tab-bar
       class="tabbar"
       ariaLabel="Open tabs"
+      modifiedLabel="Unsaved changes"
       [groupId]="'pane-' + pane.id"
       [tabs]="items(pane)"
       [value]="'' + pane.activeId"
-      [menu]="menu"
+      [menu]="menu()"
       allTabsButton
+      missingTitle="File not found"
       (valueChange)="activate(pane, $event)"
       (closed)="closeTab(pane, $event)"
       (moved)="tabs.moveTab(pane.id, $event.from, $event.to)"
       (received)="receive(pane, $event)"
       (menuAction)="onMenu(pane, $event)"
     >
-      <button hx-button type="button" variant="text" severity="secondary" size="small" iconOnly class="new" aria-label="New tab" title="New tab" (click)="addTab(pane)">+</button>
+      <button
+        hx-button
+        type="button"
+        variant="text"
+        severity="secondary"
+        size="small"
+        iconOnly
+        class="new"
+        aria-label="New tab"
+        hx-tooltip="New tab"
+        [hxTooltipShortcut]="shortcuts.keys('new-tab')"
+        (click)="addTab(pane)"
+      >
+        +
+      </button>
     </hx-tab-bar>
     @for (tab of [shown(pane)]; track tab.id) {
       <ng-container *ngComponentOutlet="paneType; injector: tab.injector" />

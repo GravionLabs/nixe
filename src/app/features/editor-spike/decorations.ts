@@ -1,12 +1,6 @@
 import { RangeSetBuilder } from "@codemirror/state";
-import {
-  Decoration,
-  DecorationSet,
-  EditorView,
-  ViewPlugin,
-  ViewUpdate,
-  WidgetType,
-} from "@codemirror/view";
+import type { DecorationSet, ViewUpdate } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 
 import { boldMarkers, checkbox, toggledCheckbox } from "./decoration-logic";
 
@@ -37,9 +31,7 @@ class CheckboxWidget extends WidgetType {
 function build(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const { state } = view;
-  const cursorLines = new Set(
-    state.selection.ranges.map((r) => state.doc.lineAt(r.head).number),
-  );
+  const cursorLines = new Set(state.selection.ranges.map((r) => state.doc.lineAt(r.head).number));
   for (const { from, to } of view.visibleRanges) {
     for (let pos = from; pos <= to;) {
       const line = state.doc.lineAt(pos);
@@ -59,8 +51,7 @@ function build(view: EditorView): DecorationSet {
           : []),
         ...bold.map((r) => ({ ...r, deco: hidden })),
       ].sort((a, b) => a.from - b.from);
-      for (const i of items)
-        builder.add(line.from + i.from, line.from + i.to, i.deco);
+      for (const i of items) builder.add(line.from + i.from, line.from + i.to, i.deco);
       pos = line.to + 1;
     }
   }
@@ -76,8 +67,7 @@ export const livePreviewSpike = [
         this.decorations = build(view);
       }
       update(u: ViewUpdate): void {
-        if (u.docChanged || u.selectionSet || u.viewportChanged)
-          this.decorations = build(u.view);
+        if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = build(u.view);
       }
     },
     { decorations: (p) => p.decorations },

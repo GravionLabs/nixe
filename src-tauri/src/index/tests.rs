@@ -211,6 +211,43 @@ fn backlinks_and_tags() {
 }
 
 #[test]
+fn unlinked_mentions_of_the_title_and_the_aliases() {
+    let (root, mut conn) = setup("mentions");
+    write(
+        &root,
+        "Target.md",
+        "---\naliases: [Tgt]\n---\nTarget talks about target",
+    );
+    write(
+        &root,
+        "a.md",
+        "intro\nI like the target and Tgt.\n[[Target]] `target`\n```\ntarget\n```\n",
+    );
+    write(
+        &root,
+        "sub/b.md",
+        "no mention, only [[Target|target]] and [t](Target.md)",
+    );
+    run(&mut conn, &root);
+    let found = read::unlinked_mentions(&conn, "Target.md").unwrap();
+    assert_eq!(
+        found
+            .iter()
+            .map(|m| (m.source.as_str(), m.line, m.text.as_str()))
+            .collect::<Vec<_>>(),
+        [("a.md", 2, "target"), ("a.md", 2, "Tgt")]
+    );
+    assert_eq!(found[0].context, "I like the target and Tgt.");
+    assert_eq!(
+        &"I like the target and Tgt."[found[1].start..found[1].end],
+        "Tgt"
+    );
+    assert!(read::unlinked_mentions(&conn, "missing.md")
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
 fn skips_internal_directories_and_ignored_files() {
     let (root, mut conn) = setup("skip");
     write(&root, "a.md", "a");
@@ -606,6 +643,30 @@ mod searching {
             .contains("\u{1}quick\u{2} note about \u{1}quickly\u{2}"));
         // A filter-only search lists notes without snippets.
         assert!(search(&conn, "tag:work").unwrap()[0].snippets.is_empty());
+    }
+
+    #[test]
+    fn hits_count_all_matching_lines_beyond_the_snippets_shown() {
+        let (root, mut conn) = setup("s-matches");
+        write(
+            &root,
+            "many.md",
+            "needle 1\nneedle 2\nneedle 3\nneedle 4\nneedle 5",
+        );
+        run(&mut conn, &root);
+        let hit = &search(&conn, "needle").unwrap()[0];
+        assert_eq!(hit.snippets.len(), 3);
+        assert_eq!(hit.matches, 5);
+        assert_eq!(search(&conn, "tag:none").unwrap().len(), 0);
+    }
+
+    #[test]
+    fn hits_carry_the_modification_time_in_milliseconds() {
+        let (_r, conn) = vault("s-mtime");
+        let hits = search(&conn, "lazy").unwrap();
+        // A file written just now: after 2020, not in nanoseconds.
+        assert!(hits.iter().all(|h| h.modified > 1_577_836_800_000));
+        assert!(hits.iter().all(|h| h.modified < 100_000_000_000_000));
     }
 
     #[test]

@@ -1,6 +1,7 @@
-import { LinkFormat } from "../file/backend";
+import type { LinkFormat } from "../file/backend";
 import { dirname } from "../markdown/paths";
-import { SwitcherEntry, fuzzyScore, rank } from "../switcher/fuzzy";
+import type { SwitcherEntry } from "../switcher/fuzzy";
+import { fuzzyScore, rank } from "../switcher/fuzzy";
 
 /** Pure parts of the `[[` and `#` autocomplete: where a completion starts, and what it offers. */
 
@@ -24,7 +25,8 @@ export function wikilinkStage(line: string, col: number): WikilinkStage | null {
   if (hash < 0) return { kind: "note", from: open + 2, query: typed };
   const note = typed.slice(0, hash).trim();
   const rest = typed.slice(hash + 1);
-  if (rest.startsWith("^")) return { kind: "block", from: open + 2 + hash + 2, note, query: rest.slice(1) };
+  if (rest.startsWith("^"))
+    return { kind: "block", from: open + 2 + hash + 2, note, query: rest.slice(1) };
   if (rest.includes("#")) return null;
   return { kind: "heading", from: open + 2 + hash + 1, note, query: rest };
 }
@@ -55,16 +57,23 @@ const MAX_OPTIONS = 50;
 const withoutExtension = (path: string): string => path.replace(/\.md$/iu, "");
 
 /** The link target of `path` in the vault's link format; `from` is the note the link goes into. */
-export function linkTarget(path: string, format: LinkFormat["format"], from: string | null, allPaths: readonly string[]): string {
+export function linkTarget(
+  path: string,
+  format: LinkFormat["format"],
+  from: string | null,
+  allPaths: readonly string[],
+): string {
   const target = withoutExtension(path);
   if (format === "absolute") return target;
-  if (format === "relative" && from !== null) return relativeTo(dirname(from) === "." ? "" : dirname(from), target);
+  if (format === "relative" && from !== null)
+    return relativeTo(dirname(from) === "." ? "" : dirname(from), target);
   // shortest: the file name, with as many folders in front as it takes to be unambiguous
   const others = allPaths.filter((p) => p !== path).map((p) => withoutExtension(p).toLowerCase());
   const segments = target.split("/");
   for (let n = 1; n < segments.length; n++) {
     const candidate = segments.slice(-n).join("/").toLowerCase();
-    if (!others.some((o) => o === candidate || o.endsWith("/" + candidate))) return segments.slice(-n).join("/");
+    if (!others.some((o) => o === candidate || o.endsWith(`/${candidate}`)))
+      return segments.slice(-n).join("/");
   }
   return target;
 }
@@ -89,7 +98,11 @@ export function noteOptions(
     .slice(0, MAX_OPTIONS)
     .map((m) => {
       const target = linkTarget(m.entry.path, format, current, paths);
-      return { label: m.label, detail: m.entry.path, insert: m.isAlias ? `${target}|${m.label}` : target };
+      return {
+        label: m.label,
+        detail: m.entry.path,
+        insert: m.isAlias ? `${target}|${m.label}` : target,
+      };
     });
 }
 
@@ -147,7 +160,10 @@ export function blocksOf(text: string): BlockRef[] {
 
 /** A heading as it is written in a link: characters that break a link become spaces. */
 export function headingLinkText(text: string): string {
-  return text.replace(/[#^|[\]:]/g, " ").replace(/\s+/g, " ").trim();
+  return text
+    .replace(/[#^|[\]:]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export interface PlainOption {
@@ -163,13 +179,20 @@ export function headingOptions(headings: readonly HeadingRef[], query: string): 
     .filter((x): x is { h: HeadingRef; score: number } => x.score !== null)
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_OPTIONS)
-    .map(({ h }) => ({ label: h.text, detail: "#".repeat(h.level), insert: headingLinkText(h.text) }));
+    .map(({ h }) => ({
+      label: h.text,
+      detail: "#".repeat(h.level),
+      insert: headingLinkText(h.text),
+    }));
 }
 
 export function blockOptions(blocks: readonly BlockRef[], query: string): PlainOption[] {
   const q = query.trim();
   return blocks
-    .map((b) => ({ b, score: q ? Math.max(fuzzyScore(q, b.id) ?? -Infinity, fuzzyScore(q, b.text) ?? -Infinity) : 0 }))
+    .map((b) => ({
+      b,
+      score: q ? Math.max(fuzzyScore(q, b.id) ?? -Infinity, fuzzyScore(q, b.text) ?? -Infinity) : 0,
+    }))
     .filter((x) => x.score > -Infinity)
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_OPTIONS)
@@ -177,7 +200,10 @@ export function blockOptions(blocks: readonly BlockRef[], query: string): PlainO
 }
 
 /** Tags matching `query`, the most used first (the input order). */
-export function tagOptions(tags: readonly { tag: string; count: number }[], query: string): PlainOption[] {
+export function tagOptions(
+  tags: readonly { tag: string; count: number }[],
+  query: string,
+): PlainOption[] {
   const q = query.trim();
   return tags
     .filter((t) => !q || fuzzyScore(q, t.tag) !== null)

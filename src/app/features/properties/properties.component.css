@@ -68,7 +68,7 @@ select {
   gap: 4px;
   padding: 0 8px;
   border-radius: 999px;
-  background: rgb(14 124 134 / 0.14);
+  background: color-mix(in srgb, var(--nixe-accent) 14%, transparent);
   color: var(--h-primary-color);
 }
 

@@ -10,9 +10,10 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { HealthReport } from "../../core/file/backend";
+import type { HealthReport } from "../../core/file/backend";
 import { TabsService } from "../../core/tabs/tabs.service";
-import { HealthService, HealthState } from "../../core/index/health.service";
+import type { HealthState } from "../../core/index/health.service";
+import { HealthService } from "../../core/index/health.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { HealthComponent } from "./health.component";
@@ -33,7 +34,13 @@ function render(state: HealthState, value: HealthReport | null) {
     providers: [
       {
         provide: HealthService,
-        useValue: { state: signal(state), report: signal(value), key: signal("k"), refresh, setExcluded },
+        useValue: {
+          state: signal(state),
+          report: signal(value),
+          key: signal("k"),
+          refresh,
+          setExcluded,
+        },
       },
       { provide: SettingsService, useValue: { healthExclude: signal(["templates"]) } },
       { provide: TabsService, useValue: { openInNewTab: open } },
@@ -60,7 +67,12 @@ describe("HealthComponent", () => {
   it("lists the four categories with their counts", () => {
     const { el, refresh } = render("ready", report);
     expect(refresh).toHaveBeenCalled();
-    for (const label of ["Broken links", "Orphan notes", "Duplicate basenames", "Unused attachments"]) {
+    for (const label of [
+      "Broken links",
+      "Orphan notes",
+      "Duplicate basenames",
+      "Unused attachments",
+    ]) {
       expect(el.querySelector(`section[aria-label="${label}"] .count`)?.textContent).toBe("1");
     }
     expect(el.textContent).toContain("see [[Gone]]");

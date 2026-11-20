@@ -1,4 +1,6 @@
-import { LayoutState, sanitizeLayout } from "../tabs/layout";
+import { sanitizePanelWidth } from "../panel/panel-width";
+import type { LayoutState } from "../tabs/layout";
+import { sanitizeLayout } from "../tabs/layout";
 
 /** How many vaults `File → Open recent` remembers. */
 export const MAX_RECENT_VAULTS = 5;
@@ -10,6 +12,8 @@ export interface VaultState {
   sidebar: boolean;
   backlinks: boolean;
   outline: boolean;
+  /** Width of the right panel in px; absent in states stored before it was resizable. */
+  panelWidth?: number;
   /** The tabs and the split; absent in states stored before tabs existed. */
   layout?: LayoutState;
 }
@@ -17,7 +21,11 @@ export interface VaultState {
 export type VaultStates = Record<string, VaultState>;
 
 /** `path` first, any earlier entry of it removed, at most `max` entries. */
-export function addRecent(list: readonly string[], path: string, max = MAX_RECENT_VAULTS): string[] {
+export function addRecent(
+  list: readonly string[],
+  path: string,
+  max = MAX_RECENT_VAULTS,
+): string[] {
   return [path, ...list.filter((p) => p !== path)].slice(0, max);
 }
 
@@ -50,6 +58,8 @@ export function sanitizeStates(value: unknown): VaultStates {
       backlinks: s["backlinks"] === true,
       outline: s["outline"] === true,
     };
+    if (typeof s["panelWidth"] === "number")
+      out[path].panelWidth = sanitizePanelWidth(s["panelWidth"]);
     const layout = sanitizeLayout(s["layout"]);
     if (layout) out[path].layout = layout;
   }

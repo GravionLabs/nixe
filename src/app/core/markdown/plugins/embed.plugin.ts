@@ -20,7 +20,11 @@ export function embedPlugin(md: MarkdownIt): void {
   md.inline.ruler.before("image", "embed", (state, silent) => {
     const src = state.src;
     const start = state.pos;
-    if (src.charCodeAt(start) !== 0x21 || src.charCodeAt(start + 1) !== 0x5b || src.charCodeAt(start + 2) !== 0x5b) {
+    if (
+      src.charCodeAt(start) !== 0x21 ||
+      src.charCodeAt(start + 1) !== 0x5b ||
+      src.charCodeAt(start + 2) !== 0x5b
+    ) {
       return false;
     }
     const end = src.indexOf("]]", start + 3);
@@ -39,7 +43,11 @@ export function embedPlugin(md: MarkdownIt): void {
         t.content = embed.target;
         t.meta = { unresolved: !!files && !resolved };
       } else if (embed.kind === "image") {
-        const path = resolved ? (env.vaultRoot ? joinPath(env.vaultRoot, resolved) : resolved) : embed.target;
+        const path = resolved
+          ? env.vaultRoot
+            ? joinPath(env.vaultRoot, resolved)
+            : resolved
+          : embed.target;
         const img = state.push("image", "img", 0);
         img.attrs = [
           ["src", path],
@@ -51,7 +59,10 @@ export function embedPlugin(md: MarkdownIt): void {
         img.content = embed.target;
       } else {
         const open = state.push("wikilink_open", "a", 1);
-        open.attrSet("class", files && !resolved ? "wikilink embed-file unresolved" : "wikilink embed-file");
+        open.attrSet(
+          "class",
+          files && !resolved ? "wikilink embed-file unresolved" : "wikilink embed-file",
+        );
         open.attrSet("data-target", embed.target);
         open.attrSet("href", "#");
         state.push("text", "", 0).content = embed.target;

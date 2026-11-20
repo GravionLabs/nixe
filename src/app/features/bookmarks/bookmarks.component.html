@@ -1,0 +1,72 @@
+<header>
+  <span>Bookmarks</span>
+  <button
+    type="button"
+    class="add"
+    (click)="bookmarks.addGroup()"
+    title="New group"
+    aria-label="New group"
+  >
+    +
+  </button>
+</header>
+@if (rows().length === 0) {
+  <p class="status">
+    No bookmarks yet. Bookmark a note, a heading or a search from the command palette.
+  </p>
+}
+<ul
+  role="tree"
+  aria-label="Bookmarks"
+  (dragover)="$event.preventDefault()"
+  (drop)="dropAtEnd($event)"
+>
+  @for (row of rows(); track row.path.join(".")) {
+    <!-- eslint-disable @angular-eslint/template/role-has-required-aria -- the bookmarks tree has no selection; aria-selected would announce every item as not selected -->
+    <li
+      role="treeitem"
+      draggable="true"
+      [attr.data-kind]="row.kind"
+      [style.padding-left.px]="8 + row.depth * 14"
+      (dragstart)="dragging.set(row.path)"
+      (dragend)="dragging.set(null)"
+      (dragover)="$event.preventDefault(); $event.stopPropagation()"
+      (drop)="drop($event, row)"
+    >
+      <!-- eslint-enable @angular-eslint/template/role-has-required-aria -->
+      <span class="icon" aria-hidden="true">{{ icon(row) }}</span>
+      @if (editing()?.join(".") === row.path.join(".")) {
+        <input
+          #name
+          class="rename"
+          type="text"
+          aria-label="Group name"
+          [value]="label(row)"
+          (click)="$event.stopPropagation()"
+          (keydown.enter)="commit(row, name.value)"
+          (keydown.escape)="editing.set(null)"
+          (blur)="commit(row, name.value)"
+        />
+      } @else {
+        <button
+          type="button"
+          class="label"
+          [title]="label(row)"
+          (click)="open(row)"
+          (dblclick)="rename(row)"
+        >
+          {{ label(row) }}
+        </button>
+      }
+      <button
+        type="button"
+        class="remove"
+        (click)="bookmarks.remove(row.path)"
+        title="Remove bookmark"
+        aria-label="Remove bookmark"
+      >
+        ×
+      </button>
+    </li>
+  }
+</ul>

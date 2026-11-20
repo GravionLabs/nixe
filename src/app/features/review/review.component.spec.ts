@@ -11,15 +11,33 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import { DocumentService } from "../../core/file/document.service";
-import { GitChange, ReviewBranch, ReviewConflict, ReviewHunk } from "../../core/file/backend";
+import type { GitChange, ReviewBranch, ReviewConflict, ReviewHunk } from "../../core/file/backend";
 import { ReviewService } from "../../core/git/review.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { ReviewComponent } from "./review.component";
 
 const branches: ReviewBranch[] = [
-  { name: "claude/a", tip: "t1", remote: false, author: "Claude", time: 1_700_000_000, messages: ["tidy inbox", "fix links"], ahead: 2, notes: 2 },
-  { name: "claude/b", tip: "t2", remote: true, author: "Claude", time: 1_700_000_100, messages: ["more"], ahead: 1, notes: 1 },
+  {
+    name: "claude/a",
+    tip: "t1",
+    remote: false,
+    author: "Claude",
+    time: 1_700_000_000,
+    messages: ["tidy inbox", "fix links"],
+    ahead: 2,
+    notes: 2,
+  },
+  {
+    name: "claude/b",
+    tip: "t2",
+    remote: true,
+    author: "Claude",
+    time: 1_700_000_100,
+    messages: ["more"],
+    ahead: 1,
+    notes: 1,
+  },
 ];
 const changes: GitChange[] = [
   { path: "a.md", kind: "modified" },
@@ -39,7 +57,15 @@ function render() {
     result: signal<string | null>(null),
     hunks: signal<Record<string, ReviewHunk[]>>({
       "a.md": [
-        { index: 0, oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, old: "two\n", new: "three\n" },
+        {
+          index: 0,
+          oldStart: 1,
+          oldLines: 1,
+          newStart: 1,
+          newLines: 1,
+          old: "two\n",
+          new: "three\n",
+        },
         { index: 1, oldStart: 5, oldLines: 0, newStart: 5, newLines: 1, old: "", new: "tail\n" },
       ],
     }),
@@ -69,7 +95,11 @@ function render() {
     ],
   });
   TestBed.overrideComponent(ReviewComponent, {
-    set: { templateUrl: undefined, styleUrl: undefined, template: readFileSync("src/app/features/review/review.component.html", "utf8") },
+    set: {
+      templateUrl: undefined,
+      styleUrl: undefined,
+      template: readFileSync("src/app/features/review/review.component.html", "utf8"),
+    },
   });
   const fixture = TestBed.createComponent(ReviewComponent);
   fixture.detectChanges();
@@ -84,18 +114,24 @@ describe("ReviewComponent", () => {
   it("lists the branches with author, date, commit messages and the number of notes", () => {
     const { el } = render();
     expect(el.querySelector("h2")!.textContent).toContain("2");
-    const rows = [...el.querySelectorAll(".branch")].map((b) => b.textContent!.replace(/\s+/g, " ").trim());
+    const rows = [...el.querySelectorAll(".branch")].map((b) =>
+      b.textContent!.replace(/\s+/g, " ").trim(),
+    );
     expect(rows[0]).toBe("claude/a Claude · 2023-11-14 22:13 · 2 notes");
     expect(rows[1]).toContain("remote");
     expect(rows[1]).toContain("1 note");
-    expect([...el.querySelectorAll(".messages")[0].querySelectorAll("li")].map((l) => l.textContent)).toEqual(["tidy inbox", "fix links"]);
+    expect(
+      [...el.querySelectorAll(".messages")[0].querySelectorAll("li")].map((l) => l.textContent),
+    ).toEqual(["tidy inbox", "fix links"]);
   });
 
   it("opens a branch and one of its notes", () => {
     const { el, service } = render();
     el.querySelectorAll<HTMLElement>(".branch")[1].click();
     expect(service.toggle).toHaveBeenCalledWith(branches[1]);
-    const entries = [...el.querySelectorAll(".entry")].map((b) => b.textContent!.replace(/\s+/g, " ").trim());
+    const entries = [...el.querySelectorAll(".entry")].map((b) =>
+      b.textContent!.replace(/\s+/g, " ").trim(),
+    );
     expect(entries).toEqual(["Ma.mdrejected", "Anew.mdrejected"]);
     el.querySelectorAll<HTMLElement>(".entry")[1].click();
     expect(service.select).toHaveBeenCalledWith(changes[1]);
@@ -115,7 +151,9 @@ describe("ReviewComponent", () => {
   });
 
   const button = (el: HTMLElement, label: string) =>
-    [...el.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent!.trim() === label || b.getAttribute("aria-label") === label)!;
+    [...el.querySelectorAll<HTMLElement>("button")].find(
+      (b) => b.textContent!.trim() === label || b.getAttribute("aria-label") === label,
+    )!;
 
   it("accepts or rejects a note and a hunk", () => {
     const { el, service } = render();
@@ -151,7 +189,9 @@ describe("ReviewComponent", () => {
     button(el, "Finish review").click();
     fixture.detectChanges();
     expect(service.finish).not.toHaveBeenCalled();
-    expect(el.querySelector(".finish")!.textContent).toContain("delete claude/a locally and on the remote");
+    expect(el.querySelector(".finish")!.textContent).toContain(
+      "delete claude/a locally and on the remote",
+    );
     button(el, "Cancel").click();
     fixture.detectChanges();
     expect(el.querySelector(".finish p")).toBeNull();

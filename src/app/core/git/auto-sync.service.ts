@@ -15,7 +15,10 @@ export class AutoSyncService {
   private readonly git = inject(GitService);
   private readonly settings = inject(SettingsService);
   private readonly document = inject(DOCUMENT);
-  private readonly scheduler = new AutoSyncScheduler(() => this.git.sync({ auto: true }), AUTO_SYNC_IDLE_MS);
+  private readonly scheduler = new AutoSyncScheduler(
+    () => this.git.sync({ auto: true }),
+    AUTO_SYNC_IDLE_MS,
+  );
 
   constructor() {
     effect(() => {
@@ -31,15 +34,18 @@ export class AutoSyncService {
 
   /** The window got focus. */
   onFocus(): void {
-    if (this.settings.autoSync() && this.settings.autoSyncOnFocus() && this.git.available()) this.scheduler.request();
+    if (this.settings.autoSync() && this.settings.autoSyncOnFocus() && this.git.available())
+      this.scheduler.request();
   }
 
   /** Syncs once before the window closes (without waiting for idle). Never throws. */
   async onQuit(): Promise<void> {
-    if (!this.settings.autoSync() || !this.settings.autoSyncOnQuit() || !this.git.available()) return;
+    if (!this.settings.autoSync() || !this.settings.autoSyncOnQuit() || !this.git.available())
+      return;
     const done = (async () => {
       // A sync that is already running finishes first; `sync` ignores a second call.
-      while (this.git.syncState().phase === "syncing") await new Promise((resolve) => setTimeout(resolve, 100));
+      while (this.git.syncState().phase === "syncing")
+        await new Promise((resolve) => setTimeout(resolve, 100));
       await this.git.sync({ auto: true });
     })();
     await Promise.race([done, new Promise((resolve) => setTimeout(resolve, QUIT_TIMEOUT_MS))]);
@@ -52,7 +58,8 @@ export class AutoSyncService {
       if (e.payload) this.onFocus();
     });
     await win.onCloseRequested(async (event) => {
-      if (!this.settings.autoSync() || !this.settings.autoSyncOnQuit() || !this.git.available()) return;
+      if (!this.settings.autoSync() || !this.settings.autoSyncOnQuit() || !this.git.available())
+        return;
       event.preventDefault();
       await this.onQuit();
       await win.destroy();

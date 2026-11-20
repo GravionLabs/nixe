@@ -53,7 +53,7 @@
 }
 
 .diff {
-  font-family: ui-monospace, monospace;
+  font-family: var(--nixe-font-mono, monospace);
   font-size: 12px;
   overflow: auto;
 }

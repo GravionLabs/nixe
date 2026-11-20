@@ -1,9 +1,20 @@
-import { Component, ElementRef, OnDestroy, effect, inject, output, signal, untracked, viewChild } from "@angular/core";
+import type { ElementRef, OnDestroy } from "@angular/core";
+import { Component, effect, inject, output, signal, untracked, viewChild } from "@angular/core";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { HxMessageService } from "@gravionlabs/helix-ui";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { AutoSaver, ExternalChangeTracker, changedRange, clampLine, toCrlf } from "../../core/editor/editor-core";
+import { countText } from "../../core/editor/text-stats";
+import {
+  AutoSaver,
+  ExternalChangeTracker,
+  UNDO_RELOAD_MS,
+  changedRange,
+  clampLine,
+  discardedByReload,
+  toCrlf,
+} from "../../core/editor/editor-core";
 import { blocksOf, headingsOf } from "../../core/editor/completion-core";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { targetOf } from "../../core/preview/preview-core";
@@ -19,8 +30,13 @@ import { fileLabel } from "../../core/switcher/fuzzy";
 import { SettingsService } from "../../core/settings/settings.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
-import { CompletionData } from "./completion";
+import type { CompletionData } from "./completion";
+import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
+import { ExternalCompareComponent } from "./external-compare.component";
+import type { FoldAction } from "./folding";
+import { foldAction, folding, restoreFolds } from "./folding";
+import { headingLineAt } from "../../core/composer/composer-core";
 
 const BASE_FONT_PX = 16;
 
@@ -33,23 +49,18 @@ interface Session {
   tracker: ExternalChangeTracker;
 }
 
+/** Pause after the last change before the counts are recomputed. */
+const STATS_DELAY_MS = 150;
+
 /** CodeMirror 6 editor of the open note. Lives in its own lazy chunk (loaded by `@defer`). */
 @Component({
   selector: "app-editor",
-  template: `
-    @if (conflict() !== null) {
-      <div class="bar" role="alert">
-        <span>This note changed on disk while you were editing.</span>
-        <button type="button" (click)="reloadFromDisk()">Reload</button>
-        <button type="button" (click)="keepMine()">Keep mine</button>
-      </div>
-    }
-    <div #host class="host"></div>
-  `,
+  templateUrl: "./editor.component.html",
   styleUrl: "./editor.component.css",
+  imports: [ExternalCompareComponent],
 })
 export class EditorComponent implements OnDestroy {
-  readonly error = output<string>();
+  readonly failed = output<string>();
 
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
@@ -58,10 +69,18 @@ export class EditorComponent implements OnDestroy {
   private readonly settings = inject(SettingsService);
   private readonly editor = inject(EditorService);
   private readonly outline = inject(OutlineService);
+  private readonly folds = inject(FoldStateService);
+  private readonly messages = inject(HxMessageService);
   private readonly host = viewChild.required<ElementRef<HTMLElement>>("host");
 
   /** The disk text that conflicts with unsaved changes; null when there is no conflict. */
   protected readonly conflict = signal<string | null>(null);
+
+  /** The editor text shown in the compare dialog; null while the dialog is closed. */
+  protected readonly comparing = signal<string | null>(null);
+
+  /** The toast that offers to undo the last reload from the bar. */
+  private undoToast: number | null = null;
 
   private readonly theme = new Compartment();
   private view: EditorView | undefined;
@@ -69,6 +88,7 @@ export class EditorComponent implements OnDestroy {
   private loading = false;
   private unlistenClose: (() => void) | undefined;
   private destroyed = false;
+  private statsTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
     this.editor.handle = {
@@ -77,13 +97,23 @@ export class EditorComponent implements OnDestroy {
       flush: () => this.flush(),
       dirty: () => this.session?.saver.dirty ?? false,
       blocked: () => this.conflict() !== null,
+      saveCopy: () => this.saveCopy(),
       insertTemplate: (template) => this.insertTemplate(template),
       attachPaths: (paths) => this.attachPaths(paths),
+      fold: (action) => this.fold(action),
+      selection: () => this.selection(),
+      headingLine: () => this.headingLine(),
     };
     this.doc.editorHook = (path, text) => this.onExternal(path, text);
     this.doc.remoteHook = (text, saved) => this.onRemote(text, saved);
 
     effect(() => this.editor.blocked.set(this.conflict() !== null));
+
+    // A missing file must not be written back by the autosave: the text stays in the editor.
+    effect(() => {
+      const missing = this.doc.missing();
+      untracked(() => this.session?.saver.hold(missing || this.conflict() !== null));
+    });
 
     effect(() => {
       const path = this.doc.path();
@@ -100,9 +130,29 @@ export class EditorComponent implements OnDestroy {
     void this.watchWindowClose();
   }
 
+  /** Counts after typing pauses, so a long note is not scanned on every key. */
+  private scheduleStats(): void {
+    clearTimeout(this.statsTimer);
+    this.statsTimer = setTimeout(() => this.updateStats(), STATS_DELAY_MS);
+  }
+
+  private updateStats(): void {
+    const view = this.view;
+    if (!view || this.destroyed) return;
+    const { from, to } = view.state.selection.main;
+    this.editor.stats.set(
+      from === to
+        ? countText(view.state.doc.toString())
+        : countText(view.state.sliceDoc(from, to), true),
+    );
+  }
+
   ngOnDestroy(): void {
     this.destroyed = true;
+    clearTimeout(this.statsTimer);
+    this.editor.stats.set(null);
     this.unlistenClose?.();
+    this.dropUndo();
     void this.settle();
     this.editor.handle = null;
     this.outline.editorText.set(null);
@@ -129,6 +179,8 @@ export class EditorComponent implements OnDestroy {
   private async openNote(path: string | null, host: HTMLElement): Promise<void> {
     await this.settle();
     this.conflict.set(null);
+    this.comparing.set(null);
+    this.dropUndo();
     const current = this.doc.path();
     if (!current || current !== path) {
       // A newer switch is on its way; it opens the note.
@@ -137,7 +189,7 @@ export class EditorComponent implements OnDestroy {
     }
     if (!(await backend.isUtf8File(current))) {
       this.session = null;
-      this.error.emit("This note is not valid UTF-8; editing it would damage it.");
+      this.failed.emit("This note is not valid UTF-8; editing it would damage it.");
       this.editor.editing.set(false);
       return;
     }
@@ -148,10 +200,12 @@ export class EditorComponent implements OnDestroy {
       tracker: new ExternalChangeTracker(text),
       saver: new AutoSaver({
         write: (t) => this.write(session, t),
-        onError: (e) => this.error.emit(`Saving failed: ${String(e)}`),
+        onError: (e) => this.failed.emit(`Saving failed: ${String(e)}`),
+        onDirtyChange: (dirty) => this.editor.unsaved.set(dirty),
       }),
     };
     this.session = session;
+    this.editor.unsaved.set(false);
 
     this.loading = true;
     const state = EditorState.create({
@@ -162,10 +216,17 @@ export class EditorComponent implements OnDestroy {
           onBlur: () => void this.flush(),
           onWikilink: (value) => void this.openWikilink(value),
           onWikilinkHover: (hover) =>
-            hover ? this.preview.hover(targetOf(hover.value), hover.anchor, hover.modifier) : this.preview.leave(),
+            hover
+              ? this.preview.hover(targetOf(hover.value), hover.anchor, hover.modifier)
+              : this.preview.leave(),
           completion: this.completionData,
         }),
-        this.theme.of(editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100)),
+        folding((lines) => {
+          if (this.session === session && !this.restoringFolds) this.folds.set(session.path, lines);
+        }),
+        this.theme.of(
+          editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100),
+        ),
         EditorView.domEventHandlers({
           paste: (event) => this.onPaste(event),
           scroll: () => this.outline.topLine.set(this.topLine()),
@@ -174,6 +235,8 @@ export class EditorComponent implements OnDestroy {
           if (update.docChanged && this.session === session) {
             this.outline.editorText.set(update.state.doc.toString());
           }
+          if ((update.docChanged || update.selectionSet) && this.session === session)
+            this.scheduleStats();
           if (update.docChanged && !this.loading && this.session === session) {
             const text = update.state.doc.toString();
             session.saver.change(text);
@@ -186,12 +249,50 @@ export class EditorComponent implements OnDestroy {
     else this.view = new EditorView({ state, parent: host });
     this.loading = false;
     this.outline.editorText.set(text);
+    this.updateStats();
+    void this.restoreFolds(session);
 
     const line = this.editor.startLine();
     this.editor.startLine.set(null);
     if (line !== null) this.scrollToLine(line);
     this.outline.topLine.set(this.topLine());
     this.view.focus();
+  }
+
+  private restoringFolds = false;
+
+  /** Closes the folds remembered for the note, unless the user already changed them meanwhile. */
+  private async restoreFolds(session: Session): Promise<void> {
+    const lines = await this.folds.linesOf(session.path);
+    const view = this.view;
+    if (!view || this.session !== session || lines.length === 0) return;
+    this.restoringFolds = true;
+    try {
+      restoreFolds(view, lines);
+    } finally {
+      this.restoringFolds = false;
+    }
+  }
+
+  private selection(): { start: number; end: number; text: string } | null {
+    const view = this.view;
+    if (!view) return null;
+    const { from, to } = view.state.selection.main;
+    return from === to ? null : { start: from, end: to, text: view.state.sliceDoc(from, to) };
+  }
+
+  private headingLine(): number | null {
+    const view = this.view;
+    if (!view) return null;
+    const line = view.state.doc.lineAt(view.state.selection.main.head).number;
+    return headingLineAt(view.state.doc.toString(), line);
+  }
+
+  private fold(action: FoldAction): void {
+    const view = this.view;
+    if (!view) return;
+    foldAction(view, action);
+    view.focus();
   }
 
   /** What `[[` and `#` completion reads: the index for notes and tags, the note text for headings. */
@@ -212,7 +313,7 @@ export class EditorComponent implements OnDestroy {
 
   private relativePath(path: string | null): string | null {
     const root = this.workspace.vaultRoot();
-    return path && root && path.startsWith(root + "/") ? path.slice(root.length + 1) : null;
+    return path && root && path.startsWith(`${root}/`) ? path.slice(root.length + 1) : null;
   }
 
   /** The text of the note a link target names; the open note (as typed) for an empty target. */
@@ -245,21 +346,46 @@ export class EditorComponent implements OnDestroy {
     const session = this.session;
     const pending = session?.saver.pendingText ?? null;
     if (!session || this.conflict() === null || pending === null) return this.flush();
-    const copy = session.path.replace(/(\.[^./]+)?$/, ` (unsaved copy ${new Date().toISOString().replace(/[:.]/g, "-")}).md`);
+    const copy = unsavedCopyPath(session.path);
     try {
       await backend.writeTextFile(copy, session.crlf ? toCrlf(pending) : pending);
       session.saver.discard();
-      this.error.emit(`The note changed on disk; your edits were saved to ${copy}`);
+      this.failed.emit(`The note changed on disk; your edits were saved to ${copy}`);
     } catch (error) {
-      this.error.emit(`Your edits could not be saved: ${String(error)}`);
+      this.failed.emit(`Your edits could not be saved: ${String(error)}`);
+    }
+  }
+
+  /** "Save as copy" of a note whose file is gone: the editor text goes next to where it was. */
+  private async saveCopy(): Promise<void> {
+    const session = this.session;
+    const view = this.view;
+    if (!session || !view) return;
+    const copy = unsavedCopyPath(session.path);
+    try {
+      const text = view.state.doc.toString();
+      await backend.writeTextFile(copy, session.crlf ? toCrlf(text) : text);
+      session.saver.discard();
+      this.failed.emit(`Saved a copy to ${copy}`);
+    } catch (error) {
+      this.failed.emit(`The copy could not be saved: ${String(error)}`);
     }
   }
 
   private insertTemplate(template: string): void {
     const view = this.view;
     if (!view) throw new Error("Open the editor first.");
-    const { changes, cursor } = insertTemplate(view.state.doc.toString(), view.state.selection.main.head, template);
-    view.dispatch({ changes, selection: { anchor: cursor }, scrollIntoView: true, userEvent: "input.paste" });
+    const { changes, cursor } = insertTemplate(
+      view.state.doc.toString(),
+      view.state.selection.main.head,
+      template,
+    );
+    view.dispatch({
+      changes,
+      selection: { anchor: cursor },
+      scrollIntoView: true,
+      userEvent: "input.paste",
+    });
     view.focus();
   }
 
@@ -268,7 +394,9 @@ export class EditorComponent implements OnDestroy {
     const files = Array.from(event.clipboardData?.files ?? []);
     if (files.length === 0 || !this.session) return false;
     event.preventDefault();
-    void this.attachFiles(files).catch((err) => this.error.emit(`Attaching failed: ${String(err)}`));
+    void this.attachFiles(files).catch((err) =>
+      this.failed.emit(`Attaching failed: ${String(err)}`),
+    );
     return true;
   }
 
@@ -277,9 +405,10 @@ export class EditorComponent implements OnDestroy {
     if (!note) return;
     const saved: string[] = [];
     for (const file of files) {
-      const name = file.type.startsWith("image/") && (!file.name || /^image\.\w+$/iu.test(file.name))
-        ? pastedImageName(new Date(), file.type)
-        : file.name || pastedImageName(new Date(), file.type);
+      const name =
+        file.type.startsWith("image/") && (!file.name || /^image\.\w+$/iu.test(file.name))
+          ? pastedImageName(new Date(), file.type)
+          : file.name || pastedImageName(new Date(), file.type);
       const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
       saved.push(await backend.saveAttachment(note, name, bytes));
     }
@@ -325,7 +454,10 @@ export class EditorComponent implements OnDestroy {
     const view = this.view;
     if (!view) return;
     const pos = view.state.doc.line(clampLine(line, view.state.doc.lines)).from;
-    view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "start" }) });
+    view.dispatch({
+      selection: { anchor: pos },
+      effects: EditorView.scrollIntoView(pos, { y: "start" }),
+    });
     this.outline.topLine.set(this.topLine());
   }
 
@@ -371,7 +503,7 @@ export class EditorComponent implements OnDestroy {
       if (this.session === session) this.replaceText(session, text);
       return true;
     }
-    this.error.emit("The note is no longer valid UTF-8; editing stopped.");
+    this.failed.emit("The note is no longer valid UTF-8; editing stopped.");
     session.saver.discard();
     this.editor.editing.set(false);
     return false;
@@ -382,20 +514,70 @@ export class EditorComponent implements OnDestroy {
     const disk = this.conflict();
     if (!session || disk === null) return;
     if (!(await backend.isUtf8File(session.path))) {
-      this.error.emit("The note on disk is not valid UTF-8; keep yours or fix the file first.");
+      this.failed.emit("The note on disk is not valid UTF-8; keep yours or fix the file first.");
       return;
     }
+    const discarded = this.view?.state.doc.toString() ?? "";
     session.saver.discard();
     this.replaceText(session, disk);
     this.conflict.set(null);
-    session.saver.hold(false);
+    this.comparing.set(null);
+    session.saver.hold(this.doc.missing());
+    this.offerUndo(session, discarded);
+  }
+
+  /** Reload discards the unsaved edits: a toast puts them back for a while. */
+  private offerUndo(session: Session, before: string): void {
+    this.dropUndo();
+    const discarded = discardedByReload(before, this.view?.state.doc.toString() ?? "");
+    if (discarded === null) return;
+    this.undoToast = this.messages.add({
+      severity: "info",
+      summary: "Reloaded from disk; your unsaved edits were discarded.",
+      life: UNDO_RELOAD_MS,
+      action: { label: "Undo", run: () => this.undoReload(session, discarded) },
+    });
+  }
+
+  private dropUndo(): void {
+    if (this.undoToast !== null) this.messages.remove(this.undoToast);
+    this.undoToast = null;
+  }
+
+  /** Puts the discarded text back as an ordinary edit, so it is saved over the disk version. */
+  private undoReload(session: Session, discarded: string): void {
+    this.undoToast = null;
+    const view = this.view;
+    if (!view || this.session !== session || this.conflict() !== null) return;
+    const range = changedRange(view.state.doc.toString(), discarded);
+    if (range) view.dispatch({ changes: range, userEvent: "input.undo-reload" });
+  }
+
+  protected compare(): void {
+    if (this.conflict() === null || !this.view) return;
+    this.comparing.set(this.view.state.doc.toString());
+  }
+
+  protected closeCompare(): void {
+    this.comparing.set(null);
+    this.view?.focus();
+  }
+
+  protected chooseReload(): void {
+    this.comparing.set(null);
+    void this.reloadFromDisk();
+  }
+
+  protected chooseKeep(): void {
+    this.comparing.set(null);
+    this.keepMine();
   }
 
   protected keepMine(): void {
     const session = this.session;
     if (!session) return;
     this.conflict.set(null);
-    session.saver.hold(false);
+    session.saver.hold(this.doc.missing());
     void session.saver.flush();
   }
 
@@ -418,12 +600,20 @@ export class EditorComponent implements OnDestroy {
     if (!root || !files || !note) return;
     if (!resolved) {
       await this.settle();
-      await this.ops.createNoteForLink(value).catch((err) => this.error.emit(String(err)));
+      await this.ops.createNoteForLink(value).catch((err) => this.failed.emit(String(err)));
       return;
     }
     const path = joinPath(root, resolved);
     if (!isMarkdownPath(path)) return;
     await this.settle();
-    await this.doc.open(path, { anchor: heading }).catch((err) => this.error.emit(String(err)));
+    await this.doc.open(path, { anchor: heading }).catch((err) => this.failed.emit(String(err)));
   }
+}
+
+/** A sibling of `path` for text that must not overwrite the note. */
+function unsavedCopyPath(path: string): string {
+  return path.replace(
+    /(\.[^./]+)?$/,
+    ` (unsaved copy ${new Date().toISOString().replace(/[:.]/g, "-")}).md`,
+  );
 }
