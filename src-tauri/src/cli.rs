@@ -41,6 +41,7 @@ usage: nixe <path>|-                       open the viewer
        nixe append <note> [text] [--vault <dir>]   text from stdin when omitted
        nixe append --inbox [text] [--vault <dir>]
        nixe daily [--append <text>] [--vault <dir>]   open today's daily note, or append to it
+       nixe export <note> --format html|pdf [--out <file>] [--dark|--light] [--page-size A4] [--vault <dir>]
        nixe mcp [--vault <dir>]...                MCP server over stdio (read-only)
 
 search, notes and tags also take several --vault <dir> or --workspace <name> (a saved
@@ -54,6 +55,9 @@ pub fn try_run() -> Option<i32> {
         return None;
     }
     let cwd = std::env::current_dir().unwrap_or_default();
+    if args[0] == "export" {
+        return export_request(&args[1..], &cwd);
+    }
     let Some(data) = app_data_dir() else {
         eprintln!("nixe: cannot locate the application data directory");
         return Some(1);
@@ -92,7 +96,54 @@ pub fn try_run() -> Option<i32> {
 /// True when the first argument names a subcommand.
 pub fn is_subcommand(args: &[String]) -> bool {
     args.first()
-        .is_some_and(|a| SUBCOMMANDS.contains(&a.as_str()))
+        .is_some_and(|a| a == "export" || SUBCOMMANDS.contains(&a.as_str()))
+}
+
+/// `nixe export`: checks the arguments and keeps the request for the app to run. `None` starts
+/// the app (hidden for HTML); a wrong request ends here with its exit code.
+fn export_request(args: &[String], cwd: &Path) -> Option<i32> {
+    let result = app_data_dir()
+        .ok_or_else(|| CliError::Failed("cannot locate the application data directory".into()))
+        .and_then(|data| parse_export(args, cwd, &data, true));
+    match result {
+        Ok(request) => {
+            let _ = crate::cli_export::REQUEST.set(request);
+            None
+        }
+        Err(CliError::Usage(msg)) => {
+            eprintln!("nixe: {msg}\n{USAGE}");
+            Some(2)
+        }
+        Err(CliError::Failed(msg)) => {
+            eprintln!("nixe: {msg}");
+            Some(1)
+        }
+    }
+}
+
+/// The export the arguments after `export` ask for.
+pub fn parse_export(
+    args: &[String],
+    cwd: &Path,
+    app_data: &Path,
+    headless: bool,
+) -> Result<crate::cli_export::ExportRequest, CliError> {
+    let p = parse(args)?;
+    let opts = crate::cli_export::Options {
+        vaults: p.vaults,
+        workspace: p.workspace,
+        positional: p.positional,
+        format: p.format,
+        out: p.out,
+        dark: p.dark,
+        page_size: p.page_size,
+    };
+    crate::cli_export::resolve(&opts, cwd, app_data, headless)
+}
+
+/// Where the app keeps its data (exposed for the second-instance hand-over).
+pub fn data_dir() -> Option<PathBuf> {
+    app_data_dir()
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -128,7 +179,7 @@ fn app_data_dir() -> Option<PathBuf> {
 }
 
 #[derive(Debug, Default)]
-struct Parsed {
+pub(crate) struct Parsed {
     vaults: Vec<String>,
     workspace: Option<String>,
     json: bool,
@@ -139,10 +190,14 @@ struct Parsed {
     open: bool,
     inbox: bool,
     append: Option<String>,
+    format: Option<String>,
+    out: Option<String>,
+    dark: Option<bool>,
+    page_size: Option<String>,
     positional: Vec<String>,
 }
 
-fn parse(args: &[String]) -> Result<Parsed, CliError> {
+pub(crate) fn parse(args: &[String]) -> Result<Parsed, CliError> {
     let mut p = Parsed::default();
     let mut it = args.iter();
     let value = |flag: &str, inline: Option<&str>, it: &mut std::slice::Iter<String>| {
@@ -160,6 +215,11 @@ fn parse(args: &[String]) -> Result<Parsed, CliError> {
             "--json" => p.json = true,
             "--open" => p.open = true,
             "--inbox" => p.inbox = true,
+            "--dark" => p.dark = Some(true),
+            "--light" => p.dark = Some(false),
+            "--format" => p.format = Some(value(flag, inline, &mut it)?),
+            "--out" => p.out = Some(value(flag, inline, &mut it)?),
+            "--page-size" => p.page_size = Some(value(flag, inline, &mut it)?),
             "--append" => p.append = Some(value(flag, inline, &mut it)?),
             "--folder" => p.folder = Some(value(flag, inline, &mut it)?),
             "--vault" => p.vaults.push(value(flag, inline, &mut it)?),

@@ -64,6 +64,21 @@ the note picks the change up through its file watcher.
 `<note>` is a vault-relative path (with or without `.md`) or a unique note name, resolved
 like a `[[wikilink]]`. A missing or ambiguous note is an error.
 
+## Export
+
+`nixe export <note> --format html|pdf [--out <file>] [--dark|--light] [--page-size <size>]` does what
+the commands "Export as HTML", "Export as PDF" and "Print" do in the app (see
+[export.md](export.md)). The rendering lives in the app, so the command resolves the note like a
+`[[wikilink]]`, checks the arguments (exit `2` when wrong, `1` for an unknown note) and then starts
+the app for the export.
+
+- `--format html` writes one self-contained file to `--out` (default: `<note name>.html` in the
+  current directory) and prints its path. No window shows; the command ends when the file is written.
+- `--format pdf` opens the note with the print dialog: the system web views have no silent print,
+  so the PDF is saved from that dialog ("Save as PDF"). `--out` is refused.
+- `--dark` / `--light` and `--page-size A3|A4|A5|Letter|Legal` override the export settings.
+- When Nixe is already running, its window does the export and the command returns at once.
+
 ## Options
 
 - `--vault <dir>`: the vault. Without it, the vault that contains the current directory (the

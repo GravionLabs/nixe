@@ -33,6 +33,14 @@ describe("sanitizeSettings", () => {
     expect(s.wrapCode).toBe(false);
     expect(sanitizeSettings({ wrapCode: true }).wrapCode).toBe(true);
     expect(sanitizeSettings({ wrapCode: "yes" }).wrapCode).toBe(false);
+    expect(s.exportPageBreaks).toBe(true);
+    expect(s.exportDark).toBe(false);
+    expect(s.exportPageSize).toBe("A4");
+    expect(sanitizeSettings({ exportPageBreaks: false }).exportPageBreaks).toBe(false);
+    expect(sanitizeSettings({ exportPageBreaks: "no" }).exportPageBreaks).toBe(true);
+    expect(sanitizeSettings({ exportDark: true }).exportDark).toBe(true);
+    expect(sanitizeSettings({ exportPageSize: "legal" }).exportPageSize).toBe("Legal");
+    expect(sanitizeSettings({ exportPageSize: "B7" }).exportPageSize).toBe("A4");
     expect(s.treeGitStatus).toBe(true);
     expect(sanitizeSettings({ treeGitStatus: false }).treeGitStatus).toBe(false);
     expect(sanitizeSettings({ treeGitStatus: "no" }).treeGitStatus).toBe(true);

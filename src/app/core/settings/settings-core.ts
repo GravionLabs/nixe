@@ -1,4 +1,5 @@
 import { sanitizeAccent, sanitizeFont, sanitizeNames } from "../appearance/appearance-core";
+import { sanitizePageSize } from "../export/export-core";
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
 import { DEFAULT_PANEL_WIDTH, sanitizePanelWidth } from "../panel/panel-width";
@@ -59,6 +60,12 @@ export interface StoredSettings {
   extractEmbed: boolean;
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   wrapCode: boolean;
+  /** Export and print: a page break before every top-level heading (#119). */
+  exportPageBreaks: boolean;
+  /** Export and print in the dark look (#119). */
+  exportDark: boolean;
+  /** Page size of a PDF or print: A3, A4, A5, Letter or Legal (#119). */
+  exportPageSize: string;
   /** How the properties of a note show in the document: all, one summary line or not at all (#290). */
   propertiesDisplay: PropertiesDisplay;
   /** Name of the theme file (without `.css`) in `themes/` of the app config directory; "" is the built-in look (#114). */
@@ -117,6 +124,9 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   bookmarksInVault: false,
   extractEmbed: false,
   wrapCode: false,
+  exportPageBreaks: true,
+  exportDark: false,
+  exportPageSize: "A4",
   propertiesDisplay: "visible",
   appearanceTheme: "",
   snippets: [],
@@ -180,6 +190,9 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     bookmarksInVault: o["bookmarksInVault"] === true,
     extractEmbed: o["extractEmbed"] === true,
     wrapCode: o["wrapCode"] === true,
+    exportPageBreaks: bool(o["exportPageBreaks"], d.exportPageBreaks),
+    exportDark: o["exportDark"] === true,
+    exportPageSize: sanitizePageSize(o["exportPageSize"]),
     propertiesDisplay: sanitizePropertiesDisplay(o["propertiesDisplay"]),
     appearanceTheme: text(o["appearanceTheme"], d.appearanceTheme),
     snippets: sanitizeNames(o["snippets"]),

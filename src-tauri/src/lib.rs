@@ -41,6 +41,8 @@ mod capture_app {
 }
 #[cfg(desktop)]
 pub mod cli;
+#[cfg(desktop)]
+pub mod cli_export;
 #[cfg(target_os = "macos")]
 mod cli_install;
 #[cfg(desktop)]
@@ -70,12 +72,18 @@ mod write;
 /// Event telling the frontend that a file or folder is waiting in `take_pending_file`.
 const OPEN_FILE_EVENT: &str = "open-file-requested";
 /// Event emitted when the watched file changed on disk (payload: path).
+/// Event telling the frontend that a `nixe export` waits in `take_pending_export`.
+const EXPORT_EVENT: &str = "export-requested";
 const FILE_CHANGED_EVENT: &str = "file-changed";
 
 #[derive(Default)]
 struct AppState {
     /// File or folder requested via CLI argument, OS file association or a second instance.
     pending_file: Mutex<Option<String>>,
+    /// Export requested by `nixe export`.
+    pending_export: Mutex<Option<cli_export::ExportRequest>>,
+    /// The process runs only for a `nixe export` to HTML: `finish_export` ends it.
+    headless_export: std::sync::atomic::AtomicBool,
     watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
     /// Vault root last returned by `find_vault_root`; notes below it may be written.
     vault_root: Mutex<Option<PathBuf>>,
@@ -146,6 +154,83 @@ fn queue_file(app: &AppHandle, path: String) {
 #[tauri::command]
 fn take_pending_file(state: State<'_, AppState>) -> Option<String> {
     state.pending_file.lock().unwrap().take()
+}
+
+#[tauri::command]
+fn take_pending_export(state: State<'_, AppState>) -> Option<cli_export::ExportRequest> {
+    state.pending_export.lock().unwrap().take()
+}
+
+/// Ends a headless `nixe export`: the file path goes to stdout, an error to stderr.
+#[tauri::command]
+fn finish_export(state: State<'_, AppState>, code: i32, message: String) {
+    if !state
+        .headless_export
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        return;
+    }
+    if code == 0 {
+        println!("{message}");
+    } else {
+        eprintln!("nixe: {message}");
+    }
+    std::process::exit(code);
+}
+
+/// Writes an exported file where the user chose (save dialog or `--out`).
+#[tauri::command]
+fn write_export_file(path: String, content: String) -> Result<(), String> {
+    write_export(Path::new(&path), content.as_bytes()).map_err(|e| format!("{path}: {e}"))
+}
+
+fn write_export(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(path, bytes)
+}
+
+/// The media type of an image or font by its extension.
+fn media_type(path: &Path) -> Option<&'static str> {
+    let ext = path.extension()?.to_string_lossy().to_lowercase();
+    Some(match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        "avif" => "image/avif",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        "woff2" => "font/woff2",
+        _ => return None,
+    })
+}
+
+fn data_uri(path: &Path, bytes: &[u8]) -> Option<String> {
+    use base64::Engine;
+    let media = media_type(path)?;
+    Some(format!(
+        "data:{media};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    ))
+}
+
+/// An image of a note as a `data:` URI, for the standalone HTML export. `None` for a file that
+/// is missing or no image.
+#[tauri::command]
+fn read_data_uri(path: String) -> Option<String> {
+    let path = Path::new(&path);
+    data_uri(path, &std::fs::read(path).ok()?)
+}
+
+/// A file of the frontend bundle (the KaTeX fonts) as a `data:` URI. `None` in a dev build,
+/// which serves the files from the dev server.
+#[tauri::command]
+fn read_bundled_data_uri(app: AppHandle, path: String) -> Option<String> {
+    let asset = app.asset_resolver().get(path.clone())?;
+    data_uri(Path::new(&path), &asset.bytes)
 }
 
 #[tauri::command]
@@ -997,7 +1082,18 @@ pub fn run() {
     {
         // Must be the first plugin: forwards files from a second launch.
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            if let Some(path) = path_from_args(&argv, Path::new(&cwd)) {
+            if argv.get(1).is_some_and(|a| a == "export") {
+                // A running window does the export; the new process ends at once.
+                let request = cli::data_dir().and_then(|data| {
+                    cli::parse_export(&argv[2..], Path::new(&cwd), &data, false)
+                        .map_err(|e| eprintln!("nixe: export: {e:?}"))
+                        .ok()
+                });
+                if let Some(request) = request {
+                    *app.state::<AppState>().pending_export.lock().unwrap() = Some(request);
+                    let _ = app.emit(EXPORT_EVENT, ());
+                }
+            } else if let Some(path) = path_from_args(&argv, Path::new(&cwd)) {
                 queue_file(app, path);
             }
             if let Some(window) = app.get_webview_window("main") {
@@ -1041,6 +1137,22 @@ pub fn run() {
     let builder = builder.setup(|app| {
         let cwd = std::env::current_dir().unwrap_or_default();
         let args: Vec<String> = std::env::args().collect();
+        #[cfg(desktop)]
+        if let Some(request) = cli_export::REQUEST.get() {
+            let state = app.state::<AppState>();
+            state
+                .headless_export
+                .store(request.headless, std::sync::atomic::Ordering::SeqCst);
+            *state.pending_export.lock().unwrap() = Some(request.clone());
+            if request.headless {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+        } else if let Some(path) = path_from_args(&args, &cwd) {
+            *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
+        }
+        #[cfg(not(desktop))]
         if let Some(path) = path_from_args(&args, &cwd) {
             *app.state::<AppState>().pending_file.lock().unwrap() = Some(path);
         }
@@ -1071,6 +1183,11 @@ pub fn run() {
     #[cfg(any(debug_assertions, mobile))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         take_pending_file,
+        take_pending_export,
+        finish_export,
+        write_export_file,
+        read_data_uri,
+        read_bundled_data_uri,
         read_text_file,
         write_text_file,
         create_file,
@@ -1174,6 +1291,11 @@ pub fn run() {
     #[cfg(not(any(debug_assertions, mobile)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         take_pending_file,
+        take_pending_export,
+        finish_export,
+        write_export_file,
+        read_data_uri,
+        read_bundled_data_uri,
         read_text_file,
         write_text_file,
         create_file,
@@ -1331,6 +1453,26 @@ mod tests {
         );
         let args = vec!["nixe".into(), ".".into()];
         assert_eq!(path_from_args(&args, &root), Some(path_to_string(&root)));
+    }
+
+    #[test]
+    fn export_files_are_written_below_new_folders() {
+        let dir = temp_dir("export");
+        let file = dir.join("out/deep/note.html");
+        write_export(&file, b"<p>x</p>").unwrap();
+        assert_eq!(fs::read_to_string(&file).unwrap(), "<p>x</p>");
+        write_export(&file, b"y").unwrap();
+        assert_eq!(fs::read_to_string(&file).unwrap(), "y");
+    }
+
+    #[test]
+    fn images_become_data_uris_and_other_files_do_not() {
+        assert_eq!(
+            data_uri(Path::new("a/B.PNG"), b"hi").as_deref(),
+            Some("data:image/png;base64,aGk=")
+        );
+        assert!(data_uri(Path::new("notes.md"), b"hi").is_none());
+        assert!(read_data_uri("/definitely/missing.png".into()).is_none());
     }
 
     #[test]

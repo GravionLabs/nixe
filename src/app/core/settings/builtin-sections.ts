@@ -2,6 +2,7 @@ import type { CssFile } from "../appearance/appearance-core";
 import { sanitizeAccent, sanitizeFont } from "../appearance/appearance-core";
 import type { ObsidianSetting } from "../file/backend";
 import type { Command } from "../commands/command-registry";
+import { PAGE_SIZES, sanitizePageSize } from "../export/export-core";
 import { clampMinutes } from "../git/auto-sync";
 import { sanitizeMode } from "../preview/preview-core";
 import type { SettingItem, SettingsSection } from "./settings-registry";
@@ -201,6 +202,36 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           "Wrap long lines instead of scrolling sideways.",
           ["code", "scroll", "horizontal"],
         ),
+      ],
+    },
+    {
+      id: "export",
+      title: "Export and print",
+      order: 25,
+      items: () => [
+        toggle(
+          "export-page-breaks",
+          "Page break before top-level headings",
+          s.exportPageBreaks,
+          "Each `# Heading` starts a new page in a PDF or a print.",
+          ["pdf", "print", "page"],
+        ),
+        toggle(
+          "export-dark",
+          "Dark look",
+          s.exportDark,
+          "Export and print with the dark colors instead of the light ones.",
+          ["pdf", "print", "html", "theme"],
+        ),
+        {
+          kind: "select",
+          id: "export-page-size",
+          label: "Page size",
+          keywords: ["pdf", "print", "paper", "a4", "letter"],
+          options: PAGE_SIZES.map((v) => ({ value: v, label: v })),
+          get: () => s.exportPageSize(),
+          set: (v) => s.exportPageSize.set(sanitizePageSize(v)),
+        },
       ],
     },
     {

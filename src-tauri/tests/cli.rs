@@ -549,3 +549,36 @@ mod several_roots {
         }
     }
 }
+
+fn export(name: &str, args: &[&str]) -> Result<nixe_lib::cli_export::ExportRequest, CliError> {
+    let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+    nixe_lib::cli::parse_export(&args, &vault(), &data_dir(name), true)
+}
+
+#[test]
+fn export_resolves_the_note_like_a_wikilink() {
+    let r = export(
+        "export",
+        &["Note", "--format", "html", "--out", "o/note.html"],
+    )
+    .unwrap();
+    assert!(r.note.ends_with("fixtures/vault/Note.md"));
+    assert!(r.out.unwrap().ends_with("fixtures/vault/o/note.html"));
+    assert!(r.headless);
+    assert!(export("export-pdf", &["Note", "--format", "pdf"])
+        .unwrap()
+        .out
+        .is_none());
+}
+
+#[test]
+fn export_needs_a_format_and_an_existing_note() {
+    assert!(matches!(
+        export("export-nf", &["Note"]),
+        Err(CliError::Usage(_))
+    ));
+    assert!(matches!(
+        export("export-no", &["Nope", "--format", "html"]),
+        Err(CliError::Failed(_))
+    ));
+}

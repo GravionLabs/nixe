@@ -123,6 +123,10 @@ export class SettingsService {
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   readonly wrapCode = signal<boolean>(this.stored.wrapCode);
 
+  /** Export and print (#119): breaks before top-level headings, the dark look, the page size. */
+  readonly exportPageBreaks = signal<boolean>(this.stored.exportPageBreaks);
+  readonly exportDark = signal<boolean>(this.stored.exportDark);
+  readonly exportPageSize = signal<string>(this.stored.exportPageSize);
   /** How the properties show in the document; folding the panel switches between visible and folded (#290). */
   readonly propertiesDisplay = signal<PropertiesDisplay>(this.stored.propertiesDisplay);
 
@@ -195,6 +199,9 @@ export class SettingsService {
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
       wrapCode: this.wrapCode(),
+      exportPageBreaks: this.exportPageBreaks(),
+      exportDark: this.exportDark(),
+      exportPageSize: this.exportPageSize(),
       propertiesDisplay: this.propertiesDisplay(),
       appearanceTheme: this.appearanceTheme(),
       snippets: this.snippets(),
@@ -241,6 +248,9 @@ export class SettingsService {
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
     this.wrapCode.set(s.wrapCode);
+    this.exportPageBreaks.set(s.exportPageBreaks);
+    this.exportDark.set(s.exportDark);
+    this.exportPageSize.set(s.exportPageSize);
     this.propertiesDisplay.set(s.propertiesDisplay);
     this.appearanceTheme.set(s.appearanceTheme);
     this.snippets.set(s.snippets);

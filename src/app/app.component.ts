@@ -21,15 +21,19 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   FILE_CHANGED_EVENT,
   MENU_EVENT,
+  EXPORT_EVENT,
   OPEN_FILE_EVENT,
   STDIN_FILE_SUFFIX,
   backend,
+  type ExportRequest,
 } from "./core/file/backend";
 import { EditorService } from "./core/editor/editor.service";
 import type { Command } from "./core/commands/command-registry";
 import { CommandRegistry } from "./core/commands/command-registry";
 import { PaletteService } from "./core/commands/palette.service";
 import { ShortcutService } from "./core/commands/shortcut.service";
+import { ExportService } from "./core/export/export.service";
+import type { ExportFormat } from "./core/export/export-core";
 import { DocumentService } from "./core/file/document.service";
 import { BookmarksService } from "./core/bookmarks/bookmarks.service";
 import { IndexService } from "./core/index/index.service";
@@ -115,6 +119,7 @@ export class NavIconDirective {
   host: { "(document:keydown)": "onKeydown($event)", "(window:resize)": "onResize()" },
 })
 export class AppComponent {
+  private readonly exporter = inject(ExportService);
   protected readonly doc = inject(DocumentService);
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
@@ -265,6 +270,7 @@ export class AppComponent {
     // (on iOS some of them are unavailable).
     try {
       await listen(OPEN_FILE_EVENT, () => void this.openPending());
+      await listen(EXPORT_EVENT, () => void this.runPendingExport());
       await listen<string>(FILE_CHANGED_EVENT, (e) => void this.tabs.onExternalChange(e.payload));
       await this.updater.init();
       await this.index.init();
@@ -285,6 +291,9 @@ export class AppComponent {
       console.warn("desktop integration unavailable", err);
     }
 
+    // A headless `nixe export` shows no window and needs nothing else to start.
+    if ((await this.runPendingExport())?.headless) return;
+
     // A file or folder passed on the command line may already be waiting;
     // otherwise the last opened folder is restored.
     if (!(await this.openPending())) {
@@ -303,6 +312,36 @@ export class AppComponent {
     if (!path) return false;
     await this.openPath(path);
     return true;
+  }
+
+  /** Export as HTML asks for the file; PDF and print open the print dialog ("Save as PDF" there). */
+  private async exportNote(format: ExportFormat | "print"): Promise<void> {
+    await this.run(async () => {
+      const file = await this.exporter.exportCurrent(format);
+      if (file) this.showToast(`Exported ${file}`);
+    });
+  }
+
+  /** `nixe export`: runs the request and, without a window, ends the process with its result. */
+  private async runPendingExport(): Promise<ExportRequest | null> {
+    let request: ExportRequest | null;
+    try {
+      request = await backend.takePendingExport();
+    } catch (err) {
+      // Ends a headless export (a no-op in a normal window), which would otherwise hang hidden.
+      await backend.finishExport(1, String(err)).catch(() => undefined);
+      return null;
+    }
+    if (!request) return null;
+    try {
+      const file = await this.exporter.runRequest(request);
+      if (request.headless) await backend.finishExport(0, file ?? "");
+      else if (file) this.showToast(`Exported ${file}`);
+    } catch (err) {
+      if (request.headless) await backend.finishExport(1, String(err));
+      else this.showError(String(err));
+    }
+    return request;
   }
 
   /** Opens a file, or a folder in the sidebar. */
@@ -612,6 +651,26 @@ export class AppComponent {
         title: "Vault health",
         when: inVault,
         run: () => this.run(async () => void this.tabs.openView("health")),
+      },
+      {
+        id: "export-html",
+        title: "Export as HTML",
+        when: noteOpen,
+        run: () => this.exportNote("html"),
+      },
+      {
+        id: "export-pdf",
+        title: "Export as PDF",
+        when: noteOpen,
+        run: () => this.exportNote("pdf"),
+      },
+      {
+        id: "print",
+        title: "Print",
+        shortcut: "Mod+Alt+P",
+        keys: ["Mod+Alt+P"],
+        when: noteOpen,
+        run: () => this.exportNote("print"),
       },
       {
         id: "git-sync",

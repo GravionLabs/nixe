@@ -56,6 +56,7 @@ describe("settings page", () => {
     ).toEqual([
       "General",
       "Editor",
+      "Export and print",
       "Files and links",
       "Capture",
       "Appearance",
@@ -162,6 +163,7 @@ describe("settings page", () => {
     expect(page.listed().map((s) => s.id)).toEqual(["git"]);
     page.query.set("dark");
     expect(page.listed().map((s) => [s.id, s.items.map((i) => i.id)])).toEqual([
+      ["export", ["export-dark"]],
       ["appearance", ["theme"]],
     ]);
     page.query.set("zzz");
