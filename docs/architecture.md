@@ -67,6 +67,8 @@ the home of everything about the vault; the frontends stay thin. Planned and par
   On a conflict the remote version stays in the note and the local version is written next to
   it as a conflict copy ([ADR 0004](adr/0004-tauri-on-ios-go-git2-for-git-sync-native-swift-only-for-file-access-outside-the-sandbox.md)).
   The token is kept in the OS keychain.
+- **Terminal and agent panel:** an opt-in PTY terminal at the bottom, desktop only
+  ([ADR 0006](adr/0006-terminal-and-agent-panel.md)).
 
 ```mermaid
 flowchart LR
