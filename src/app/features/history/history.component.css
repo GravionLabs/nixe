@@ -147,37 +147,14 @@ header {
   color: var(--h-text-muted-color);
 }
 
-.actions {
-  display: flex;
+/* The actions of a version show while the row is hovered or holds the keyboard focus. */
+.row-actions {
+  display: none;
   gap: 0.5rem;
   padding: 0 0.5rem 0.25rem;
 }
 
-.actions button,
-.deleted button {
-  font-size: 0.75rem;
-}
-
-.deleted-title {
-  margin: 0.75rem 0.5rem 0.25rem;
-  font-size: 0.8rem;
-}
-
-.deleted {
-  list-style: none;
-  margin: 0;
-  padding: 0 0.5rem;
-}
-
-.deleted li {
+li:hover > .row-actions,
+li:focus-within > .row-actions {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.deleted .message {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }

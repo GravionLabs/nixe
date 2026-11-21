@@ -14,8 +14,7 @@ ul {
   font-size: 12px;
 }
 
-.branch,
-.entry {
+.branch {
   display: flex;
   width: 100%;
   text-align: left;
@@ -47,10 +46,6 @@ ul {
   color: var(--h-text-muted-color);
 }
 
-.entry {
-  gap: 6px;
-}
-
 .toolbar {
   display: flex;
   align-items: center;
@@ -67,12 +62,10 @@ ul {
   font-weight: 600;
 }
 
-.kind.added,
 .add {
   color: #2da44e;
 }
 
-.kind.deleted,
 .del {
   color: #cf222e;
 }
@@ -135,7 +128,6 @@ ul {
 .decide {
   display: inline-flex;
   gap: 0.25rem;
-  margin-left: 0.5rem;
 }
 .decide button,
 .hunk-head button,

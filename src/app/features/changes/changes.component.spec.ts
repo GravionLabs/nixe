@@ -62,10 +62,15 @@ describe("ChangesComponent", () => {
 
   it("lists changed, added and deleted notes with the diff of the opened one", () => {
     const { el } = render();
-    const names = [...el.querySelectorAll(".entry")].map((b) =>
+    const names = [...el.querySelectorAll(".main")].map((b) =>
       b.textContent!.replace(/\s+/g, " ").trim(),
     );
-    expect(names).toEqual(["Ma.md", "Dgone.md"]);
+    expect(names).toEqual(["●a", "−gone"]);
+    const icons = [...el.querySelectorAll("app-status-icon [role=img]")].map((i) =>
+      i.getAttribute("title"),
+    );
+    expect(icons).toEqual(["Changed", "Deleted"]);
+    expect(el.querySelector(".main")!.getAttribute("title")).toBe("a.md");
     expect(el.querySelector(".diff")!.textContent).toContain("three");
     expect(el.querySelectorAll(".diff .row.add")).toHaveLength(1);
     expect(el.querySelectorAll(".diff .row.del")).toHaveLength(1);
@@ -90,7 +95,7 @@ describe("ChangesComponent", () => {
     expect(opens).toHaveLength(1);
     opens[0].click();
     expect(open).toHaveBeenCalledWith("/vault/a.md");
-    el.querySelectorAll<HTMLElement>(".entry")[1].click();
+    el.querySelectorAll<HTMLElement>(".main")[1].click();
     expect(service.toggle).toHaveBeenCalledWith(list[1]);
   });
 });

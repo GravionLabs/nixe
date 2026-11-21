@@ -14,6 +14,9 @@ import type { GitStatus } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { GitService } from "../../core/git/git.service";
 import { SettingsService } from "../../core/settings/settings.service";
+import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
+import { NoteRowComponent } from "../../shared/panel/note-row.component";
+import { PanelSectionComponent } from "../../shared/panel/panel-section.component";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { GitComponent } from "./git.component";
 
@@ -70,7 +73,7 @@ function render(
   });
   TestBed.overrideComponent(GitComponent, {
     set: {
-      imports: [],
+      imports: [PanelSectionComponent, NoteRowComponent, EmptyStateComponent],
       schemas: [NO_ERRORS_SCHEMA],
       templateUrl: undefined,
       styleUrl: undefined,
@@ -104,8 +107,8 @@ describe("GitComponent", () => {
     const { el } = render(status);
     expect(el.querySelector(".branch")?.textContent).toContain("main");
     expect(el.querySelector(".branch")?.textContent).toContain("↑2 ↓1");
-    const kinds = [...el.querySelectorAll(".kind")].map((k) => k.textContent);
-    expect(kinds).toEqual(["M", "A", "D"]);
+    const kinds = [...el.querySelectorAll("[role=img]")].map((k) => k.getAttribute("title"));
+    expect(kinds).toEqual(["Changed", "New", "Deleted"]);
     expect(el.querySelector(".count")?.textContent).toBe("3");
   });
 
@@ -134,7 +137,7 @@ describe("GitComponent", () => {
 
   it("opens a changed note but not a deleted one", () => {
     const { el, open } = render(status);
-    const buttons = [...el.querySelectorAll<HTMLButtonElement>("section button")];
+    const buttons = [...el.querySelectorAll<HTMLButtonElement>("app-note-row .main")];
     expect(buttons[2].disabled).toBe(true);
     buttons[1].click();
     expect(open).toHaveBeenCalledWith("/vault/new/b.md");

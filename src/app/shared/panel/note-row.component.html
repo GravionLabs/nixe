@@ -1,0 +1,20 @@
+<div class="row">
+  <button
+    type="button"
+    class="main"
+    [title]="path"
+    [disabled]="disabled"
+    [attr.aria-expanded]="expanded ?? null"
+    (click)="activated.emit()"
+  >
+    @if (kind; as k) {
+      <app-status-icon [kind]="k" />
+    }
+    <span class="title">{{ label.title }}</span>
+    @if (label.folder) {
+      <span class="folder">{{ label.folder }}</span>
+    }
+    <ng-content select="[rowEnd]" />
+  </button>
+  <span class="actions"><ng-content select="[rowActions]" /></span>
+</div>

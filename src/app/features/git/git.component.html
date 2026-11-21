@@ -10,24 +10,18 @@
     }
   </p>
 
-  <section aria-label="Changes">
-    <h2>
-      Changes <span class="count">{{ status.changes.length }}</span>
-    </h2>
+  <app-panel-section title="Changes" [count]="status.changes.length" storageKey="git-changes">
     @for (change of status.changes; track change.path) {
-      <button
-        type="button"
+      <app-note-row
+        [path]="change.path"
+        [kind]="change.kind"
         [disabled]="change.kind === 'deleted'"
-        (click)="open(change.path)"
-        [title]="change.path"
-      >
-        <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
-        <span class="name">{{ change.path }}</span>
-      </button>
+        (activated)="open(change.path)"
+      />
     } @empty {
-      <p class="status">No changes</p>
+      <app-empty-state text="No changes" />
     }
-  </section>
+  </app-panel-section>
 
   <app-changes />
 
@@ -64,8 +58,7 @@
     </button>
   </form>
 
-  <section aria-label="Automatic sync" class="auto-sync">
-    <h2>Automatic sync</h2>
+  <app-panel-section class="auto-sync" title="Automatic sync" storageKey="git-auto-sync">
     <label>
       <input
         type="checkbox"
@@ -105,10 +98,9 @@
       </label>
       <p class="status">Waits until you have stopped typing for a few seconds.</p>
     }
-  </section>
+  </app-panel-section>
 
-  <section aria-label="Access token" class="token">
-    <h2>Access token</h2>
+  <app-panel-section title="Access token" storageKey="git-token">
     @if (git.tokenPrompt(); as prompt) {
       <p class="status" role="alert">
         {{
@@ -135,5 +127,5 @@
     @if (git.tokenStored()) {
       <button type="button" (click)="deleteToken()">Delete token</button>
     }
-  </section>
+  </app-panel-section>
 }

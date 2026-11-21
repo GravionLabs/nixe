@@ -1,19 +1,27 @@
 import { Component, inject, output } from "@angular/core";
 
 import { clampMinutes } from "../../core/git/auto-sync";
-import type { GitChange } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { GitService } from "../../core/git/git.service";
 import { joinPath } from "../../core/markdown/paths";
 import { SettingsService } from "../../core/settings/settings.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
+import { NoteRowComponent } from "../../shared/panel/note-row.component";
+import { PanelSectionComponent } from "../../shared/panel/panel-section.component";
 import { ChangesComponent } from "../changes/changes.component";
 import { ReviewComponent } from "../review/review.component";
 
 /** Left-hand panel: the changed notes of the vault and a commit form. */
 @Component({
   selector: "app-git",
-  imports: [ChangesComponent, ReviewComponent],
+  imports: [
+    ChangesComponent,
+    ReviewComponent,
+    PanelSectionComponent,
+    NoteRowComponent,
+    EmptyStateComponent,
+  ],
   templateUrl: "./git.component.html",
   styleUrl: "./git.component.css",
 })
@@ -30,10 +38,6 @@ export class GitComponent {
     const minutes = clampMinutes(input.valueAsNumber);
     this.settings.autoSyncMinutes.set(minutes);
     input.value = String(minutes);
-  }
-
-  protected letter(kind: GitChange["kind"]): string {
-    return kind === "added" ? "A" : kind === "deleted" ? "D" : "M";
   }
 
   protected async open(rel: string): Promise<void> {

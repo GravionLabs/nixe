@@ -1,16 +1,20 @@
 import { Component, computed, inject, signal } from "@angular/core";
 
-import type { GitChange, ReviewHunk } from "../../core/file/backend";
+import type { ReviewHunk } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { diffLines, diffStat } from "../../core/git/line-diff";
 import { ReviewService } from "../../core/git/review.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
+import { NoteRowComponent } from "../../shared/panel/note-row.component";
+import { PanelSectionComponent } from "../../shared/panel/panel-section.component";
 import { formatCommitTime } from "../history/history.component";
 
 /** The branches that wait for review and, per branch, its changed notes with the diff (#108). */
 @Component({
   selector: "app-review",
+  imports: [PanelSectionComponent, NoteRowComponent, EmptyStateComponent],
   templateUrl: "./review.component.html",
   styleUrl: "./review.component.css",
 })
@@ -61,9 +65,5 @@ export class ReviewComponent {
   protected async finish(): Promise<void> {
     this.confirming.set(false);
     await this.review.finish();
-  }
-
-  protected letter(kind: GitChange["kind"]): string {
-    return kind === "added" ? "A" : kind === "deleted" ? "D" : "M";
   }
 }

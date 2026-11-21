@@ -1,0 +1,15 @@
+<section [attr.aria-label]="title">
+  <div class="head">
+    <button type="button" class="toggle" [attr.aria-expanded]="open" (click)="toggle()">
+      <span class="chevron" aria-hidden="true">{{ open ? "▾" : "▸" }}</span>
+      <span class="title">{{ title }}</span>
+      @if (count !== undefined) {
+        <span class="count">{{ count }}</span>
+      }
+    </button>
+    <span class="actions"><ng-content select="[panelActions]" /></span>
+  </div>
+  @if (open) {
+    <div class="body"><ng-content /></div>
+  }
+</section>

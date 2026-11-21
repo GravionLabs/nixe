@@ -6,6 +6,9 @@ import type { TimelineEntry } from "../../core/git/history.service";
 import { HistoryService } from "../../core/git/history.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
+import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
+import { NoteRowComponent } from "../../shared/panel/note-row.component";
+import { PanelSectionComponent } from "../../shared/panel/panel-section.component";
 
 /** `YYYY-MM-DD HH:MM` in UTC. */
 export function formatCommitTime(secs: number): string {
@@ -15,6 +18,7 @@ export function formatCommitTime(secs: number): string {
 /** Sidebar: the timeline of the open note and the difference between the selected versions. */
 @Component({
   selector: "app-history",
+  imports: [PanelSectionComponent, NoteRowComponent, EmptyStateComponent],
   templateUrl: "./history.component.html",
   styleUrl: "./history.component.css",
 })

@@ -113,7 +113,7 @@ describe("ReviewComponent", () => {
 
   it("lists the branches with author, date, commit messages and the number of notes", () => {
     const { el } = render();
-    expect(el.querySelector("h2")!.textContent).toContain("2");
+    expect(el.querySelector(".count")!.textContent).toContain("2");
     const rows = [...el.querySelectorAll(".branch")].map((b) =>
       b.textContent!.replace(/\s+/g, " ").trim(),
     );
@@ -129,11 +129,11 @@ describe("ReviewComponent", () => {
     const { el, service } = render();
     el.querySelectorAll<HTMLElement>(".branch")[1].click();
     expect(service.toggle).toHaveBeenCalledWith(branches[1]);
-    const entries = [...el.querySelectorAll(".entry")].map((b) =>
+    const entries = [...el.querySelectorAll(".main")].map((b) =>
       b.textContent!.replace(/\s+/g, " ").trim(),
     );
-    expect(entries).toEqual(["Ma.mdrejected", "Anew.mdrejected"]);
-    el.querySelectorAll<HTMLElement>(".entry")[1].click();
+    expect(entries).toEqual(["●arejected", "＋newrejected"]);
+    el.querySelectorAll<HTMLElement>(".main")[1].click();
     expect(service.select).toHaveBeenCalledWith(changes[1]);
   });
 
