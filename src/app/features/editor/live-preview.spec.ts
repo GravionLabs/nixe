@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { EditorState } from "@codemirror/state";
+import { cursorCharRight } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -193,6 +194,13 @@ describe("livePreview", () => {
       expect(v.dom.querySelector(".cm-live-properties")).not.toBeNull();
       v.dispatch({ selection: { anchor: 3 } });
       expect(v.dom.querySelector(".cm-live-properties")).toBeNull();
+    });
+
+    it("shows the YAML when the cursor moves on from line 1", () => {
+      const { v } = mountFm(FM, 0);
+      cursorCharRight(v);
+      expect(v.dom.querySelector(".cm-live-properties")).toBeNull();
+      expect(v.dom.textContent).toContain("title: Hi");
     });
 
     it("replaces the frontmatter with the edited text and keeps the body", () => {
