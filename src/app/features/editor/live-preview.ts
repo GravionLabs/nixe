@@ -5,6 +5,7 @@ import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view
 
 import type { Block, BlockKind } from "../../core/editor/live-preview-core";
 import { splitFrontmatter } from "../../core/markdown/frontmatter";
+import { TableWidget } from "./table-widget";
 import type { PropertiesDisplay } from "../../core/settings/settings-core";
 import {
   WIDGET_KINDS,
@@ -245,6 +246,27 @@ function frontmatterDecorations(
   ];
 }
 
+/** The range of the table block whose widget is `dom`. */
+function locateTable(view: EditorView, dom: HTMLElement): { from: number; to: number } | null {
+  let from: number;
+  try {
+    from = view.posAtDOM(dom);
+  } catch {
+    return null;
+  }
+  const { doc } = view.state;
+  const line = doc.lineAt(from);
+  const block = view.state.field(blocksField).find((b) => b.start === line.number - 1);
+  return block?.kind === "table" ? { from: line.from, to: doc.line(block.end + 1).to } : null;
+}
+
+function tableHooks(hooks: LivePreviewHooks) {
+  return {
+    render: (el: HTMLElement, source: string) => hooks.render(el, source, "table"),
+    locate: locateTable,
+  };
+}
+
 /** Block widgets for every widget block that no selection touches. */
 function blockDecorations(state: EditorState, hooks: LivePreviewHooks): DecorationSet {
   const ranges: Range<Decoration>[] = frontmatterDecorations(
@@ -257,9 +279,13 @@ function blockDecorations(state: EditorState, hooks: LivePreviewHooks): Decorati
     const from = state.doc.line(block.start + 1).from;
     const to = state.doc.line(block.end + 1).to;
     if (state.selection.ranges.some((r) => touches(r.from, r.to, from, to))) continue;
+    const source = state.sliceDoc(from, to);
     ranges.push(
       Decoration.replace({
-        widget: new BlockWidget(state.sliceDoc(from, to), block.kind, hooks),
+        widget:
+          block.kind === "table"
+            ? new TableWidget(source, tableHooks(hooks))
+            : new BlockWidget(source, block.kind, hooks),
         block: true,
       }).range(from, to),
     );
@@ -352,7 +378,8 @@ const blockClick = EditorView.domEventHandlers({
     const target = event.target;
     if (event.button !== 0 || !(target instanceof Element) || hasOwnClick(target)) return false;
     const el = target.closest(".cm-live-block");
-    if (!el) return false;
+    // A table takes the click into its cells itself.
+    if (!el || el.classList.contains("cm-live-table")) return false;
     const from = view.posAtDOM(el);
     const start = view.state.doc.lineAt(from);
     const block = view.state.field(blocksField).find((b) => b.start === start.number - 1);

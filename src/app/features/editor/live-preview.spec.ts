@@ -57,7 +57,10 @@ describe("livePreview", () => {
   it("renders table and diagram as widgets while the cursor is elsewhere", () => {
     const v = mount(DOC, 0);
     const widgets = [...v.dom.querySelectorAll(".cm-live-block")].map((w) => w.textContent);
-    expect(widgets).toEqual(["rendered table: | a | b |", "rendered mermaid: ```mermaid"]);
+    expect(widgets).toEqual([
+      "rendered table: arendered table: brendered table: 1rendered table: 2",
+      "rendered mermaid: ```mermaid",
+    ]);
     expect(v.dom.textContent).not.toContain("| 1 | 2 |");
   });
 
@@ -99,20 +102,6 @@ describe("livePreview", () => {
     expect(v.state.doc.toString()).toContain("- [x] task");
   });
 
-  it("puts the cursor into a table on a click, at the clicked row", () => {
-    const v = mount(DOC, 0);
-    const widget = v.dom.querySelector<HTMLElement>(".cm-live-table")!;
-    widget.innerHTML =
-      "<table><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>";
-    const cell = widget.querySelector("td")!;
-    const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
-    cell.dispatchEvent(ev);
-    expect(ev.defaultPrevented).toBe(true);
-    expect(v.state.selection.main.head).toBe(posOf("| 1 | 2 |") + "| 1 | 2 |".length);
-    expect(v.dom.querySelector(".cm-live-table")).toBeNull();
-    expect(v.dom.textContent).toContain("| 1 | 2 |");
-  });
-
   it("puts the cursor into a mermaid block on a click", () => {
     const v = mount(DOC, 0);
     v.dom
@@ -124,13 +113,13 @@ describe("livePreview", () => {
 
   it("leaves a click on a link inside a widget alone", () => {
     const v = mount(DOC, 0);
-    const widget = v.dom.querySelector<HTMLElement>(".cm-live-table")!;
+    const widget = v.dom.querySelector<HTMLElement>(".cm-live-mermaid")!;
     widget.innerHTML = '<a href="https://example.com">x</a>';
     const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
     widget.querySelector("a")!.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(false);
     expect(v.state.selection.main.head).toBe(0);
-    expect(v.dom.querySelector(".cm-live-table")).not.toBeNull();
+    expect(v.dom.querySelector(".cm-live-mermaid")).not.toBeNull();
   });
 
   it("is not drawn without the extension", () => {
