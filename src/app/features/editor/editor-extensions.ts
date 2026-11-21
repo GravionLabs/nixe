@@ -29,14 +29,29 @@ export function inCode(state: EditorState, pos: number): boolean {
   return false;
 }
 
+/** The end offset of the frontmatter block (through its closing fence); 0 when the note has none. */
+function frontmatterEndOffset(state: EditorState): number {
+  const { doc } = state;
+  if (doc.line(1).text.trimEnd() !== "---") return 0;
+  for (let n = 2; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    const t = line.text.trimEnd();
+    if (t === "---" || t === "...") return line.to;
+  }
+  return 0;
+}
+
 function build(view: EditorView): DecorationSet {
   const { state } = view;
   const ranges: Range<Decoration>[] = [];
+  // The Markdown parser reads the YAML as a Setext heading with link marks: it gets no styling.
+  const frontmatterEnd = frontmatterEndOffset(state);
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(state).iterate({
       from,
       to,
       enter(node) {
+        if (node.from < frontmatterEnd) return node.to > frontmatterEnd;
         const cls = nodeClass(node.name);
         if (cls && node.to > node.from)
           ranges.push(Decoration.mark({ class: cls }).range(node.from, node.to));
