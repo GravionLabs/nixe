@@ -87,6 +87,7 @@ describe("HistoryService", () => {
       .spyOn(backend, "gitNoteVersion")
       .mockImplementation(async (_p, rev) => `text@${rev}`);
     vi.spyOn(backend, "gitDeletedNotes").mockResolvedValue([]);
+    vi.spyOn(backend, "gitRecentNotes").mockResolvedValue([]);
     open.mockReset().mockResolvedValue(undefined);
     refresh.mockReset().mockResolvedValue(undefined);
     reloadTree.mockReset().mockResolvedValue(undefined);
@@ -325,6 +326,40 @@ describe("HistoryService", () => {
     expect(write).toHaveBeenCalledWith("/vault/dir/gone.md", "text@p1");
     expect(open).toHaveBeenCalledWith("/vault/dir/gone.md");
     expect(history.notice()).toBe("Restored dir/gone.md");
+  });
+
+  it("shows the last content of a deleted note with a Restore button", async () => {
+    const note = { path: "d/g.md", id: "d1", parent: "p1", author: "", time: 5, message: "" };
+    await history.reviewDeleted(note);
+    const input = openCompare.mock.calls[0][0];
+    expect(input).toMatchObject({ path: "d/g.md", oldText: null, newText: "text@p1" });
+    vi.spyOn(backend, "createDir").mockResolvedValue(undefined);
+    vi.spyOn(backend, "createFile").mockResolvedValue(undefined);
+    vi.spyOn(backend, "writeTextFile").mockResolvedValue(undefined);
+    expect(await input.action.run()).toBe(true);
+    expect(open).toHaveBeenCalledWith("/vault/d/g.md");
+  });
+
+  it("reports a failed restore of a deleted note", async () => {
+    vi.spyOn(backend, "createDir").mockResolvedValue(undefined);
+    vi.spyOn(backend, "createFile").mockRejectedValue(new Error("exists"));
+    const note = { path: "g.md", id: "d", parent: "p", author: "", time: 0, message: "" };
+    expect(await history.restoreDeleted(note)).toBe(false);
+  });
+
+  it("loads the recently changed notes and opens one", async () => {
+    const note = { path: "dir/r.md", id: "r", author: "A", time: 9, message: "m" };
+    vi.mocked(backend.gitRecentNotes).mockResolvedValue([note]);
+    await ready();
+    expect(history.recent()).toEqual([note]);
+    await history.openRecent(note);
+    expect(open).toHaveBeenCalledWith("/vault/dir/r.md");
+  });
+
+  it("has no recent notes without a repository", async () => {
+    status.set(null);
+    await ready();
+    expect(history.recent()).toEqual([]);
   });
 
   it("does not overwrite an existing file when restoring a deleted note", async () => {

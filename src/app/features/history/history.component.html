@@ -71,6 +71,24 @@
     </ul>
     <hx-menu #contextMenu popup ariaLabel="Version actions" [model]="menuItems()" />
   </app-panel-section>
+} @else if (history.available()) {
+  <app-panel-section
+    title="Recently changed"
+    [count]="history.recent().length"
+    storageKey="history-recent"
+  >
+    <ul class="recent" aria-label="Recently changed notes">
+      @for (note of history.recent(); track note.path) {
+        <li>
+          <app-note-row [path]="note.path" (activated)="history.openRecent(note)">
+            <span rowEnd class="meta" [title]="exact(note)">{{ changedAgo(note) }}</span>
+          </app-note-row>
+        </li>
+      } @empty {
+        <li><app-empty-state text="No versions yet" /></li>
+      }
+    </ul>
+  </app-panel-section>
 } @else {
   <app-empty-state text="Open a note to see its history." />
 }
@@ -79,27 +97,33 @@
   <p class="status" role="status">{{ notice }}</p>
 }
 
-@if (history.deleted().length > 0) {
-  <app-panel-section
-    title="Deleted notes"
-    [count]="history.deleted().length"
-    storageKey="history-deleted"
-  >
+@if (history.available()) {
+  <app-panel-section title="Trash" [count]="history.deleted().length" storageKey="history-deleted">
+    @if (history.deleted().length > 0) {
+      <input
+        type="search"
+        class="filter"
+        placeholder="Filter by title or folder"
+        aria-label="Filter the trash"
+        [value]="filter()"
+        (input)="filter.set($any($event.target).value)"
+      />
+    }
     <ul class="deleted" aria-label="Deleted notes">
-      @for (note of history.deleted(); track note.path) {
+      @for (note of trash(); track note.path) {
         <li>
-          <app-note-row [path]="note.path" kind="deleted" [interactive]="false">
-            <span rowEnd class="meta">{{
-              time({
-                id: note.id,
-                author: note.author,
-                time: note.time,
-                message: note.message,
-                path: note.path,
-              })
-            }}</span>
+          <app-note-row [path]="note.path" kind="deleted" (activated)="history.reviewDeleted(note)">
+            <span rowEnd class="meta" [title]="exact(note)">{{ deletedAgo(note) }}</span>
             <button rowActions type="button" (click)="history.restoreDeleted(note)">Restore</button>
           </app-note-row>
+        </li>
+      } @empty {
+        <li>
+          <app-empty-state
+            [text]="
+              history.deleted().length === 0 ? 'The trash is empty' : 'No deleted note matches'
+            "
+          />
         </li>
       }
     </ul>

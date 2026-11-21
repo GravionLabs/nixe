@@ -435,6 +435,19 @@ async fn git_deleted_notes(
         .map_err(|e| e.to_string())?
 }
 
+/// The notes that the last commits added or changed, newest first.
+#[tauri::command]
+async fn git_recent_notes(
+    state: State<'_, AppState>,
+    commits: usize,
+    limit: usize,
+) -> Result<Vec<git::RecentNote>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::recent_notes(&root, commits, limit))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// A note at a commit, or the file on disk for `rev: None` (#105).
 #[tauri::command]
 async fn git_note_version(
@@ -1323,6 +1336,7 @@ pub fn run() {
         git_note_history,
         git_note_version,
         git_deleted_notes,
+        git_recent_notes,
         git_changes_between,
         git_rev_at,
         git_vault_log,
@@ -1435,6 +1449,7 @@ pub fn run() {
         git_note_history,
         git_note_version,
         git_deleted_notes,
+        git_recent_notes,
         git_changes_between,
         git_rev_at,
         git_vault_log,
