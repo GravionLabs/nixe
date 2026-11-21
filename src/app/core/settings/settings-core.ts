@@ -1,4 +1,11 @@
-import { sanitizeAccent, sanitizeFont, sanitizeNames } from "../appearance/appearance-core";
+import {
+  defaultTextSize,
+  detectPlatform,
+  sanitizeAccent,
+  sanitizeFont,
+  sanitizeNames,
+  sanitizeTextSize,
+} from "../appearance/appearance-core";
 import { sanitizePageSize } from "../export/export-core";
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
@@ -82,6 +89,8 @@ export interface StoredSettings {
   /** Font families of the text and of the code; "" keeps the default (#114). */
   fontText: string;
   fontMono: string;
+  /** Size of the note text in px, before the zoom (#374). */
+  textSize: number;
   /** Order of the file tree (#230). */
   treeSort: TreeSort;
   /** The file tree shows the Git status of the notes (#248). */
@@ -148,6 +157,9 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   accentColor: "",
   fontText: "",
   fontMono: "",
+  textSize: defaultTextSize(
+    detectPlatform(typeof navigator === "undefined" ? "" : navigator.userAgent),
+  ),
   treeSort: "name-asc",
   treeGitStatus: true,
   shortcuts: {},
@@ -220,6 +232,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     accentColor: sanitizeAccent(o["accentColor"]),
     fontText: sanitizeFont(o["fontText"]),
     fontMono: sanitizeFont(o["fontMono"]),
+    textSize: sanitizeTextSize(o["textSize"], d.textSize),
     treeSort: sanitizeTreeSort(o["treeSort"]),
     treeGitStatus: o["treeGitStatus"] !== false,
     shortcuts: sanitizeShortcuts(o["shortcuts"]),

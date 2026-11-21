@@ -141,6 +141,8 @@ export class SettingsService {
   readonly accentColor = signal<string>(this.stored.accentColor);
   readonly fontText = signal<string>(this.stored.fontText);
   readonly fontMono = signal<string>(this.stored.fontMono);
+  /** Size of the note text in px (#374). */
+  readonly textSize = signal<number>(this.stored.textSize);
 
   /** Order of the file tree (#230). */
   readonly treeSort = signal<TreeSort>(this.stored.treeSort);
@@ -221,6 +223,7 @@ export class SettingsService {
       accentColor: this.accentColor(),
       fontText: this.fontText(),
       fontMono: this.fontMono(),
+      textSize: this.textSize(),
       treeSort: this.treeSort(),
       treeGitStatus: this.treeGitStatus(),
       shortcuts: this.shortcuts(),
@@ -276,6 +279,7 @@ export class SettingsService {
     this.accentColor.set(s.accentColor);
     this.fontText.set(s.fontText);
     this.fontMono.set(s.fontMono);
+    this.textSize.set(s.textSize);
     this.treeSort.set(s.treeSort);
     this.treeGitStatus.set(s.treeGitStatus);
     this.shortcuts.set(s.shortcuts);

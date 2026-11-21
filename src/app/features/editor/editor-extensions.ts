@@ -85,13 +85,13 @@ export const markdownStyling = ViewPlugin.fromClass(
 );
 
 /** Colors come from the app's CSS variables, so the editor follows the theme without a rebuild. */
-export function editorTheme(dark: boolean, fontSizePx: number): Extension {
+export function editorTheme(dark: boolean, zoomPercent: number): Extension {
   const heading = (size: number) => ({ fontSize: `${size}em`, fontWeight: "700" });
   return EditorView.theme(
     {
       "&": {
         height: "100%",
-        fontSize: `${fontSizePx}px`,
+        fontSize: `calc(var(--nixe-note-font-size, 14px) * ${zoomPercent / 100})`,
         color: "var(--h-text-color)",
         backgroundColor: "var(--h-content-background)",
       },

@@ -90,7 +90,7 @@ describe("live preview widget styles", () => {
   it("resets the white space the editor's line wrapping inherits", () => {
     const view = new EditorView({
       parent: document.body,
-      state: EditorState.create({ doc: "x", extensions: [editorTheme(false, 14)] }),
+      state: EditorState.create({ doc: "x", extensions: [editorTheme(false, 100)] }),
     });
     const css = [...document.querySelectorAll("style")].map((s) => s.textContent).join("\n");
     const rule = /\.cm-live-block\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";

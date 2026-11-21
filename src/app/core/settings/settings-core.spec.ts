@@ -172,6 +172,20 @@ describe("loadSettings (migration from the localStorage SettingsService)", () =>
   });
 });
 
+describe("textSize setting", () => {
+  it("is 14 for a settings file without the key", () => {
+    expect(sanitizeSettings({}).textSize).toBe(14);
+    expect(sanitizeSettings({ zoom: 120 }).textSize).toBe(14);
+  });
+
+  it("is kept within 10 to 24 px", () => {
+    expect(sanitizeSettings({ textSize: 18 }).textSize).toBe(18);
+    expect(sanitizeSettings({ textSize: 2 }).textSize).toBe(10);
+    expect(sanitizeSettings({ textSize: 99 }).textSize).toBe(24);
+    expect(sanitizeSettings({ textSize: "big" }).textSize).toBe(14);
+  });
+});
+
 describe("shortcuts setting", () => {
   it("defaults to none and keeps only string overrides", () => {
     expect(sanitizeSettings(null).shortcuts).toEqual({});

@@ -1,5 +1,11 @@
 import type { CssFile } from "../appearance/appearance-core";
-import { sanitizeAccent, sanitizeFont } from "../appearance/appearance-core";
+import {
+  TEXT_SIZE_MAX,
+  TEXT_SIZE_MIN,
+  sanitizeAccent,
+  sanitizeFont,
+  sanitizeTextSize,
+} from "../appearance/appearance-core";
 import type { ObsidianSetting } from "../file/backend";
 import type { Command } from "../commands/command-registry";
 import { PAGE_SIZES, sanitizePageSize } from "../export/export-core";
@@ -135,6 +141,17 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
         keywords: ["font", "typeface"],
         get: () => s.fontText(),
         set: (v) => s.fontText.set(sanitizeFont(v)),
+      },
+      {
+        kind: "number",
+        id: "text-size",
+        label: "Text size",
+        description: "Size of the note text in px; the zoom multiplies it.",
+        keywords: ["font", "size", "scale"],
+        min: TEXT_SIZE_MIN,
+        max: TEXT_SIZE_MAX,
+        get: () => s.textSize(),
+        set: (v) => s.textSize.set(sanitizeTextSize(v, s.textSize())),
       },
       {
         kind: "text",

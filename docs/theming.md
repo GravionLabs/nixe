@@ -13,7 +13,7 @@ In the app config directory (**Settings → Appearance → Themes and snippets f
 
 Both folders are created on the first start. The name of the file without `.css` is its name in the settings. Hidden files, files above 2 MB and files that are not UTF-8 are ignored.
 
-The order is: app styles, theme, snippets, then the settings *Accent color*, *Text font* and *Code font*. A later rule wins over an earlier one of the same specificity, so a snippet can refine a theme and the settings refine both.
+The order is: app styles, theme, snippets, then the settings *Accent color*, *Text font*, *Code font* and *Text size*. A later rule wins over an earlier one of the same specificity, so a snippet can refine a theme and the settings refine both.
 
 Obsidian themes and `.obsidian/snippets/` are **not** loaded. They target Obsidian's DOM and class names (`.workspace-leaf`, `.markdown-preview-view`, …), which Nixe does not have. Copy the colors and fonts you want into a Nixe theme using the variables below.
 
@@ -35,6 +35,7 @@ Set them on `:root`:
 | `--nixe-font-text` | system UI font | Font of the app and the rendered note. |
 | `--nixe-font-mono` | system monospace | Font of code in the rendered note. |
 | `--nixe-font-size` | `14px` | Base font size of the app. |
+| `--nixe-note-font-size` | `14px` | Size of the note text in the live preview, the source mode and the reading view. The editor multiplies it with the zoom. Headings, code and widgets use `em` and scale with it. The setting *Text size* (10 to 24 px) sets it when it differs from `14px`. |
 | `--nixe-line-height` | `1.5` | Line height of the rendered note. |
 | `--nixe-note-text` | `var(--nixe-font-text)` | Font of the rendered note only. |
 | `--nixe-radius` | `6px` | Corner radius. |
