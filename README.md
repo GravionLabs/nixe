@@ -67,7 +67,7 @@ Get-FileHash .\Nixe_<version>_x64-setup.exe -Algorithm SHA256
 | ⌘/Ctrl + R | Reload |
 | ⌘/Ctrl + B | Collapse / show the sidebar |
 | ⌘/Ctrl + ⇧ + F | Search the vault (selects the Search view in the sidebar) |
-| ⌘/Ctrl + E or toolbar *Edit* button | Toggle editor |
+| ⌘/Ctrl + E or toolbar *Source* button | Switch between live preview and source |
 | ⌘/Ctrl + [ / ] or Alt + ← / → | Back / forward |
 | ⌘/Ctrl + = / - / 0 or ⌘/Ctrl + scroll or the zoom in the status bar | Zoom in / out / reset |
 

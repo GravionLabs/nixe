@@ -122,6 +122,14 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
         borderRadius: "3px",
       },
       ".cm-md-syntax": { opacity: "0.4" },
+      ".cm-live-block": { margin: "0.4em 0", overflowX: "auto" },
+      ".cm-live-bullet": { display: "inline-block", width: "1.1em", textAlign: "center" },
+      ".cm-live-task": { margin: "0 0.4em 0 0", verticalAlign: "middle", cursor: "pointer" },
+      ".cm-live-code": {
+        fontFamily: "var(--nixe-font-mono)",
+        backgroundColor: "var(--h-surface-frame)",
+      },
+      ".cm-live-frontmatter": { opacity: "0.6", fontFamily: "var(--nixe-font-mono)" },
       ".cm-wikilink": { color: "var(--h-primary-color)", textDecoration: "underline" },
       ".cm-tag": { color: "var(--h-primary-color)" },
       ".cm-tooltip": {

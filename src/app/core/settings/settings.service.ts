@@ -125,6 +125,9 @@ export class SettingsService {
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   readonly wrapCode = signal<boolean>(this.stored.wrapCode);
 
+  /** The editor shows the plain source instead of the live preview (#243). */
+  readonly sourceMode = signal<boolean>(this.stored.sourceMode);
+
   /** Export and print (#119): breaks before top-level headings, the dark look, the page size. */
   readonly exportPageBreaks = signal<boolean>(this.stored.exportPageBreaks);
   readonly exportDark = signal<boolean>(this.stored.exportDark);
@@ -202,6 +205,7 @@ export class SettingsService {
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
       wrapCode: this.wrapCode(),
+      sourceMode: this.sourceMode(),
       exportPageBreaks: this.exportPageBreaks(),
       exportDark: this.exportDark(),
       exportPageSize: this.exportPageSize(),
@@ -252,6 +256,7 @@ export class SettingsService {
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
     this.wrapCode.set(s.wrapCode);
+    this.sourceMode.set(s.sourceMode);
     this.exportPageBreaks.set(s.exportPageBreaks);
     this.exportDark.set(s.exportDark);
     this.exportPageSize.set(s.exportPageSize);

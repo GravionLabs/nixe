@@ -62,6 +62,8 @@ export interface StoredSettings {
   extractEmbed: boolean;
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   wrapCode: boolean;
+  /** The editor shows the plain Markdown source instead of the live preview (#243). */
+  sourceMode: boolean;
   /** Export and print: a page break before every top-level heading (#119). */
   exportPageBreaks: boolean;
   /** Export and print in the dark look (#119). */
@@ -127,6 +129,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   bookmarksInVault: false,
   extractEmbed: false,
   wrapCode: false,
+  sourceMode: false,
   exportPageBreaks: true,
   exportDark: false,
   exportPageSize: "A4",
@@ -194,6 +197,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     bookmarksInVault: o["bookmarksInVault"] === true,
     extractEmbed: o["extractEmbed"] === true,
     wrapCode: o["wrapCode"] === true,
+    sourceMode: o["sourceMode"] === true,
     exportPageBreaks: bool(o["exportPageBreaks"], d.exportPageBreaks),
     exportDark: o["exportDark"] === true,
     exportPageSize: sanitizePageSize(o["exportPageSize"]),

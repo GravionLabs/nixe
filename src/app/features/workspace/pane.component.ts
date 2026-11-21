@@ -1,5 +1,5 @@
 import type { OnDestroy } from "@angular/core";
-import { Component, computed, effect, inject, viewChild } from "@angular/core";
+import { Component, computed, effect, inject, untracked, viewChild } from "@angular/core";
 
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
@@ -106,6 +106,16 @@ export class PaneComponent implements OnDestroy {
             fold: (a) => viewer.fold(a),
           }
         : null;
+    });
+    // A note opens rendered and editable (#243); the reading view is the user's choice per tab.
+    effect(() => {
+      const path = this.doc.path();
+      const view = this.tab.view();
+      untracked(() => {
+        if (path === null || view !== null) return;
+        if (this.editor.editing() || this.editor.reading()) return;
+        this.editor.toggle(null).catch(() => undefined);
+      });
     });
     // A note opened into a tab that shows a view (the sidebar opens into the shown tab) replaces it.
     effect(() => {
