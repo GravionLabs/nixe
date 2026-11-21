@@ -20,6 +20,7 @@ import {
   heightAfterKey,
   maxTerminalHeight,
 } from "../../core/terminal/terminal-height";
+import { TERMINAL_PRESETS } from "../../core/terminal/terminal-presets";
 import { TerminalService } from "../../core/terminal/terminal.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
@@ -60,6 +61,7 @@ export class TerminalPanelComponent {
   // Decorator query: signal queries are not registered when the specs run under the JIT compiler.
   @ViewChild("screens", { static: true }) private screens!: ElementRef<HTMLElement>;
   protected readonly error = signal<string | null>(null);
+  protected readonly presets = TERMINAL_PRESETS;
   protected readonly min = MIN_TERMINAL_HEIGHT;
 
   private readonly windowHeight = signal(window.innerHeight);
@@ -184,7 +186,8 @@ export class TerminalPanelComponent {
     const generation = ++run.generation;
     this.error.set(null);
     try {
-      const id = await this.backend.open(term.rows, term.cols);
+      const preset = this.terminal.tabs().find((t) => t.key === run.key)?.preset ?? null;
+      const id = await this.backend.open(term.rows, term.cols, preset);
       if (generation !== run.generation) {
         void this.backend.close(id).catch(() => undefined);
         return;

@@ -210,6 +210,8 @@ describe("settings page", () => {
       ["Do a", "a"],
       ["Do x", "x"],
       ["New terminal tab", "new-terminal-tab"],
+      ["Open Claude in the vault", "open-claude-in-vault"],
+      ["Open Copilot in the vault", "open-copilot-in-vault"],
       ["Toggle terminal", "toggle-terminal"],
     ]);
   });

@@ -38,6 +38,16 @@
   <button type="button" class="tab-new" aria-label="New terminal" (click)="terminal.newTab()">
     +
   </button>
+  @for (preset of presets; track preset.id) {
+    <button
+      type="button"
+      class="tab-preset"
+      [title]="preset.commandTitle"
+      (click)="terminal.openPreset(preset)"
+    >
+      {{ preset.title }}
+    </button>
+  }
 </div>
 <div class="screens" #screens></div>
 @if (terminal.tabs().length === 0) {
