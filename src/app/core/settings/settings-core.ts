@@ -3,6 +3,7 @@ import { sanitizePageSize } from "../export/export-core";
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
 import { DEFAULT_PANEL_WIDTH, sanitizePanelWidth } from "../panel/panel-width";
+import { DEFAULT_TERMINAL_HEIGHT, sanitizeTerminalHeight } from "../terminal/terminal-height";
 import type { LinkPreviewMode } from "../preview/preview-core";
 import { sanitizeMode } from "../preview/preview-core";
 import type { TreeSort } from "../workspace/tree-model";
@@ -95,6 +96,14 @@ export interface StoredSettings {
   captureInbox: string;
   /** Vault-relative template note of a new inbox note; `{{content}}` marks the text. */
   captureTemplate: string;
+  /** The terminal may be used (#360); off by default, because it runs commands with the rights of the user. */
+  terminalEnabled: boolean;
+  /** The user has confirmed once that the terminal runs arbitrary code. */
+  terminalConfirmed: boolean;
+  /** The bottom panel with the terminal is shown. */
+  terminalVisible: boolean;
+  /** Height of the bottom panel, in px. */
+  terminalHeight: number;
 }
 
 export type CaptureTarget = "daily" | "inbox";
@@ -146,6 +155,10 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   captureTarget: "daily",
   captureInbox: "",
   captureTemplate: "",
+  terminalEnabled: false,
+  terminalConfirmed: false,
+  terminalVisible: false,
+  terminalHeight: DEFAULT_TERMINAL_HEIGHT,
 };
 
 const bool = (value: unknown, fallback: boolean): boolean =>
@@ -214,6 +227,10 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     captureTarget: o["captureTarget"] === "inbox" ? "inbox" : "daily",
     captureInbox: text(o["captureInbox"], d.captureInbox),
     captureTemplate: text(o["captureTemplate"], d.captureTemplate),
+    terminalEnabled: o["terminalEnabled"] === true,
+    terminalConfirmed: o["terminalConfirmed"] === true,
+    terminalVisible: o["terminalVisible"] === true,
+    terminalHeight: sanitizeTerminalHeight(o["terminalHeight"]),
   };
 }
 

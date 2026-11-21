@@ -28,6 +28,8 @@ export interface SectionSources {
     cancelTokenPrompt: () => void;
     gh?: NonNullable<Extract<SettingItem, { kind: "token" }>["gh"]>;
   };
+  /** The terminal (#360); absent where there is none (iOS), so the setting is not shown. */
+  terminal?: { setEnabled: (value: boolean) => Promise<boolean> };
   /** The theme and snippet files and the folder they live in (#114); none without the appearance service. */
   appearance?: {
     themes: () => readonly CssFile[];
@@ -50,6 +52,7 @@ export const NOT_SET = "Not set";
 /** General, Editor, Files and links, Appearance, Sync and Shortcuts. */
 export function builtinSections(src: SectionSources): SettingsSection[] {
   const s = src.settings;
+  const terminal = src.terminal;
   const toggle = (
     id: string,
     label: string,
@@ -197,6 +200,27 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
         ),
       ],
     },
+    ...(terminal
+      ? [
+          {
+            id: "terminal",
+            title: "Terminal",
+            order: 55,
+            items: (): SettingItem[] => [
+              {
+                kind: "toggle",
+                id: "terminal-enabled",
+                label: "Enable terminal",
+                description:
+                  "A shell in the vault under the note (command “Toggle terminal”). It runs commands with your rights, so it is off until you confirm.",
+                keywords: ["shell", "console", "command line", "pty", "agent", "claude"],
+                get: () => s.terminalEnabled(),
+                set: (v: boolean) => void terminal.setEnabled(v),
+              },
+            ],
+          },
+        ]
+      : []),
     {
       id: "editor",
       title: "Editor",

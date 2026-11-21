@@ -44,6 +44,8 @@ import { CloneService } from "./core/git/clone.service";
 import { GitService } from "./core/git/git.service";
 import { SettingsPageService } from "./core/settings/settings-page.service";
 import { overlaysNote, clampPanelWidth } from "./core/panel/panel-width";
+import { TerminalPanelComponent } from "./features/terminal/terminal-panel.component";
+import { TerminalService } from "./core/terminal/terminal.service";
 import { PanelResizerComponent } from "./features/panel-resizer/panel-resizer.component";
 import type { PanelTab } from "./core/settings/settings.service";
 import { SettingsService } from "./core/settings/settings.service";
@@ -93,6 +95,7 @@ export class NavIconDirective {
   imports: [
     HxToast,
     PanelResizerComponent,
+    TerminalPanelComponent,
     BookmarksComponent,
     HxActivityBar,
     HxAppShell,
@@ -125,6 +128,7 @@ export class AppComponent {
   protected readonly doc = inject(DocumentService);
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
+  protected readonly terminal = inject(TerminalService);
   private readonly captureShortcut = inject(CaptureShortcutService);
   private readonly index = inject(IndexService);
   private readonly ops = inject(VaultOpsService);
@@ -217,6 +221,15 @@ export class AppComponent {
     effect(() => {
       const error = this.captureShortcut.error();
       if (error !== null) untracked(() => this.showToast(`Capture shortcut: ${error}`));
+    });
+
+    effect(() => {
+      const notice = this.terminal.notice();
+      if (notice === null) return;
+      untracked(() => {
+        this.showToast(notice);
+        this.terminal.notice.set(null);
+      });
     });
 
     effect(() => {

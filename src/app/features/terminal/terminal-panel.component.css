@@ -1,0 +1,42 @@
+:host {
+  display: none;
+  position: relative;
+  flex: none;
+  border-top: 1px solid var(--h-content-border-color);
+  background: var(--h-surface-frame);
+}
+
+:host(.open) {
+  display: block;
+}
+
+.resizer {
+  position: absolute;
+  inset-inline: 0;
+  top: -3px;
+  height: 6px;
+  z-index: 2;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.resizer:hover,
+.resizer:focus-visible,
+.resizer.dragging {
+  background: var(--h-primary-color);
+}
+
+.screen {
+  height: 100%;
+  padding: 4px 8px;
+  box-sizing: border-box;
+}
+
+.error {
+  position: absolute;
+  inset-inline: 8px;
+  bottom: 4px;
+  margin: 0;
+  color: var(--nixe-danger-color);
+  font-size: 12px;
+}

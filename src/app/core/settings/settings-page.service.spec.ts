@@ -5,7 +5,9 @@ import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+const ask = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ ask }));
 
 import { AppearanceService } from "../appearance/appearance.service";
 import { CommandRegistry } from "../commands/command-registry";
@@ -28,6 +30,7 @@ describe("settings page", () => {
   beforeEach(() => {
     vaultRoot.set(null);
     obsidian.mockReset();
+    ask.mockReset();
     window.matchMedia = (() => ({
       matches: false,
       addEventListener: () => undefined,
@@ -48,7 +51,7 @@ describe("settings page", () => {
     page = TestBed.inject(SettingsPageService);
   });
 
-  it("registers the seven sections in order", () => {
+  it("registers the sections in order", () => {
     expect(
       TestBed.inject(SettingsRegistry)
         .sections()
@@ -61,6 +64,7 @@ describe("settings page", () => {
       "Capture",
       "Appearance",
       "Sync",
+      "Terminal",
       "Shortcuts",
     ]);
   });
@@ -204,7 +208,53 @@ describe("settings page", () => {
     expect(items.map((i) => [i.label, i.kind === "shortcut" ? i.commandId : null])).toEqual([
       ["Do a", "a"],
       ["Do x", "x"],
+      ["Toggle terminal", "toggle-terminal"],
     ]);
+  });
+
+  it("has the terminal off by default and asks before it turns on", async () => {
+    ask.mockResolvedValue(true);
+    const item = TestBed.inject(SettingsRegistry)
+      .shown()
+      .flatMap((s) => s.items)
+      .find((i) => i.id === "terminal-enabled")!;
+    if (item.kind !== "toggle") throw new Error("toggle expected");
+    expect(item.get()).toBe(false);
+    item.set(true);
+    await vi.waitFor(() => expect(settings.terminalEnabled()).toBe(true));
+    expect(ask).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the terminal off when the confirmation is declined", async () => {
+    ask.mockResolvedValue(false);
+    const item = TestBed.inject(SettingsRegistry)
+      .shown()
+      .flatMap((s) => s.items)
+      .find((i) => i.id === "terminal-enabled")!;
+    if (item.kind !== "toggle") throw new Error("toggle expected");
+    item.set(true);
+    await vi.waitFor(() => expect(ask).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    expect(settings.terminalEnabled()).toBe(false);
+  });
+
+  it("has no terminal section where there is no terminal (iOS)", () => {
+    const sections = builtinSections({
+      settings,
+      obsidian: () => null,
+      commands: () => [],
+      version: () => "",
+    });
+    expect(sections.map((s) => s.id)).not.toContain("terminal");
+    expect(
+      builtinSections({
+        settings,
+        obsidian: () => null,
+        commands: () => [],
+        version: () => "",
+        terminal: { setEnabled: async () => true },
+      }).map((s) => s.id),
+    ).toContain("terminal");
   });
 
   it("parses comma separated lists", () => {

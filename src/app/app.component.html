@@ -91,6 +91,10 @@
         <app-start class="pane" (failed)="showError($event)" />
       }
     </main>
+
+    @if (terminal.supported && settings.terminalEnabled() && workspace.vaultRoot() !== null) {
+      <app-terminal-panel />
+    }
   </div>
 
   @if (tabs.showWorkspace() && showPanel()) {
