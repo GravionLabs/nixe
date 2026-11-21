@@ -38,6 +38,8 @@ function render(text: string) {
     ],
   });
   TestBed.overrideComponent(PropertiesComponent, { set: { styleUrl: undefined, styles: [] } });
+  // The default is folded (#375); most tests work on the unfolded list.
+  TestBed.inject(SettingsService).propertiesDisplay.set("visible");
   const fixture = TestBed.createComponent(PropertiesComponent);
   fixture.componentInstance.failed.subscribe((e) => errors.push(e));
   fixture.detectChanges();
@@ -187,6 +189,70 @@ describe("PropertiesComponent", () => {
       TestBed.inject(SettingsService).propertiesDisplay.set("folded");
       fixture.detectChanges();
       expect(el.querySelector("[role=alert]")?.textContent).toContain("Invalid frontmatter");
+    });
+  });
+
+  describe("in the live preview (source input)", () => {
+    const FM = "---\ntitle: Hi\ntags:\n  - a\n---";
+
+    function inEditor(source: string) {
+      const r = render("# unrelated\n");
+      r.fixture.componentRef.setInput("sourceText", source);
+      const edited: string[] = [];
+      let editSource = 0;
+      r.fixture.componentInstance.edited.subscribe((t) => edited.push(t));
+      r.fixture.componentInstance.editSource.subscribe(() => editSource++);
+      r.fixture.detectChanges();
+      return { ...r, edited, editSource: () => editSource };
+    }
+
+    it("shows the given text and is smaller and muted through the in-editor class", () => {
+      const { el, fixture } = inEditor(FM);
+      TestBed.inject(SettingsService).propertiesDisplay.set("folded");
+      fixture.detectChanges();
+      expect(el.classList.contains("in-editor")).toBe(true);
+      expect(el.querySelector(".summary-text")?.textContent).toContain("Properties · 2");
+    });
+
+    it("lists the properties unfolded", () => {
+      const { el, fixture } = inEditor(FM);
+      TestBed.inject(SettingsService).propertiesDisplay.set("visible");
+      fixture.detectChanges();
+      expect(el.querySelectorAll(".prop-key").length).toBe(2);
+    });
+
+    it("hands an edit to `edited` and does not write the note", async () => {
+      const { el, fixture, edited, write, change } = inEditor(FM);
+      TestBed.inject(SettingsService).propertiesDisplay.set("visible");
+      fixture.detectChanges();
+      const input = el.querySelector<HTMLInputElement>('input[aria-label="title"]')!;
+      await change(input, "New");
+      expect(edited).toHaveLength(1);
+      expect(edited[0]).toContain("title: New");
+      expect(write).not.toHaveBeenCalled();
+    });
+
+    it("offers Edit as source", () => {
+      const { el, fixture, editSource } = inEditor(FM);
+      TestBed.inject(SettingsService).propertiesDisplay.set("visible");
+      fixture.detectChanges();
+      const button = [...el.querySelectorAll("button")].find(
+        (b) => b.textContent?.trim() === "Edit as source",
+      )!;
+      button.click();
+      expect(editSource()).toBe(1);
+    });
+
+    it("shows the warning of invalid frontmatter", () => {
+      const { el } = inEditor("---\na: [1\n---");
+      expect(el.querySelector("[role=alert]")?.textContent).toContain("Invalid frontmatter");
+    });
+
+    it("has no Edit as source in the reading view", () => {
+      const { el, fixture } = render(NOTE);
+      TestBed.inject(SettingsService).propertiesDisplay.set("visible");
+      fixture.detectChanges();
+      expect(el.textContent).not.toContain("Edit as source");
     });
   });
 });

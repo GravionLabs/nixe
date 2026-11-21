@@ -152,3 +152,32 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* In the live preview the block is smaller than the note text and muted, folded and unfolded (#375). */
+:host(.in-editor) {
+  color: var(--h-text-muted-color);
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+
+:host(.in-editor) .properties-panel,
+:host(.in-editor) .properties-header,
+:host(.in-editor) .properties-summary,
+:host(.in-editor) .frontmatter-warning {
+  font-size: inherit;
+}
+
+:host(.in-editor) input[type="text"],
+:host(.in-editor) input[type="number"],
+:host(.in-editor) input[type="date"],
+:host(.in-editor) select {
+  color: inherit;
+}
+
+:host(.in-editor) .property-chip {
+  color: inherit;
+}
+
+:host(.in-editor) .prop-add {
+  margin-right: 12px;
+}

@@ -17,7 +17,7 @@ every shortcut can be changed in **Settings → Shortcuts**.
 | Attach an image | Paste or drop the image into the editor. It is stored in the attachment folder of the vault (**Settings → Files and links**) and linked. | [ ] |
 | Sync | `Mod+Shift+S` pulls with rebase and pushes. Auto-commit and auto-sync run on an interval and on focus (**Settings → Git**). A conflict keeps both versions and marks the note. **Git changes** shows what is uncommitted. | [ ] |
 
-Also in daily use: properties panel (edit frontmatter; fold it with `Mod+Alt+P`, or set *Properties in document* to Visible, Folded or Hidden), outline panel (`Mod+Shift+L`), task
+Also in daily use: properties panel (edit frontmatter; fold it with `Mod+Alt+P`, or set *Properties in document* to Visible, Folded (default) or Hidden), outline panel (`Mod+Shift+L`), task
 checkboxes in the reading view, tabs and split view (`Mod+T`, `Mod+W`, **Split tab to the right**).
 
 ## The week
