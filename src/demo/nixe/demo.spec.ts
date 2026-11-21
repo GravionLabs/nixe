@@ -95,7 +95,11 @@ describe("the demo backend of Nixe", () => {
 /** The commands the app invokes in the typed wrappers of the Rust core: `invoke<T>("name", …)`. */
 function commandsOf(file: string): string[] {
   const source = readFileSync(new URL(file, import.meta.url), "utf8");
-  return [...source.matchAll(/\binvoke(?:<[^"]*?>)?\(\s*"([a-z_]+)"/g)].map((m) => m[1]!);
+  const found = [...source.matchAll(/\binvoke(?:<.*?>)?\(\s*"([a-z0-9_]+)"/g)].map((m) => m[1]!);
+  // Every call of `invoke` must have given a name: a type that the pattern cannot read fails here.
+  const calls = [...source.matchAll(/\binvoke\s*[<(]/g)].length;
+  expect(found, `${file}: a call of invoke has no readable command name`).toHaveLength(calls);
+  return found;
 }
 
 describe("the commands of the app", () => {
