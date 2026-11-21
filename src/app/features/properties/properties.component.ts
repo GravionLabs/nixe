@@ -75,7 +75,7 @@ export class PropertiesComponent {
     this.panel() ? "expanded" : this.settings.propertiesDisplay(),
   );
   protected readonly summary = computed(() => propertiesSummary(this.props()));
-  protected readonly toggle = (): void => this.settings.toggleProperties();
+  protected readonly toggle = (): void => this.settings.foldProperties();
 
   protected readonly types = NEW_PROPERTY_TYPES;
   protected readonly adding = signal(false);

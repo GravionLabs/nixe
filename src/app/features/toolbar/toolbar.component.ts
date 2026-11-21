@@ -8,8 +8,7 @@ import { ShortcutService } from "../../core/commands/shortcut.service";
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
 import { ShellService } from "../../core/shell/shell.service";
-import type { PropertiesDisplay, ViewMode } from "../../core/settings/settings-core";
-import { sanitizePropertiesDisplay } from "../../core/settings/settings-core";
+import type { ViewMode } from "../../core/settings/settings-core";
 import { SettingsService } from "../../core/settings/settings.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -44,19 +43,10 @@ export class ToolbarComponent {
     { id: "source", label: "Source" },
     { id: "reading", label: "Reading" },
   ];
-  protected readonly propertyOptions: readonly { id: PropertiesDisplay; label: string }[] = [
-    { id: "visible", label: "Visible" },
-    { id: "folded", label: "Folded" },
-    { id: "hidden", label: "Hidden" },
-  ];
 
   /** No note, or an external change that holds the editor open, leaves the mode as it is. */
   protected modeDisabled(): boolean {
     return this.doc.path() === null || (this.editor.editing() && this.editor.blocked());
-  }
-
-  protected setProperties(value: string): void {
-    this.settings.propertiesDisplay.set(sanitizePropertiesDisplay(value));
   }
 
   /** The path of the note as segments. */

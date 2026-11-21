@@ -93,20 +93,20 @@
       }
     </select>
   </div>
-  <select
+  <button
     slot="end"
-    class="props"
-    aria-label="Properties in document"
-    hx-tooltip="Properties in document"
-    [value]="settings.propertiesDisplay()"
-    (change)="setProperties($any($event.target).value)"
+    type="button"
+    class="icon props"
+    [class.active]="settings.propertiesDisplay() !== 'hidden'"
+    [attr.aria-pressed]="settings.propertiesDisplay() !== 'hidden'"
+    [disabled]="doc.path() === null"
+    (click)="run('toggle-properties')"
+    hx-tooltip="Toggle properties in document"
+    [hxTooltipShortcut]="shortcuts.keys('toggle-properties')"
+    aria-label="Toggle properties in document"
   >
-    @for (p of propertyOptions; track p.id) {
-      <option [value]="p.id" [selected]="settings.propertiesDisplay() === p.id">
-        Properties: {{ p.label }}
-      </option>
-    }
-  </select>
+    <svg viewBox="0 0 24 24"><path d="M4 7h3M11 7h9M4 12h9M17 12h3M4 17h5M13 17h7" /></svg>
+  </button>
   <button
     slot="end"
     type="button"

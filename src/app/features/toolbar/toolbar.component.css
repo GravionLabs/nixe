@@ -110,6 +110,10 @@ button.icon.active,
   gap: 2px;
 }
 
+.toggle {
+  white-space: nowrap;
+}
+
 select {
   height: 24px;
   border: 1px solid transparent;
@@ -131,5 +135,6 @@ select.compact {
 
   select.compact {
     display: inline-block;
+    max-width: 120px;
   }
 }
