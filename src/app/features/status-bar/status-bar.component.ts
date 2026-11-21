@@ -10,6 +10,7 @@ import {
 } from "@gravionlabs/helix-desktop";
 import { HxTooltip } from "@gravionlabs/helix-ui";
 
+import { DocumentService } from "../../core/file/document.service";
 import { EditorService } from "../../core/editor/editor.service";
 import { readingTime } from "../../core/editor/text-stats";
 import { CommandRegistry } from "../../core/commands/command-registry";
@@ -54,6 +55,7 @@ export class StatusBarComponent {
   protected readonly updater = inject(UpdateService);
   protected readonly commands = inject(CommandRegistry);
   protected readonly editor = inject(EditorService);
+  protected readonly doc = inject(DocumentService);
   protected readonly links = inject(BacklinksService);
   protected readonly readingTime = readingTime;
 

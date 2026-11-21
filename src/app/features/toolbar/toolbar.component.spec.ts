@@ -2,8 +2,6 @@
 import "@angular/compiler";
 import { readFileSync } from "node:fs";
 import { signal } from "@angular/core";
-import { By } from "@angular/platform-browser";
-import { HxTooltip } from "@gravionlabs/helix-ui";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -27,6 +25,7 @@ function render(opts: {
   editing: boolean;
   blocked?: boolean;
   vault?: boolean;
+  mode?: "live" | "source" | "reading";
 }) {
   const execute = vi.fn().mockReturnValue(true);
   const back = vi.fn();
@@ -36,6 +35,8 @@ function render(opts: {
   const rename = vi.fn().mockResolvedValue("/v/new.md");
   const editing = signal(opts.editing);
   const blocked = signal(opts.blocked ?? false);
+  const mode = signal<"live" | "source" | "reading">(opts.mode ?? "live");
+  const propertiesDisplay = signal<"visible" | "folded" | "hidden">("folded");
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -47,7 +48,7 @@ function render(opts: {
           display: (id: string) => (KEYS[id] ?? []).join("+"),
         },
       },
-      { provide: EditorService, useValue: { editing, blocked } },
+      { provide: EditorService, useValue: { editing, blocked, mode } },
       {
         provide: DocumentService,
         useValue: {
@@ -69,7 +70,7 @@ function render(opts: {
         useValue: {
           outlineVisible: signal(true),
           backlinksVisible: signal(false),
-          sourceMode: signal(true),
+          propertiesDisplay,
         },
       },
     ],
@@ -84,10 +85,25 @@ function render(opts: {
   const fixture = TestBed.createComponent(ToolbarComponent);
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
-  const button = [...el.querySelectorAll("button")].find(
-    (b) => b.textContent?.trim() === "Source",
-  )!;
-  return { fixture, button, execute, editing, blocked, el, back, forward, show, reveal, rename };
+  const modeButton = (label: string) =>
+    [...el.querySelectorAll<HTMLButtonElement>(".seg button")].find(
+      (b) => b.textContent?.trim() === label,
+    )!;
+  return {
+    fixture,
+    modeButton,
+    execute,
+    editing,
+    blocked,
+    mode,
+    propertiesDisplay,
+    el,
+    back,
+    forward,
+    show,
+    reveal,
+    rename,
+  };
 }
 
 const KEYS: Record<string, string[]> = {
@@ -96,30 +112,66 @@ const KEYS: Record<string, string[]> = {
   "toggle-editor": ["Ctrl", "E"],
 };
 
-describe("ToolbarComponent edit toggle", () => {
+describe("ToolbarComponent view mode", () => {
   beforeAll(() => {
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
   });
 
-  it("follows editing() and runs toggle-editor on click", () => {
-    const { fixture, button, execute, editing } = render({ path: "/n.md", editing: false });
-    expect(button.getAttribute("aria-pressed")).toBe("false");
-    expect(button.classList.contains("active")).toBe(false);
-    const tip = fixture.debugElement.query(By.css("button.toggle")).injector.get(HxTooltip);
-    expect(tip.text()).toBe("Toggle source mode");
-    expect(tip.shortcut()).toEqual(["Ctrl", "E"]);
-    button.click();
-    expect(execute).toHaveBeenCalledWith("toggle-editor");
-    editing.set(true);
+  it("offers the three modes and shows the mode of the active tab", () => {
+    const { el, modeButton, mode, fixture } = render({ path: "/n.md", editing: true });
+    expect([...el.querySelectorAll(".seg button")].map((b) => b.textContent?.trim())).toEqual([
+      "Live preview",
+      "Source",
+      "Reading",
+    ]);
+    expect(modeButton("Live preview").getAttribute("aria-pressed")).toBe("true");
+    expect(modeButton("Source").getAttribute("aria-pressed")).toBe("false");
+    mode.set("reading");
     fixture.detectChanges();
-    expect(button.getAttribute("aria-pressed")).toBe("true");
-    expect(button.classList.contains("active")).toBe(true);
+    expect(modeButton("Reading").getAttribute("aria-pressed")).toBe("true");
+    expect(modeButton("Reading").classList.contains("active")).toBe(true);
+    expect(modeButton("Live preview").classList.contains("active")).toBe(false);
+    expect(el.querySelector<HTMLSelectElement>("select.compact")!.value).toBe("reading");
+  });
+
+  it("runs the command of the clicked mode", () => {
+    const { modeButton, execute } = render({ path: "/n.md", editing: true });
+    modeButton("Source").click();
+    modeButton("Reading").click();
+    modeButton("Live preview").click();
+    expect(execute.mock.calls.map((c) => c[0])).toEqual([
+      "view-source",
+      "view-reading",
+      "view-live",
+    ]);
+  });
+
+  it("switches the mode from the compact menu", () => {
+    const { el, execute, fixture } = render({ path: "/n.md", editing: true });
+    const select = el.querySelector<HTMLSelectElement>("select.compact")!;
+    select.value = "source";
+    select.dispatchEvent(new Event("change"));
+    fixture.detectChanges();
+    expect(execute).toHaveBeenCalledWith("view-source");
   });
 
   it("is disabled without a note and while an external change blocks closing", () => {
-    expect(render({ path: null, editing: false }).button.disabled).toBe(true);
-    expect(render({ path: "/n.md", editing: true, blocked: true }).button.disabled).toBe(true);
-    expect(render({ path: "/n.md", editing: true }).button.disabled).toBe(false);
+    expect(render({ path: null, editing: false }).modeButton("Source").disabled).toBe(true);
+    expect(
+      render({ path: "/n.md", editing: true, blocked: true }).modeButton("Source").disabled,
+    ).toBe(true);
+    expect(render({ path: "/n.md", editing: true }).modeButton("Source").disabled).toBe(false);
+  });
+
+  it("sets Properties in document without the settings", () => {
+    const { el, propertiesDisplay, fixture } = render({ path: "/n.md", editing: true });
+    const select = el.querySelector<HTMLSelectElement>("select.props")!;
+    expect([...select.options].map((o) => o.value)).toEqual(["visible", "folded", "hidden"]);
+    expect(select.value).toBe("folded");
+    select.value = "hidden";
+    select.dispatchEvent(new Event("change"));
+    fixture.detectChanges();
+    expect(propertiesDisplay()).toBe("hidden");
   });
 });
 
@@ -129,13 +181,15 @@ describe("ToolbarComponent content", () => {
       (b) => b.getAttribute("aria-label") ?? b.textContent?.trim(),
     );
 
-  it("keeps only back, forward, title, edit, outline and backlinks", () => {
+  it("keeps only back, forward, title, the modes, outline and backlinks", () => {
     const { el } = render({ path: "/n.md", editing: false });
     expect(labels(el)).toEqual([
       "Back",
       "Forward",
       "n.md",
+      "Live preview",
       "Source",
+      "Reading",
       "Toggle outline",
       "Toggle backlinks",
     ]);

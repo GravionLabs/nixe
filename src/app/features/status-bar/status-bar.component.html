@@ -72,6 +72,9 @@
         {{ links.backlinks().length === 1 ? "backlink" : "backlinks" }}
       </hx-status-item>
     }
+    @if (editor.mode() === "reading" && doc.path() !== null) {
+      <hx-status-item slot="end" class="read-only">Read only</hx-status-item>
+    }
     @if (editor.stats(); as stats) {
       <hx-status-item slot="end" class="words" [hx-tooltip]="readingTime(stats)">
         {{ stats.words }} {{ stats.words === 1 ? "word" : "words" }}, {{ stats.characters }}

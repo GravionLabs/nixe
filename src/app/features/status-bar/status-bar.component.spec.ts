@@ -11,6 +11,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 import { CommandRegistry } from "../../core/commands/command-registry";
+import { DocumentService } from "../../core/file/document.service";
 import { EditorService } from "../../core/editor/editor.service";
 import { countText } from "../../core/editor/text-stats";
 import type { GitStatus } from "../../core/file/backend";
@@ -39,6 +40,8 @@ interface Options {
   stats?: ReturnType<typeof countText> | null;
   backlinks?: number;
   linksState?: string;
+  mode?: "live" | "source" | "reading";
+  path?: string | null;
 }
 
 function render(o: Options = {}) {
@@ -88,7 +91,14 @@ function render(o: Options = {}) {
           display: (id: string) => (KEYS[id] ?? []).join("+"),
         },
       },
-      { provide: EditorService, useValue: { stats: signal(o.stats ?? null) } },
+      {
+        provide: EditorService,
+        useValue: { stats: signal(o.stats ?? null), mode: signal(o.mode ?? "live") },
+      },
+      {
+        provide: DocumentService,
+        useValue: { path: signal(o.path === undefined ? "/n.md" : o.path) },
+      },
       {
         provide: BacklinksService,
         useValue: { state: signal(o.linksState ?? "idle"), backlinks, key, refresh },
@@ -175,6 +185,15 @@ describe("StatusBarComponent", () => {
     );
     const sel = render({ stats: countText("one", true) });
     expect(sel.el.querySelector(".words")!.textContent).toContain("1 word, 3 characters selected");
+  });
+
+  it("names the reading view as read only, and no other mode", () => {
+    expect(render({ mode: "reading" }).el.querySelector(".read-only")?.textContent).toContain(
+      "Read only",
+    );
+    expect(render({ mode: "live" }).el.querySelector(".read-only")).toBeNull();
+    expect(render({ mode: "source" }).el.querySelector(".read-only")).toBeNull();
+    expect(render({ mode: "reading", path: null }).el.querySelector(".read-only")).toBeNull();
   });
 
   describe("backlinks", () => {

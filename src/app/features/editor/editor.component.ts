@@ -149,7 +149,7 @@ export class EditorComponent implements OnDestroy {
     // Hiding the properties changes the decorations; folding them is the block's own business.
     const propertiesHidden = computed(() => this.settings.propertiesDisplay() === "hidden");
     effect(() => {
-      const source = this.settings.sourceMode();
+      const source = this.editor.source();
       propertiesHidden();
       untracked(() =>
         this.view?.dispatch({ effects: this.live.reconfigure(this.liveMode(source)) }),
@@ -259,7 +259,7 @@ export class EditorComponent implements OnDestroy {
         folding((lines) => {
           if (this.session === session && !this.restoringFolds) this.folds.set(session.path, lines);
         }),
-        this.live.of(this.liveMode(this.settings.sourceMode())),
+        this.live.of(this.liveMode(this.editor.source())),
         this.theme.of(editorTheme(this.settings.dark(), this.settings.zoom())),
         EditorView.domEventHandlers({
           paste: (event) => this.onPaste(event),
