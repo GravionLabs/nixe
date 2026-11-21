@@ -333,6 +333,8 @@ export interface GitStatus {
   changes: GitChange[];
   ahead: number;
   behind: number;
+  /** Whether the repository has a remote to sync with. */
+  hasRemote: boolean;
 }
 
 /** One commit that touched a note. */

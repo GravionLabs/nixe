@@ -134,6 +134,7 @@ const repo: GitStatus = {
   changes: [{ path: "a.md", kind: "added" }],
   ahead: 2,
   behind: 3,
+  hasRemote: true,
 };
 
 const KEYS: Record<string, string[]> = {
@@ -210,7 +211,9 @@ describe("StatusBarComponent", () => {
   });
 
   it("shows the Git view in the sidebar", () => {
-    const r = render({ status: { branch: null, changes: [], ahead: 0, behind: 0 } });
+    const r = render({
+      status: { branch: null, changes: [], ahead: 0, behind: 0, hasRemote: true },
+    });
     r.el.querySelector<HTMLElement>(".git button")!.click();
     expect(r.show).toHaveBeenCalledWith("git");
     expect(r.text()).toContain("detached HEAD");

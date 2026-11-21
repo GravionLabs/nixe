@@ -31,6 +31,9 @@ pub struct GitStatus {
     pub changes: Vec<GitChange>,
     pub ahead: usize,
     pub behind: usize,
+    /// Whether the repository has a remote to sync with.
+    #[serde(rename = "hasRemote")]
+    pub has_remote: bool,
 }
 
 /// Author used when the Git config has no `user.name` / `user.email`.
@@ -161,11 +164,13 @@ impl GitBackend for Git2Backend {
                 }
             }
         }
+        let has_remote = repo.remotes().map(|r| !r.is_empty()).unwrap_or(false);
         Ok(GitStatus {
             branch,
             changes,
             ahead,
             behind,
+            has_remote,
         })
     }
 
@@ -1193,6 +1198,15 @@ mod tests {
         let status = backend.status().unwrap();
         assert!(status.branch.is_some());
         assert_eq!(status.changes.len(), 1);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn status_tells_whether_a_remote_is_set() {
+        let (dir, backend) = repo_with_commit("hasremote");
+        assert!(!backend.status().unwrap().has_remote);
+        backend.repo.remote("origin", "file:///nowhere").unwrap();
+        assert!(backend.status().unwrap().has_remote);
         let _ = fs::remove_dir_all(dir);
     }
 
