@@ -55,6 +55,7 @@ function build(view: EditorView): DecorationSet {
         const cls = nodeClass(node.name);
         if (cls && node.to > node.from)
           ranges.push(Decoration.mark({ class: cls }).range(node.from, node.to));
+        return undefined;
       },
     });
     for (let pos = from; pos <= to;) {
