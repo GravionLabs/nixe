@@ -59,6 +59,26 @@ body {
   @include meta.load-css("highlight.js/styles/github-dark.css");
 }
 
+// github-markdown-css gives `.markdown-body` its own canvas colour and `font-size: 16px`, and the table
+// rows their own default/muted colours. The live preview widgets (`.cm-live-block.markdown-body`) take the
+// note's background and size; the rows of both views take the helix tokens, so a theme changes both. The
+// selector list repeats the specificity of the github rules above and wins by order.
+:root:not(.app-dark),
+:root.app-dark {
+  .markdown-body.cm-live-block {
+    background: transparent;
+    font-size: inherit;
+  }
+
+  .markdown-body table tr {
+    background-color: var(--h-content-background);
+  }
+
+  .markdown-body table tr:nth-child(2n) {
+    background-color: var(--h-surface-frame);
+  }
+}
+
 // highlight.js themes set their own background on .hljs; code blocks keep the
 // GitHub markdown background instead.
 .markdown-body pre code.hljs,
