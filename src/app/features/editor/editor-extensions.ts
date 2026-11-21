@@ -122,7 +122,15 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
         borderRadius: "3px",
       },
       ".cm-md-syntax": { opacity: "0.4" },
-      ".cm-live-block": { margin: "0.4em 0", overflowX: "auto" },
+      // Widgets sit inside .cm-content, whose lineWrapping preserves white space: reset it, or the
+      // newline between </thead> and <tbody> splits the table box and header and body size apart.
+      ".cm-live-block": {
+        margin: "0.4em 0",
+        overflowX: "auto",
+        whiteSpace: "normal",
+        wordBreak: "normal",
+        overflowWrap: "normal",
+      },
       ".cm-live-bullet": { display: "inline-block", width: "1.1em", textAlign: "center" },
       ".cm-live-task": { margin: "0 0.4em 0 0", verticalAlign: "middle", cursor: "pointer" },
       ".cm-live-code": {

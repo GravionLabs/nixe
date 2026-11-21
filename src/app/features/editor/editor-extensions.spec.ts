@@ -5,7 +5,7 @@ import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 
 import { matchCountLabel } from "./editor-extensions";
-import { editorBehavior } from "./editor-extensions";
+import { editorBehavior, editorTheme } from "./editor-extensions";
 
 function stateWith(
   doc: string,
@@ -83,5 +83,20 @@ describe("wikilink hover", () => {
     view.contentDOM.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
     view.contentDOM.dispatchEvent(new MouseEvent("mouseleave"));
     expect(calls).toEqual([null, null]);
+  });
+});
+
+describe("live preview widget styles", () => {
+  it("resets the white space the editor's line wrapping inherits", () => {
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({ doc: "x", extensions: [editorTheme(false, 14)] }),
+    });
+    const css = [...document.querySelectorAll("style")].map((s) => s.textContent).join("\n");
+    const rule = /\.cm-live-block\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule).toMatch(/white-space:\s*normal/);
+    expect(rule).toMatch(/word-break:\s*normal/);
+    expect(rule).toMatch(/overflow-wrap:\s*normal/);
+    view.destroy();
   });
 });
