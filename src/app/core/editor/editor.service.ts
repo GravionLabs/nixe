@@ -1,7 +1,8 @@
-import { Injectable, Injector, inject, signal } from "@angular/core";
+import { Injectable, Injector, computed, inject, signal } from "@angular/core";
 
 import { DocumentService } from "../file/document.service";
 import { SettingsService } from "../settings/settings.service";
+import type { ViewMode } from "../settings/settings-core";
 import { backend } from "../file/backend";
 import type { TextStats } from "./text-stats";
 
@@ -19,6 +20,8 @@ export interface EditorHandle {
   blocked(): boolean;
   /** Writes the text in the editor to a copy next to the note (the note itself is gone). */
   saveCopy(): Promise<void>;
+  /** Replaces the note text with `text` as one change the editor can undo (only the differing part is touched). */
+  applyText?(text: string): void;
   /** Inserts an expanded template at the cursor and merges its frontmatter into the note's. */
   insertTemplate(template: string): void;
   /** Brings dropped files into the vault and inserts `![[name]]` links at the cursor. */
@@ -39,8 +42,14 @@ export class EditorService {
   private readonly injector = inject(Injector);
 
   readonly editing = signal(false);
-  /** The user left the editor for the read-only reading view; a note opened later does not undo it. */
+  /** The tab shows the read-only reading view; a note opened later does not undo it. */
   readonly reading = signal(false);
+  /** The editor of this tab shows the plain source instead of the live preview. */
+  readonly source = signal(false);
+  /** The mode of the tab (#377): the editor modes while editing, `reading` for the viewer. */
+  readonly mode = computed<ViewMode>(() =>
+    this.reading() ? "reading" : this.source() ? "source" : "live",
+  );
   /** True while an external change blocks closing the editor; mirrors the open editor's conflict. */
   readonly blocked = signal(false);
   /**
@@ -53,6 +62,54 @@ export class EditorService {
   /** Words and characters of the open editor (its selection when there is one); null when none is open. */
   readonly stats = signal<TextStats | null>(null);
   handle: EditorHandle | null = null;
+
+  private modeChosen = false;
+
+  /**
+   * A tab takes the setting *Default view for notes* once, when its first note opens; the tab keeps
+   * its own mode from then on. A tab that got a mode otherwise (a split, a restored tab) keeps it.
+   */
+  applyDefaultMode(): void {
+    if (this.modeChosen) return;
+    this.modeChosen = true;
+    this.applyMode(this.injector.get(SettingsService).defaultView());
+  }
+
+  /** Sets the flags of `mode` without switching between viewer and editor; the tab keeps it. */
+  applyMode(mode: ViewMode): void {
+    this.modeChosen = true;
+    this.reading.set(mode === "reading");
+    this.source.set(mode === "source");
+  }
+
+  /** Copies the mode of another tab (a split keeps what the user sees). */
+  copyModeFrom(other: EditorService): void {
+    this.modeChosen = true;
+    this.reading.set(other.reading());
+    this.source.set(other.source());
+  }
+
+  /**
+   * Switches the tab to `mode`. The editor modes open the editor when the reading view shows;
+   * `reading` closes it (saving first). `viewerLine`: the top line of the viewer, mapped to the editor.
+   */
+  async setMode(mode: ViewMode, viewerLine: number | null = null): Promise<void> {
+    if (mode === "reading") {
+      if (this.editing()) await this.toggle(null);
+      else this.reading.set(true);
+      return;
+    }
+    this.source.set(mode === "source");
+    if (!this.editing()) await this.toggle(viewerLine);
+  }
+
+  /** The shortcut of the reading view: into it, and out again to the mode that was used last. */
+  async toggleReading(viewerLine: number | null): Promise<void> {
+    await this.setMode(
+      this.reading() ? (this.source() ? "source" : "live") : "reading",
+      viewerLine,
+    );
+  }
 
   /** `viewerLine`: the 1-based line at the top of the viewer, mapped to the editor. */
   async toggle(viewerLine: number | null): Promise<void> {
@@ -86,11 +143,6 @@ export class EditorService {
       await this.toggle(viewerLine);
       return;
     }
-    this.injector.get(SettingsService).sourceMode.update((source) => !source);
-  }
-
-  /** Leaves the editor for the read-only reading view. */
-  async openReading(): Promise<void> {
-    if (this.editing()) await this.toggle(null);
+    this.source.update((source) => !source);
   }
 }

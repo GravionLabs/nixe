@@ -1,4 +1,11 @@
-import { sanitizeAccent, sanitizeFont, sanitizeNames } from "../appearance/appearance-core";
+import {
+  defaultTextSize,
+  detectPlatform,
+  sanitizeAccent,
+  sanitizeFont,
+  sanitizeNames,
+  sanitizeTextSize,
+} from "../appearance/appearance-core";
 import { sanitizePageSize } from "../export/export-core";
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
@@ -15,8 +22,15 @@ export type ThemeMode = "system" | "light" | "dark";
 
 export type PropertiesDisplay = "visible" | "folded" | "hidden";
 
+/** How a note shows: rendered while editing, the plain Markdown, or read only (#377). */
+export type ViewMode = "live" | "source" | "reading";
+
+export function sanitizeViewMode(value: unknown): ViewMode {
+  return value === "source" || value === "reading" ? value : "live";
+}
+
 export function sanitizePropertiesDisplay(value: unknown): PropertiesDisplay {
-  return value === "folded" || value === "hidden" ? value : "visible";
+  return value === "visible" || value === "hidden" ? value : "folded";
 }
 
 /** Key of the settings in `localStorage` before they moved to the app config directory. */
@@ -63,8 +77,8 @@ export interface StoredSettings {
   extractEmbed: boolean;
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   wrapCode: boolean;
-  /** The editor shows the plain Markdown source instead of the live preview (#243). */
-  sourceMode: boolean;
+  /** The mode a new tab shows its note in (#377); replaces the former `sourceMode` flag. */
+  defaultView: ViewMode;
   /** Export and print: a page break before every top-level heading (#119). */
   exportPageBreaks: boolean;
   /** Export and print in the dark look (#119). */
@@ -82,6 +96,8 @@ export interface StoredSettings {
   /** Font families of the text and of the code; "" keeps the default (#114). */
   fontText: string;
   fontMono: string;
+  /** Size of the note text in px, before the zoom (#374). */
+  textSize: number;
   /** Order of the file tree (#230). */
   treeSort: TreeSort;
   /** The file tree shows the Git status of the notes (#248). */
@@ -138,16 +154,19 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   bookmarksInVault: false,
   extractEmbed: false,
   wrapCode: false,
-  sourceMode: false,
+  defaultView: "live",
   exportPageBreaks: true,
   exportDark: false,
   exportPageSize: "A4",
-  propertiesDisplay: "visible",
+  propertiesDisplay: "folded",
   appearanceTheme: "",
   snippets: [],
   accentColor: "",
   fontText: "",
   fontMono: "",
+  textSize: defaultTextSize(
+    detectPlatform(typeof navigator === "undefined" ? "" : navigator.userAgent),
+  ),
   treeSort: "name-asc",
   treeGitStatus: true,
   shortcuts: {},
@@ -210,7 +229,10 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     bookmarksInVault: o["bookmarksInVault"] === true,
     extractEmbed: o["extractEmbed"] === true,
     wrapCode: o["wrapCode"] === true,
-    sourceMode: o["sourceMode"] === true,
+    // A stored `sourceMode: true` of an older version becomes the default view "source".
+    defaultView: sanitizeViewMode(
+      o["defaultView"] ?? (o["sourceMode"] === true ? "source" : undefined),
+    ),
     exportPageBreaks: bool(o["exportPageBreaks"], d.exportPageBreaks),
     exportDark: o["exportDark"] === true,
     exportPageSize: sanitizePageSize(o["exportPageSize"]),
@@ -220,6 +242,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     accentColor: sanitizeAccent(o["accentColor"]),
     fontText: sanitizeFont(o["fontText"]),
     fontMono: sanitizeFont(o["fontMono"]),
+    textSize: sanitizeTextSize(o["textSize"], d.textSize),
     treeSort: sanitizeTreeSort(o["treeSort"]),
     treeGitStatus: o["treeGitStatus"] !== false,
     shortcuts: sanitizeShortcuts(o["shortcuts"]),

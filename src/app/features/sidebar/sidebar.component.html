@@ -46,8 +46,8 @@
     aria-label="Reveal the active note"
   >
     <svg viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3v5M12 16v5M3 12h5M16 12h5" />
     </svg>
   </button>
   <button
@@ -60,21 +60,39 @@
   >
     <svg viewBox="0 0 24 24"><path d="M7 9l5-5 5 5M7 15l5 5 5-5" /></svg>
   </button>
+  <button
+    type="button"
+    class="icon filter-toggle"
+    [class.active]="filterShown()"
+    (click)="toggleFilter()"
+    hx-tooltip="Filter files"
+    aria-label="Filter files"
+    aria-controls="sidebar-filter"
+    [attr.aria-expanded]="filterShown()"
+  >
+    <svg viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-4-4" />
+    </svg>
+  </button>
 </header>
 
-<div class="filter-box">
-  <input
-    class="filter"
-    type="search"
-    placeholder="Filter files"
-    aria-label="Filter file tree"
-    autocomplete="off"
-    spellcheck="false"
-    [value]="workspace.treeFilter()"
-    (input)="setFilter($any($event.target).value)"
-    (keydown)="onFilterKeydown($event)"
-  />
-</div>
+@if (filterShown()) {
+  <div class="filter-box" id="sidebar-filter">
+    <input
+      #filterInput
+      class="filter"
+      type="search"
+      placeholder="Filter files"
+      aria-label="Filter file tree"
+      autocomplete="off"
+      spellcheck="false"
+      [value]="workspace.treeFilter()"
+      (input)="setFilter($any($event.target).value)"
+      (keydown)="onFilterKeydown($event)"
+    />
+  </div>
+}
 
 <nav
   class="tree"

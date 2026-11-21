@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   changed,
   enabledSnippets,
+  defaultTextSize,
+  detectPlatform,
   overridesCss,
+  sanitizeTextSize,
   sanitizeAccent,
   sanitizeFont,
   sanitizeNames,
@@ -54,6 +57,12 @@ describe("overridesCss", () => {
     expect(css).toContain("--nixe-font-mono:Fira Code, monospace");
   });
 
+  it("writes the text size only when it differs from the stylesheet", () => {
+    expect(overridesCss("", "", "", 14)).toBe("");
+    expect(overridesCss("", "", "", 18)).toBe(":root{--nixe-note-font-size:18px}");
+    expect(overridesCss("", "", "", 99)).toBe(":root{--nixe-note-font-size:24px}");
+  });
+
   it("ignores unsafe values", () => {
     expect(overridesCss("red", "a;b", "}")).toBe("");
   });
@@ -73,5 +82,28 @@ describe("changed", () => {
     expect(changed([file("a")], [file("a", "", 2)])).toBe(true);
     expect(changed([file("a", "x")], [file("a", "y")])).toBe(true);
     expect(changed([file("a")], [file("b")])).toBe(true);
+  });
+});
+
+describe("text size", () => {
+  it("defaults to 14 px on every platform", () => {
+    for (const p of ["windows", "macos", "linux", "ios"] as const) {
+      expect(defaultTextSize(p)).toBe(14);
+    }
+  });
+
+  it("detects the platform from the user agent", () => {
+    expect(detectPlatform("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")).toBe("windows");
+    expect(detectPlatform("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)")).toBe("macos");
+    expect(detectPlatform("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)")).toBe("ios");
+    expect(detectPlatform("Mozilla/5.0 (X11; Linux x86_64)")).toBe("linux");
+  });
+
+  it("clamps to 10..24, rounds and falls back for a non-number", () => {
+    expect(sanitizeTextSize(5, 14)).toBe(10);
+    expect(sanitizeTextSize(30, 14)).toBe(24);
+    expect(sanitizeTextSize(15.6, 14)).toBe(16);
+    expect(sanitizeTextSize("x", 14)).toBe(14);
+    expect(sanitizeTextSize(Number.NaN, 14)).toBe(14);
   });
 });

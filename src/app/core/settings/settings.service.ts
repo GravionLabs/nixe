@@ -6,7 +6,13 @@ import type { TreeSort } from "../workspace/tree-model";
 import type { LinkPreviewMode } from "../preview/preview-core";
 import type { VaultState, VaultStates } from "../workspace/recent-vaults";
 import { addRecent, pruneStates, removeRecent } from "../workspace/recent-vaults";
-import type { CaptureTarget, PropertiesDisplay, StoredSettings, ThemeMode } from "./settings-core";
+import type {
+  CaptureTarget,
+  PropertiesDisplay,
+  StoredSettings,
+  ThemeMode,
+  ViewMode,
+} from "./settings-core";
 import {
   LEGACY_STORAGE_KEY,
   ZOOM_MAX,
@@ -18,7 +24,7 @@ import {
 
 export { ZOOM_MAX, ZOOM_MIN };
 export type { ThemeMode };
-export type PanelTab = "outline" | "links" | "related";
+export type PanelTab = "outline" | "links" | "related" | "properties";
 
 const ZOOM_STEP = 10;
 
@@ -55,20 +61,20 @@ export class SettingsService {
    */
   readonly panelTab = computed<PanelTab>(() => {
     if (this.outlineVisible() || !this.backlinksVisible()) return "outline";
-    return this.relatedSelected() ? "related" : "links";
+    return this.otherSelected() ?? "links";
   });
   /**
-   * The Related tab shares the stored `backlinksVisible` flag with Links: it is open when that
-   * flag is set and this one too. Not stored, so a restart reopens the panel on Links.
+   * The Related and Properties tabs share the stored `backlinksVisible` flag with Links: one is
+   * open when that flag is set and this names it. Not stored, so a restart reopens the panel on Links.
    */
-  private readonly relatedSelected = signal(false);
+  private readonly otherSelected = signal<"related" | "properties" | null>(null);
   readonly panelOpen = computed(() => this.outlineVisible() || this.backlinksVisible());
 
   /** Opens the panel on `tab`. */
   showPanelTab(tab: PanelTab): void {
     this.outlineVisible.set(tab === "outline");
     this.backlinksVisible.set(tab !== "outline");
-    this.relatedSelected.set(tab === "related");
+    this.otherSelected.set(tab === "related" || tab === "properties" ? tab : null);
   }
 
   /** Opens the panel on `tab`; closes it when that tab is the open one. */
@@ -125,8 +131,8 @@ export class SettingsService {
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   readonly wrapCode = signal<boolean>(this.stored.wrapCode);
 
-  /** The editor shows the plain source instead of the live preview (#243). */
-  readonly sourceMode = signal<boolean>(this.stored.sourceMode);
+  /** The mode a new tab shows its note in: live preview, source or reading view (#377). */
+  readonly defaultView = signal<ViewMode>(this.stored.defaultView);
 
   /** Export and print (#119): breaks before top-level headings, the dark look, the page size. */
   readonly exportPageBreaks = signal<boolean>(this.stored.exportPageBreaks);
@@ -141,6 +147,8 @@ export class SettingsService {
   readonly accentColor = signal<string>(this.stored.accentColor);
   readonly fontText = signal<string>(this.stored.fontText);
   readonly fontMono = signal<string>(this.stored.fontMono);
+  /** Size of the note text in px (#374). */
+  readonly textSize = signal<number>(this.stored.textSize);
 
   /** Order of the file tree (#230). */
   readonly treeSort = signal<TreeSort>(this.stored.treeSort);
@@ -211,7 +219,7 @@ export class SettingsService {
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
       wrapCode: this.wrapCode(),
-      sourceMode: this.sourceMode(),
+      defaultView: this.defaultView(),
       exportPageBreaks: this.exportPageBreaks(),
       exportDark: this.exportDark(),
       exportPageSize: this.exportPageSize(),
@@ -221,6 +229,7 @@ export class SettingsService {
       accentColor: this.accentColor(),
       fontText: this.fontText(),
       fontMono: this.fontMono(),
+      textSize: this.textSize(),
       treeSort: this.treeSort(),
       treeGitStatus: this.treeGitStatus(),
       shortcuts: this.shortcuts(),
@@ -266,7 +275,7 @@ export class SettingsService {
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
     this.wrapCode.set(s.wrapCode);
-    this.sourceMode.set(s.sourceMode);
+    this.defaultView.set(s.defaultView);
     this.exportPageBreaks.set(s.exportPageBreaks);
     this.exportDark.set(s.exportDark);
     this.exportPageSize.set(s.exportPageSize);
@@ -276,6 +285,7 @@ export class SettingsService {
     this.accentColor.set(s.accentColor);
     this.fontText.set(s.fontText);
     this.fontMono.set(s.fontMono);
+    this.textSize.set(s.textSize);
     this.treeSort.set(s.treeSort);
     this.treeGitStatus.set(s.treeGitStatus);
     this.shortcuts.set(s.shortcuts);

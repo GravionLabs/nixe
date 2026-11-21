@@ -1,0 +1,6 @@
+<app-properties
+  [sidebarPanel]="true"
+  [sourceText]="text()"
+  (edited)="apply($event)"
+  (failed)="failed.emit($event)"
+/>

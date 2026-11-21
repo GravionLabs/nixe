@@ -1,5 +1,17 @@
 import type { ElementRef, OnDestroy } from "@angular/core";
-import { Component, effect, inject, output, signal, untracked, viewChild } from "@angular/core";
+import {
+  ApplicationRef,
+  Component,
+  EnvironmentInjector,
+  computed,
+  createComponent,
+  effect,
+  inject,
+  output,
+  signal,
+  untracked,
+  viewChild,
+} from "@angular/core";
 import type { Extension } from "@codemirror/state";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -36,14 +48,14 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
+import { textChange } from "./text-change";
+import { PropertiesComponent } from "../properties/properties.component";
 import { ExternalCompareComponent } from "./external-compare.component";
-import type { LivePreviewHooks } from "./live-preview";
+import type { LivePreviewHooks, PropertiesHandle } from "./live-preview";
 import { livePreview } from "./live-preview";
 import type { FoldAction } from "./folding";
 import { foldAction, folding, restoreFolds } from "./folding";
 import { headingLineAt } from "../../core/composer/composer-core";
-
-const BASE_FONT_PX = 16;
 
 /** The note being edited: its saver, its view of the disk and the folder a write may reach. */
 interface Session {
@@ -76,6 +88,8 @@ export class EditorComponent implements OnDestroy {
   private readonly outline = inject(OutlineService);
   private readonly folds = inject(FoldStateService);
   private readonly messages = inject(HxMessageService);
+  private readonly appRef = inject(ApplicationRef);
+  private readonly injector = inject(EnvironmentInjector);
   private readonly host = viewChild.required<ElementRef<HTMLElement>>("host");
 
   /** The disk text that conflicts with unsaved changes; null when there is no conflict. */
@@ -108,6 +122,7 @@ export class EditorComponent implements OnDestroy {
       blocked: () => this.conflict() !== null,
       saveCopy: () => this.saveCopy(),
       insertTemplate: (template) => this.insertTemplate(template),
+      applyText: (text) => this.applyText(text),
       attachPaths: (paths) => this.attachPaths(paths),
       fold: (action) => this.fold(action),
       selection: () => this.selection(),
@@ -131,8 +146,11 @@ export class EditorComponent implements OnDestroy {
     });
 
     // The live preview and the plain source mode (Mod+E) swap without reloading the note.
+    // Hiding the properties changes the decorations; folding them is the block's own business.
+    const propertiesHidden = computed(() => this.settings.propertiesDisplay() === "hidden");
     effect(() => {
-      const source = this.settings.sourceMode();
+      const source = this.editor.source();
+      propertiesHidden();
       untracked(() =>
         this.view?.dispatch({ effects: this.live.reconfigure(this.liveMode(source)) }),
       );
@@ -140,8 +158,8 @@ export class EditorComponent implements OnDestroy {
 
     effect(() => {
       const dark = this.settings.dark();
-      const size = (BASE_FONT_PX * this.settings.zoom()) / 100;
-      this.view?.dispatch({ effects: this.theme.reconfigure(editorTheme(dark, size)) });
+      const zoom = this.settings.zoom();
+      this.view?.dispatch({ effects: this.theme.reconfigure(editorTheme(dark, zoom)) });
     });
 
     void this.watchWindowClose();
@@ -241,10 +259,8 @@ export class EditorComponent implements OnDestroy {
         folding((lines) => {
           if (this.session === session && !this.restoringFolds) this.folds.set(session.path, lines);
         }),
-        this.live.of(this.liveMode(this.settings.sourceMode())),
-        this.theme.of(
-          editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100),
-        ),
+        this.live.of(this.liveMode(this.editor.source())),
+        this.theme.of(editorTheme(this.settings.dark(), this.settings.zoom())),
         EditorView.domEventHandlers({
           paste: (event) => this.onPaste(event),
           scroll: () => this.outline.topLine.set(this.topLine()),
@@ -277,12 +293,43 @@ export class EditorComponent implements OnDestroy {
     this.view.focus();
   }
 
+  /** A change from outside the text (the properties panel): one undoable transaction. */
+  private applyText(next: string): void {
+    const view = this.view;
+    if (!view) return;
+    const change = textChange(view.state.doc.toString(), next);
+    if (change) view.dispatch({ changes: change });
+  }
+
   private liveMode(source: boolean): Extension {
     return source ? [] : livePreview(this.liveHooks);
   }
 
   /** Blocks of the live preview go through the same pipeline as the reading view. */
   private readonly liveHooks: LivePreviewHooks = {
+    propertiesDisplay: () => this.settings.propertiesDisplay(),
+    mountProperties: (el, source, actions): PropertiesHandle => {
+      const ref = createComponent(PropertiesComponent, {
+        environmentInjector: this.injector,
+        hostElement: el,
+      });
+      ref.setInput("sourceText", source);
+      ref.instance.edited.subscribe((next) => actions.edit(next));
+      ref.instance.editSource.subscribe(() => actions.showSource());
+      ref.instance.failed.subscribe((message) => this.failed.emit(message));
+      this.appRef.attachView(ref.hostView);
+      ref.changeDetectorRef.detectChanges();
+      return {
+        update: (text) => {
+          ref.setInput("sourceText", text);
+          ref.changeDetectorRef.detectChanges();
+        },
+        destroy: () => {
+          this.appRef.detachView(ref.hostView);
+          ref.destroy();
+        },
+      };
+    },
     render: (el, source) => {
       const ctx = {
         filePath: this.doc.path(),

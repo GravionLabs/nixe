@@ -29,17 +29,33 @@ export function inCode(state: EditorState, pos: number): boolean {
   return false;
 }
 
+/** The end offset of the frontmatter block (through its closing fence); 0 when the note has none. */
+function frontmatterEndOffset(state: EditorState): number {
+  const { doc } = state;
+  if (doc.line(1).text.trimEnd() !== "---") return 0;
+  for (let n = 2; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    const t = line.text.trimEnd();
+    if (t === "---" || t === "...") return line.to;
+  }
+  return 0;
+}
+
 function build(view: EditorView): DecorationSet {
   const { state } = view;
   const ranges: Range<Decoration>[] = [];
+  // The Markdown parser reads the YAML as a Setext heading with link marks: it gets no styling.
+  const frontmatterEnd = frontmatterEndOffset(state);
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(state).iterate({
       from,
       to,
       enter(node) {
+        if (node.from < frontmatterEnd) return node.to > frontmatterEnd;
         const cls = nodeClass(node.name);
         if (cls && node.to > node.from)
           ranges.push(Decoration.mark({ class: cls }).range(node.from, node.to));
+        return undefined;
       },
     });
     for (let pos = from; pos <= to;) {
@@ -85,13 +101,13 @@ export const markdownStyling = ViewPlugin.fromClass(
 );
 
 /** Colors come from the app's CSS variables, so the editor follows the theme without a rebuild. */
-export function editorTheme(dark: boolean, fontSizePx: number): Extension {
+export function editorTheme(dark: boolean, zoomPercent: number): Extension {
   const heading = (size: number) => ({ fontSize: `${size}em`, fontWeight: "700" });
   return EditorView.theme(
     {
       "&": {
         height: "100%",
-        fontSize: `${fontSizePx}px`,
+        fontSize: `calc(var(--nixe-note-font-size, 14px) * ${zoomPercent / 100})`,
         color: "var(--h-text-color)",
         backgroundColor: "var(--h-content-background)",
       },
@@ -122,14 +138,37 @@ export function editorTheme(dark: boolean, fontSizePx: number): Extension {
         borderRadius: "3px",
       },
       ".cm-md-syntax": { opacity: "0.4" },
-      ".cm-live-block": { margin: "0.4em 0", overflowX: "auto" },
+      // Widgets sit inside .cm-content, whose lineWrapping preserves white space: reset it, or the
+      // newline between </thead> and <tbody> splits the table box and header and body size apart.
+      ".cm-live-block": {
+        margin: "0.4em 0",
+        overflowX: "auto",
+        whiteSpace: "normal",
+        wordBreak: "normal",
+        overflowWrap: "normal",
+      },
       ".cm-live-bullet": { display: "inline-block", width: "1.1em", textAlign: "center" },
       ".cm-live-task": { margin: "0 0.4em 0 0", verticalAlign: "middle", cursor: "pointer" },
       ".cm-live-code": {
         fontFamily: "var(--nixe-font-mono)",
         backgroundColor: "var(--h-surface-frame)",
       },
-      ".cm-live-frontmatter": { opacity: "0.6", fontFamily: "var(--nixe-font-mono)" },
+      ".cm-live-frontmatter": {
+        opacity: "0.6",
+        fontFamily: "var(--nixe-font-mono)",
+        fontSize: "0.85em",
+      },
+      ".cm-live-properties": { margin: "0.4em 0", whiteSpace: "normal" },
+      ".cm-live-frontmatter-warning": {
+        margin: "0.4em 0",
+        padding: "8px 12px",
+        border: "1px solid var(--h-message-error-border-color)",
+        borderRadius: "6px",
+        backgroundColor: "var(--h-message-error-background)",
+        color: "light-dark(var(--h-red-700), var(--h-red-300))",
+        fontSize: "0.85em",
+        whiteSpace: "pre-wrap",
+      },
       ".cm-wikilink": { color: "var(--h-primary-color)", textDecoration: "underline" },
       ".cm-tag": { color: "var(--h-primary-color)" },
       ".cm-tooltip": {

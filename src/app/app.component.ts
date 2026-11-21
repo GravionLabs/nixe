@@ -47,6 +47,7 @@ import { overlaysNote, clampPanelWidth } from "./core/panel/panel-width";
 import { TerminalPanelComponent } from "./features/terminal/terminal-panel.component";
 import { TerminalService } from "./core/terminal/terminal.service";
 import { PanelResizerComponent } from "./features/panel-resizer/panel-resizer.component";
+import type { ViewMode } from "./core/settings/settings-core";
 import type { PanelTab } from "./core/settings/settings.service";
 import { SettingsService } from "./core/settings/settings.service";
 import { isPrerelease } from "./core/updater/update-logic";
@@ -64,6 +65,7 @@ import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { RelatedComponent } from "./features/related/related.component";
 import { LinkPreviewComponent } from "./features/link-preview/link-preview.component";
 import { OutlineComponent } from "./features/outline/outline.component";
+import { PropertiesPanelComponent } from "./features/properties/properties-panel.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
 import { ComposerComponent } from "./features/composer/composer.component";
@@ -102,6 +104,7 @@ export class NavIconDirective {
     NavIconDirective,
     LinkPreviewComponent,
     OutlineComponent,
+    PropertiesPanelComponent,
     BacklinksComponent,
     RelatedComponent,
     CloneComponent,
@@ -196,7 +199,8 @@ export class AppComponent {
   );
 
   protected readonly panelTab = computed<PanelTab>(() =>
-    this.settings.panelTab() !== "outline" && this.linksAvailable()
+    this.settings.panelTab() === "properties" ||
+    (this.settings.panelTab() !== "outline" && this.linksAvailable())
       ? this.settings.panelTab()
       : "outline",
   );
@@ -491,10 +495,32 @@ export class AppComponent {
           this.run(() => this.editor.toggleMode(this.tabs.activeTab().viewer?.topLine() ?? null)),
       },
       {
-        id: "reading-view",
-        title: "Open reading view",
-        when: () => noteOpen() && this.editor.editing(),
-        run: () => this.run(() => this.editor.openReading()),
+        id: "toggle-reading",
+        title: "Toggle reading view",
+        shortcut: "Mod+Alt+E",
+        when: noteOpen,
+        run: () =>
+          this.run(() =>
+            this.editor.toggleReading(this.tabs.activeTab().viewer?.topLine() ?? null),
+          ),
+      },
+      {
+        id: "view-live",
+        title: "Live preview",
+        when: noteOpen,
+        run: () => this.setViewMode("live"),
+      },
+      {
+        id: "view-source",
+        title: "Source",
+        when: noteOpen,
+        run: () => this.setViewMode("source"),
+      },
+      {
+        id: "view-reading",
+        title: "Reading",
+        when: noteOpen,
+        run: () => this.setViewMode("reading"),
       },
       {
         id: "undo-vault-operation",
@@ -740,6 +766,12 @@ export class AppComponent {
         run: () => this.settings.togglePanelTab("outline"),
       },
       {
+        id: "show-properties-panel",
+        title: "Show properties panel",
+        when: noteOpen,
+        run: () => this.settings.showPanelTab("properties"),
+      },
+      {
         id: "toggle-properties",
         title: "Toggle properties",
         shortcut: "Mod+Alt+P",
@@ -787,6 +819,11 @@ export class AppComponent {
     void getCurrentWindow()
       .close()
       .catch(() => undefined);
+  }
+
+  /** Switches the active tab to a view mode (the toolbar control, the View menu, the palette). */
+  private setViewMode(mode: ViewMode): void {
+    void this.run(() => this.editor.setMode(mode, this.tabs.activeTab().viewer?.topLine() ?? null));
   }
 
   /** A new note in the new-note folder of the vault, opened in the editor. */

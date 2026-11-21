@@ -4,6 +4,9 @@ import type { DecorationSet, ViewUpdate } from "@codemirror/view";
 import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 
 import type { Block, BlockKind } from "../../core/editor/live-preview-core";
+import { splitFrontmatter } from "../../core/markdown/frontmatter";
+import { TableWidget } from "./table-widget";
+import type { PropertiesDisplay } from "../../core/settings/settings-core";
 import {
   WIDGET_KINDS,
   disjoint,
@@ -17,6 +20,43 @@ import {
 export interface LivePreviewHooks {
   /** Fills `el` with the rendered Markdown `source` (sanitized HTML, then mermaid and embeds). */
   render(el: HTMLElement, source: string, kind: BlockKind): void;
+  /**
+   * Draws the frontmatter as the properties block of the reading view (#375). Absent: the
+   * frontmatter stays source. `actions.edit` replaces the frontmatter text, `actions.showSource`
+   * puts the cursor into it.
+   */
+  mountProperties?(el: HTMLElement, source: string, actions: PropertiesActions): PropertiesHandle;
+  /** How the properties show in the document; `hidden` draws no frontmatter at all. */
+  propertiesDisplay?(): PropertiesDisplay;
+}
+
+/** What the properties block asks the editor to do. */
+export interface PropertiesActions {
+  edit(next: string): void;
+  showSource(): void;
+}
+
+/** A mounted properties block: takes the new frontmatter text, is removed with the widget. */
+export interface PropertiesHandle {
+  update(source: string): void;
+  destroy(): void;
+}
+
+/** Elements of a rendered block with a click of their own: links, checkboxes, zoomable images, diagrams. */
+const OWN_CLICK = "a, button, input, summary, img, [data-zoomable], .mermaid-diagram";
+
+function hasOwnClick(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(OWN_CLICK) !== null;
+}
+
+/** Lines of the block source before the clicked row: a table row is its own line, the rest starts at the top. */
+function clickedLine(target: Element): number {
+  const row = target.closest("tr");
+  if (!row) return 0;
+  const rows = [...(row.closest("table")?.rows ?? [])];
+  const i = rows.indexOf(row);
+  // The delimiter row `| - | - |` sits between the header and the first body row and is not rendered.
+  return i <= 0 ? 0 : i + 1;
 }
 
 class BlockWidget extends WidgetType {
@@ -36,6 +76,72 @@ class BlockWidget extends WidgetType {
     const el = document.createElement("div");
     el.className = `cm-live-block cm-live-${this.kind}`;
     this.hooks.render(el, this.source, this.kind);
+    return el;
+  }
+
+  /** Pointer events reach the editor, so a click puts the cursor into the block; own clicks stay with the element. */
+  override ignoreEvent(event: Event): boolean {
+    return hasOwnClick(event.target);
+  }
+}
+
+/** The frontmatter as the properties block; the block stays alive while the text changes. */
+class PropertiesWidget extends WidgetType {
+  private static readonly handles = new WeakMap<HTMLElement, PropertiesHandle>();
+
+  constructor(
+    private readonly source: string,
+    private readonly hooks: LivePreviewHooks,
+  ) {
+    super();
+  }
+
+  /** Folded or not is the block's own business: it follows the setting. */
+  override eq(other: PropertiesWidget): boolean {
+    return other.source === this.source;
+  }
+
+  override toDOM(view: EditorView): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "cm-live-properties";
+    const handle = this.hooks.mountProperties?.(el, this.source, {
+      edit: (next) => replaceFrontmatter(view, next),
+      showSource: () => showFrontmatterSource(view),
+    });
+    if (handle) PropertiesWidget.handles.set(el, handle);
+    return el;
+  }
+
+  override updateDOM(dom: HTMLElement): boolean {
+    const handle = PropertiesWidget.handles.get(dom);
+    if (!handle) return false;
+    handle.update(this.source);
+    return true;
+  }
+
+  override destroy(dom: HTMLElement): void {
+    PropertiesWidget.handles.get(dom)?.destroy();
+    PropertiesWidget.handles.delete(dom);
+  }
+
+  /** The inputs of the block handle their events themselves. */
+  override ignoreEvent(): boolean {
+    return true;
+  }
+}
+
+class FrontmatterWarningWidget extends WidgetType {
+  constructor(private readonly error: string) {
+    super();
+  }
+  override eq(other: FrontmatterWarningWidget): boolean {
+    return other.error === this.error;
+  }
+  override toDOM(): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "cm-live-frontmatter-warning";
+    el.setAttribute("role", "alert");
+    el.textContent = `Invalid frontmatter: ${this.error}`;
     return el;
   }
 }
@@ -80,17 +186,106 @@ const blocksField = StateField.define<Block[]>({
   update: (blocks, tr) => (tr.docChanged ? findBlocks(tr.state.doc.toJSON()) : blocks),
 });
 
+/** The frontmatter block of the note: the lines from the first to the closing fence. */
+function frontmatterRange(state: EditorState): { from: number; to: number } | null {
+  const block = state.field(blocksField).find((b) => b.kind === "frontmatter");
+  return block ? { from: 0, to: state.doc.line(block.end + 1).to } : null;
+}
+
+/** A change made in the properties block: the new text takes the place of the frontmatter. */
+function replaceFrontmatter(view: EditorView, next: string): void {
+  const range = frontmatterRange(view.state);
+  if (range) view.dispatch({ changes: { ...range, insert: next } });
+}
+
+/** The cursor goes into the frontmatter, so its YAML shows. */
+function showFrontmatterSource(view: EditorView): void {
+  const range = frontmatterRange(view.state);
+  if (!range) return;
+  const line = view.state.doc.line(Math.min(2, view.state.doc.lineAt(range.to).number));
+  view.dispatch({ selection: { anchor: line.to }, scrollIntoView: true });
+  view.focus();
+}
+
+/**
+ * The frontmatter as the properties block (or nothing when hidden). Valid frontmatter only: the
+ * YAML of an invalid one stays, with its warning above. A cursor at the very start of the note does
+ * not count as being in the frontmatter, or every note would open with its YAML.
+ */
+function frontmatterDecorations(
+  state: EditorState,
+  hooks: LivePreviewHooks,
+  display: PropertiesDisplay,
+): Range<Decoration>[] {
+  const range = frontmatterRange(state);
+  if (!range) return [];
+  const text = state.sliceDoc(range.from, range.to);
+  const { error } = splitFrontmatter(text);
+  if (error) {
+    if (display === "hidden") return [];
+    return [
+      Decoration.widget({
+        widget: new FrontmatterWarningWidget(error),
+        block: true,
+        side: -1,
+      }).range(0),
+    ];
+  }
+  const inside = state.selection.ranges.some(
+    (r) => !(r.empty && r.from === 0) && touches(r.from, r.to, range.from, range.to),
+  );
+  if (inside) return [];
+  if (display === "hidden")
+    return [Decoration.replace({ block: true }).range(range.from, range.to)];
+  if (!hooks.mountProperties) return [];
+  return [
+    Decoration.replace({
+      widget: new PropertiesWidget(text, hooks),
+      block: true,
+    }).range(range.from, range.to),
+  ];
+}
+
+/** The range of the table block whose widget is `dom`. */
+function locateTable(view: EditorView, dom: HTMLElement): { from: number; to: number } | null {
+  let from: number;
+  try {
+    from = view.posAtDOM(dom);
+  } catch {
+    return null;
+  }
+  const { doc } = view.state;
+  const line = doc.lineAt(from);
+  const block = view.state.field(blocksField).find((b) => b.start === line.number - 1);
+  return block?.kind === "table" ? { from: line.from, to: doc.line(block.end + 1).to } : null;
+}
+
+function tableHooks(hooks: LivePreviewHooks) {
+  return {
+    render: (el: HTMLElement, source: string) => hooks.render(el, source, "table"),
+    locate: locateTable,
+  };
+}
+
 /** Block widgets for every widget block that no selection touches. */
 function blockDecorations(state: EditorState, hooks: LivePreviewHooks): DecorationSet {
-  const ranges: Range<Decoration>[] = [];
+  const ranges: Range<Decoration>[] = frontmatterDecorations(
+    state,
+    hooks,
+    hooks.propertiesDisplay?.() ?? "visible",
+  );
   for (const block of state.field(blocksField)) {
     if (!WIDGET_KINDS.has(block.kind)) continue;
     const from = state.doc.line(block.start + 1).from;
     const to = state.doc.line(block.end + 1).to;
     if (state.selection.ranges.some((r) => touches(r.from, r.to, from, to))) continue;
+    const source = state.sliceDoc(from, to);
     ranges.push(
       Decoration.replace({
-        widget: new BlockWidget(state.sliceDoc(from, to), block.kind, hooks),
+        widget:
+          block.kind === "table"
+            ? new TableWidget(source, tableHooks(hooks))
+            : new BlockWidget(source, block.kind, hooks),
         block: true,
       }).range(from, to),
     );
@@ -177,6 +372,28 @@ const taskToggle = EditorView.domEventHandlers({
   },
 });
 
+/** A click on a rendered block puts the cursor into it, near the row clicked, so its source shows. */
+const blockClick = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    const target = event.target;
+    if (event.button !== 0 || !(target instanceof Element) || hasOwnClick(target)) return false;
+    const el = target.closest(".cm-live-block");
+    // A table takes the click into its cells itself.
+    if (!el || el.classList.contains("cm-live-table")) return false;
+    const from = view.posAtDOM(el);
+    const start = view.state.doc.lineAt(from);
+    const block = view.state.field(blocksField).find((b) => b.start === start.number - 1);
+    const lineNo = Math.min(
+      start.number + clickedLine(target),
+      view.state.doc.line((block?.end ?? start.number - 1) + 1).number,
+    );
+    view.dispatch({ selection: { anchor: view.state.doc.line(lineNo).to }, scrollIntoView: true });
+    view.focus();
+    event.preventDefault();
+    return true;
+  },
+});
+
 /** The live preview: every block but the one with the cursor is drawn, the cursor's block is source. */
 export function livePreview(hooks: LivePreviewHooks): Extension {
   const blockWidgets = StateField.define<DecorationSet>({
@@ -185,5 +402,5 @@ export function livePreview(hooks: LivePreviewHooks): Extension {
       tr.docChanged || tr.selection ? blockDecorations(tr.state, hooks) : value,
     provide: (field) => EditorView.decorations.from(field),
   });
-  return [blocksField, blockWidgets, inlinePreview, taskToggle];
+  return [blocksField, blockWidgets, inlinePreview, taskToggle, blockClick];
 }

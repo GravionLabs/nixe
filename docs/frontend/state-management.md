@@ -166,7 +166,10 @@ dot. The status is the one of `GitService.status()`; the colors are `light-dark(
 tokens whose contrast on the sidebar is checked in `theme-tokens.spec.ts`. The setting "Git status
 in the file tree" (`treeGitStatus`, default on) turns it off.
 
-The filter field above the tree (command `filter-file-tree`, "Filter file tree", Ctrl/⌘+Alt+E)
+The filter field above the tree is hidden until a magnifier button in the header of the tree
+(tooltip "Filter files", `aria-expanded`) or the command shows it and puts the focus into it; a second
+click hides it and clears the filter. While a filter text is set it stays visible and the button
+shows as active. The state is not stored: after a restart the field is hidden. The field (command `filter-file-tree`, "Filter file tree", Ctrl/⌘+Alt+E)
 narrows the tree to the notes and folders whose name contains the text, case-insensitive. Matching
 parts are highlighted, the folders of the matches are expanded (`WorkspaceService.setTreeFilter`
-loads the folders from the vault file list) and Escape clears the field.
+loads the folders from the vault file list) and Escape clears the filter, hides the field and returns the focus to the tree.

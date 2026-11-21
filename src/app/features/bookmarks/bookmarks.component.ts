@@ -49,6 +49,8 @@ const ICONS: Record<BookmarkRow["kind"], string> = {
       display: flex;
       flex-direction: column;
       flex: 1;
+      height: 100%;
+      min-height: 0;
       min-width: 0;
       overflow-y: auto;
       background: var(--h-surface-frame);

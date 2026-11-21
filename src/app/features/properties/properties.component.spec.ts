@@ -38,6 +38,8 @@ function render(text: string) {
     ],
   });
   TestBed.overrideComponent(PropertiesComponent, { set: { styleUrl: undefined, styles: [] } });
+  // The default is folded (#375); most tests work on the unfolded list.
+  TestBed.inject(SettingsService).propertiesDisplay.set("visible");
   const fixture = TestBed.createComponent(PropertiesComponent);
   fixture.componentInstance.failed.subscribe((e) => errors.push(e));
   fixture.detectChanges();
@@ -187,6 +189,140 @@ describe("PropertiesComponent", () => {
       TestBed.inject(SettingsService).propertiesDisplay.set("folded");
       fixture.detectChanges();
       expect(el.querySelector("[role=alert]")?.textContent).toContain("Invalid frontmatter");
+    });
+  });
+
+  describe("in the live preview (source input)", () => {
+    const FM = "---\ntitle: Hi\ntags:\n  - a\n---";
+
+    function inEditor(source: string) {
+      const r = render("# unrelated\n");
+      r.fixture.componentRef.setInput("sourceText", source);
+      const edited: string[] = [];
+      let editSource = 0;
+      r.fixture.componentInstance.edited.subscribe((t) => edited.push(t));
+      r.fixture.componentInstance.editSource.subscribe(() => editSource++);
+      r.fixture.detectChanges();
+      return { ...r, edited, editSource: () => editSource };
+    }
+
+    it("shows the given text and is smaller and muted through the in-editor class", () => {
+      const { el, fixture } = inEditor(FM);
+      TestBed.inject(SettingsService).propertiesDisplay.set("folded");
+      fixture.detectChanges();
+      expect(el.classList.contains("in-editor")).toBe(true);
+      expect(el.querySelector(".summary-text")?.textContent).toContain("Properties · 2");
+    });
+
+    it("lists the properties unfolded", () => {
+      const { el, fixture } = inEditor(FM);
+      TestBed.inject(SettingsService).propertiesDisplay.set("visible");
+      fixture.detectChanges();
+      expect(el.querySelectorAll(".prop-key").length).toBe(2);
+    });
+
+    it("hands an edit to `edited` and does not write the note", async () => {
+      const { el, fixture, edited, write, change } = inEditor(FM);
+      TestBed.inject(SettingsService).propertiesDisplay.set("visible");
+      fixture.detectChanges();
+      const input = el.querySelector<HTMLInputElement>('input[aria-label="title"]')!;
+      await change(input, "New");
+      expect(edited).toHaveLength(1);
+      expect(edited[0]).toContain("title: New");
+      expect(write).not.toHaveBeenCalled();
+    });
+
+    it("offers Edit as source", () => {
+      const { el, fixture, editSource } = inEditor(FM);
+      TestBed.inject(SettingsService).propertiesDisplay.set("visible");
+      fixture.detectChanges();
+      const button = [...el.querySelectorAll("button")].find(
+        (b) => b.textContent?.trim() === "Edit as source",
+      )!;
+      button.click();
+      expect(editSource()).toBe(1);
+    });
+
+    it("shows the warning of invalid frontmatter", () => {
+      const { el } = inEditor("---\na: [1\n---");
+      expect(el.querySelector("[role=alert]")?.textContent).toContain("Invalid frontmatter");
+    });
+
+    it("has no Edit as source in the reading view", () => {
+      const { el, fixture } = render(NOTE);
+      TestBed.inject(SettingsService).propertiesDisplay.set("visible");
+      fixture.detectChanges();
+      expect(el.textContent).not.toContain("Edit as source");
+    });
+  });
+
+  describe("in the sidebar panel", () => {
+    function panel(text: string, display: "hidden" | "folded" | "visible" = "hidden") {
+      const edits: string[] = [];
+      TestBed.resetTestingModule();
+      vi.mocked(invoke).mockImplementation(async () => []);
+      TestBed.configureTestingModule({
+        providers: [{ provide: DocumentService, useValue: { path: signal("/v/n.md") } }],
+      });
+      TestBed.overrideComponent(PropertiesComponent, { set: { styleUrl: undefined, styles: [] } });
+      TestBed.inject(SettingsService).propertiesDisplay.set(display);
+      const fixture = TestBed.createComponent(PropertiesComponent);
+      fixture.componentRef.setInput("sidebarPanel", true);
+      fixture.componentRef.setInput("sourceText", text);
+      fixture.componentInstance.edited.subscribe((e) => edits.push(e));
+      fixture.detectChanges();
+      return { el: fixture.nativeElement as HTMLElement, edits, fixture };
+    }
+
+    it("is unfolded whatever the display setting says", () => {
+      for (const display of ["hidden", "folded"] as const) {
+        const { el } = panel(NOTE, display);
+        expect(el.querySelector('input[aria-label="title"]')).not.toBeNull();
+        expect(el.querySelector(".properties-header")).toBeNull();
+        expect(el.textContent).not.toContain("Edit as source");
+      }
+    });
+
+    it("hands an edit to its owner with the whole note text", () => {
+      const { el, edits } = panel(NOTE);
+      const input = el.querySelector<HTMLInputElement>('input[aria-label="title"]')!;
+      input.value = "Bye";
+      input.dispatchEvent(new Event("change"));
+      expect(edits).toEqual([NOTE.replace("title: Hi", "title: Bye")]);
+    });
+
+    it("shows No properties and creates the frontmatter with Add property", async () => {
+      const { el, edits, fixture } = panel("Body\n");
+      expect(el.textContent).toContain("No properties");
+      const add = [...el.querySelectorAll("button")].find(
+        (b) => b.textContent?.trim() === "Add property",
+      )!;
+      add.click();
+      fixture.detectChanges();
+      const name = el.querySelector<HTMLInputElement>('input[aria-label="New property name"]')!;
+      name.value = "status";
+      el.querySelector("form")!.dispatchEvent(new Event("submit"));
+      await fixture.whenStable();
+      expect(edits).toEqual(['---\nstatus: ""\n---\nBody\n']);
+    });
+
+    it("reorders and removes properties", () => {
+      const note = "---\na: x\nb: y\n---\n";
+      const { el, edits } = panel(note);
+      const click = (label: string) =>
+        el.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!.click();
+      expect(
+        el.querySelector<HTMLButtonElement>('button[aria-label="Move property a up"]')!.disabled,
+      ).toBe(true);
+      click("Move property b up");
+      click("Remove property a");
+      expect(edits).toEqual(["---\nb: y\na: x\n---\n", "---\nb: y\n---\n"]);
+    });
+
+    it("shows the warning and no inputs for invalid frontmatter", () => {
+      const { el } = panel("---\na: [1\n---\nBody\n");
+      expect(el.querySelector(".frontmatter-warning")).not.toBeNull();
+      expect(el.querySelector("input")).toBeNull();
     });
   });
 });

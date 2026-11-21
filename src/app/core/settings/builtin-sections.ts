@@ -1,5 +1,11 @@
 import type { CssFile } from "../appearance/appearance-core";
-import { sanitizeAccent, sanitizeFont } from "../appearance/appearance-core";
+import {
+  TEXT_SIZE_MAX,
+  TEXT_SIZE_MIN,
+  sanitizeAccent,
+  sanitizeFont,
+  sanitizeTextSize,
+} from "../appearance/appearance-core";
 import type { ObsidianSetting } from "../file/backend";
 import type { Command } from "../commands/command-registry";
 import { PAGE_SIZES, sanitizePageSize } from "../export/export-core";
@@ -9,7 +15,7 @@ import type { SettingItem, SettingsSection } from "./settings-registry";
 import type { SettingsService } from "./settings.service";
 import { ZOOM_MAX, ZOOM_MIN } from "./settings.service";
 import type { ThemeMode } from "./settings-core";
-import { sanitizePropertiesDisplay } from "./settings-core";
+import { sanitizePropertiesDisplay, sanitizeViewMode } from "./settings-core";
 
 /** What the built-in sections read besides the settings themselves. */
 export interface SectionSources {
@@ -135,6 +141,17 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
         keywords: ["font", "typeface"],
         get: () => s.fontText(),
         set: (v) => s.fontText.set(sanitizeFont(v)),
+      },
+      {
+        kind: "number",
+        id: "text-size",
+        label: "Text size",
+        description: "Size of the note text in px; the zoom multiplies it.",
+        keywords: ["font", "size", "scale"],
+        min: TEXT_SIZE_MIN,
+        max: TEXT_SIZE_MAX,
+        get: () => s.textSize(),
+        set: (v) => s.textSize.set(sanitizeTextSize(v, s.textSize())),
       },
       {
         kind: "text",
@@ -431,6 +448,20 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           ],
           get: () => s.linkPreview(),
           set: (v) => s.linkPreview.set(sanitizeMode(v)),
+        },
+        {
+          kind: "select",
+          id: "default-view",
+          label: "Default view for notes",
+          description: "The mode a new tab opens its note in. Each tab keeps its own mode.",
+          keywords: ["reading", "source", "live preview", "read only", "mode"],
+          options: [
+            { value: "live", label: "Live preview" },
+            { value: "source", label: "Source" },
+            { value: "reading", label: "Reading" },
+          ],
+          get: () => s.defaultView(),
+          set: (v) => s.defaultView.set(sanitizeViewMode(v)),
         },
         {
           kind: "select",

@@ -75,10 +75,21 @@ describe("sanitizeSettings", () => {
       captureTarget: "daily",
       captureShortcut: "",
     });
-    expect(s.propertiesDisplay).toBe("visible");
+    expect(s.propertiesDisplay).toBe("folded");
+    expect(s.defaultView).toBe("live");
+    expect(sanitizeSettings({ defaultView: "reading" }).defaultView).toBe("reading");
+    expect(sanitizeSettings({ defaultView: "source" }).defaultView).toBe("source");
+    expect(sanitizeSettings({ defaultView: "x" }).defaultView).toBe("live");
+    // The former flag migrates; the new key wins.
+    expect(sanitizeSettings({ sourceMode: true }).defaultView).toBe("source");
+    expect(sanitizeSettings({ sourceMode: false }).defaultView).toBe("live");
+    expect(sanitizeSettings({ sourceMode: true, defaultView: "reading" }).defaultView).toBe(
+      "reading",
+    );
+    expect(sanitizeSettings({ propertiesDisplay: "visible" }).propertiesDisplay).toBe("visible");
     expect(sanitizeSettings({ propertiesDisplay: "folded" }).propertiesDisplay).toBe("folded");
     expect(sanitizeSettings({ propertiesDisplay: "hidden" }).propertiesDisplay).toBe("hidden");
-    expect(sanitizeSettings({ propertiesDisplay: "x" }).propertiesDisplay).toBe("visible");
+    expect(sanitizeSettings({ propertiesDisplay: "x" }).propertiesDisplay).toBe("folded");
     expect(s.treeSort).toBe("name-asc");
     expect(sanitizeSettings({ treeSort: "modified-desc" }).treeSort).toBe("modified-desc");
     expect(sanitizeSettings({ treeSort: "bogus" }).treeSort).toBe("name-asc");
@@ -169,6 +180,20 @@ describe("loadSettings (migration from the localStorage SettingsService)", () =>
     expect(loadSettings("x", "y").source).toBe("defaults");
     expect(loadSettings("{broken", legacy).damaged).toBe(true);
     expect(loadSettings(null, legacy).damaged).toBe(false);
+  });
+});
+
+describe("textSize setting", () => {
+  it("is 14 for a settings file without the key", () => {
+    expect(sanitizeSettings({}).textSize).toBe(14);
+    expect(sanitizeSettings({ zoom: 120 }).textSize).toBe(14);
+  });
+
+  it("is kept within 10 to 24 px", () => {
+    expect(sanitizeSettings({ textSize: 18 }).textSize).toBe(18);
+    expect(sanitizeSettings({ textSize: 2 }).textSize).toBe(10);
+    expect(sanitizeSettings({ textSize: 99 }).textSize).toBe(24);
+    expect(sanitizeSettings({ textSize: "big" }).textSize).toBe(14);
   });
 });
 
