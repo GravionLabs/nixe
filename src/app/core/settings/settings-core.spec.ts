@@ -75,7 +75,7 @@ describe("sanitizeSettings", () => {
       captureTarget: "daily",
       captureShortcut: "",
     });
-    expect(s.propertiesDisplay).toBe("folded");
+    expect(s.propertiesDisplay).toBe("hidden");
     expect(s.defaultView).toBe("live");
     expect(sanitizeSettings({ defaultView: "reading" }).defaultView).toBe("reading");
     expect(sanitizeSettings({ defaultView: "source" }).defaultView).toBe("source");
@@ -89,7 +89,7 @@ describe("sanitizeSettings", () => {
     expect(sanitizeSettings({ propertiesDisplay: "visible" }).propertiesDisplay).toBe("visible");
     expect(sanitizeSettings({ propertiesDisplay: "folded" }).propertiesDisplay).toBe("folded");
     expect(sanitizeSettings({ propertiesDisplay: "hidden" }).propertiesDisplay).toBe("hidden");
-    expect(sanitizeSettings({ propertiesDisplay: "x" }).propertiesDisplay).toBe("folded");
+    expect(sanitizeSettings({ propertiesDisplay: "x" }).propertiesDisplay).toBe("hidden");
     expect(s.treeSort).toBe("name-asc");
     expect(sanitizeSettings({ treeSort: "modified-desc" }).treeSort).toBe("modified-desc");
     expect(sanitizeSettings({ treeSort: "bogus" }).treeSort).toBe("name-asc");

@@ -114,6 +114,25 @@ describe("SettingsService storage", () => {
     await settings.flush();
     expect(write).not.toHaveBeenCalled();
   });
+
+  it("toggles the properties between hidden and the last shown state (#406)", async () => {
+    read.mockResolvedValue(JSON.stringify({ propertiesDisplay: "visible" }));
+    const settings = TestBed.inject(SettingsService);
+    await settings.load();
+    settings.toggleProperties();
+    expect(settings.propertiesDisplay()).toBe("hidden");
+    settings.toggleProperties();
+    expect(settings.propertiesDisplay()).toBe("visible");
+  });
+
+  it("starts hidden on a new install and shows the folded line when toggled on", async () => {
+    read.mockResolvedValue(JSON.stringify({}));
+    const settings = TestBed.inject(SettingsService);
+    await settings.load();
+    expect(settings.propertiesDisplay()).toBe("hidden");
+    settings.toggleProperties();
+    expect(settings.propertiesDisplay()).toBe("folded");
+  });
 });
 
 describe("SettingsService theme", () => {

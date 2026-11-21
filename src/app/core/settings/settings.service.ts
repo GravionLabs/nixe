@@ -280,6 +280,7 @@ export class SettingsService {
     this.exportDark.set(s.exportDark);
     this.exportPageSize.set(s.exportPageSize);
     this.propertiesDisplay.set(s.propertiesDisplay);
+    if (s.propertiesDisplay !== "hidden") this.lastShownProperties = s.propertiesDisplay;
     this.appearanceTheme.set(s.appearanceTheme);
     this.snippets.set(s.snippets);
     this.accentColor.set(s.accentColor);
@@ -385,9 +386,24 @@ export class SettingsService {
     this.zoom.update((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP));
   }
 
-  /** Folds or unfolds the properties; hidden properties come back unfolded. */
-  toggleProperties(): void {
+  /** Folds or unfolds the properties in the document; hidden properties come back unfolded. */
+  foldProperties(): void {
     this.propertiesDisplay.update((m) => (m === "visible" ? "folded" : "visible"));
+  }
+
+  /** The state the properties return to when the toolbar toggle switches them on again (#406). */
+  private lastShownProperties: Exclude<PropertiesDisplay, "hidden"> =
+    this.stored.propertiesDisplay === "visible" ? "visible" : "folded";
+
+  /** Switches the properties in the document off, or on again in the state they had before. */
+  toggleProperties(): void {
+    const current = this.propertiesDisplay();
+    if (current === "hidden") {
+      this.propertiesDisplay.set(this.lastShownProperties);
+    } else {
+      this.lastShownProperties = current;
+      this.propertiesDisplay.set("hidden");
+    }
   }
 
   resetZoom(): void {
