@@ -43,3 +43,14 @@
   overflow: auto;
   padding: 8px 14px;
 }
+
+.action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action .note {
+  color: var(--h-text-muted-color);
+  font-size: 12px;
+}

@@ -426,6 +426,12 @@ export const backend = {
   undoVaultOperation: (author?: GitAuthor) =>
     invoke<VaultOperation>("undo_vault_operation", { ...author }),
   /**
+   * Puts the version of `from` at `revision` into the note `path` as one operation commit (#324);
+   * the current state is committed first and `undoVaultOperation` brings it back.
+   */
+  gitRestoreNote: (path: string, from: string, revision: string, author?: GitAuthor) =>
+    invoke<VaultOperation>("git_restore_note", { path, from, revision, ...author }),
+  /**
    * Takes the changes of one note back (#319): the saved version returns, a new note is removed.
    * One vault operation, so `undoVaultOperation` brings the discarded state back.
    */

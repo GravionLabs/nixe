@@ -3,10 +3,8 @@ import { Component, computed, inject, signal, viewChild } from "@angular/core";
 import type { HxMenuItem } from "@gravionlabs/helix-ui";
 import { HxMenu } from "@gravionlabs/helix-ui";
 
-import { diffLines, diffStat } from "../../core/git/line-diff";
 import type { TimelineEntry } from "../../core/git/history.service";
 import { HistoryService } from "../../core/git/history.service";
-import { DiffComponent } from "../../shared/diff/diff.component";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 import { NoteRowComponent } from "../../shared/panel/note-row.component";
 import { noteLabel } from "../../shared/panel/note-label";
@@ -24,22 +22,18 @@ export function formatCommitTime(secs: number): string {
   return new Date(secs * 1000).toISOString().slice(0, 16).replace("T", " ");
 }
 
-/** Sidebar: the timeline of the open note and the difference between the selected versions. */
+/** Sidebar: the timeline of the open note; the versions are compared in the main area (#324). */
 @Component({
   selector: "app-history",
-  imports: [DiffComponent, PanelSectionComponent, NoteRowComponent, EmptyStateComponent, HxMenu],
+  imports: [PanelSectionComponent, NoteRowComponent, EmptyStateComponent, HxMenu],
   templateUrl: "./history.component.html",
   styleUrl: "./history.component.css",
 })
 export class HistoryComponent implements OnDestroy {
   protected readonly history = inject(HistoryService);
 
-  protected readonly mode = signal<"source" | "rendered">("source");
-
-  protected readonly stat = computed(() => {
-    const c = this.history.comparison();
-    return diffStat(c ? diffLines(c.oldText, c.newText) : []);
-  });
+  /** The version "Compare with…" was chosen on; the next click picks the second one. */
+  protected readonly pickFrom = signal<TimelineEntry | null>(null);
 
   /** The clock of the relative times; ticks once a minute. */
   protected readonly now = signal(Date.now());
@@ -60,7 +54,12 @@ export class HistoryComponent implements OnDestroy {
     const entry = this.menuEntry();
     if (entry === null) return [];
     return [
-      { label: "Restore this version", command: () => void this.history.restore(entry) },
+      {
+        label: "Compare with current version",
+        command: () => void this.history.compareWithCurrent(entry),
+      },
+      { label: "Compare with…", command: () => this.pickFrom.set(entry) },
+      { label: "Restore this version", command: () => void this.history.reviewRestore(entry) },
       { label: "Copy content", command: () => void this.copy(entry) },
     ];
   });
@@ -92,8 +91,15 @@ export class HistoryComponent implements OnDestroy {
     return entry.id === null ? "now" : formatCommitTime(entry.time);
   }
 
-  protected selected(entry: TimelineEntry): boolean {
-    return this.history.selection().includes(entry.id ?? "");
+  /** A click on a version opens its change, or completes a "Compare with…". */
+  protected activate(entry: TimelineEntry): void {
+    const first = this.pickFrom();
+    if (first === null) {
+      void this.history.open(entry);
+      return;
+    }
+    this.pickFrom.set(null);
+    if (first !== entry) void this.history.compareBetween(first, entry);
   }
 
   /** Copies the selected text of the diff or rendered versions, else the whole version. */

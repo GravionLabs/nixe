@@ -479,6 +479,55 @@ pub fn discard_note(
     last_operation(root)?.ok_or_else(|| "the discard was not recorded".to_string())
 }
 
+/// Puts an older version of a note back (#324): the open state of the note is committed first
+/// (the current version stays in the history), then the content of `revision` is written and
+/// committed as one operation commit, so Undo brings the replaced version back. `from` is the
+/// path of the note in `revision` (it differs after a rename). Other open changes stay open.
+pub fn restore_note(
+    root: &Path,
+    path: &str,
+    from: &str,
+    revision: &str,
+    fallback: Option<&Identity>,
+) -> Result<Operation, String> {
+    let plain = |p: &str| {
+        let rel = Path::new(p);
+        !p.is_empty()
+            && rel
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_)))
+            && rel.components().next().map(|c| c.as_os_str()) != Some(std::ffi::OsStr::new(".git"))
+    };
+    if !plain(path) || !plain(from) {
+        return Err(format!("not a note of the vault: {path}"));
+    }
+    let rel = Path::new(path);
+    let backend =
+        Git2Backend::open(root).ok_or_else(|| "the vault is not a Git repository".to_string())?;
+    let repo = &backend.repo;
+    let tree = repo
+        .revparse_single(revision)
+        .and_then(|o| o.peel_to_commit())
+        .and_then(|c| c.tree())
+        .map_err(e)?;
+    let entry = tree
+        .get_path(Path::new(from))
+        .map_err(|_| format!("{from} does not exist in {revision}"))?;
+    let bytes = repo.find_blob(entry.id()).map_err(e)?.content().to_vec();
+    commit_path(repo, rel, "checkpoint before restore", fallback)?;
+    let file = root.join(rel);
+    if let Some(dir) = file.parent() {
+        std::fs::create_dir_all(dir).map_err(|err| err.to_string())?;
+    }
+    std::fs::write(&file, bytes).map_err(|err| err.to_string())?;
+    let short: String = revision.chars().take(7).collect();
+    let message = format!("restore: {path} to {short}\n\n{OPERATION_TRAILER}: restore\n");
+    if !commit_path(repo, rel, &message, fallback)? {
+        return Err("the note already has this version".to_string());
+    }
+    last_operation(root)?.ok_or_else(|| "the restore was not recorded".to_string())
+}
+
 /// One commit that touched a note (#105).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1507,6 +1556,48 @@ mod tests {
             .into_iter()
             .map(|c| (c.path, c.kind))
             .collect()
+    }
+
+    #[test]
+    fn restore_writes_an_older_version_keeps_the_current_one_and_undo_brings_it_back() {
+        let (dir, backend) = repo_with_commit("restore-ver");
+        let old = backend.repo.head().unwrap().peel_to_commit().unwrap().id();
+        fs::write(dir.join("a.md"), "second").unwrap();
+        backend.commit(Some("second"), None).unwrap();
+        fs::write(dir.join("a.md"), "third, unsaved").unwrap();
+        let op = restore_note(&dir, "a.md", "a.md", &old.to_string(), None).unwrap();
+        assert_eq!(op.kind, "restore");
+        assert_eq!(fs::read_to_string(dir.join("a.md")).unwrap(), "a");
+        assert!(changes_of(&dir).is_empty());
+        // The unsaved state was committed before, so it is in the history.
+        let history = note_history(&dir, "a.md", 0, 10).unwrap();
+        assert_eq!(history.len(), 4);
+        undo_operation(&dir, None).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.join("a.md")).unwrap(),
+            "third, unsaved"
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn restore_refuses_a_bad_path_a_missing_version_and_the_same_content() {
+        let (dir, backend) = repo_with_commit("restore-bad");
+        let head = backend
+            .repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id()
+            .to_string();
+        assert!(restore_note(&dir, "../x.md", "a.md", &head, None).is_err());
+        assert!(restore_note(&dir, "a.md", "nope.md", &head, None).is_err());
+        assert!(restore_note(&dir, "a.md", "a.md", "deadbeef", None).is_err());
+        assert!(restore_note(&dir, "a.md", "a.md", &head, None)
+            .unwrap_err()
+            .contains("already"));
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
