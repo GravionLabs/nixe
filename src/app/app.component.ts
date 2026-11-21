@@ -23,9 +23,11 @@ import {
   MENU_EVENT,
   EXPORT_EVENT,
   OPEN_FILE_EVENT,
+  VAULT_CHANGED_EVENT,
   STDIN_FILE_SUFFIX,
   backend,
   type ExportRequest,
+  type VaultChange,
 } from "./core/file/backend";
 import { EditorService } from "./core/editor/editor.service";
 import type { Command } from "./core/commands/command-registry";
@@ -273,6 +275,10 @@ export class AppComponent {
       await listen(EXPORT_EVENT, () => void this.runPendingExport());
       await listen<string>(FILE_CHANGED_EVENT, (e) => void this.tabs.onExternalChange(e.payload));
       await this.updater.init();
+      await listen<VaultChange[]>(
+        VAULT_CHANGED_EVENT,
+        (e) => void this.workspace.onVaultChanged(e.payload ?? []),
+      );
       await this.index.init();
       await this.bookmarks.init();
       await this.workspaces.refreshSaved();

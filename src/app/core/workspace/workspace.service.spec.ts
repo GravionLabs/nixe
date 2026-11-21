@@ -198,3 +198,45 @@ describe("recent vaults in WorkspaceService", () => {
     expect(settings.recentVaults()).toEqual(["/a"]);
   });
 });
+
+describe("vault changes made outside the app", () => {
+  let workspace: WorkspaceService;
+  let reload: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    localStorage.clear();
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn() });
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [{ provide: DocumentService, useValue: { path: signal(null), open: vi.fn() } }],
+    });
+    workspace = TestBed.inject(WorkspaceService);
+    reload = vi.spyOn(workspace, "reloadTree").mockResolvedValue(undefined);
+  });
+
+  it("reloads the tree when a file or folder appeared, went or moved", async () => {
+    for (const kind of ["create", "remove", "rename"] as const) {
+      reload.mockClear();
+      await workspace.onVaultChanged([{ path: "a.md", kind }]);
+      expect(reload, kind).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("leaves the tree alone for modified files (the own autosave)", async () => {
+    await workspace.onVaultChanged([{ path: "a.md", kind: "modify" }]);
+    await workspace.onVaultChanged([]);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("runs overlapping reloads once more instead of in parallel", async () => {
+    let release!: () => void;
+    reload.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
+    const first = workspace.onVaultChanged([{ path: "a.md", kind: "create" }]);
+    const second = workspace.onVaultChanged([{ path: "b.md", kind: "create" }]);
+    const third = workspace.onVaultChanged([{ path: "c.md", kind: "remove" }]);
+    expect(reload).toHaveBeenCalledTimes(1);
+    release();
+    await Promise.all([first, second, third]);
+    expect(reload).toHaveBeenCalledTimes(2);
+  });
+});

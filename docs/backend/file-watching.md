@@ -60,7 +60,9 @@ sequenceDiagram
 
 `DocumentService.onExternalChange` double-checks the path because the event and the
 navigation that supersedes it can race; a stale event for a file that's no longer open
-is simply dropped. A read that fails outright (file mid-replace) is swallowed too — the
+is simply dropped. When the editor holds unsaved edits, `DocumentService.editorHook` decides
+(the tracker classifies the disk text as reload, ignore or conflict): a clean note reloads, a
+dirty one asks before it is overwritten. A read that fails outright (file mid-replace) is swallowed too — the
 next debounced event picks up the final content.
 
 ## Vault-wide watcher
@@ -79,5 +81,22 @@ other editors and `git pull`. One batch goes through three steps:
    set of files changed. It waits for a running scan (`scan_lock`).
 3. The app emits `vault-changed` with the `VaultChange[]`, so the frontend reads fresh data
    (backlinks, search, tree) after the event.
+
+Folders count too: a new or removed folder without files below it is reported as `create` or
+`remove` of the folder path (a removed folder with indexed files is reported through those files).
+The temp file of the app's own atomic save (`.<name>.nixe-tmp`, `write.rs`) is dropped like
+`.git/`, so a save of the app never loops back as a change.
+
+### What the frontend does with `vault-changed`
+
+| Consumer | Reaction |
+|---|---|
+| `IndexService.revision` | moves on every batch: backlinks, search, health and the Git changes view (`GitService.refresh`) read again; an unchanged Git status keeps its object |
+| `WorkspaceService.onVaultChanged` | reloads the file tree (expanded folders stay open) when a change is a `create`, `remove` or `rename`; a `modify` never reloads it, so the autosave of the open note does not. Reloads that overlap run once more instead of in parallel |
+| `BookmarksService` | follows a `rename` |
+
+A burst (a `git checkout`, an agent run) is one debounced batch of 300 ms, so the tree reloads
+once. At most one vault watcher exists: `index_start` replaces `IndexState.watcher` when another
+vault opens, which drops (and stops) the old one; it ends with the app.
 
 Live reload of the open note is unchanged: it still uses `file-changed` from `watch_file`.

@@ -3,6 +3,7 @@ import type { WritableSignal } from "@angular/core";
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
+import type { VaultChange } from "../file/backend";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { basename, joinPath, toSlashes } from "../markdown/paths";
@@ -209,6 +210,33 @@ export class WorkspaceService {
     await this.openFolder(root, { openDefaultPage: false });
     const current = this.doc.path();
     if (current) await this.reveal(current);
+  }
+
+  private treeReload: Promise<void> | null = null;
+  private treeReloadAgain = false;
+
+  /**
+   * The vault watcher reported changes made outside the app (an agent, git): the tree and the file
+   * list follow when a file or folder appeared, went or moved. A modified file changes neither,
+   * so the autosave of the open note never reloads the tree. Reloads that overlap run once more.
+   */
+  async onVaultChanged(changes: VaultChange[]): Promise<void> {
+    if (!changes.some((c) => c.kind !== "modify")) return;
+    if (this.treeReload) {
+      this.treeReloadAgain = true;
+      return this.treeReload;
+    }
+    this.treeReload = (async () => {
+      try {
+        do {
+          this.treeReloadAgain = false;
+          await this.reloadTree().catch(() => undefined);
+        } while (this.treeReloadAgain);
+      } finally {
+        this.treeReload = null;
+      }
+    })();
+    return this.treeReload;
   }
 
   /** Re-reads the tree and the file list after a file operation; expanded folders stay open. */
