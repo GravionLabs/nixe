@@ -206,8 +206,10 @@ describe("settings page", () => {
   it("lists every command in the Shortcuts section, with or without a shortcut", () => {
     const items = page.sections().find((s) => s.id === "shortcuts")!.items;
     expect(items.map((i) => [i.label, i.kind === "shortcut" ? i.commandId : null])).toEqual([
+      ["Close terminal tab", "close-terminal-tab"],
       ["Do a", "a"],
       ["Do x", "x"],
+      ["New terminal tab", "new-terminal-tab"],
       ["Toggle terminal", "toggle-terminal"],
     ]);
   });

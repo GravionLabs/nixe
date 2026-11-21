@@ -45,6 +45,11 @@ vi.mock("@xterm/xterm", () => {
   }
   return { Terminal };
 });
+vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn() }));
+vi.mock("@gravionlabs/helix-desktop", () => ({
+  getHxPlatform: () => "desktop",
+  getHxPlatformKind: (p: string) => p,
+}));
 vi.mock("@xterm/addon-fit", () => ({
   FitAddon: class {
     fit() {}
@@ -53,6 +58,7 @@ vi.mock("@xterm/addon-fit", () => ({
 
 import { SettingsService } from "../../core/settings/settings.service";
 import { TerminalBackend } from "../../core/terminal/terminal-backend";
+import { CommandRegistry } from "../../core/commands/command-registry";
 import { TerminalService } from "../../core/terminal/terminal.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { TerminalPanelComponent } from "./terminal-panel.component";
@@ -132,13 +138,6 @@ describe("TerminalPanelComponent", () => {
           },
         },
         { provide: WorkspaceService, useValue: { vaultRoot } },
-        {
-          provide: TerminalService,
-          useValue: {
-            supported: true,
-            open: () => terminalEnabled() && terminalVisible() && vaultRoot() !== null,
-          },
-        },
       ],
     });
   });
@@ -234,6 +233,55 @@ describe("TerminalPanelComponent", () => {
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toContain("turned off");
     });
+  });
+
+  it("opens a second session in a new tab and keeps each tab's output", async () => {
+    const { fixture, term } = await render();
+    const service = TestBed.inject(TerminalService);
+    TestBed.inject(CommandRegistry).execute("new-terminal-tab");
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(backend.attached).toEqual([1, 2]));
+    const second = xterm.instances[1] as FakeTerm;
+    backend.output.get(1)!(new TextEncoder().encode("one"));
+    backend.output.get(2)!(new TextEncoder().encode("two"));
+    expect(term.written).toEqual([new TextEncoder().encode("one")]);
+    expect(second.written).toEqual([new TextEncoder().encode("two")]);
+    second.dataHandler("a");
+    service.selectTab(1);
+    fixture.detectChanges();
+    term.dataHandler("b");
+    expect(backend.written).toEqual([
+      [2, "a"],
+      [1, "b"],
+    ]);
+    const screens = fixture.nativeElement.querySelectorAll(".screens > div");
+    expect([screens[0].style.display, screens[1].style.display]).toEqual(["", "none"]);
+    expect(backend.closed).toEqual([]);
+  });
+
+  it("ends the session of a closed tab only, and the panel stays open and empty", async () => {
+    const { fixture, term } = await render();
+    const service = TestBed.inject(TerminalService);
+    service.newTab();
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(backend.attached).toEqual([1, 2]));
+    TestBed.inject(CommandRegistry).execute("close-terminal-tab");
+    fixture.detectChanges();
+    expect(backend.closed).toEqual([2]);
+    expect((xterm.instances[1] as FakeTerm).disposed).toBe(true);
+    expect(service.activeKey()).toBe(1);
+    service.closeTab();
+    fixture.detectChanges();
+    expect(backend.closed).toEqual([2, 1]);
+    expect(term.disposed).toBe(true);
+    expect(service.tabs()).toEqual([]);
+    expect(terminalVisible()).toBe(true);
+    expect(backend.opened).toHaveLength(2);
+    const button = fixture.nativeElement.querySelector(".empty button") as HTMLButtonElement;
+    expect(button.textContent).toContain("New terminal");
+    button.click();
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(backend.opened).toHaveLength(3));
   });
 
   it("is resized by the keys and the drag, and the height is stored", async () => {

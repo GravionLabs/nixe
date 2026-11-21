@@ -13,7 +13,38 @@
   (pointercancel)="dragEnd($event)"
   (keydown)="key($event)"
 ></div>
-<div class="screen" #screen role="region" aria-label="Terminal"></div>
+<div class="tabs" role="tablist" aria-label="Terminals">
+  @for (tab of terminal.tabs(); track tab.key) {
+    <div class="tab" [class.active]="tab.key === terminal.activeKey()">
+      <button
+        type="button"
+        role="tab"
+        class="tab-title"
+        [attr.aria-selected]="tab.key === terminal.activeKey()"
+        (click)="terminal.selectTab(tab.key)"
+      >
+        {{ tab.title }}
+      </button>
+      <button
+        type="button"
+        class="tab-close"
+        [attr.aria-label]="'Close ' + tab.title"
+        (click)="terminal.closeTab(tab.key)"
+      >
+        ×
+      </button>
+    </div>
+  }
+  <button type="button" class="tab-new" aria-label="New terminal" (click)="terminal.newTab()">
+    +
+  </button>
+</div>
+<div class="screens" #screens></div>
+@if (terminal.tabs().length === 0) {
+  <div class="empty">
+    <button type="button" (click)="terminal.newTab()">New terminal</button>
+  </div>
+}
 @if (error()) {
   <p class="error" role="alert">{{ error() }}</p>
 }
