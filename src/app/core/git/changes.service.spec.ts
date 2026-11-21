@@ -159,6 +159,16 @@ describe("ChangesService", () => {
     await service.chooseVersion();
     expect(service.chosen()?.id).toBe("c1");
     expect(service.changes()).toEqual(list);
+    // Switching away and back shows the range of the pick again, not the other range's notes.
+    vi.spyOn(backend, "gitRevAt").mockResolvedValue("c5");
+    between.mockResolvedValue([list[0]]);
+    await service.showYesterday();
+    expect(service.changes()).toEqual([list[0]]);
+    between.mockResolvedValue(list);
+    await service.chooseVersion();
+    expect(between).toHaveBeenLastCalledWith("c1");
+    expect(service.changes()).toEqual(list);
+    expect(service.from()).toBe("c1");
     log.mockRejectedValue("no repo");
     await service.loadVersions();
     expect(service.versions()).toEqual([]);

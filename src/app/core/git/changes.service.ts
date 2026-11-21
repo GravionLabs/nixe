@@ -160,8 +160,10 @@ export class ChangesService {
   /** Switches to the version picker; the list of an earlier pick stays. */
   async chooseVersion(): Promise<void> {
     this.kind.set("commit");
-    if (this.chosen() === null) this.reset(null);
-    await this.loadVersions();
+    const chosen = this.chosen();
+    if (chosen === null) this.reset(null);
+    const reload = chosen === null ? Promise.resolve() : this.load(chosen.id, "");
+    await Promise.all([this.loadVersions(), reload]);
   }
 
   /** Lists the notes changed since the picked version (a commit id or a prefix). */
