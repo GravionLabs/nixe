@@ -5,10 +5,39 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.10.0] — 2026-11-21
+
+### Bug Fixes
+- Table header columns are narrower than the body in the live preview (#370) (#386)
+- Tables and other block widgets have their own background and text size in the live preview (#371) (#387)
+- A click on a rendered table does not put the cursor into it (#372) (#388)
+- Frontmatter is drawn as a large bold heading in the editor (#379) (#394)
+- **sidebar**: The file tree does not fill the height of the sidebar (#384) (#397)
+
+
+### Documentation
+- **roadmap**: Add the milestone M005.1 to the roadmap (#380) (#381)
+
+
+### Features
+- **appearance**: Text size setting for notes with a smaller desktop default (#374) (#389)
+- **editor**: Frontmatter as a folded properties block in the live preview (#375) (#390)
+- **properties**: Properties panel in the sidebar (#376) (#391)
+- **editor**: View mode switch for live preview, source and read-only reading (#377) (#392)
+- **editor**: Edit table cells in place in the live preview (#378) (#393)
+- **sidebar**: Target icon for Reveal the active note (#382) (#395)
+- **sidebar**: Show the file filter field only after a click on a magnifier button (#383) (#396)
+
+
+### Reverts
+- **appearance**: Text size setting for notes with a smaller desktop default (#374) (#389)
+
+
 ## [1.9.0] — 2026-11-21
 
 ### Documentation
 - ADR 0006 for the terminal and agent panel (#358) (#364)
+- Update CHANGELOG.md for v1.9.0 [skip ci]
 
 
 ### Features
