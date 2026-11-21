@@ -1,6 +1,8 @@
 import {
   Component,
   ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -58,6 +60,7 @@ export class SidebarComponent {
   private readonly ops = inject(VaultOpsService);
   private readonly tabs = inject(TabsService);
   private readonly bookmarks = inject(BookmarksService);
+  private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly failed = output<string>();
 
@@ -215,8 +218,14 @@ export class SidebarComponent {
       event.preventDefault();
       event.stopPropagation();
       this.closeFilter();
-      const focused = this.rows().findIndex((n) => this.path(n) === this.focused());
-      this.focusRow(Math.max(focused, 0));
+      // The unfiltered rows are rendered after this change detection: focus the row then.
+      afterNextRender(
+        () => {
+          const focused = this.rows().findIndex((n) => this.path(n) === this.focused());
+          this.focusRow(Math.max(focused, 0));
+        },
+        { injector: this.injector },
+      );
     } else if (event.key === "ArrowDown" && this.rows().length > 0) {
       event.preventDefault();
       this.focusRow(0);

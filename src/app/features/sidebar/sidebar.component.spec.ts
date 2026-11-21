@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /* oxlint-disable typescript/no-explicit-any -- the spec calls protected members of the component under test through `as any` */
 import "@angular/compiler";
-import { ElementRef, signal } from "@angular/core";
+import { ApplicationRef, ElementRef, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -268,9 +268,18 @@ describe("SidebarComponent tree", () => {
     sidebar.toggleFilter();
     sidebar.setFilter("bet");
     const escape = key("Escape");
+    // While filtered only the match is rendered; the other rows come back after the clear.
+    const hidden = [...host.querySelectorAll(".row")].filter(
+      (r) => (r as HTMLElement).dataset["path"] !== "/v/beta.md",
+    );
+    hidden.forEach((r) => r.remove());
     sidebar.onFilterKeydown(escape);
     expect(sidebar.filterShown()).toBe(false);
     expect(workspace.setTreeFilter).toHaveBeenLastCalledWith("");
+    host.innerHTML = rows
+      .map((r) => `<div class="row" data-path="${r.dirPath ?? r.filePath}" tabindex="-1"></div>`)
+      .join("");
+    TestBed.inject(ApplicationRef).tick();
     expect(focusedPath()).toBe("/v/alpha");
   });
 
