@@ -52,6 +52,11 @@ button.icon:hover {
   color: var(--h-text-color);
 }
 
+button.icon.active {
+  background: var(--h-surface-hover);
+  color: var(--h-text-color);
+}
+
 svg {
   width: 15px;
   height: 15px;

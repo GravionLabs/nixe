@@ -122,6 +122,10 @@ export class SidebarComponent {
       { label: this.revealLabel, command: () => void this.reveal(node) },
     ];
   });
+  /** Whether the filter field was asked for with the button; not stored, so it starts hidden. */
+  protected readonly filterOpen = signal(false);
+  private readonly filterInput = viewChild<ElementRef<HTMLInputElement>>("filterInput");
+  private focusFilterOnShow = false;
   /** Path of the entry whose name is being edited. */
   protected readonly renaming = signal<string | null>(null);
   private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>("renameInput");
@@ -167,6 +171,12 @@ export class SidebarComponent {
       });
     });
     effect(() => {
+      const input = this.filterInput()?.nativeElement;
+      if (!input || !this.focusFilterOnShow) return;
+      this.focusFilterOnShow = false;
+      input.focus();
+    });
+    effect(() => {
       const input = this.renameInput()?.nativeElement;
       if (!input) return;
       input.focus();
@@ -175,16 +185,38 @@ export class SidebarComponent {
     });
   }
 
+  /** The field shows after a click on the magnifier and stays while a filter text is set. */
+  protected readonly filterShown = computed(
+    () => this.filterOpen() || this.workspace.treeFilter() !== "",
+  );
+
+  /** Shows the filter field and focuses it, or hides it and clears the filter. */
+  protected toggleFilter(): void {
+    if (this.filterShown()) {
+      this.closeFilter();
+      return;
+    }
+    this.focusFilterOnShow = true;
+    this.filterOpen.set(true);
+  }
+
+  private closeFilter(): void {
+    this.filterOpen.set(false);
+    this.setFilter("");
+  }
+
   protected setFilter(text: string): void {
     void this.attempt(() => this.workspace.setTreeFilter(text));
   }
 
-  /** Escape clears the field; the arrow down goes to the first row. */
+  /** Escape clears the filter, hides the field and returns the focus to the tree; the arrow down goes to the first row. */
   protected onFilterKeydown(event: KeyboardEvent): void {
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      this.setFilter("");
+      this.closeFilter();
+      const focused = this.rows().findIndex((n) => this.path(n) === this.focused());
+      this.focusRow(Math.max(focused, 0));
     } else if (event.key === "ArrowDown" && this.rows().length > 0) {
       event.preventDefault();
       this.focusRow(0);

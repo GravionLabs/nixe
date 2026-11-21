@@ -248,6 +248,32 @@ describe("SidebarComponent tree", () => {
     expect(sidebar.rows()).toEqual(rows);
   });
 
+  it("hides the filter field by default and the button shows and hides it", () => {
+    expect(sidebar.filterShown()).toBe(false);
+    sidebar.toggleFilter();
+    expect(sidebar.filterShown()).toBe(true);
+    sidebar.setFilter("bet");
+    sidebar.toggleFilter();
+    expect(sidebar.filterShown()).toBe(false);
+    expect(workspace.setTreeFilter).toHaveBeenLastCalledWith("");
+  });
+
+  it("keeps the field visible while a filter text is set", () => {
+    workspace.treeFilter.set("bet");
+    expect(sidebar.filterShown()).toBe(true);
+    expect(sidebar.filterOpen()).toBe(false);
+  });
+
+  it("Escape hides the field, clears the filter and focuses the tree", () => {
+    sidebar.toggleFilter();
+    sidebar.setFilter("bet");
+    const escape = key("Escape");
+    sidebar.onFilterKeydown(escape);
+    expect(sidebar.filterShown()).toBe(false);
+    expect(workspace.setTreeFilter).toHaveBeenLastCalledWith("");
+    expect(focusedPath()).toBe("/v/alpha");
+  });
+
   it("flashes the active row for 2 s after a reveal request, not without one", () => {
     vi.useFakeTimers();
     try {

@@ -60,21 +60,39 @@
   >
     <svg viewBox="0 0 24 24"><path d="M7 9l5-5 5 5M7 15l5 5 5-5" /></svg>
   </button>
+  <button
+    type="button"
+    class="icon filter-toggle"
+    [class.active]="filterShown()"
+    (click)="toggleFilter()"
+    hx-tooltip="Filter files"
+    aria-label="Filter files"
+    aria-controls="sidebar-filter"
+    [attr.aria-expanded]="filterShown()"
+  >
+    <svg viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-4-4" />
+    </svg>
+  </button>
 </header>
 
-<div class="filter-box">
-  <input
-    class="filter"
-    type="search"
-    placeholder="Filter files"
-    aria-label="Filter file tree"
-    autocomplete="off"
-    spellcheck="false"
-    [value]="workspace.treeFilter()"
-    (input)="setFilter($any($event.target).value)"
-    (keydown)="onFilterKeydown($event)"
-  />
-</div>
+@if (filterShown()) {
+  <div class="filter-box" id="sidebar-filter">
+    <input
+      #filterInput
+      class="filter"
+      type="search"
+      placeholder="Filter files"
+      aria-label="Filter file tree"
+      autocomplete="off"
+      spellcheck="false"
+      [value]="workspace.treeFilter()"
+      (input)="setFilter($any($event.target).value)"
+      (keydown)="onFilterKeydown($event)"
+    />
+  </div>
+}
 
 <nav
   class="tree"
