@@ -96,6 +96,40 @@ describe("livePreview", () => {
     expect(v.state.doc.toString()).toContain("- [x] task");
   });
 
+  it("puts the cursor into a table on a click, at the clicked row", () => {
+    const v = mount(DOC, 0);
+    const widget = v.dom.querySelector<HTMLElement>(".cm-live-table")!;
+    widget.innerHTML =
+      "<table><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>";
+    const cell = widget.querySelector("td")!;
+    const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+    cell.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(v.state.selection.main.head).toBe(posOf("| 1 | 2 |") + "| 1 | 2 |".length);
+    expect(v.dom.querySelector(".cm-live-table")).toBeNull();
+    expect(v.dom.textContent).toContain("| 1 | 2 |");
+  });
+
+  it("puts the cursor into a mermaid block on a click", () => {
+    const v = mount(DOC, 0);
+    v.dom
+      .querySelector<HTMLElement>(".cm-live-mermaid")!
+      .dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+    expect(v.state.selection.main.head).toBe(posOf("```mermaid") + "```mermaid".length);
+    expect(v.dom.querySelector(".cm-live-mermaid")).toBeNull();
+  });
+
+  it("leaves a click on a link inside a widget alone", () => {
+    const v = mount(DOC, 0);
+    const widget = v.dom.querySelector<HTMLElement>(".cm-live-table")!;
+    widget.innerHTML = '<a href="https://example.com">x</a>';
+    const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+    widget.querySelector("a")!.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+    expect(v.state.selection.main.head).toBe(0);
+    expect(v.dom.querySelector(".cm-live-table")).not.toBeNull();
+  });
+
   it("is not drawn without the extension", () => {
     const parent = document.createElement("div");
     document.body.append(parent);
