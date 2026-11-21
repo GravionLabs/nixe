@@ -109,6 +109,8 @@ export function createNixeDemo(): NixeDemo {
     tags: () => vault.tags(),
     search_notes: (a) => vault.search(str(a, "query")),
     capture_note_names: () => vault.notes().map((n) => n.title),
+    // The spike editor lists the notes by name when the app starts (`editor-spike.component.ts`).
+    notes_list: () => vault.notes().map((n) => n.title),
     capture_save: (a) => {
       const path = `${VAULT}/Inbox.md`;
       const before = vault.isFile(path) ? vault.read(path) : "# Inbox\n";

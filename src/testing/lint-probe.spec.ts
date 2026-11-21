@@ -42,6 +42,22 @@ describe("lint probe", () => {
     ]);
   }, 60_000);
 
+  it("oxlint reports page.waitForTimeout in the e2e tests (#401)", () => {
+    let out: string;
+    try {
+      out = execFileSync(
+        "node_modules/.bin/oxlint",
+        ["-f", "json", "e2e/lint/wait-for-timeout.probe.ts"],
+        { encoding: "utf8" },
+      );
+    } catch (error) {
+      out = (error as { stdout: string }).stdout;
+    }
+    expect((JSON.parse(out) as OxlintReport).diagnostics.map((d) => d.code)).toEqual([
+      "nixe-e2e(no-wait-for-timeout)",
+    ]);
+  }, 60_000);
+
   it("ESLint reports the template rules", async () => {
     const [result] = await new ESLint({ ignore: false }).lintFiles([
       `${PROBE}/probe.component.html`,
