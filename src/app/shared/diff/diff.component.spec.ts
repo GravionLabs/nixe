@@ -63,6 +63,12 @@ describe("DiffComponent", () => {
     expect(deleted.querySelectorAll(".row.del")).toHaveLength(1);
   });
 
+  it("does not call an existing empty note missing", () => {
+    const el = render("", "text", "rendered");
+    expect(el.querySelectorAll(".md")).toHaveLength(2);
+    expect(el.querySelector(".status")).toBeNull();
+  });
+
   it("says when there is no difference", () => {
     expect(render("", "", "source").textContent).toContain("No difference");
     const same = render("same", "same", "source");

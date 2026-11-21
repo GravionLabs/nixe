@@ -26,16 +26,16 @@
   <div class="rendered" aria-label="Rendered versions">
     <section>
       <h3>{{ beforeLabel() }}</h3>
-      @if (rendered().old; as html) {
-        <div class="md" [innerHTML]="html"></div>
+      @if (rendered().old !== null) {
+        <div class="md" [innerHTML]="rendered().old"></div>
       } @else {
         <p class="status">The note does not exist in this version</p>
       }
     </section>
     <section>
       <h3>{{ afterLabel() }}</h3>
-      @if (rendered().new; as html) {
-        <div class="md" [innerHTML]="html"></div>
+      @if (rendered().new !== null) {
+        <div class="md" [innerHTML]="rendered().new"></div>
       } @else {
         <p class="status">The note does not exist in this version</p>
       }
