@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { EditorState } from "@codemirror/state";
+import { cursorCharRight } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { PropertiesActions, PropertiesHandle } from "./live-preview";
 import { livePreview } from "./live-preview";
+import type { PropertiesDisplay } from "../../core/settings/settings-core";
 
 const DOC = [
   "# Title",
@@ -136,5 +139,135 @@ describe("livePreview", () => {
     view = new EditorView({ parent, state: EditorState.create({ doc: DOC }) });
     expect(view.dom.querySelectorAll(".cm-live-block").length).toBe(0);
     expect(view.dom.textContent).toContain("**bold**");
+  });
+
+  describe("frontmatter", () => {
+    const FM = "---\ntitle: Hi\ntags:\n  - a\n---\nBody text";
+
+    function mountFm(doc: string, cursor: number, display: PropertiesDisplay = "folded") {
+      const mounted: { el: HTMLElement; source: string; actions: PropertiesActions }[] = [];
+      const updates: string[] = [];
+      let destroyed = 0;
+      const parent = document.createElement("div");
+      document.body.append(parent);
+      view = new EditorView({
+        parent,
+        state: EditorState.create({
+          doc,
+          selection: { anchor: cursor },
+          extensions: livePreview({
+            render: () => undefined,
+            propertiesDisplay: () => display,
+            mountProperties: (el, source, actions): PropertiesHandle => {
+              mounted.push({ el, source, actions });
+              el.textContent = `properties ${source.split("\n")[1]}`;
+              return {
+                update: (text) => updates.push(text),
+                destroy: () => destroyed++,
+              };
+            },
+          }),
+        }),
+      });
+      return { v: view, mounted, updates, destroyed: () => destroyed };
+    }
+
+    it("draws the frontmatter as the properties block instead of the YAML", () => {
+      const { v, mounted } = mountFm(FM, 0);
+      expect(v.dom.querySelectorAll(".cm-live-properties").length).toBe(1);
+      expect(mounted[0].source).toBe("---\ntitle: Hi\ntags:\n  - a\n---");
+      expect(v.dom.textContent).not.toContain("tags:");
+      expect(v.dom.textContent).toContain("Body text");
+    });
+
+    it("shows the YAML, smaller, while the cursor is in the frontmatter", () => {
+      const { v } = mountFm(FM, FM.indexOf("title"));
+      expect(v.dom.querySelector(".cm-live-properties")).toBeNull();
+      expect(v.dom.querySelectorAll(".cm-live-frontmatter").length).toBe(5);
+      expect(v.dom.textContent).toContain("title: Hi");
+    });
+
+    it("keeps the block when the cursor is at the start of the note and enters it on a move", () => {
+      const { v } = mountFm(FM, 0);
+      expect(v.dom.querySelector(".cm-live-properties")).not.toBeNull();
+      v.dispatch({ selection: { anchor: FM.indexOf("Body") } });
+      expect(v.dom.querySelector(".cm-live-properties")).not.toBeNull();
+      v.dispatch({ selection: { anchor: 3 } });
+      expect(v.dom.querySelector(".cm-live-properties")).toBeNull();
+    });
+
+    it("shows the YAML when the cursor moves on from line 1", () => {
+      const { v } = mountFm(FM, 0);
+      cursorCharRight(v);
+      expect(v.dom.querySelector(".cm-live-properties")).toBeNull();
+      expect(v.dom.textContent).toContain("title: Hi");
+    });
+
+    it("replaces the frontmatter with the edited text and keeps the body", () => {
+      const { v, mounted } = mountFm(FM, 0);
+      mounted[0].actions.edit("---\ntitle: New\n---");
+      expect(v.state.doc.toString()).toBe("---\ntitle: New\n---\nBody text");
+    });
+
+    it("puts the cursor into the frontmatter on Edit as source", () => {
+      const { v, mounted } = mountFm(FM, 0);
+      mounted[0].actions.showSource();
+      expect(v.state.selection.main.head).toBe(FM.indexOf("\n", 4));
+      expect(v.dom.querySelector(".cm-live-properties")).toBeNull();
+      expect(v.dom.textContent).toContain("title: Hi");
+    });
+
+    it("removes the block with its widget when the cursor enters the frontmatter", () => {
+      const { v, mounted, destroyed } = mountFm(FM, FM.indexOf("Body"));
+      expect(mounted.length).toBe(1);
+      v.dispatch({ selection: { anchor: 3 } });
+      expect(destroyed()).toBe(1);
+      v.dispatch({ selection: { anchor: v.state.doc.length } });
+      expect(mounted.length).toBe(2);
+    });
+
+    it("updates the block in place when the frontmatter text changes under it", () => {
+      const { v, mounted, updates } = mountFm(FM, FM.indexOf("Body"));
+      v.dispatch({ changes: { from: FM.indexOf("Hi"), to: FM.indexOf("Hi") + 2, insert: "Yo" } });
+      expect(mounted.length).toBe(1);
+      expect(updates).toEqual(["---\ntitle: Yo\ntags:\n  - a\n---"]);
+    });
+
+    it("draws nothing for hidden properties", () => {
+      const { v, mounted } = mountFm(FM, FM.indexOf("Body"), "hidden");
+      expect(mounted.length).toBe(0);
+      expect(v.dom.textContent).not.toContain("title");
+      expect(v.dom.textContent).toContain("Body text");
+    });
+
+    it("shows the warning and the YAML of an invalid frontmatter", () => {
+      const bad = "---\ntitle: [unclosed\n---\nBody";
+      const { v, mounted } = mountFm(bad, bad.indexOf("Body"));
+      expect(mounted.length).toBe(0);
+      expect(v.dom.querySelector(".cm-live-frontmatter-warning")?.textContent).toContain(
+        "Invalid frontmatter",
+      );
+      expect(v.dom.textContent).toContain("title: [unclosed");
+    });
+
+    it("shows no warning for an invalid frontmatter when the properties are hidden", () => {
+      const bad = "---\ntitle: [unclosed\n---\nBody";
+      const { v } = mountFm(bad, bad.indexOf("Body"), "hidden");
+      expect(v.dom.querySelector(".cm-live-frontmatter-warning")).toBeNull();
+    });
+
+    it("keeps the YAML as source without a properties hook", () => {
+      const parent = document.createElement("div");
+      document.body.append(parent);
+      view = new EditorView({
+        parent,
+        state: EditorState.create({
+          doc: FM,
+          selection: { anchor: FM.indexOf("Body") },
+          extensions: livePreview({ render: () => undefined }),
+        }),
+      });
+      expect(view.dom.textContent).toContain("title: Hi");
+    });
   });
 });

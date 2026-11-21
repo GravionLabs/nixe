@@ -137,7 +137,22 @@ export function editorTheme(dark: boolean, zoomPercent: number): Extension {
         fontFamily: "var(--nixe-font-mono)",
         backgroundColor: "var(--h-surface-frame)",
       },
-      ".cm-live-frontmatter": { opacity: "0.6", fontFamily: "var(--nixe-font-mono)" },
+      ".cm-live-frontmatter": {
+        opacity: "0.6",
+        fontFamily: "var(--nixe-font-mono)",
+        fontSize: "0.85em",
+      },
+      ".cm-live-properties": { margin: "0.4em 0", whiteSpace: "normal" },
+      ".cm-live-frontmatter-warning": {
+        margin: "0.4em 0",
+        padding: "8px 12px",
+        border: "1px solid var(--h-message-error-border-color)",
+        borderRadius: "6px",
+        backgroundColor: "var(--h-message-error-background)",
+        color: "light-dark(var(--h-red-700), var(--h-red-300))",
+        fontSize: "0.85em",
+        whiteSpace: "pre-wrap",
+      },
       ".cm-wikilink": { color: "var(--h-primary-color)", textDecoration: "underline" },
       ".cm-tag": { color: "var(--h-primary-color)" },
       ".cm-tooltip": {

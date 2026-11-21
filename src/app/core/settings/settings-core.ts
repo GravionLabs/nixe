@@ -23,7 +23,7 @@ export type ThemeMode = "system" | "light" | "dark";
 export type PropertiesDisplay = "visible" | "folded" | "hidden";
 
 export function sanitizePropertiesDisplay(value: unknown): PropertiesDisplay {
-  return value === "folded" || value === "hidden" ? value : "visible";
+  return value === "visible" || value === "hidden" ? value : "folded";
 }
 
 /** Key of the settings in `localStorage` before they moved to the app config directory. */
@@ -151,7 +151,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   exportPageBreaks: true,
   exportDark: false,
   exportPageSize: "A4",
-  propertiesDisplay: "visible",
+  propertiesDisplay: "folded",
   appearanceTheme: "",
   snippets: [],
   accentColor: "",

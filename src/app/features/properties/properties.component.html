@@ -97,6 +97,9 @@
       </div>
     }
 
+    @if (inEditor()) {
+      <button type="button" class="prop-add" (click)="editSource.emit()">Edit as source</button>
+    }
     @if (adding()) {
       <form class="prop prop-new" (submit)="$event.preventDefault(); add(name, kind)">
         <input

@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from "@angular/common";
-import { Component, computed, inject, output, signal } from "@angular/core";
+import { Component, Input, computed, inject, output, signal } from "@angular/core";
 
 import { backend } from "../../core/file/backend";
 import { SettingsService } from "../../core/settings/settings.service";
@@ -30,9 +30,25 @@ const today = (): string => {
   templateUrl: "./properties.component.html",
   styleUrl: "./properties.component.css",
   imports: [NgTemplateOutlet],
+  host: { "[class.in-editor]": "inEditor()" },
 })
 export class PropertiesComponent {
   readonly failed = output<string>();
+
+  /**
+   * The frontmatter text of the live preview (#375). Set: the component shows this text and hands a
+   * change to `edited` instead of writing the note. Unset: it shows and writes the open note.
+   */
+  // `sourceText` is the input: a setter feeding a signal, as in DiffComponent.
+  protected readonly source = signal<string | null>(null);
+  @Input() set sourceText(value: string | null) {
+    this.source.set(value);
+  }
+  /** The new frontmatter text after a change made in the block (live preview only). */
+  readonly edited = output<string>();
+  /** The user asked for the YAML of the block in the editor (live preview only). */
+  readonly editSource = output<void>();
+  protected readonly inEditor = computed(() => this.source() !== null);
 
   private readonly doc = inject(DocumentService);
   private readonly settings = inject(SettingsService);
@@ -43,7 +59,7 @@ export class PropertiesComponent {
 
   protected readonly types = NEW_PROPERTY_TYPES;
   protected readonly adding = signal(false);
-  protected readonly parsed = computed(() => splitFrontmatter(this.doc.content()));
+  protected readonly parsed = computed(() => splitFrontmatter(this.source() ?? this.doc.content()));
   protected readonly props = computed(() => toProperties(this.parsed().data));
   private readonly tagIndex = signal<string[]>([]);
   private readonly aliasIndex = signal<string[]>([]);
@@ -139,11 +155,17 @@ export class PropertiesComponent {
 
   /** Writes the change into the note; false (and an error) when the note could not be changed. */
   private async apply(edit: PropertyEdit): Promise<boolean> {
+    const local = this.source();
     const path = this.doc.path();
-    if (!path) return false;
-    const text = this.doc.content();
+    if (local === null && !path) return false;
+    const text = local ?? this.doc.content();
     try {
       const next = editFrontmatter(text, edit);
+      if (local !== null) {
+        if (next !== text) this.edited.emit(next);
+        return true;
+      }
+      if (!path) return false;
       if (next !== text) await this.doc.write(path, next);
       return true;
     } catch (err) {
