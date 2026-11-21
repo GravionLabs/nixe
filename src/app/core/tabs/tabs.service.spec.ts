@@ -402,6 +402,28 @@ describe("TabsService", () => {
       expect(tabs.focusedPane().id).toBe(right.id);
     });
 
+    it("does not store a compare view: the tab comes back empty", async () => {
+      await TestBed.inject(DocumentService).open("/v/a.md");
+      const tab = tabs.newTab();
+      tab.compare.set({
+        path: "a.md",
+        title: "a",
+        oldLabel: "Last sync",
+        newLabel: "Now",
+        oldText: "x",
+        newText: "y",
+      });
+      tab.view.set("compare");
+      expect(tabs.showWorkspace()).toBe(true);
+      const layout = tabs.snapshot();
+      expect(layout.panes[0].tabs[1]).toMatchObject({ view: null, path: null });
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [...ACTIVE_TAB_PROVIDERS] });
+      tabs = TestBed.inject(TabsService);
+      expect(await tabs.restore(layout)).toBe(true);
+      expect(tabs.panes()[0].tabs.map((t) => t.view())).toEqual([null, null]);
+    });
+
     it("closes, and the last tab of all becomes an empty tab", () => {
       const view = tabs.openView("settings");
       expect(tabs.closeTab(tabs.focusedPane().id, view.id)).toBe(true);

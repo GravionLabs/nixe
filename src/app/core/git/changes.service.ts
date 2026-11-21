@@ -3,19 +3,13 @@ import { Injectable, computed, effect, inject, signal, untracked } from "@angula
 import type { GitChange } from "../file/backend";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
-import { joinPath } from "../markdown/paths";
+import { CompareService } from "../compare/compare.service";
+import { basename, joinPath } from "../markdown/paths";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { GitService } from "./git.service";
 import { relativeTo } from "./history.service";
 
 export type RangeKind = "sync" | "yesterday" | "commit";
-
-/** The two texts of a changed note across the range. */
-export interface NoteDiff {
-  path: string;
-  oldText: string;
-  newText: string;
-}
 
 const DAY_SECONDS = 86_400;
 
@@ -28,6 +22,7 @@ export class ChangesService {
   private readonly git = inject(GitService);
   private readonly workspace = inject(WorkspaceService);
   private readonly doc = inject(DocumentService);
+  private readonly compareView = inject(CompareService);
 
   /** The notes the last pull changed. */
   readonly pulled = signal<GitChange[]>([]);
@@ -48,10 +43,7 @@ export class ChangesService {
   readonly loading = signal(false);
   /** The commit the list starts at; null when there is no range yet. */
   readonly from = signal<string | null>(null);
-  readonly selected = signal<string | null>(null);
-  readonly diff = signal<NoteDiff | null>(null);
   private request = 0;
-  private diffRequest = 0;
 
   constructor() {
     effect(() => {
@@ -127,8 +119,6 @@ export class ChangesService {
     ++this.request;
     this.changes.set([]);
     this.from.set(null);
-    this.selected.set(null);
-    this.diff.set(null);
     this.loading.set(false);
     this.message.set(message);
   }
@@ -158,26 +148,35 @@ export class ChangesService {
     }
   }
 
-  /** Shows or hides the diff of a note of the list. */
-  async toggle(change: GitChange): Promise<void> {
+  /** The label of the range start in the compare view. */
+  private fromLabel(): string {
+    const kind = this.kind();
+    if (kind === "sync") return "Last sync";
+    if (kind === "yesterday") return "Yesterday";
+    return (this.from() ?? "").slice(0, 7);
+  }
+
+  /** Opens the versions of a note of the list, before the range and now, in the compare view. */
+  async compare(change: GitChange): Promise<void> {
     const from = this.from();
     if (from === null) return;
-    if (this.selected() === change.path) {
-      this.selected.set(null);
-      this.diff.set(null);
-      return;
-    }
-    const request = ++this.diffRequest;
-    this.selected.set(change.path);
-    this.diff.set(null);
     try {
       const [oldText, newText] = await Promise.all([
-        backend.gitNoteVersion(change.path, from),
-        backend.gitNoteVersion(change.path, "HEAD"),
+        change.kind === "added" ? Promise.resolve(null) : backend.gitNoteVersion(change.path, from),
+        change.kind === "deleted"
+          ? Promise.resolve(null)
+          : backend.gitNoteVersion(change.path, "HEAD"),
       ]);
-      if (request === this.diffRequest) this.diff.set({ path: change.path, oldText, newText });
+      this.compareView.open({
+        path: change.path,
+        title: basename(change.path).replace(/\.(md|markdown|mdown|mkd)$/i, ""),
+        oldLabel: this.fromLabel(),
+        newLabel: "Now",
+        oldText,
+        newText,
+      });
     } catch (err) {
-      if (request === this.diffRequest) this.message.set(String(err));
+      this.message.set(String(err));
     }
   }
 }

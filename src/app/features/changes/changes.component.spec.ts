@@ -28,12 +28,10 @@ function render() {
     changes: signal(list),
     message: signal<string | null>(null),
     loading: signal(false),
-    selected: signal<string | null>("a.md"),
-    diff: signal({ path: "a.md", oldText: "one\ntwo", newText: "one\nthree" }),
     showSync: vi.fn(),
     showYesterday: vi.fn(),
     showCommit: vi.fn(),
-    toggle: vi.fn(),
+    compare: vi.fn(),
   };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
@@ -60,7 +58,7 @@ describe("ChangesComponent", () => {
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
   });
 
-  it("lists changed, added and deleted notes with the diff of the opened one", () => {
+  it("lists changed, added and deleted notes", () => {
     const { el } = render();
     const names = [...el.querySelectorAll(".main")].map((b) =>
       b.textContent!.replace(/\s+/g, " ").trim(),
@@ -71,9 +69,7 @@ describe("ChangesComponent", () => {
     );
     expect(icons).toEqual(["Changed", "Deleted"]);
     expect(el.querySelector(".main")!.getAttribute("title")).toBe("a.md");
-    expect(el.querySelector(".diff")!.textContent).toContain("three");
-    expect(el.querySelectorAll(".diff .row.add")).toHaveLength(1);
-    expect(el.querySelectorAll(".diff .row.del")).toHaveLength(1);
+    expect(el.querySelector(".diff")).toBeNull();
   });
 
   it("picks the range: last sync, yesterday, a chosen commit", () => {
@@ -96,6 +92,6 @@ describe("ChangesComponent", () => {
     opens[0].click();
     expect(open).toHaveBeenCalledWith("/vault/a.md");
     el.querySelectorAll<HTMLElement>(".main")[1].click();
-    expect(service.toggle).toHaveBeenCalledWith(list[1]);
+    expect(service.compare).toHaveBeenCalledWith(list[1]);
   });
 });

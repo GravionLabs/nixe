@@ -1,11 +1,9 @@
 import { Component, computed, inject, signal } from "@angular/core";
 
-import type { DiffRow } from "../../core/git/line-diff";
 import { diffLines, diffStat } from "../../core/git/line-diff";
 import type { TimelineEntry } from "../../core/git/history.service";
 import { HistoryService } from "../../core/git/history.service";
-import { WorkspaceService } from "../../core/workspace/workspace.service";
-import { MarkdownService } from "../../core/markdown/markdown.service";
+import { DiffComponent } from "../../shared/diff/diff.component";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 import { NoteRowComponent } from "../../shared/panel/note-row.component";
 import { PanelSectionComponent } from "../../shared/panel/panel-section.component";
@@ -18,33 +16,18 @@ export function formatCommitTime(secs: number): string {
 /** Sidebar: the timeline of the open note and the difference between the selected versions. */
 @Component({
   selector: "app-history",
-  imports: [PanelSectionComponent, NoteRowComponent, EmptyStateComponent],
+  imports: [DiffComponent, PanelSectionComponent, NoteRowComponent, EmptyStateComponent],
   templateUrl: "./history.component.html",
   styleUrl: "./history.component.css",
 })
 export class HistoryComponent {
   protected readonly history = inject(HistoryService);
-  private readonly markdown = inject(MarkdownService);
-  private readonly workspace = inject(WorkspaceService);
 
   protected readonly mode = signal<"source" | "rendered">("source");
 
-  protected readonly rows = computed<DiffRow[]>(() => {
+  protected readonly stat = computed(() => {
     const c = this.history.comparison();
-    return c ? diffLines(c.oldText, c.newText) : [];
-  });
-  protected readonly stat = computed(() => diffStat(this.rows()));
-
-  protected readonly rendered = computed(() => {
-    const c = this.history.comparison();
-    if (!c) return null;
-    const ctx = {
-      filePath: null,
-      wikiRoot: null,
-      math: false,
-      vaultRoot: this.workspace.vaultRoot(),
-    };
-    return { old: this.markdown.render(c.oldText, ctx), new: this.markdown.render(c.newText, ctx) };
+    return diffStat(c ? diffLines(c.oldText, c.newText) : []);
   });
 
   protected time(entry: TimelineEntry): string {

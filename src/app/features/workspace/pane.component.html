@@ -9,6 +9,8 @@
 }
 @if (tab.view() === "settings") {
   <app-settings class="view" />
+} @else if (tab.view() === "compare") {
+  <app-compare class="view" />
 } @else if (tab.view() === "health") {
   <app-health class="view" (failed)="tabs.notice.set($event)" />
 } @else if (doc.path()) {

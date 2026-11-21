@@ -14,7 +14,9 @@ import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { OutlineService } from "../outline/outline.service";
 import { toSlashes } from "../markdown/paths";
+import type { CompareInput } from "../compare/compare";
 import type { LayoutState, TabState, TabView } from "./layout";
+import { TAB_VIEWS } from "./layout";
 import { MAX_TABS, clampRatio } from "./layout";
 
 /** What the viewer of a tab offers to the app. */
@@ -40,6 +42,8 @@ export interface Tab {
    * it turns it back into a note tab.
    */
   readonly view: WritableSignal<TabView | null>;
+  /** What the compare view of this tab shows; set together with the view `compare`. */
+  readonly compare: WritableSignal<CompareInput | null>;
   /** Set by the pane while the viewer of the tab is shown. */
   viewer: ViewerHandle | null;
   /** 1-based first visible line, kept while the tab is not shown. */
@@ -448,8 +452,10 @@ export class TabsService {
   private tabState(tab: Tab): TabState {
     const path = tab.doc.path();
     const { history, index } = tab.doc.historyState();
+    const view = tab.view();
     return {
-      view: tab.view(),
+      // A compare view has no stored form: the tab comes back empty.
+      view: TAB_VIEWS.find((v) => v === view) ?? null,
       path,
       history,
       index,
@@ -521,6 +527,7 @@ export class TabsService {
       editor: injector.get(EditorService),
       outline: injector.get(OutlineService),
       view: signal<TabView | null>(null),
+      compare: signal<CompareInput | null>(null),
       viewer: null,
       scrollLine: null,
     };

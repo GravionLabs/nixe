@@ -71,41 +71,13 @@
         Rendered
       </button>
     </div>
-    @if (mode() === "source") {
-      <div class="diff" aria-label="Difference">
-        @for (row of rows(); track $index) {
-          <div class="row" [class]="row.kind">
-            <span class="sign">{{
-              row.kind === "add" ? "+" : row.kind === "del" ? "−" : " "
-            }}</span>
-            <span class="text">
-              @if (row.segments; as segments) {
-                @for (seg of segments; track $index) {
-                  <span [class.word]="seg.changed">{{ seg.text }}</span>
-                }
-              } @else {
-                {{ row.text }}
-              }
-            </span>
-          </div>
-        } @empty {
-          <p class="status">No difference</p>
-        }
-      </div>
-    } @else {
-      @if (rendered(); as html) {
-        <div class="rendered" aria-label="Rendered versions">
-          <section>
-            <h2>{{ comparison.oldLabel }}</h2>
-            <div class="md" [innerHTML]="html.old"></div>
-          </section>
-          <section>
-            <h2>{{ comparison.newLabel }}</h2>
-            <div class="md" [innerHTML]="html.new"></div>
-          </section>
-        </div>
-      }
-    }
+    <app-diff
+      [oldText]="comparison.oldText"
+      [newText]="comparison.newText"
+      [oldLabel]="comparison.oldLabel"
+      [newLabel]="comparison.newLabel"
+      [mode]="mode()"
+    />
   } @else {
     <app-empty-state text="Select a version to see its change, or two to compare them." />
   }

@@ -102,51 +102,6 @@ header {
   color: var(--nixe-removed-color, #cf222e);
 }
 
-.diff {
-  font-family: var(--nixe-font-mono, monospace);
-  font-size: 12px;
-  overflow: auto;
-}
-
-.row {
-  display: flex;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.row .sign {
-  flex: none;
-  width: 18px;
-  text-align: center;
-  color: var(--h-text-muted-color);
-}
-
-.row.add {
-  background: rgba(46, 160, 67, 0.15);
-}
-
-.row.del {
-  background: rgba(248, 81, 73, 0.15);
-}
-
-.row.add .word {
-  background: rgba(46, 160, 67, 0.4);
-}
-
-.row.del .word {
-  background: rgba(248, 81, 73, 0.4);
-}
-
-.rendered section {
-  padding: 0 12px;
-  border-top: 1px solid var(--h-content-border-color);
-}
-
-.rendered h2 {
-  font-size: 11px;
-  color: var(--h-text-muted-color);
-}
-
 /* The actions of a version show while the row is hovered or holds the keyboard focus. */
 .row-actions {
   display: none;
