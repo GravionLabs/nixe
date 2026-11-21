@@ -14,7 +14,8 @@
     "lint": "oxlint --deny-warnings --ignore-pattern \"src/testing/lint-probe/**\" && eslint --max-warnings 0 \"src/**/*.html\"",
     "lint:fix": "oxlint --fix --ignore-pattern \"src/testing/lint-probe/**\" && eslint --fix \"src/**/*.html\"",
     "format": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format:check": "oxfmt --check",
+    "start:demo": "ng serve --configuration demo"
   },
   "private": true,
   "dependencies": {

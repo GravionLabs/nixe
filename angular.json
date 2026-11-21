@@ -72,6 +72,12 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "demo": {
+              "tsConfig": "tsconfig.demo.json",
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
             }
           },
           "defaultConfiguration": "production"
@@ -87,6 +93,10 @@
             },
             "development": {
               "buildTarget": "nixe:build:development"
+            },
+            "demo": {
+              "buildTarget": "nixe:build:demo",
+              "port": 1422
             }
           },
           "defaultConfiguration": "development"

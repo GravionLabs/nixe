@@ -66,3 +66,7 @@ flowchart LR
 ```
 
 See [architecture.md](architecture.md) for the details behind each box.
+
+## Demo build
+
+`pnpm start:demo` serves the app in a plain browser on port 1422 (`ng serve --configuration demo`). `tsconfig.demo.json` replaces every `@tauri-apps/*` module with a stand-in in `src/demo/tauri/`; the commands are answered by `DemoBackend` (`src/demo/kit/`) from an in-memory vault with fixed notes and a fixed clock (`src/demo/nixe/`). A command nobody answered is listed in `window.__demoFailures`; every call is recorded in `window.__demoCalls`. The production build excludes `src/demo`.
