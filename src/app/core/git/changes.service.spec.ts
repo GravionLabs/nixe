@@ -14,7 +14,7 @@ import { backend } from "../file/backend";
 import { CompareService } from "../compare/compare.service";
 import { DocumentService } from "../file/document.service";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { ChangesService } from "./changes.service";
+import { ChangesService, versionDate } from "./changes.service";
 import { GitService } from "./git.service";
 
 const list: GitChange[] = [
@@ -115,6 +115,20 @@ describe("ChangesService", () => {
     expect(service.message()).toBe("The history starts less than a day ago");
   });
 
+  it("resolves last week to the newest commit of 7 days ago", async () => {
+    const at = vi.spyOn(backend, "gitRevAt").mockResolvedValue("c4");
+    await service.showWeek(1_700_000_000_000);
+    expect(at).toHaveBeenCalledWith(1_700_000_000 - 7 * 86_400);
+    expect(between).toHaveBeenLastCalledWith("c4");
+    expect(service.kind()).toBe("week");
+    at.mockResolvedValue(null);
+    await service.showWeek();
+    expect(service.message()).toBe("The history starts less than a week ago");
+    at.mockRejectedValue("boom");
+    await service.showYesterday();
+    expect(service.message()).toBe("boom");
+  });
+
   it("lists the range of a chosen commit and reports a bad one", async () => {
     await service.showCommit(" abc123 ");
     expect(between).toHaveBeenLastCalledWith("abc123");
@@ -124,7 +138,55 @@ describe("ChangesService", () => {
     expect(service.changes()).toEqual([]);
     expect(service.message()).toContain("not found");
     await service.showCommit("  ");
-    expect(service.message()).toBe("Enter a commit id");
+    expect(service.message()).toBe("Choose a version");
+    expect(service.chosen()).toBeNull();
+  });
+
+  it("loads the versions of the vault and remembers the chosen one", async () => {
+    const commits = [
+      { id: "c2", author: "Ann", time: 1_700_000_000, message: "Second" },
+      { id: "c1", author: "Bo", time: 1_699_000_000, message: "First" },
+    ];
+    const log = vi.spyOn(backend, "gitVaultLog").mockResolvedValue(commits);
+    await service.chooseVersion();
+    expect(log).toHaveBeenCalledWith(0, 100);
+    expect(service.kind()).toBe("commit");
+    expect(service.versions()).toEqual(commits);
+    await service.showVersion(commits[1]);
+    expect(between).toHaveBeenLastCalledWith("c1");
+    expect(service.chosen()).toEqual({ id: "c1", label: versionDate(1_699_000_000) });
+    // Opening the picker again keeps the pick and its list.
+    await service.chooseVersion();
+    expect(service.chosen()?.id).toBe("c1");
+    expect(service.changes()).toEqual(list);
+    log.mockRejectedValue("no repo");
+    await service.loadVersions();
+    expect(service.versions()).toEqual([]);
+    expect(service.versionsError()).toBe("no repo");
+  });
+
+  it("says what an empty range is empty since", async () => {
+    between.mockResolvedValue([]);
+    await pull("c1");
+    await service.showSync();
+    expect(service.message()).toBe("Nothing changed since the last sync");
+    vi.spyOn(backend, "gitRevAt").mockResolvedValue("c5");
+    await service.showYesterday();
+    expect(service.message()).toBe("Nothing changed since yesterday");
+    await service.showWeek();
+    expect(service.message()).toBe("Nothing changed since last week");
+    await service.showVersion({ id: "c3", author: "", time: 1_700_000_000, message: "" });
+    expect(service.message()).toBe(`Nothing changed since ${versionDate(1_700_000_000)}`);
+  });
+
+  it("forgets the range and the picked version when another vault opens", async () => {
+    vi.spyOn(backend, "gitVaultLog").mockResolvedValue([]);
+    await service.showVersion({ id: "c3", author: "", time: 1_700_000_000, message: "" });
+    root.set("/other");
+    TestBed.tick();
+    expect(service.chosen()).toBeNull();
+    expect(service.changes()).toEqual([]);
+    expect(service.kind()).toBe("sync");
   });
 
   it("opens the versions of a changed note in the compare view", async () => {
@@ -151,6 +213,15 @@ describe("ChangesService", () => {
     expect(open).toHaveBeenLastCalledWith(
       expect.objectContaining({ oldText: "old", newText: null }),
     );
+  });
+
+  it("labels a picked version in the compare view", async () => {
+    await service.showVersion({ id: "c3", author: "", time: 1_700_000_000, message: "" });
+    await service.compare(list[0]);
+    expect(open).toHaveBeenLastCalledWith(
+      expect.objectContaining({ oldLabel: versionDate(1_700_000_000) }),
+    );
+    expect(backend.gitNoteVersion).toHaveBeenCalledWith("a.md", "c3");
   });
 
   it("labels the start of the range", async () => {

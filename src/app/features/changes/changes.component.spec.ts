@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import type { GitChange } from "../../core/file/backend";
+import type { GitChange, VaultCommit } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -21,16 +21,24 @@ const list: GitChange[] = [
   { path: "gone.md", kind: "deleted" },
 ];
 
-function render() {
+function render(kind = "sync") {
   const open = vi.fn().mockResolvedValue(undefined);
   const service = {
-    kind: signal("sync"),
+    kind: signal(kind),
     changes: signal(list),
     message: signal<string | null>(null),
     loading: signal(false),
     showSync: vi.fn(),
     showYesterday: vi.fn(),
-    showCommit: vi.fn(),
+    showWeek: vi.fn(),
+    chooseVersion: vi.fn(),
+    showVersion: vi.fn(),
+    chosen: signal<{ id: string; label: string } | null>(null),
+    versions: signal<VaultCommit[]>([
+      { id: "c2", author: "Ann", time: 1_700_000_000, message: "Second" },
+      { id: "c1", author: "", time: 1_699_000_000, message: "" },
+    ]),
+    versionsError: signal<string | null>(null),
     compare: vi.fn(),
   };
   TestBed.resetTestingModule();
@@ -72,17 +80,37 @@ describe("ChangesComponent", () => {
     expect(el.querySelector(".diff")).toBeNull();
   });
 
-  it("picks the range: last sync, yesterday, a chosen commit", () => {
+  it("offers the ranges in a dropdown and no commit id field", () => {
     const { el, service } = render();
-    const buttons = el.querySelectorAll<HTMLElement>(".range button");
-    buttons[0].click();
-    buttons[1].click();
+    const select = el.querySelector<HTMLSelectElement>("select.range")!;
+    expect([...select.options].map((o) => o.textContent!.trim())).toEqual([
+      "Last sync",
+      "Yesterday",
+      "Last week",
+      "Choose a version…",
+    ]);
+    expect(el.querySelector("input")).toBeNull();
+    expect(el.querySelector(".version")).toBeNull();
+    for (const value of ["sync", "yesterday", "week", "commit"]) {
+      select.value = value;
+      select.dispatchEvent(new Event("change"));
+    }
     expect(service.showSync).toHaveBeenCalled();
     expect(service.showYesterday).toHaveBeenCalled();
-    const input = el.querySelector<HTMLInputElement>(".commit input")!;
-    input.value = "abc123";
-    el.querySelector<HTMLFormElement>(".commit")!.dispatchEvent(new Event("submit"));
-    expect(service.showCommit).toHaveBeenCalledWith("abc123");
+    expect(service.showWeek).toHaveBeenCalled();
+    expect(service.chooseVersion).toHaveBeenCalled();
+  });
+
+  it("lists the versions with date, message and author and picks one", () => {
+    const { el, service } = render("commit");
+    const version = el.querySelector<HTMLSelectElement>("select.version")!;
+    const labels = [...version.options].map((o) => o.textContent!.replace(/\s+/g, " ").trim());
+    expect(labels[1]).toContain("Second");
+    expect(labels[1]).toContain("Ann");
+    expect(labels[2]).toContain("(no message)");
+    version.value = "c2";
+    version.dispatchEvent(new Event("change"));
+    expect(service.showVersion).toHaveBeenCalledWith(service.versions()[0]);
   });
 
   it("opens a note, but not a deleted one", () => {

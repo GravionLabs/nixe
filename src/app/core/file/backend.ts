@@ -337,6 +337,15 @@ export interface GitStatus {
   hasRemote: boolean;
 }
 
+/** One commit of the vault log. */
+export interface VaultCommit {
+  id: string;
+  author: string;
+  /** Seconds since the epoch. */
+  time: number;
+  message: string;
+}
+
 /** One commit that touched a note. */
 export interface HistoryEntry {
   id: string;
@@ -566,6 +575,9 @@ export const backend = {
     invoke<GitChange[]>("git_changes_between", { from, to }),
   /** The newest commit at or before `time` (seconds since the epoch); null when the history starts later. */
   gitRevAt: (time: number) => invoke<string | null>("git_rev_at", { time }),
+  /** The commits of the vault, newest first; `offset`/`limit` page. */
+  gitVaultLog: (offset: number, limit: number) =>
+    invoke<VaultCommit[]>("git_vault_log", { offset, limit }),
   /** Branches named with `prefix` that are ahead of the working branch, newest first. */
   gitReviewBranches: (prefix: string) => invoke<ReviewBranch[]>("git_review_branches", { prefix }),
   /** The notes the branch tip `rev` changed against the merge base with HEAD. */

@@ -106,7 +106,7 @@ Each commit row offers `Restore this version`, which writes that commit's text i
 
 ### Changes since the last sync
 
-`git_vault_sync` reports `pulledFrom`, the commit HEAD was at before a pull that brought changes. `GitService.lastPull` keeps it and `ChangesService` lists the notes between that commit and HEAD (`git_changes_between`). The status bar then offers `n notes changed`, which opens the Git view; its `Changes since` section lists the changed, added and deleted notes with a line diff each (`ChangesComponent`) and switches the range to last sync, yesterday (`git_rev_at`, 24 hours ago) or a commit id. The notes of the last pull carry a dot in the file tree until they are opened. All of this lives in memory only: a restart forgets the last pull.
+`git_vault_sync` reports `pulledFrom`, the commit HEAD was at before a pull that brought changes. `GitService.lastPull` keeps it and `ChangesService` lists the notes between that commit and HEAD (`git_changes_between`). The status bar then offers `n notes changed`, which opens the Git view; its `Changes since` section lists the changed, added and deleted notes with a line diff each (`ChangesComponent`) and switches the range, in a dropdown, to last sync, yesterday or last week (`git_rev_at`, 24 hours or 7 days ago) or a version picked from the vault log (`git_vault_log`: date, message, author; no commit id). The range and the picked version are kept for the session. An empty range says `Nothing changed since …`. The notes of the last pull carry a dot in the file tree until they are opened. All of this lives in memory only: a restart forgets the last pull.
 
 ### Shared blocks of the side panels
 

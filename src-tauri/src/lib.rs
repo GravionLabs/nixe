@@ -322,6 +322,19 @@ async fn git_rev_at(state: State<'_, AppState>, time: i64) -> Result<Option<Stri
         .map_err(|e| e.to_string())?
 }
 
+/// The commits of the vault, newest first, for the version picker (#321).
+#[tauri::command]
+async fn git_vault_log(
+    state: State<'_, AppState>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<git::VaultCommit>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::vault_log(&root, offset, limit))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// The branches that wait for review (#108).
 #[tauri::command]
 async fn git_review_branches(
@@ -1291,6 +1304,7 @@ pub fn run() {
         git_deleted_notes,
         git_changes_between,
         git_rev_at,
+        git_vault_log,
         git_review_branches,
         git_review_changes,
         git_review_hunks,
@@ -1401,6 +1415,7 @@ pub fn run() {
         git_deleted_notes,
         git_changes_between,
         git_rev_at,
+        git_vault_log,
         git_review_branches,
         git_review_changes,
         git_review_hunks,
