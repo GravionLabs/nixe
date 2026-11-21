@@ -19,6 +19,23 @@ export interface LivePreviewHooks {
   render(el: HTMLElement, source: string, kind: BlockKind): void;
 }
 
+/** Elements of a rendered block with a click of their own: links, checkboxes, zoomable images, diagrams. */
+const OWN_CLICK = "a, button, input, summary, img, [data-zoomable], .mermaid-diagram";
+
+function hasOwnClick(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(OWN_CLICK) !== null;
+}
+
+/** Lines of the block source before the clicked row: a table row is its own line, the rest starts at the top. */
+function clickedLine(target: Element): number {
+  const row = target.closest("tr");
+  if (!row) return 0;
+  const rows = [...(row.closest("table")?.rows ?? [])];
+  const i = rows.indexOf(row);
+  // The delimiter row `| - | - |` sits between the header and the first body row and is not rendered.
+  return i <= 0 ? 0 : i + 1;
+}
+
 class BlockWidget extends WidgetType {
   constructor(
     private readonly source: string,
@@ -37,6 +54,11 @@ class BlockWidget extends WidgetType {
     el.className = `cm-live-block cm-live-${this.kind}`;
     this.hooks.render(el, this.source, this.kind);
     return el;
+  }
+
+  /** Pointer events reach the editor, so a click puts the cursor into the block; own clicks stay with the element. */
+  override ignoreEvent(event: Event): boolean {
+    return hasOwnClick(event.target);
   }
 }
 
@@ -177,6 +199,27 @@ const taskToggle = EditorView.domEventHandlers({
   },
 });
 
+/** A click on a rendered block puts the cursor into it, near the row clicked, so its source shows. */
+const blockClick = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    const target = event.target;
+    if (event.button !== 0 || !(target instanceof Element) || hasOwnClick(target)) return false;
+    const el = target.closest(".cm-live-block");
+    if (!el) return false;
+    const from = view.posAtDOM(el);
+    const start = view.state.doc.lineAt(from);
+    const block = view.state.field(blocksField).find((b) => b.start === start.number - 1);
+    const lineNo = Math.min(
+      start.number + clickedLine(target),
+      view.state.doc.line((block?.end ?? start.number - 1) + 1).number,
+    );
+    view.dispatch({ selection: { anchor: view.state.doc.line(lineNo).to }, scrollIntoView: true });
+    view.focus();
+    event.preventDefault();
+    return true;
+  },
+});
+
 /** The live preview: every block but the one with the cursor is drawn, the cursor's block is source. */
 export function livePreview(hooks: LivePreviewHooks): Extension {
   const blockWidgets = StateField.define<DecorationSet>({
@@ -185,5 +228,5 @@ export function livePreview(hooks: LivePreviewHooks): Extension {
       tr.docChanged || tr.selection ? blockDecorations(tr.state, hooks) : value,
     provide: (field) => EditorView.decorations.from(field),
   });
-  return [blocksField, blockWidgets, inlinePreview, taskToggle];
+  return [blocksField, blockWidgets, inlinePreview, taskToggle, blockClick];
 }
