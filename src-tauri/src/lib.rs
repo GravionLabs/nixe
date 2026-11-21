@@ -461,22 +461,27 @@ async fn git_note_version(
         .map_err(|e| e.to_string())?
 }
 
-/// Stages every change of the vault and commits; returns the commit id.
-/// The author comes from the Git config, else from `name` and `email` (the settings).
+/// Stages every change of the vault, or only the notes at `paths`, and commits; returns the
+/// commit id. The other changes stay open. The author comes from the Git config, else from `name`
+/// and `email` (the settings).
 #[tauri::command]
 async fn git_vault_commit(
     state: State<'_, AppState>,
     message: Option<String>,
     name: Option<String>,
     email: Option<String>,
+    paths: Option<Vec<String>>,
 ) -> Result<String, String> {
     let root = vault_root_of(&state)?;
     let fallback = match (name, email) {
         (Some(name), Some(email)) => Some(git::Identity { name, email }),
         _ => None,
     };
-    tauri::async_runtime::spawn_blocking(move || {
-        git::vault_commit(&root, message.as_deref(), fallback.as_ref())
+    tauri::async_runtime::spawn_blocking(move || match paths {
+        Some(paths) => {
+            git::vault_commit_paths(&root, &paths, message.as_deref(), fallback.as_ref())
+        }
+        None => git::vault_commit(&root, message.as_deref(), fallback.as_ref()),
     })
     .await
     .map_err(|e| e.to_string())?

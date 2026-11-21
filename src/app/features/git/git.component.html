@@ -34,8 +34,27 @@
   </div>
 
   <app-panel-section title="Changes" [count]="status.changes.length" storageKey="git-changes">
+    @if (status.changes.length > 0) {
+      <input
+        panelActions
+        type="checkbox"
+        class="check"
+        aria-label="Include all changes in the save"
+        [checked]="git.selection() === 'all'"
+        [indeterminate]="git.selection() === 'some'"
+        (change)="git.setAll(git.selection() !== 'all')"
+      />
+    }
     @for (change of status.changes; track change.path) {
       <app-note-row [path]="change.path" [kind]="change.kind" (activated)="compare(change)">
+        <input
+          rowStart
+          type="checkbox"
+          class="check"
+          [attr.aria-label]="'Include ' + titleOf(change.path) + ' in the save'"
+          [checked]="git.isChecked(change.path)"
+          (change)="git.toggle(change.path)"
+        />
         @if (change.kind !== "deleted") {
           <button rowActions type="button" class="open" (click)="open(change.path)">Open</button>
         }
@@ -59,10 +78,11 @@
       [disabled]="
         git.committing() ||
         git.syncState().phase === 'syncing' ||
-        (status.changes.length === 0 && !status.hasRemote)
+        (status.changes.length === 0 && !status.hasRemote) ||
+        (status.changes.length > 0 && git.selection() === 'none')
       "
     >
-      {{ status.hasRemote ? "Save and sync" : "Save" }}
+      {{ saveLabel() }}
     </button>
   </form>
 

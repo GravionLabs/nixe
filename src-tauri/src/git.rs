@@ -22,6 +22,10 @@ pub struct GitChange {
     pub kind: ChangeKind,
     /// True for a new file Git does not track yet (not staged); only `status` sets it.
     pub untracked: bool,
+    /// The other half of a rename or move: on the deleted note the new path, on the added note
+    /// the old one. Only `status` sets it, for a note whose text did not change.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pair: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -48,6 +52,14 @@ pub trait GitBackend {
     /// Stages all changes and commits; returns the id of the commit.
     /// `message` defaults to `vault backup: <timestamp>`.
     fn commit(&self, message: Option<&str>, fallback: Option<&Identity>) -> Result<String, String>;
+    /// Commits only the given paths (vault-relative; a changed, new or deleted note); every other
+    /// change stays in the working tree. Anything staged before is left out.
+    fn commit_paths(
+        &self,
+        paths: &[String],
+        message: Option<&str>,
+        fallback: Option<&Identity>,
+    ) -> Result<String, String>;
 }
 
 pub struct Git2Backend {
@@ -146,10 +158,12 @@ impl GitBackend for Git2Backend {
                     kind: kind_of(status)?,
                     untracked: status.contains(Status::WT_NEW)
                         && !status.contains(Status::INDEX_NEW),
+                    pair: None,
                 })
             })
             .collect();
         changes.sort_by(|a, b| a.path.cmp(&b.path));
+        self.pair_renames(&mut changes);
 
         let (mut ahead, mut behind) = (0, 0);
         if let (Some(head), Some(name)) = (&head, &branch) {
@@ -183,6 +197,54 @@ impl GitBackend for Git2Backend {
         // `add_all` does not stage deletions.
         index.update_all(["*"], None).map_err(e)?;
         index.write().map_err(e)?;
+        self.commit_index(&mut index, message, fallback)
+    }
+
+    fn commit_paths(
+        &self,
+        paths: &[String],
+        message: Option<&str>,
+        fallback: Option<&Identity>,
+    ) -> Result<String, String> {
+        let repo = &self.repo;
+        let mut index = repo.index().map_err(e)?;
+        // Start from the saved state, so nothing staged earlier slips in.
+        match repo.head().ok().and_then(|h| h.peel_to_tree().ok()) {
+            Some(tree) => index.read_tree(&tree).map_err(e)?,
+            None => index.clear().map_err(e)?,
+        }
+        let workdir = repo
+            .workdir()
+            .ok_or("the repository has no working directory")?;
+        for path in paths {
+            let rel = Path::new(path);
+            if rel.is_absolute()
+                || rel
+                    .components()
+                    .any(|c| matches!(c, std::path::Component::ParentDir))
+            {
+                return Err(format!("not a path of the vault: {path}"));
+            }
+            if workdir.join(rel).is_file() {
+                index.add_path(rel).map_err(e)?;
+            } else if index.get_path(rel, 0).is_some() {
+                index.remove_path(rel).map_err(e)?;
+            }
+        }
+        index.write().map_err(e)?;
+        self.commit_index(&mut index, message, fallback)
+    }
+}
+
+impl Git2Backend {
+    /// Writes the tree of the index as a commit on HEAD.
+    fn commit_index(
+        &self,
+        index: &mut git2::Index,
+        message: Option<&str>,
+        fallback: Option<&Identity>,
+    ) -> Result<String, String> {
+        let repo = &self.repo;
         let tree = repo.find_tree(index.write_tree().map_err(e)?).map_err(e)?;
         let parent = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
         if let Some(p) = &parent {
@@ -212,6 +274,48 @@ impl GitBackend for Git2Backend {
             .map_err(e)?;
         Ok(oid.to_string())
     }
+
+    /// Marks a deleted and an added note with the same text as the two halves of a rename.
+    fn pair_renames(&self, changes: &mut [GitChange]) {
+        let repo = &self.repo;
+        let (Some(workdir), Some(tree)) = (
+            repo.workdir(),
+            repo.head().ok().and_then(|h| h.peel_to_tree().ok()),
+        ) else {
+            return;
+        };
+        let mut gone: Vec<(usize, git2::Oid)> = Vec::new();
+        for (i, c) in changes.iter().enumerate() {
+            if c.kind != ChangeKind::Deleted {
+                continue;
+            }
+            if let Ok(entry) = tree.get_path(Path::new(&c.path)) {
+                gone.push((i, entry.id()));
+            }
+        }
+        if gone.is_empty() {
+            return;
+        }
+        for i in 0..changes.len() {
+            if changes[i].kind != ChangeKind::Added {
+                continue;
+            }
+            let Ok(id) =
+                git2::Oid::hash_file(git2::ObjectType::Blob, workdir.join(&changes[i].path))
+            else {
+                continue;
+            };
+            let Some(pos) = gone
+                .iter()
+                .position(|(j, old)| *old == id && changes[*j].pair.is_none())
+            else {
+                continue;
+            };
+            let (j, _) = gone.remove(pos);
+            changes[i].pair = Some(changes[j].path.clone());
+            changes[j].pair = Some(changes[i].path.clone());
+        }
+    }
 }
 
 /// `None` when the vault is not a Git repository: the UI then shows nothing of Git.
@@ -227,6 +331,18 @@ pub fn vault_commit(
     Git2Backend::open(root)
         .ok_or_else(|| "the vault is not a Git repository".to_string())?
         .commit(message, fallback)
+}
+
+/// Commits only the notes at `paths`; the other changes stay open (#326).
+pub fn vault_commit_paths(
+    root: &Path,
+    paths: &[String],
+    message: Option<&str>,
+    fallback: Option<&Identity>,
+) -> Result<String, String> {
+    Git2Backend::open(root)
+        .ok_or_else(|| "the vault is not a Git repository".to_string())?
+        .commit_paths(paths, message, fallback)
 }
 
 /// Trailer of a commit that one structural operation wrote (#241): `Nixe-Operation: rename`.
@@ -843,6 +959,7 @@ pub(crate) fn notes_changed(
                 path: path.to_owned(),
                 kind,
                 untracked: false,
+                pair: None,
             });
         }
     }
@@ -1459,12 +1576,14 @@ mod tests {
                 GitChange {
                     path: "a.md".into(),
                     kind: ChangeKind::Modified,
-                    untracked: false
+                    untracked: false,
+                    pair: None
                 },
                 GitChange {
                     path: "b.md".into(),
                     kind: ChangeKind::Added,
-                    untracked: true
+                    untracked: true,
+                    pair: None
                 },
             ]
         );
@@ -1475,7 +1594,8 @@ mod tests {
             GitChange {
                 path: "a.md".into(),
                 kind: ChangeKind::Deleted,
-                untracked: false
+                untracked: false,
+                pair: None
             }
         );
         assert!(status.branch.is_some());
@@ -1572,6 +1692,136 @@ mod tests {
         let tree = head.tree().unwrap();
         assert!(tree.get_name("b.md").is_some());
         assert!(tree.get_name("a.md").is_none());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_partial_save_takes_only_the_chosen_notes() {
+        let (dir, backend) = repo_with_commit("partial");
+        commit_file(&dir, &backend, "mod.md", "old", "m");
+        commit_file(&dir, &backend, "del.md", "gone", "d");
+        commit_file(&dir, &backend, "old-name.md", "same text", "r");
+        commit_file(&dir, &backend, "keep-mod.md", "k", "k");
+        commit_file(&dir, &backend, "keep-del.md", "k", "k2");
+        fs::write(dir.join("mod.md"), "changed").unwrap();
+        fs::write(dir.join("new.md"), "fresh").unwrap();
+        fs::remove_file(dir.join("del.md")).unwrap();
+        fs::rename(dir.join("old-name.md"), dir.join("new-name.md")).unwrap();
+        fs::write(dir.join("keep-mod.md"), "kept open").unwrap();
+        fs::remove_file(dir.join("keep-del.md")).unwrap();
+        fs::write(dir.join("keep-new.md"), "open").unwrap();
+
+        let paths: Vec<String> = ["mod.md", "new.md", "del.md", "old-name.md", "new-name.md"]
+            .map(String::from)
+            .to_vec();
+        backend.commit_paths(&paths, Some("part"), None).unwrap();
+
+        let tree = backend.repo.head().unwrap().peel_to_tree().unwrap();
+        let text = |name: &str| {
+            let blob = tree
+                .get_name(name)
+                .unwrap()
+                .to_object(&backend.repo)
+                .unwrap();
+            String::from_utf8(blob.as_blob().unwrap().content().to_vec()).unwrap()
+        };
+        assert_eq!(text("mod.md"), "changed");
+        assert_eq!(text("new.md"), "fresh");
+        assert!(tree.get_name("del.md").is_none());
+        assert!(tree.get_name("old-name.md").is_none());
+        assert_eq!(text("new-name.md"), "same text");
+        // The others stay open.
+        assert_eq!(text("keep-mod.md"), "k");
+        assert!(tree.get_name("keep-del.md").is_some());
+        assert!(tree.get_name("keep-new.md").is_none());
+        let open: Vec<(String, ChangeKind)> = backend
+            .status()
+            .unwrap()
+            .changes
+            .into_iter()
+            .map(|c| (c.path, c.kind))
+            .collect();
+        assert_eq!(
+            open,
+            vec![
+                ("keep-del.md".to_string(), ChangeKind::Deleted),
+                ("keep-mod.md".to_string(), ChangeKind::Modified),
+                ("keep-new.md".to_string(), ChangeKind::Added),
+            ]
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_partial_save_leaves_out_what_was_staged_before() {
+        let (dir, backend) = repo_with_commit("partial-staged");
+        fs::write(dir.join("staged.md"), "s").unwrap();
+        let mut index = backend.repo.index().unwrap();
+        index.add_path(Path::new("staged.md")).unwrap();
+        index.write().unwrap();
+        fs::write(dir.join("b.md"), "b").unwrap();
+        backend
+            .commit_paths(&["b.md".to_string()], None, None)
+            .unwrap();
+        let tree = backend.repo.head().unwrap().peel_to_tree().unwrap();
+        assert!(tree.get_name("b.md").is_some());
+        assert!(tree.get_name("staged.md").is_none());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_partial_save_refuses_an_empty_choice_and_paths_outside_the_vault() {
+        let (dir, backend) = repo_with_commit("partial-empty");
+        fs::write(dir.join("b.md"), "b").unwrap();
+        assert_eq!(
+            backend.commit_paths(&[], None, None).unwrap_err(),
+            "nothing to commit"
+        );
+        assert!(backend
+            .commit_paths(&["../x.md".to_string()], None, None)
+            .is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_partial_save_works_in_a_repository_without_a_commit() {
+        let dir = temp("partial-unborn");
+        let repo = Repository::init(&dir).unwrap();
+        repo.config().unwrap().set_str("user.name", "A").unwrap();
+        repo.config()
+            .unwrap()
+            .set_str("user.email", "a@b.c")
+            .unwrap();
+        fs::write(dir.join("a.md"), "a").unwrap();
+        fs::write(dir.join("b.md"), "b").unwrap();
+        let backend = Git2Backend { repo };
+        backend
+            .commit_paths(&["a.md".to_string()], None, None)
+            .unwrap();
+        let tree = backend.repo.head().unwrap().peel_to_tree().unwrap();
+        assert!(tree.get_name("a.md").is_some());
+        assert!(tree.get_name("b.md").is_none());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_renamed_note_is_reported_as_a_pair() {
+        let (dir, backend) = repo_with_commit("pairs");
+        fs::create_dir(dir.join("sub")).unwrap();
+        fs::rename(dir.join("a.md"), dir.join("sub/moved.md")).unwrap();
+        fs::write(dir.join("other.md"), "different").unwrap();
+        let changes = backend.status().unwrap().changes;
+        let pair = |path: &str| {
+            changes
+                .iter()
+                .find(|c| c.path == path)
+                .unwrap()
+                .pair
+                .clone()
+        };
+        assert_eq!(pair("a.md").as_deref(), Some("sub/moved.md"));
+        assert_eq!(pair("sub/moved.md").as_deref(), Some("a.md"));
+        assert_eq!(pair("other.md"), None);
         let _ = fs::remove_dir_all(dir);
     }
 

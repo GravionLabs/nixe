@@ -71,6 +71,18 @@ export class GitService {
   readonly lastSynced = signal<number | null>(null);
   /** The last pull that brought changes: the commit HEAD was at before it. A new object per pull. */
   readonly lastPull = signal<{ from: string } | null>(null);
+  /** Changed notes the user took out of the next save; everything else is in it. */
+  private readonly unchecked = signal<ReadonlySet<string>>(new Set());
+  /** The notes the next save contains: the checked ones of the change list. */
+  readonly selected = computed(() =>
+    (this.status()?.changes ?? []).map((c) => c.path).filter((p) => !this.unchecked().has(p)),
+  );
+  /** The tick of the section header: every change, none, or some of them. */
+  readonly selection = computed<"all" | "none" | "some">(() => {
+    const total = this.status()?.changes.length ?? 0;
+    const n = this.selected().length;
+    return n === total ? "all" : n === 0 ? "none" : "some";
+  });
   private request = 0;
   /** The last sync error that was shown; an automatic sync does not show it again. */
   private lastError: string | null = null;
@@ -161,19 +173,63 @@ export class GitService {
     if (request !== this.request) return;
     // An unchanged status keeps its object, so nothing downstream reloads (#289).
     if (JSON.stringify(status) !== JSON.stringify(this.status())) this.status.set(status);
+    this.forgetGone();
+  }
+
+  /** Whether a change is part of the next save. */
+  isChecked(path: string): boolean {
+    return !this.unchecked().has(path);
+  }
+
+  /** Checks or unchecks a change; the two halves of a rename go together. */
+  toggle(path: string): void {
+    const change = this.status()?.changes.find((c) => c.path === path);
+    const paths = change?.pair ? [path, change.pair] : [path];
+    const next = new Set(this.unchecked());
+    const check = next.has(path);
+    for (const p of paths) {
+      if (check) next.delete(p);
+      else next.add(p);
+    }
+    this.unchecked.set(next);
+  }
+
+  /** Checks or unchecks every change. */
+  setAll(checked: boolean): void {
+    this.unchecked.set(
+      checked ? new Set() : new Set((this.status()?.changes ?? []).map((c) => c.path)),
+    );
+  }
+
+  /** A note that is no longer a change has no choice to keep: it comes back checked. */
+  private forgetGone(): void {
+    const status = this.status();
+    if (!status) {
+      if (this.unchecked().size > 0) this.unchecked.set(new Set());
+      return;
+    }
+    const paths = new Set(status.changes.map((c) => c.path));
+    const kept = [...this.unchecked()].filter((p) => paths.has(p));
+    if (kept.length !== this.unchecked().size) this.unchecked.set(new Set(kept));
   }
 
   /**
-   * Commits all changes. An empty message gives the default of the backend.
-   * Throws the error message of the backend (for example "nothing to commit").
+   * Commits the checked changes, or all of them when none was taken out. An empty message gives
+   * the default of the backend. Throws the error message of the backend (for example "nothing
+   * to commit").
    */
   async commit(message: string): Promise<void> {
+    const partial = this.selection() === "some";
+    if (this.selection() === "none" && (this.status()?.changes.length ?? 0) > 0) {
+      throw new Error("no notes are chosen");
+    }
     this.committing.set(true);
     try {
       await backend.gitVaultCommit(
         message.trim() || null,
         this.settings.gitAuthorName().trim() || null,
         this.settings.gitAuthorEmail().trim() || null,
+        partial ? this.selected() : null,
       );
     } finally {
       this.committing.set(false);
@@ -182,13 +238,15 @@ export class GitService {
   }
 
   /**
-   * Saves the open changes with the message (empty: the automatic one), then syncs when the vault
-   * has a remote. Throws when saving fails; a failed sync shows in `syncState`.
+   * Saves the checked changes with the message (empty: the automatic one), then syncs when the
+   * vault has a remote. A save of only some notes does not sync: a sync saves everything that is
+   * open. Throws when saving fails; a failed sync shows in `syncState`.
    */
   async saveAndSync(message: string): Promise<void> {
     const status = this.status();
+    const partial = this.selection() === "some";
     if (status && status.changes.length > 0) await this.commit(message);
-    if (this.status()?.hasRemote) await this.sync();
+    if (!partial && this.status()?.hasRemote) await this.sync();
   }
 
   /**
