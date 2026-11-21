@@ -1,139 +1,100 @@
 <header>
-  <span>Git</span>
+  <span>Sync</span>
 </header>
 
 @if (git.status(); as status) {
-  <p class="branch">
-    {{ status.branch ?? "detached HEAD" }}
-    @if (status.ahead || status.behind) {
-      <span class="detail">↑{{ status.ahead }} ↓{{ status.behind }}</span>
+  <div class="summary">
+    <p class="state" role="status">{{ summary() }}</p>
+    <p class="branch" [title]="branchTip()">{{ status.branch ?? "no branch" }}</p>
+    <button
+      type="button"
+      class="sync"
+      [disabled]="!status.hasRemote || git.syncState().phase === 'syncing'"
+      (click)="syncNow()"
+    >
+      {{ git.syncState().phase === "syncing" ? "Syncing…" : "Sync now" }}
+    </button>
+    @if (tokenNotice(); as notice) {
+      <p class="status token-notice" role="alert">
+        {{ notice }}
+        <button type="button" class="link" (click)="openSyncSettings()">Open sync settings</button>
+      </p>
     }
-  </p>
+    @if (git.syncState(); as sync) {
+      @if (sync.phase === "error") {
+        <p class="status" role="alert">{{ sync.message }}</p>
+        @if (sync.detail) {
+          <details class="detail-box">
+            <summary>Details</summary>
+            <pre>{{ sync.detail }}</pre>
+          </details>
+        }
+      }
+    }
+  </div>
 
-  <section aria-label="Changes">
-    <h2>
-      Changes <span class="count">{{ status.changes.length }}</span>
-    </h2>
+  <app-panel-section title="Changes" [count]="status.changes.length" storageKey="git-changes">
+    @if (status.changes.length > 0) {
+      <input
+        panelActions
+        type="checkbox"
+        class="check"
+        aria-label="Include all changes in the save"
+        [checked]="git.selection() === 'all'"
+        [indeterminate]="git.selection() === 'some'"
+        (change)="git.setAll(git.selection() !== 'all')"
+      />
+    }
     @for (change of status.changes; track change.path) {
-      <button
-        type="button"
-        [disabled]="change.kind === 'deleted'"
-        (click)="open(change.path)"
-        [title]="change.path"
-      >
-        <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
-        <span class="name">{{ change.path }}</span>
-      </button>
+      <app-note-row [path]="change.path" [kind]="change.kind" (activated)="compare(change)">
+        <input
+          rowStart
+          type="checkbox"
+          class="check"
+          [attr.aria-label]="'Include ' + titleOf(change.path) + ' in the save'"
+          [checked]="git.isChecked(change.path)"
+          (change)="git.toggle(change.path)"
+        />
+        @if (change.kind !== "deleted") {
+          <button rowActions type="button" class="open" (click)="open(change.path)">Open</button>
+        }
+        <button rowActions type="button" class="discard" (click)="discard(change)">
+          Discard changes
+        </button>
+      </app-note-row>
     } @empty {
-      <p class="status">No changes</p>
+      <app-empty-state text="Everything is saved" />
     }
-  </section>
+  </app-panel-section>
 
-  <app-changes />
-
-  <app-review />
-
-  <form (submit)="commit($event, message.value)">
+  <form (submit)="save($event, message.value)">
     <label>
-      Commit message
-      <input #message type="text" placeholder="vault backup: <timestamp>" />
+      What did you change?
+      <input #message type="text" placeholder="Optional" />
     </label>
-    <details>
-      <summary>Author (used when the Git config has none)</summary>
-      <input
-        type="text"
-        aria-label="Author name"
-        placeholder="Name"
-        [value]="settings.gitAuthorName()"
-        (change)="settings.gitAuthorName.set($any($event.target).value)"
-      />
-      <input
-        type="email"
-        aria-label="Author email"
-        placeholder="Email"
-        [value]="settings.gitAuthorEmail()"
-        (change)="settings.gitAuthorEmail.set($any($event.target).value)"
-      />
-    </details>
     <button
       type="submit"
       class="primary"
-      [disabled]="git.committing() || status.changes.length === 0"
+      [disabled]="
+        git.committing() ||
+        git.syncState().phase === 'syncing' ||
+        (status.changes.length === 0 && !status.hasRemote) ||
+        (status.changes.length > 0 && git.selection() === 'none')
+      "
     >
-      Commit all
+      {{ saveLabel() }}
     </button>
   </form>
 
-  <section aria-label="Automatic sync" class="auto-sync">
-    <h2>Automatic sync</h2>
-    <label>
-      <input
-        type="checkbox"
-        [checked]="settings.autoSync()"
-        (change)="settings.autoSync.set($any($event.target).checked)"
-      />
-      Sync automatically
-    </label>
-    @if (settings.autoSync()) {
-      <label>
-        Every
-        <input
-          type="number"
-          min="1"
-          max="1440"
-          aria-label="Sync interval in minutes"
-          [value]="settings.autoSyncMinutes()"
-          (change)="setMinutes($any($event.target))"
-        />
-        minutes
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          [checked]="settings.autoSyncOnFocus()"
-          (change)="settings.autoSyncOnFocus.set($any($event.target).checked)"
-        />
-        Sync when the app gets focus
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          [checked]="settings.autoSyncOnQuit()"
-          (change)="settings.autoSyncOnQuit.set($any($event.target).checked)"
-        />
-        Sync when the app quits
-      </label>
-      <p class="status">Waits until you have stopped typing for a few seconds.</p>
-    }
-  </section>
+  @if (review.count() > 0) {
+    <app-review />
+  }
 
-  <section aria-label="Access token" class="token">
-    <h2>Access token</h2>
-    @if (git.tokenPrompt(); as prompt) {
-      <p class="status" role="alert">
-        {{
-          prompt.reason === "failed"
-            ? "GitHub rejected the token. Enter a new one."
-            : "Enter a personal access token to reach GitHub."
-        }}
-        <button type="button" (click)="git.cancelTokenPrompt()">Cancel</button>
-      </p>
-    }
-    <p class="status">
-      {{ git.tokenStored() ? "A token is stored in the system keychain." : "No token stored." }}
-    </p>
-    <input
-      #token
-      type="password"
-      autocomplete="off"
-      aria-label="Personal access token"
-      placeholder="Personal access token"
-    />
-    <button type="button" (click)="saveToken(token)">
-      {{ git.tokenStored() ? "Replace token" : "Save token" }}
-    </button>
-    @if (git.tokenStored()) {
-      <button type="button" (click)="deleteToken()">Delete token</button>
-    }
-  </section>
+  <app-changes />
+} @else {
+  <app-empty-state
+    text="This vault is not connected to Git yet"
+    action="Set up"
+    (activated)="setUp()"
+  />
 }

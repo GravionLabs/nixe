@@ -33,17 +33,6 @@ input {
   font: inherit;
 }
 
-ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-li {
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--h-content-border-color);
-}
-
 .status {
   margin: 4px 12px;
   color: var(--h-text-muted-color);
@@ -67,49 +56,6 @@ button:hover {
   background: var(--h-surface-hover);
 }
 
-button.close {
-  width: auto;
-  padding: 0 6px;
-  font-size: 16px;
-  color: var(--h-text-muted-color);
-}
-
-.name {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.path {
-  font-size: 11px;
-  color: var(--h-text-muted-color);
-}
-
-h2 {
-  margin: 12px 12px 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.count {
-  margin-left: 4px;
-  color: var(--h-text-muted-color);
-  font-weight: 400;
-}
-
-.exclude {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 12px 0;
-  font-size: 11px;
-  color: var(--h-text-muted-color);
-}
-
-.exclude input {
-  margin: 4px 0 0;
-}
-
 .detail {
   font-size: 12px;
   color: var(--h-text-muted-color);
@@ -118,47 +64,44 @@ h2 {
   white-space: nowrap;
 }
 
-.group {
-  padding: 4px 12px 0;
+.summary {
+  padding: 8px 0;
 }
 
-.group button {
-  padding-left: 0;
-}
-
-.branch {
-  margin: 8px 12px 0;
+.state {
+  margin: 0 12px;
   font-weight: 600;
 }
 
-section button {
-  flex-direction: row;
+.branch {
+  margin: 2px 12px 6px;
+  font-size: 11px;
+  color: var(--h-text-muted-color);
+}
+
+button.sync {
   align-items: center;
-  gap: 8px;
+  width: auto;
+  margin: 0 12px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
 }
 
-section button:disabled {
+button.sync:disabled {
   cursor: default;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
-.kind {
-  flex-shrink: 0;
-  width: 14px;
-  font-weight: 700;
-  text-align: center;
+.detail-box {
+  margin: 4px 12px;
+  font-size: 11px;
+  color: var(--h-text-muted-color);
 }
 
-.kind.added {
-  color: #2da44e;
-}
-
-.kind.modified {
-  color: #bf8700;
-}
-
-.kind.deleted {
-  color: #cf222e;
+.detail-box pre {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 form {
@@ -180,11 +123,6 @@ form input {
   width: calc(100% - 24px);
 }
 
-details input {
-  width: 100%;
-  margin: 4px 0;
-}
-
 form button.primary {
   align-items: center;
   width: auto;
@@ -198,4 +136,28 @@ form button.primary {
 form button.primary:disabled {
   cursor: default;
   opacity: 0.5;
+}
+
+button.open {
+  width: auto;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+button.link {
+  display: inline;
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--h-primary-color);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+input.check {
+  width: auto;
+  margin: 0 0 0 12px;
+  padding: 0;
+  accent-color: var(--h-primary-color, currentColor);
 }

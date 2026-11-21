@@ -1,17 +1,24 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 
-import type { DeletedNote, HistoryEntry } from "../file/backend";
+import type { DeletedNote, HistoryEntry, RecentNote } from "../file/backend";
 import { backend } from "../file/backend";
+import type { CompareInput } from "../compare/compare";
+import { CompareService } from "../compare/compare.service";
 import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
 import { IndexService } from "../index/index.service";
 import { toSlashes } from "../markdown/paths";
+import { VaultUndoService } from "../workspace/vault-undo.service";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { noteLabel } from "../../shared/panel/note-label";
 import { GitService } from "./git.service";
 
 export const PAGE_SIZE = 50;
 /** How many of the latest commits are searched for deleted notes. */
 export const DELETED_COMMITS = 50;
+/** How many of the latest commits are searched for recently changed notes, and how many notes are listed. */
+export const RECENT_COMMITS = 200;
+export const RECENT_NOTES = 30;
 
 /** A row of the timeline: a commit, or the uncommitted state (`id` null). */
 export interface TimelineEntry {
@@ -24,16 +31,6 @@ export interface TimelineEntry {
   operation?: string | null;
 }
 
-/** The two texts a selection compares. */
-export interface Comparison {
-  oldText: string;
-  newText: string;
-  oldLabel: string;
-  newLabel: string;
-  /** The note's path on the new side (for rendering relative links). */
-  path: string;
-}
-
 /** The vault-relative path of `file`, or null when it is outside the vault. */
 export function relativeTo(root: string, file: string): string | null {
   const r = `${toSlashes(root).replace(/\/+$/, "")}/`;
@@ -41,7 +38,7 @@ export function relativeTo(root: string, file: string): string | null {
   return f.startsWith(r) ? f.slice(r.length) : null;
 }
 
-/** History of the open note: its commits (paged), the uncommitted state first, and the compared versions. */
+/** History of the open note: its commits (paged) and the uncommitted state first; versions are compared in the main area (#324). */
 @Injectable({ providedIn: "root" })
 export class HistoryService {
   private readonly doc = inject(DocumentService);
@@ -49,6 +46,8 @@ export class HistoryService {
   private readonly git = inject(GitService);
   private readonly index = inject(IndexService);
   private readonly editor = inject(EditorService);
+  private readonly compareView = inject(CompareService);
+  private readonly undo = inject(VaultUndoService);
 
   /** The committed entries loaded so far. */
   readonly commits = signal<HistoryEntry[]>([]);
@@ -56,16 +55,17 @@ export class HistoryService {
   /** True when the log has no older entries. */
   readonly exhausted = signal(false);
   readonly error = signal<string | null>(null);
-  /** Selected timeline ids (at most two, in click order); `""` stands for the uncommitted state. */
-  readonly selection = signal<string[]>([]);
-  readonly comparison = signal<Comparison | null>(null);
   /** Notes the latest commits deleted. */
   readonly deleted = signal<DeletedNote[]>([]);
+  /** The notes the latest commits changed, newest first. */
+  readonly recent = signal<RecentNote[]>([]);
+  /** Whether the vault is a Git repository: without one there are no versions. */
+  readonly available = computed(() => this.git.available());
   /** Result or failure of the last restore, for the view. */
   readonly notice = signal<string | null>(null);
   private request = 0;
   private deletedRequest = 0;
-  private compareRequest = 0;
+  private recentRequest = 0;
 
   /** Vault-relative path of the open note; null without a note in a Git vault. */
   readonly notePath = computed(() => {
@@ -105,7 +105,10 @@ export class HistoryService {
       this.git.available();
       this.index.revision();
       this.git.status();
-      untracked(() => void this.loadDeleted());
+      untracked(() => {
+        void this.loadDeleted();
+        void this.loadRecent();
+      });
     });
   }
 
@@ -124,24 +127,71 @@ export class HistoryService {
     }
   }
 
+  /** Reads the notes the latest commits changed. */
+  async loadRecent(): Promise<void> {
+    const request = ++this.recentRequest;
+    if (!this.git.available()) {
+      this.recent.set([]);
+      return;
+    }
+    try {
+      const list = await backend.gitRecentNotes(RECENT_COMMITS, RECENT_NOTES);
+      if (request === this.recentRequest) this.recent.set(list);
+    } catch {
+      if (request === this.recentRequest) this.recent.set([]);
+    }
+  }
+
+  /** Opens a note of the "recently changed" list; its history follows. */
+  async openRecent(note: RecentNote): Promise<void> {
+    const root = this.workspace.vaultRoot();
+    if (!root) return;
+    await this.doc.open(`${toSlashes(root).replace(/\/+$/, "")}/${note.path}`);
+  }
+
+  /** Shows the last content of a deleted note in the main area, with a Restore button. */
+  async reviewDeleted(note: DeletedNote): Promise<void> {
+    try {
+      const newText = await backend.gitNoteVersion(note.path, note.parent);
+      this.compareView.open({
+        path: note.path,
+        title: noteLabel(note.path).title,
+        oldText: null,
+        newText,
+        oldLabel: "deleted",
+        newLabel: note.parent.slice(0, 7),
+        action: {
+          label: "Restore",
+          note: "The note comes back with this content",
+          run: () => this.restoreDeleted(note),
+        },
+      });
+    } catch (err) {
+      this.error.set(String(err));
+    }
+  }
+
   /**
-   * Writes the content of a commit into the open note (atomic write). The result is an ordinary
-   * change in the Git status; the history is not touched.
+   * Puts the content of a commit into the open note as one operation commit; the current state is
+   * committed first, so it stays in the history. The toast offers Undo (`undo_vault_operation`).
+   * Returns whether the note was restored.
    */
-  async restore(entry: TimelineEntry): Promise<void> {
+  async restore(entry: TimelineEntry): Promise<boolean> {
     const file = this.doc.path();
-    if (entry.id === null || !file) return;
+    const path = this.notePath();
+    if (entry.id === null || !file || path === null) return false;
     this.notice.set(null);
     try {
-      const text = await backend.gitNoteVersion(entry.path, entry.id);
-      // Pending text is written first, so the editor cannot write it over the restored text.
+      // Pending text is written first, so the checkpoint holds it and the editor cannot write it over the restored text.
       await this.editor.handle?.flush();
-      await backend.writeTextFile(file, text);
+      const op = await backend.gitRestoreNote(path, entry.path, entry.id, this.undo.author());
       await this.doc.open(file, { addToHistory: false });
       await this.git.refresh();
-      this.notice.set(`Restored ${this.label(entry)}`);
+      this.undo.notice.set({ text: op.message, undo: true, error: false });
+      return true;
     } catch (err) {
       this.notice.set(`Restore failed: ${String(err)}`);
+      return false;
     }
   }
 
@@ -151,9 +201,9 @@ export class HistoryService {
   }
 
   /** Brings a deleted note back with its last content; refuses when a file of that name exists. */
-  async restoreDeleted(note: DeletedNote): Promise<void> {
+  async restoreDeleted(note: DeletedNote): Promise<boolean> {
     const root = this.workspace.vaultRoot();
-    if (!root) return;
+    if (!root) return false;
     this.notice.set(null);
     try {
       const file = `${toSlashes(root).replace(/\/+$/, "")}/${note.path}`;
@@ -165,8 +215,10 @@ export class HistoryService {
       await this.git.refresh();
       await this.doc.open(file);
       this.notice.set(`Restored ${note.path}`);
+      return true;
     } catch (err) {
       this.notice.set(`Restore failed: ${String(err)}`);
+      return false;
     }
   }
 
@@ -176,16 +228,11 @@ export class HistoryService {
     this.commits.set([]);
     this.exhausted.set(false);
     this.error.set(null);
-    this.selection.set([]);
-    this.comparison.set(null);
     this.loading.set(false);
     await this.load(request);
   }
 
-  /**
-   * Reads the first page again without clearing anything: the list is replaced only when it
-   * differs, the selection stays, and the comparison is recomputed when it shows the uncommitted state.
-   */
+  /** Reads the first page again without clearing anything: the list is replaced only when it differs. */
   async refreshHead(): Promise<void> {
     const path = this.notePath();
     if (path === null || this.loading()) return;
@@ -203,11 +250,6 @@ export class HistoryService {
       this.commits.set([...page, ...current.slice(PAGE_SIZE)]);
       if (current.length <= PAGE_SIZE) this.exhausted.set(page.length < PAGE_SIZE);
     }
-    const rows = this.timeline();
-    const kept = this.selection().filter((k) => rows.some((r) => this.key(r) === k));
-    const dropped = kept.length !== this.selection().length;
-    if (dropped) this.selection.set(kept);
-    if (dropped || kept.includes("")) await this.compare();
   }
 
   /** Loads the next older page. */
@@ -234,69 +276,75 @@ export class HistoryService {
     }
   }
 
-  private key(entry: TimelineEntry): string {
-    return entry.id ?? "";
+  /** A click on a version: this version against the one before it, in the main area. */
+  async open(entry: TimelineEntry): Promise<void> {
+    const { revision, path } = this.parentOf(entry);
+    await this.show(async () => {
+      const [oldText, newText] = await Promise.all([
+        revision === undefined ? Promise.resolve("") : backend.gitNoteVersion(path, revision),
+        backend.gitNoteVersion(entry.path, entry.id),
+      ]);
+      return { oldText, newText, oldLabel: "before", newLabel: this.label(entry) };
+    });
   }
 
-  /** Click on a row: one selected shows its change; a second one shows the difference between the two. */
-  async select(entry: TimelineEntry): Promise<void> {
-    const key = this.key(entry);
-    const current = this.selection();
-    let next: string[];
-    if (current.includes(key)) next = current.filter((k) => k !== key);
-    else next = current.length >= 2 ? [current[1], key] : [...current, key];
-    this.selection.set(next);
-    await this.compare();
+  /** The version against the current state of the note. */
+  async compareWithCurrent(entry: TimelineEntry): Promise<void> {
+    await this.show(async () => {
+      const [oldText, newText] = await Promise.all([
+        backend.gitNoteVersion(entry.path, entry.id),
+        backend.gitNoteVersion(this.notePath() ?? entry.path, null),
+      ]);
+      return { oldText, newText, oldLabel: this.label(entry), newLabel: "current" };
+    });
   }
 
-  private async compare(): Promise<void> {
-    const request = ++this.compareRequest;
+  /** Two versions of the timeline, the older one on the old side. */
+  async compareBetween(a: TimelineEntry, b: TimelineEntry): Promise<void> {
     const rows = this.timeline();
-    const chosen = this.selection()
-      .map((k) => rows.find((r) => this.key(r) === k))
-      .filter((r): r is TimelineEntry => r !== undefined);
-    if (chosen.length === 0) {
-      this.comparison.set(null);
-      return;
-    }
+    const [newer, older] = rows.indexOf(a) < rows.indexOf(b) ? [a, b] : [b, a];
+    await this.show(async () => {
+      const [oldText, newText] = await Promise.all([
+        backend.gitNoteVersion(older.path, older.id),
+        backend.gitNoteVersion(newer.path, newer.id),
+      ]);
+      return { oldText, newText, oldLabel: this.label(older), newLabel: this.label(newer) };
+    });
+  }
+
+  /** Shows what a restore brings (current against the version) with a Restore button. */
+  async reviewRestore(entry: TimelineEntry): Promise<void> {
+    if (entry.id === null) return;
+    await this.show(async () => {
+      const [oldText, newText] = await Promise.all([
+        backend.gitNoteVersion(this.notePath() ?? entry.path, null),
+        backend.gitNoteVersion(entry.path, entry.id),
+      ]);
+      return {
+        oldText,
+        newText,
+        oldLabel: "current",
+        newLabel: this.label(entry),
+        action: {
+          label: "Restore",
+          note: "The current version stays in the history",
+          run: () => this.restore(entry),
+        },
+      };
+    });
+  }
+
+  private async show(
+    texts: () => Promise<
+      Pick<CompareInput, "oldText" | "newText" | "oldLabel" | "newLabel" | "action">
+    >,
+  ): Promise<void> {
+    const path = this.notePath();
+    if (path === null) return;
     try {
-      let result: Comparison;
-      if (chosen.length === 1) {
-        const [entry] = chosen;
-        const { revision, path } = this.parentOf(entry);
-        const [oldText, newText] = await Promise.all([
-          revision === undefined ? Promise.resolve("") : backend.gitNoteVersion(path, revision),
-          backend.gitNoteVersion(entry.path, entry.id),
-        ]);
-        result = {
-          oldText,
-          newText,
-          oldLabel: "before",
-          newLabel: this.label(entry),
-          path: entry.path,
-        };
-      } else {
-        // Older side first: the timeline is newest first.
-        const [newer, older] =
-          rows.indexOf(chosen[0]) < rows.indexOf(chosen[1])
-            ? [chosen[0], chosen[1]]
-            : [chosen[1], chosen[0]];
-        const [oldText, newText] = await Promise.all([
-          backend.gitNoteVersion(older.path, older.id),
-          backend.gitNoteVersion(newer.path, newer.id),
-        ]);
-        result = {
-          oldText,
-          newText,
-          oldLabel: this.label(older),
-          newLabel: this.label(newer),
-          path: newer.path,
-        };
-      }
-      if (request === this.compareRequest) this.comparison.set(result);
+      const input = await texts();
+      this.compareView.open({ path, title: noteLabel(path).title, ...input });
     } catch (err) {
-      if (request !== this.compareRequest) return;
-      this.comparison.set(null);
       this.error.set(String(err));
     }
   }

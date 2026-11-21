@@ -11,8 +11,9 @@
 
 header {
   display: flex;
-  align-items: center;
-  height: 34px;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 34px;
   padding: 0 12px;
   border-bottom: 1px solid var(--h-content-border-color);
   font-size: 11px;
@@ -22,7 +23,29 @@ header {
   color: var(--h-text-muted-color);
 }
 
-.path,
+header .title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+header .folder {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day {
+  padding: 6px 12px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--h-text-muted-color);
+}
+
 .status {
   margin: 8px 12px;
   color: var(--h-text-muted-color);
@@ -75,109 +98,45 @@ header {
   color: var(--h-text-muted-color);
 }
 
-.toolbar {
+.pick {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
   font-size: 11px;
+  color: var(--h-text-muted-color);
 }
 
-.toolbar .range {
+.pick span {
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--h-text-muted-color);
 }
 
-.toolbar button.on {
-  font-weight: 600;
-}
-
-.add {
-  color: var(--nixe-added-color, #2da44e);
-}
-
-.del {
-  color: var(--nixe-removed-color, #cf222e);
-}
-
-.diff {
-  font-family: var(--nixe-font-mono, monospace);
-  font-size: 12px;
-  overflow: auto;
-}
-
-.row {
-  display: flex;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.row .sign {
-  flex: none;
-  width: 18px;
-  text-align: center;
-  color: var(--h-text-muted-color);
-}
-
-.row.add {
-  background: rgba(46, 160, 67, 0.15);
-}
-
-.row.del {
-  background: rgba(248, 81, 73, 0.15);
-}
-
-.row.add .word {
-  background: rgba(46, 160, 67, 0.4);
-}
-
-.row.del .word {
-  background: rgba(248, 81, 73, 0.4);
-}
-
-.rendered section {
-  padding: 0 12px;
-  border-top: 1px solid var(--h-content-border-color);
-}
-
-.rendered h2 {
-  font-size: 11px;
-  color: var(--h-text-muted-color);
-}
-
-.actions {
-  display: flex;
+/* The actions of a version show while the row is hovered or holds the keyboard focus. */
+.row-actions {
+  display: none;
   gap: 0.5rem;
   padding: 0 0.5rem 0.25rem;
 }
 
-.actions button,
-.deleted button {
-  font-size: 0.75rem;
-}
-
-.deleted-title {
-  margin: 0.75rem 0.5rem 0.25rem;
-  font-size: 0.8rem;
+li:hover > .row-actions,
+li:focus-within > .row-actions {
+  display: flex;
 }
 
 .deleted {
-  list-style: none;
   margin: 0;
-  padding: 0 0.5rem;
+  padding: 0;
+  list-style: none;
 }
 
-.deleted li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.recent {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.deleted .message {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.filter {
+  box-sizing: border-box;
+  width: calc(100% - 24px);
+  margin: 4px 12px;
 }

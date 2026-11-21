@@ -1,273 +1,34 @@
-<section aria-label="Review">
-  <h2>
-    Review <span class="count">{{ review.count() }}</span>
-  </h2>
+<app-panel-section title="Suggestions" [count]="review.count()" storageKey="review">
   @if (review.error(); as error) {
     <p class="status" role="alert">{{ error }}</p>
   }
   @if (review.result(); as result) {
     <p class="status" role="status">{{ result }}</p>
   }
-  <ul class="branches" aria-label="Branches waiting for review">
+  <ul class="cards" aria-label="Suggestions waiting for review">
     @for (branch of review.branches(); track branch.name) {
       <li>
         <button
           type="button"
-          class="branch"
-          [attr.aria-expanded]="review.open()?.name === branch.name"
-          [title]="branch.tip"
-          (click)="review.toggle(branch)"
+          class="card"
+          [class.open]="review.open()?.name === branch.name"
+          [title]="branch.name"
+          (click)="open(branch)"
         >
-          <span class="name"
-            >{{ branch.name }}
-            @if (branch.remote) {
-              <span class="tag">remote</span>
-            }
-          </span>
+          <span class="who">{{ branch.author }}</span>
           <span class="meta">
-            {{ branch.author }} · {{ time(branch.time) }} · {{ branch.notes }}
+            {{ time(branch.time) }} · {{ branch.notes }}
             {{ branch.notes === 1 ? "note" : "notes" }}
           </span>
-        </button>
-        <ul class="messages" aria-label="Commits">
-          @for (message of branch.messages; track $index) {
-            <li>{{ message }}</li>
-          }
-        </ul>
-        @if (review.open()?.name === branch.name) {
-          @if (review.loading()) {
-            <p class="status">Loading…</p>
-          }
-          <ul class="list" aria-label="Changed notes">
-            @for (change of review.changes(); track change.path) {
-              <li>
-                <button
-                  type="button"
-                  class="entry"
-                  [attr.aria-expanded]="review.selected() === change.path"
-                  [title]="change.path"
-                  (click)="review.select(change)"
-                >
-                  <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
-                  <span class="name">{{ change.path }}</span>
-                  <span class="state" [class]="review.stateOf(change.path)">{{
-                    review.stateOf(change.path)
-                  }}</span>
-                </button>
-                <span class="decide">
-                  <button
-                    type="button"
-                    [attr.aria-label]="'Accept ' + change.path"
-                    [class.on]="review.stateOf(change.path) === 'accepted'"
-                    (click)="review.setNote(change.path, true)"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    [attr.aria-label]="'Reject ' + change.path"
-                    [class.on]="review.stateOf(change.path) === 'rejected'"
-                    (click)="review.setNote(change.path, false)"
-                  >
-                    Reject
-                  </button>
-                </span>
-                @if (review.selected() === change.path && review.diff(); as diff) {
-                  <div class="toolbar">
-                    <span class="stat"
-                      ><span class="add">+{{ stat().added }}</span>
-                      <span class="del">−{{ stat().removed }}</span></span
-                    >
-                    <button
-                      type="button"
-                      [class.on]="mode() === 'hunks'"
-                      (click)="mode.set('hunks')"
-                    >
-                      Hunks
-                    </button>
-                    <button
-                      type="button"
-                      [class.on]="mode() === 'source'"
-                      (click)="mode.set('source')"
-                    >
-                      Source
-                    </button>
-                    <button
-                      type="button"
-                      [class.on]="mode() === 'rendered'"
-                      (click)="mode.set('rendered')"
-                    >
-                      Rendered
-                    </button>
-                  </div>
-                  @if (mode() === "hunks") {
-                    <div class="hunks" aria-label="Hunks">
-                      @for (hunk of selectedHunks(); track hunk.index) {
-                        <div
-                          class="hunk"
-                          [class.accepted]="review.isAccepted(change.path, hunk.index)"
-                        >
-                          <div class="hunk-head">
-                            <span>Line {{ hunk.oldStart + 1 }}</span>
-                            <button
-                              type="button"
-                              [class.on]="review.isAccepted(change.path, hunk.index)"
-                              (click)="review.setHunk(change.path, hunk.index, true)"
-                            >
-                              Accept hunk
-                            </button>
-                            <button
-                              type="button"
-                              [class.on]="!review.isAccepted(change.path, hunk.index)"
-                              (click)="review.setHunk(change.path, hunk.index, false)"
-                            >
-                              Reject hunk
-                            </button>
-                            @if (review.isAccepted(change.path, hunk.index)) {
-                              <button type="button" (click)="edit(change.path, hunk)">Edit</button>
-                            }
-                            @if (review.editedText(change.path, hunk.index) !== undefined) {
-                              <span class="tag">edited</span>
-                              <button
-                                type="button"
-                                (click)="review.resetHunk(change.path, hunk.index)"
-                              >
-                                Undo edit
-                              </button>
-                            }
-                          </div>
-                          @if (hunk.old) {
-                            <pre class="del">{{ hunk.old }}</pre>
-                          }
-                          @if (editing() === change.path + "#" + hunk.index) {
-                            <textarea
-                              #area
-                              aria-label="Edit hunk"
-                              rows="4"
-                              [value]="review.editedText(change.path, hunk.index) ?? hunk.new"
-                            ></textarea>
-                            <button
-                              type="button"
-                              (click)="saveEdit(change.path, hunk.index, area.value)"
-                            >
-                              Apply edit
-                            </button>
-                            <button type="button" (click)="editing.set(null)">Cancel</button>
-                          } @else if (
-                            review.editedText(change.path, hunk.index) ?? hunk.new;
-                            as text
-                          ) {
-                            <pre class="add">{{ text }}</pre>
-                          }
-                        </div>
-                      } @empty {
-                        <p class="status">
-                          No line changes; the note is {{ change.kind }} as a whole
-                        </p>
-                      }
-                    </div>
-                  } @else if (mode() === "source") {
-                    <div class="diff" aria-label="Difference">
-                      @for (row of rows(); track $index) {
-                        <div class="row" [class]="row.kind">
-                          <span class="sign">{{
-                            row.kind === "add" ? "+" : row.kind === "del" ? "−" : " "
-                          }}</span>
-                          <span class="text">
-                            @if (row.segments; as segments) {
-                              @for (seg of segments; track $index) {
-                                <span [class.word]="seg.changed">{{ seg.text }}</span>
-                              }
-                            } @else {
-                              {{ row.text }}
-                            }
-                          </span>
-                        </div>
-                      } @empty {
-                        <p class="status">No difference</p>
-                      }
-                    </div>
-                  } @else {
-                    @if (rendered(); as html) {
-                      <div class="rendered" aria-label="Rendered versions">
-                        <section>
-                          <h3>Before</h3>
-                          <div class="md" [innerHTML]="html.old"></div>
-                        </section>
-                        <section>
-                          <h3>After</h3>
-                          <div class="md" [innerHTML]="html.new"></div>
-                        </section>
-                      </div>
-                    }
-                  }
-                }
-              </li>
-            } @empty {
-              @if (!review.loading()) {
-                <li class="status">No notes changed</li>
-              }
+          <ul class="messages" aria-label="Messages">
+            @for (message of branch.messages; track $index) {
+              <li>{{ message }}</li>
             }
           </ul>
-          @if (review.conflicts().length > 0) {
-            <div class="conflicts" role="alert" aria-label="Conflicts">
-              <p>
-                These notes changed in your vault since the branch was cut. Decide for each, then
-                finish again.
-              </p>
-              @for (conflict of review.conflicts(); track conflict.path) {
-                <div class="conflict">
-                  <h3>{{ conflict.path }}</h3>
-                  <div class="rendered">
-                    <section>
-                      <h3>Your version</h3>
-                      <pre class="mine">{{ conflict.mine ?? "(deleted)" }}</pre>
-                    </section>
-                    <section>
-                      <h3>Branch version</h3>
-                      <pre class="theirs">{{ conflict.branch ?? "(deleted)" }}</pre>
-                    </section>
-                  </div>
-                  <button
-                    type="button"
-                    [class.on]="review.choices()[conflict.path]?.resolve === 'mine'"
-                    (click)="review.resolve(conflict.path, 'mine')"
-                  >
-                    Keep mine
-                  </button>
-                  <button
-                    type="button"
-                    [class.on]="review.choices()[conflict.path]?.resolve === 'branch'"
-                    (click)="review.resolve(conflict.path, 'branch')"
-                  >
-                    Use branch version
-                  </button>
-                </div>
-              }
-            </div>
-          }
-          <div class="finish">
-            @if (confirming()) {
-              <p>
-                Merge {{ review.accepted() }} {{ review.accepted() === 1 ? "note" : "notes" }} and
-                delete {{ branch.name }} locally and on the remote?
-              </p>
-              <button type="button" class="danger" (click)="finish()">Confirm</button>
-              <button type="button" (click)="confirming.set(false)">Cancel</button>
-            } @else {
-              <button
-                type="button"
-                [disabled]="review.finishing() || review.loading()"
-                (click)="confirming.set(true)"
-              >
-                Finish review
-              </button>
-            }
-          </div>
-        }
+        </button>
       </li>
     } @empty {
-      <li class="status">Nothing waits for review</li>
+      <li><app-empty-state text="No suggestions to review" /></li>
     }
   </ul>
-</section>
+</app-panel-section>

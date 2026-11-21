@@ -322,6 +322,19 @@ async fn git_rev_at(state: State<'_, AppState>, time: i64) -> Result<Option<Stri
         .map_err(|e| e.to_string())?
 }
 
+/// The commits of the vault, newest first, for the version picker (#321).
+#[tauri::command]
+async fn git_vault_log(
+    state: State<'_, AppState>,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<git::VaultCommit>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::vault_log(&root, offset, limit))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// The branches that wait for review (#108).
 #[tauri::command]
 async fn git_review_branches(
@@ -422,6 +435,19 @@ async fn git_deleted_notes(
         .map_err(|e| e.to_string())?
 }
 
+/// The notes that the last commits added or changed, newest first.
+#[tauri::command]
+async fn git_recent_notes(
+    state: State<'_, AppState>,
+    commits: usize,
+    limit: usize,
+) -> Result<Vec<git::RecentNote>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::recent_notes(&root, commits, limit))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// A note at a commit, or the file on disk for `rev: None` (#105).
 #[tauri::command]
 async fn git_note_version(
@@ -435,22 +461,63 @@ async fn git_note_version(
         .map_err(|e| e.to_string())?
 }
 
-/// Stages every change of the vault and commits; returns the commit id.
-/// The author comes from the Git config, else from `name` and `email` (the settings).
+/// Stages every change of the vault, or only the notes at `paths`, and commits; returns the
+/// commit id. The other changes stay open. The author comes from the Git config, else from `name`
+/// and `email` (the settings).
 #[tauri::command]
 async fn git_vault_commit(
     state: State<'_, AppState>,
     message: Option<String>,
     name: Option<String>,
     email: Option<String>,
+    paths: Option<Vec<String>>,
 ) -> Result<String, String> {
     let root = vault_root_of(&state)?;
     let fallback = match (name, email) {
         (Some(name), Some(email)) => Some(git::Identity { name, email }),
         _ => None,
     };
+    tauri::async_runtime::spawn_blocking(move || match paths {
+        Some(paths) => {
+            git::vault_commit_paths(&root, &paths, message.as_deref(), fallback.as_ref())
+        }
+        None => git::vault_commit(&root, message.as_deref(), fallback.as_ref()),
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Takes the changes of one note back: the saved version returns, a new note is removed. One
+/// operation commit, so `undo_vault_operation` undoes it (#319).
+#[tauri::command]
+async fn git_discard_note(
+    state: State<'_, AppState>,
+    path: String,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<git::Operation, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    tauri::async_runtime::spawn_blocking(move || git::discard_note(&root, &path, fallback.as_ref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Puts an older version of a note back as one operation commit; the current state is committed
+/// first, and `undo_vault_operation` undoes the restore (#324).
+#[tauri::command]
+async fn git_restore_note(
+    state: State<'_, AppState>,
+    path: String,
+    from: String,
+    revision: String,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<git::Operation, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
     tauri::async_runtime::spawn_blocking(move || {
-        git::vault_commit(&root, message.as_deref(), fallback.as_ref())
+        git::restore_note(&root, &path, &from, &revision, fallback.as_ref())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1269,11 +1336,15 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_discard_note,
+        git_restore_note,
         git_note_history,
         git_note_version,
         git_deleted_notes,
+        git_recent_notes,
         git_changes_between,
         git_rev_at,
+        git_vault_log,
         git_review_branches,
         git_review_changes,
         git_review_hunks,
@@ -1378,11 +1449,15 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_discard_note,
+        git_restore_note,
         git_note_history,
         git_note_version,
         git_deleted_notes,
+        git_recent_notes,
         git_changes_between,
         git_rev_at,
+        git_vault_log,
         git_review_branches,
         git_review_changes,
         git_review_hunks,

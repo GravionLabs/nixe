@@ -240,6 +240,8 @@ export interface GitChange {
   kind: "added" | "modified" | "deleted";
   /** A new note Git does not track yet; only the working-tree status sets it. */
   untracked?: boolean;
+  /** The other half of a rename or move: the new path on the deleted note, the old on the added. */
+  pair?: string;
 }
 
 /** A branch that waits for review (#108). */
@@ -333,6 +335,17 @@ export interface GitStatus {
   changes: GitChange[];
   ahead: number;
   behind: number;
+  /** Whether the repository has a remote to sync with. */
+  hasRemote: boolean;
+}
+
+/** One commit of the vault log. */
+export interface VaultCommit {
+  id: string;
+  author: string;
+  /** Seconds since the epoch. */
+  time: number;
+  message: string;
 }
 
 /** One commit that touched a note. */
@@ -377,6 +390,15 @@ export interface DeletedNote {
   message: string;
 }
 
+/** A note that a recent commit added or changed. */
+export interface RecentNote {
+  path: string;
+  id: string;
+  author: string;
+  time: number;
+  message: string;
+}
+
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
 export type RootKind = "obsidian" | "wiki" | "folder";
 
@@ -414,6 +436,18 @@ export const backend = {
   /** Reverts the last vault operation as a new commit; rejects when it conflicts with later changes. */
   undoVaultOperation: (author?: GitAuthor) =>
     invoke<VaultOperation>("undo_vault_operation", { ...author }),
+  /**
+   * Puts the version of `from` at `revision` into the note `path` as one operation commit (#324);
+   * the current state is committed first and `undoVaultOperation` brings it back.
+   */
+  gitRestoreNote: (path: string, from: string, revision: string, author?: GitAuthor) =>
+    invoke<VaultOperation>("git_restore_note", { path, from, revision, ...author }),
+  /**
+   * Takes the changes of one note back (#319): the saved version returns, a new note is removed.
+   * One vault operation, so `undoVaultOperation` brings the discarded state back.
+   */
+  gitDiscardNote: (path: string, author?: GitAuthor) =>
+    invoke<VaultOperation>("git_discard_note", { path, ...author }),
   /** The notes an extraction into `target` would change; changes nothing. */
   extractPreview: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
     invoke<ComposeChange[]>("extract_preview", { source, target, what, embed }),
@@ -558,6 +592,9 @@ export const backend = {
     invoke<GitChange[]>("git_changes_between", { from, to }),
   /** The newest commit at or before `time` (seconds since the epoch); null when the history starts later. */
   gitRevAt: (time: number) => invoke<string | null>("git_rev_at", { time }),
+  /** The commits of the vault, newest first; `offset`/`limit` page. */
+  gitVaultLog: (offset: number, limit: number) =>
+    invoke<VaultCommit[]>("git_vault_log", { offset, limit }),
   /** Branches named with `prefix` that are ahead of the working branch, newest first. */
   gitReviewBranches: (prefix: string) => invoke<ReviewBranch[]>("git_review_branches", { prefix }),
   /** The notes the branch tip `rev` changed against the merge base with HEAD. */
@@ -592,12 +629,19 @@ export const backend = {
   gitReviewStateSave: (branch: string, content: string | null) =>
     invoke<void>("git_review_state_save", { branch, content }),
   gitDeletedNotes: (commits: number) => invoke<DeletedNote[]>("git_deleted_notes", { commits }),
+  /** Notes the last `commits` commits added or changed and that exist now, newest first, at most `limit`. */
+  gitRecentNotes: (commits: number, limit: number) =>
+    invoke<RecentNote[]>("git_recent_notes", { commits, limit }),
   /**
    * Stages everything and commits; returns the commit id. An empty `message` gives
    * `vault backup: <timestamp>`; `name` and `email` are used when the Git config has no author.
    */
-  gitVaultCommit: (message: string | null, name: string | null, email: string | null) =>
-    invoke<string>("git_vault_commit", { message, name, email }),
+  gitVaultCommit: (
+    message: string | null,
+    name: string | null,
+    email: string | null,
+    paths: string[] | null = null,
+  ) => invoke<string>("git_vault_commit", { message, name, email, paths }),
   /**
    * Sync: commits open changes, fetches, rebases the local commits onto the remote branch and
    * pushes. A conflict never stops it: the remote text stays in the note and the local text goes

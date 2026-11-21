@@ -134,6 +134,7 @@ const repo: GitStatus = {
   changes: [{ path: "a.md", kind: "added" }],
   ahead: 2,
   behind: 3,
+  hasRemote: true,
 };
 
 const KEYS: Record<string, string[]> = {
@@ -210,7 +211,9 @@ describe("StatusBarComponent", () => {
   });
 
   it("shows the Git view in the sidebar", () => {
-    const r = render({ status: { branch: null, changes: [], ahead: 0, behind: 0 } });
+    const r = render({
+      status: { branch: null, changes: [], ahead: 0, behind: 0, hasRemote: true },
+    });
     r.el.querySelector<HTMLElement>(".git button")!.click();
     expect(r.show).toHaveBeenCalledWith("git");
     expect(r.text()).toContain("detached HEAD");
@@ -228,12 +231,12 @@ describe("StatusBarComponent", () => {
     expect(r.show).toHaveBeenCalledWith("git");
   });
 
-  it("shows the number of branches waiting for review and opens the Git view", () => {
+  it("shows the number of suggestions waiting for review and opens the Git view", () => {
     expect(render({ status: repo }).el.querySelector(".review")).toBeNull();
     const one = render({ status: repo, waiting: 1 });
-    expect(one.el.querySelector(".review")!.textContent).toContain("1 branch to review");
+    expect(one.el.querySelector(".review")!.textContent).toContain("1 suggestion to review");
     const r = render({ status: repo, waiting: 3 });
-    expect(r.el.querySelector(".review")!.textContent).toContain("3 branches to review");
+    expect(r.el.querySelector(".review")!.textContent).toContain("3 suggestions to review");
     r.el.querySelector<HTMLElement>(".review button")!.click();
     expect(r.show).toHaveBeenCalledWith("git");
   });

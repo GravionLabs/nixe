@@ -68,7 +68,7 @@
       <app-history slot="sidebar" />
     }
     @case ("git") {
-      <app-git slot="sidebar" (failed)="showError($event)" (committed)="showToast('Committed')" />
+      <app-git slot="sidebar" (failed)="showError($event)" (committed)="showToast('Saved')" />
     }
   }
 

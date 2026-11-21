@@ -1,0 +1,48 @@
+@if (input(); as c) {
+  <header class="head">
+    <h1 class="title">{{ c.title }}</h1>
+    <span class="stat" aria-label="Changed lines">
+      <span class="add">+{{ stat().added }}</span>
+      <span class="del">−{{ stat().removed }}</span>
+    </span>
+    <span class="range">{{ c.oldLabel }} → {{ c.newLabel }}</span>
+    <span class="modes" role="group" aria-label="Mode">
+      <button
+        type="button"
+        class="mode-rendered"
+        [class.on]="compare.mode() === 'rendered'"
+        [attr.aria-pressed]="compare.mode() === 'rendered'"
+        (click)="compare.setMode('rendered')"
+      >
+        Rendered
+      </button>
+      <button
+        type="button"
+        class="mode-source"
+        [class.on]="compare.mode() === 'source'"
+        [attr.aria-pressed]="compare.mode() === 'source'"
+        (click)="compare.setMode('source')"
+      >
+        Source
+      </button>
+    </span>
+    @if (c.action; as action) {
+      <span class="action">
+        <span class="note">{{ action.note }}</span>
+        <button type="button" class="primary" [disabled]="busy()" (click)="act()">
+          {{ action.label }}
+        </button>
+      </span>
+    }
+  </header>
+  <app-diff
+    class="body"
+    [oldText]="c.oldText"
+    [newText]="c.newText"
+    [oldLabel]="c.oldLabel"
+    [newLabel]="c.newLabel"
+    [mode]="compare.mode()"
+  />
+} @else {
+  <app-empty-state text="Nothing to compare" />
+}

@@ -11,9 +11,10 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import type { GitChange } from "../file/backend";
 import { backend } from "../file/backend";
+import { CompareService } from "../compare/compare.service";
 import { DocumentService } from "../file/document.service";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { ChangesService } from "./changes.service";
+import { ChangesService, versionDate } from "./changes.service";
 import { GitService } from "./git.service";
 
 const list: GitChange[] = [
@@ -28,6 +29,7 @@ describe("ChangesService", () => {
   const path = signal<string | null>(null);
   const root = signal<string | null>("/vault");
   let service: ChangesService;
+  const open = vi.fn();
   let between: ReturnType<typeof vi.spyOn>;
 
   beforeAll(() => {
@@ -36,6 +38,7 @@ describe("ChangesService", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    open.mockReset();
     lastPull.set(null);
     path.set(null);
     root.set("/vault");
@@ -43,6 +46,7 @@ describe("ChangesService", () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: GitService, useValue: { lastPull } },
+        { provide: CompareService, useValue: { open } },
         { provide: DocumentService, useValue: { path } },
         { provide: WorkspaceService, useValue: { vaultRoot: root } },
       ],
@@ -111,6 +115,20 @@ describe("ChangesService", () => {
     expect(service.message()).toBe("The history starts less than a day ago");
   });
 
+  it("resolves last week to the newest commit of 7 days ago", async () => {
+    const at = vi.spyOn(backend, "gitRevAt").mockResolvedValue("c4");
+    await service.showWeek(1_700_000_000_000);
+    expect(at).toHaveBeenCalledWith(1_700_000_000 - 7 * 86_400);
+    expect(between).toHaveBeenLastCalledWith("c4");
+    expect(service.kind()).toBe("week");
+    at.mockResolvedValue(null);
+    await service.showWeek();
+    expect(service.message()).toBe("The history starts less than a week ago");
+    at.mockRejectedValue("boom");
+    await service.showYesterday();
+    expect(service.message()).toBe("boom");
+  });
+
   it("lists the range of a chosen commit and reports a bad one", async () => {
     await service.showCommit(" abc123 ");
     expect(between).toHaveBeenLastCalledWith("abc123");
@@ -120,16 +138,116 @@ describe("ChangesService", () => {
     expect(service.changes()).toEqual([]);
     expect(service.message()).toContain("not found");
     await service.showCommit("  ");
-    expect(service.message()).toBe("Enter a commit id");
+    expect(service.message()).toBe("Choose a version");
+    expect(service.chosen()).toBeNull();
   });
 
-  it("opens and closes the diff of a changed note", async () => {
+  it("loads the versions of the vault and remembers the chosen one", async () => {
+    const commits = [
+      { id: "c2", author: "Ann", time: 1_700_000_000, message: "Second" },
+      { id: "c1", author: "Bo", time: 1_699_000_000, message: "First" },
+    ];
+    const log = vi.spyOn(backend, "gitVaultLog").mockResolvedValue(commits);
+    await service.chooseVersion();
+    expect(log).toHaveBeenCalledWith(0, 100);
+    expect(service.kind()).toBe("commit");
+    expect(service.versions()).toEqual(commits);
+    await service.showVersion(commits[1]);
+    expect(between).toHaveBeenLastCalledWith("c1");
+    expect(service.chosen()).toEqual({ id: "c1", label: versionDate(1_699_000_000) });
+    // Opening the picker again keeps the pick and its list.
+    await service.chooseVersion();
+    expect(service.chosen()?.id).toBe("c1");
+    expect(service.changes()).toEqual(list);
+    // Switching away and back shows the range of the pick again, not the other range's notes.
+    vi.spyOn(backend, "gitRevAt").mockResolvedValue("c5");
+    between.mockResolvedValue([list[0]]);
+    await service.showYesterday();
+    expect(service.changes()).toEqual([list[0]]);
+    between.mockResolvedValue(list);
+    await service.chooseVersion();
+    expect(between).toHaveBeenLastCalledWith("c1");
+    expect(service.changes()).toEqual(list);
+    expect(service.from()).toBe("c1");
+    log.mockRejectedValue("no repo");
+    await service.loadVersions();
+    expect(service.versions()).toEqual([]);
+    expect(service.versionsError()).toBe("no repo");
+  });
+
+  it("says what an empty range is empty since", async () => {
+    between.mockResolvedValue([]);
+    await pull("c1");
+    await service.showSync();
+    expect(service.message()).toBe("Nothing changed since the last sync");
+    vi.spyOn(backend, "gitRevAt").mockResolvedValue("c5");
+    await service.showYesterday();
+    expect(service.message()).toBe("Nothing changed since yesterday");
+    await service.showWeek();
+    expect(service.message()).toBe("Nothing changed since last week");
+    await service.showVersion({ id: "c3", author: "", time: 1_700_000_000, message: "" });
+    expect(service.message()).toBe(`Nothing changed since ${versionDate(1_700_000_000)}`);
+  });
+
+  it("forgets the range and the picked version when another vault opens", async () => {
+    vi.spyOn(backend, "gitVaultLog").mockResolvedValue([]);
+    await service.showVersion({ id: "c3", author: "", time: 1_700_000_000, message: "" });
+    root.set("/other");
+    TestBed.tick();
+    expect(service.chosen()).toBeNull();
+    expect(service.changes()).toEqual([]);
+    expect(service.kind()).toBe("sync");
+  });
+
+  it("opens the versions of a changed note in the compare view", async () => {
     await service.showCommit("abc");
-    await service.toggle(list[0]);
-    expect(service.diff()).toEqual({ path: "a.md", oldText: "old", newText: "new" });
+    await service.compare(list[0]);
     expect(backend.gitNoteVersion).toHaveBeenCalledWith("a.md", "abc");
-    await service.toggle(list[0]);
-    expect(service.selected()).toBeNull();
-    expect(service.diff()).toBeNull();
+    expect(open).toHaveBeenLastCalledWith({
+      path: "a.md",
+      title: "a",
+      oldLabel: "abc",
+      newLabel: "Now",
+      oldText: "old",
+      newText: "new",
+    });
+  });
+
+  it("has no text for the side an added or deleted note lacks", async () => {
+    await service.showCommit("abc");
+    await service.compare(list[1]);
+    expect(open).toHaveBeenLastCalledWith(
+      expect.objectContaining({ oldText: null, newText: "new" }),
+    );
+    await service.compare(list[2]);
+    expect(open).toHaveBeenLastCalledWith(
+      expect.objectContaining({ oldText: "old", newText: null }),
+    );
+  });
+
+  it("labels a picked version in the compare view", async () => {
+    await service.showVersion({ id: "c3", author: "", time: 1_700_000_000, message: "" });
+    await service.compare(list[0]);
+    expect(open).toHaveBeenLastCalledWith(
+      expect.objectContaining({ oldLabel: versionDate(1_700_000_000) }),
+    );
+    expect(backend.gitNoteVersion).toHaveBeenCalledWith("a.md", "c3");
+  });
+
+  it("labels the start of the range", async () => {
+    await pull("c1");
+    await service.showSync();
+    await service.compare(list[0]);
+    expect(open).toHaveBeenLastCalledWith(expect.objectContaining({ oldLabel: "Last sync" }));
+  });
+
+  it("does not open a note before a range is chosen, and reports a failed read", async () => {
+    await service.compare(list[0]);
+    expect(open).not.toHaveBeenCalled();
+    await service.showCommit("abc");
+    vi.spyOn(backend, "gitNoteVersion").mockRejectedValue("boom");
+    await service.compare(list[0]);
+    expect(open).not.toHaveBeenCalled();
+    expect(service.message()).toBe("boom");
   });
 });

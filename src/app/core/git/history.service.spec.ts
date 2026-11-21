@@ -11,9 +11,11 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import type { GitStatus, HistoryEntry } from "../file/backend";
 import { backend } from "../file/backend";
+import { CompareService } from "../compare/compare.service";
 import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
 import { IndexService } from "../index/index.service";
+import { VaultUndoService } from "../workspace/vault-undo.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { GitService } from "./git.service";
 import { HistoryService, PAGE_SIZE, relativeTo } from "./history.service";
@@ -54,6 +56,8 @@ describe("HistoryService", () => {
   const refresh = vi.fn();
   const reloadTree = vi.fn();
   const flush_ = vi.fn();
+  const openCompare = vi.fn();
+  const undoNotice = signal<unknown>(null);
 
   beforeAll(() => {
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -62,7 +66,7 @@ describe("HistoryService", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     path.set("/vault/a.md");
-    status.set({ branch: "main", changes: [], ahead: 0, behind: 0 });
+    status.set({ branch: "main", changes: [], ahead: 0, behind: 0, hasRemote: true });
     revision.set(0);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -72,6 +76,8 @@ describe("HistoryService", () => {
         { provide: IndexService, useValue: { revision } },
         { provide: GitService, useValue: { status, refresh, available: () => status() !== null } },
         { provide: EditorService, useValue: { handle: { flush: flush_ } } },
+        { provide: CompareService, useValue: { open: openCompare } },
+        { provide: VaultUndoService, useValue: { notice: undoNotice, author: () => ({}) } },
       ],
     });
     log = vi
@@ -81,10 +87,13 @@ describe("HistoryService", () => {
       .spyOn(backend, "gitNoteVersion")
       .mockImplementation(async (_p, rev) => `text@${rev}`);
     vi.spyOn(backend, "gitDeletedNotes").mockResolvedValue([]);
+    vi.spyOn(backend, "gitRecentNotes").mockResolvedValue([]);
     open.mockReset().mockResolvedValue(undefined);
     refresh.mockReset().mockResolvedValue(undefined);
     reloadTree.mockReset().mockResolvedValue(undefined);
     flush_.mockReset().mockResolvedValue(undefined);
+    openCompare.mockReset();
+    undoNotice.set(null);
     history = TestBed.inject(HistoryService);
   });
 
@@ -106,6 +115,7 @@ describe("HistoryService", () => {
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     await ready();
     expect(history.timeline().map((t) => t.id)).toEqual([null, "c2", "c1"]);
@@ -134,70 +144,83 @@ describe("HistoryService", () => {
     expect(log).toHaveBeenCalledTimes(2);
   });
 
-  it("shows the change of one commit against its parent", async () => {
+  it("opens the change of one commit against its parent in the main area", async () => {
     await ready();
-    await history.select(history.timeline()[0]);
-    expect(history.comparison()).toMatchObject({
-      oldText: "text@c1",
-      newText: "text@c2",
-      newLabel: "c2",
-    });
+    await history.open(history.timeline()[0]);
+    expect(openCompare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: "a.md",
+        title: "a",
+        oldText: "text@c1",
+        newText: "text@c2",
+        newLabel: "c2",
+      }),
+    );
   });
 
-  it("shows a first commit against an empty note", async () => {
+  it("opens a first commit against an empty note", async () => {
     await ready();
-    await history.select(history.timeline()[1]);
-    expect(history.comparison()?.oldText).toBe("");
-    expect(history.comparison()?.newText).toBe("text@c1");
+    await history.open(history.timeline()[1]);
+    const input = openCompare.mock.calls[0][0];
+    expect(input.oldText).toBe("");
+    expect(input.newText).toBe("text@c1");
   });
 
   it("reads the old name of a renamed note for the parent side", async () => {
     log.mockResolvedValue([entry(2, { path: "b.md", parentPath: "a.md" })]);
     await ready();
     await history.reload();
-    await history.select(history.timeline()[0]);
+    await history.open(history.timeline()[0]);
     expect(version).toHaveBeenCalledWith("a.md", "c1");
     expect(version).toHaveBeenCalledWith("b.md", "c2");
   });
 
-  it("compares two selected versions, older on the old side, in any click order", async () => {
+  it("compares two versions with the older on the old side, in any order", async () => {
     await ready();
     const [newer, older] = history.timeline();
-    await history.select(older);
-    await history.select(newer);
-    expect(history.comparison()).toMatchObject({ oldText: "text@c1", newText: "text@c2" });
-    // Clicking a selected row deselects it.
-    await history.select(newer);
-    expect(history.selection()).toEqual(["c1"]);
+    await history.compareBetween(older, newer);
+    expect(openCompare.mock.calls[0][0]).toMatchObject({ oldText: "text@c1", newText: "text@c2" });
+    await history.compareBetween(newer, older);
+    expect(openCompare.mock.calls[1][0]).toMatchObject({ oldText: "text@c1", newText: "text@c2" });
   });
 
-  it("compares the uncommitted state with HEAD, and with the disk text", async () => {
+  it("compares a version with the current text of the note", async () => {
+    await ready();
+    await history.compareWithCurrent(history.timeline()[1]);
+    expect(openCompare.mock.calls[0][0]).toMatchObject({
+      oldText: "text@c1",
+      newText: "text@null",
+      oldLabel: "c1",
+      newLabel: "current",
+    });
+  });
+
+  it("compares the uncommitted state with HEAD", async () => {
     status.set({
       branch: "main",
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     await ready();
-    await history.select(history.timeline()[0]);
-    expect(history.comparison()).toMatchObject({
+    await history.open(history.timeline()[0]);
+    expect(openCompare.mock.calls[0][0]).toMatchObject({
       oldText: "text@c2",
       newText: "text@null",
       newLabel: "uncommitted",
     });
   });
 
-  it("keeps timeline, selection and comparison on a status or revision change (#289)", async () => {
+  it("keeps the timeline on a status or revision change without a loading state (#289)", async () => {
     status.set({
       branch: "main",
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     await ready();
-    await history.select(history.timeline()[0]);
-    const before = history.comparison();
-    expect(before).not.toBeNull();
     log.mockClear();
     let emptied = false;
     let loadingSeen = false;
@@ -205,12 +228,12 @@ describe("HistoryService", () => {
       if (history.timeline().length === 0) emptied = true;
       if (history.loading()) loadingSeen = true;
     }, 0);
-    version.mockImplementation(async (_p, rev) => `new@${rev}`);
     status.set({
       branch: "main",
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     revision.set(1);
     TestBed.tick();
@@ -221,35 +244,16 @@ describe("HistoryService", () => {
     expect(emptied).toBe(false);
     expect(loadingSeen).toBe(false);
     expect(history.timeline().map((t) => t.id)).toEqual([null, "c2", "c1"]);
-    expect(history.selection()).toEqual([""]);
-    expect(history.comparison()).toMatchObject({ newText: "new@null" });
   });
 
-  it("keeps a committed selection and its comparison untouched on a refresh (#289)", async () => {
+  it("keeps the loaded commits untouched on a refresh without changes (#289)", async () => {
     await ready();
-    await history.select(history.timeline()[0]);
     const commits = history.commits();
-    const comparison = history.comparison();
-    version.mockClear();
     revision.set(1);
     TestBed.tick();
     await flush();
     await flush();
     expect(history.commits()).toBe(commits);
-    expect(history.selection()).toEqual(["c2"]);
-    expect(history.comparison()).toBe(comparison);
-    expect(version).not.toHaveBeenCalled();
-  });
-
-  it("resets the list and the selection when the note changes", async () => {
-    await ready();
-    await history.select(history.timeline()[0]);
-    path.set("/vault/b.md");
-    TestBed.tick();
-    await flush();
-    expect(log).toHaveBeenLastCalledWith("b.md", 0, PAGE_SIZE);
-    expect(history.selection()).toEqual([]);
-    expect(history.comparison()).toBeNull();
   });
 
   it("reports a failing log", async () => {
@@ -259,33 +263,45 @@ describe("HistoryService", () => {
     expect(history.error()).toContain("boom");
   });
 
-  it("restores a version through the atomic write and refreshes the Git status", async () => {
-    const write = vi.spyOn(backend, "writeTextFile").mockResolvedValue(undefined);
+  it("shows what a restore brings with a Restore button that restores and offers Undo", async () => {
+    const restore = vi
+      .spyOn(backend, "gitRestoreNote")
+      .mockResolvedValue({ id: "r1", kind: "restore", message: "restore: a.md to c1" });
     await ready();
-    await history.restore(history.timeline()[1]);
+    await history.reviewRestore(history.timeline()[1]);
+    const input = openCompare.mock.calls[0][0];
+    expect(input).toMatchObject({ oldText: "text@null", newText: "text@c1", oldLabel: "current" });
+    expect(input.action).toMatchObject({
+      label: "Restore",
+      note: "The current version stays in the history",
+    });
+    expect(restore).not.toHaveBeenCalled();
+    expect(await input.action.run()).toBe(true);
     expect(flush_).toHaveBeenCalled();
-    expect(write).toHaveBeenCalledWith("/vault/a.md", "text@c1");
+    expect(restore).toHaveBeenCalledWith("a.md", "a.md", "c1", {});
     expect(open).toHaveBeenCalledWith("/vault/a.md", { addToHistory: false });
     expect(refresh).toHaveBeenCalled();
-    expect(history.notice()).toBe("Restored c1");
-    // The history itself is not rewritten.
-    expect(history.commits().map((c) => c.id)).toEqual(["c2", "c1"]);
+    expect(undoNotice()).toEqual({ text: "restore: a.md to c1", undo: true, error: false });
   });
 
-  it("does not restore the uncommitted state and reports a failing write", async () => {
-    const write = vi.spyOn(backend, "writeTextFile").mockRejectedValue(new Error("denied"));
+  it("does not restore the uncommitted state and reports a failing restore", async () => {
+    const restore = vi.spyOn(backend, "gitRestoreNote").mockRejectedValue(new Error("denied"));
     status.set({
       branch: "main",
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     await ready();
-    await history.restore(history.timeline()[0]);
-    expect(write).not.toHaveBeenCalled();
-    await history.restore(history.timeline()[1]);
+    expect(await history.restore(history.timeline()[0])).toBe(false);
+    await history.reviewRestore(history.timeline()[0]);
+    expect(openCompare).not.toHaveBeenCalled();
+    expect(restore).not.toHaveBeenCalled();
+    expect(await history.restore(history.timeline()[1])).toBe(false);
     expect(history.notice()).toContain("denied");
     expect(open).not.toHaveBeenCalled();
+    expect(undoNotice()).toBeNull();
   });
 
   it("lists the deleted notes and restores one from the parent of its deleting commit", async () => {
@@ -310,6 +326,40 @@ describe("HistoryService", () => {
     expect(write).toHaveBeenCalledWith("/vault/dir/gone.md", "text@p1");
     expect(open).toHaveBeenCalledWith("/vault/dir/gone.md");
     expect(history.notice()).toBe("Restored dir/gone.md");
+  });
+
+  it("shows the last content of a deleted note with a Restore button", async () => {
+    const note = { path: "d/g.md", id: "d1", parent: "p1", author: "", time: 5, message: "" };
+    await history.reviewDeleted(note);
+    const input = openCompare.mock.calls[0][0];
+    expect(input).toMatchObject({ path: "d/g.md", oldText: null, newText: "text@p1" });
+    vi.spyOn(backend, "createDir").mockResolvedValue(undefined);
+    vi.spyOn(backend, "createFile").mockResolvedValue(undefined);
+    vi.spyOn(backend, "writeTextFile").mockResolvedValue(undefined);
+    expect(await input.action.run()).toBe(true);
+    expect(open).toHaveBeenCalledWith("/vault/d/g.md");
+  });
+
+  it("reports a failed restore of a deleted note", async () => {
+    vi.spyOn(backend, "createDir").mockResolvedValue(undefined);
+    vi.spyOn(backend, "createFile").mockRejectedValue(new Error("exists"));
+    const note = { path: "g.md", id: "d", parent: "p", author: "", time: 0, message: "" };
+    expect(await history.restoreDeleted(note)).toBe(false);
+  });
+
+  it("loads the recently changed notes and opens one", async () => {
+    const note = { path: "dir/r.md", id: "r", author: "A", time: 9, message: "m" };
+    vi.mocked(backend.gitRecentNotes).mockResolvedValue([note]);
+    await ready();
+    expect(history.recent()).toEqual([note]);
+    await history.openRecent(note);
+    expect(open).toHaveBeenCalledWith("/vault/dir/r.md");
+  });
+
+  it("has no recent notes without a repository", async () => {
+    status.set(null);
+    await ready();
+    expect(history.recent()).toEqual([]);
   });
 
   it("does not overwrite an existing file when restoring a deleted note", async () => {

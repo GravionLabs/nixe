@@ -1,23 +1,36 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 
-import type { GitChange } from "../file/backend";
+import type { GitChange, VaultCommit } from "../file/backend";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
-import { joinPath } from "../markdown/paths";
+import { CompareService } from "../compare/compare.service";
+import { basename, joinPath } from "../markdown/paths";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { GitService } from "./git.service";
 import { relativeTo } from "./history.service";
 
-export type RangeKind = "sync" | "yesterday" | "commit";
+export type RangeKind = "sync" | "yesterday" | "week" | "commit";
 
-/** The two texts of a changed note across the range. */
-export interface NoteDiff {
-  path: string;
-  oldText: string;
-  newText: string;
+/** How many versions the picker lists. */
+export const VERSION_LIMIT = 100;
+
+/** A version picked from the list: its commit and how it is named to the user. */
+export interface ChosenVersion {
+  id: string;
+  label: string;
+}
+
+/** A commit's date as the picker shows it. */
+export function versionDate(seconds: number): string {
+  return new Date(seconds * 1000).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 const DAY_SECONDS = 86_400;
+const WEEK_SECONDS = 7 * DAY_SECONDS;
 
 /**
  * What changed in the vault between two points (#107): the notes the last pull brought (status bar,
@@ -28,6 +41,7 @@ export class ChangesService {
   private readonly git = inject(GitService);
   private readonly workspace = inject(WorkspaceService);
   private readonly doc = inject(DocumentService);
+  private readonly compareView = inject(CompareService);
 
   /** The notes the last pull changed. */
   readonly pulled = signal<GitChange[]>([]);
@@ -48,10 +62,12 @@ export class ChangesService {
   readonly loading = signal(false);
   /** The commit the list starts at; null when there is no range yet. */
   readonly from = signal<string | null>(null);
-  readonly selected = signal<string | null>(null);
-  readonly diff = signal<NoteDiff | null>(null);
+  /** The version picked with "Choose a version…"; kept for the session. */
+  readonly chosen = signal<ChosenVersion | null>(null);
+  /** The versions of the vault the picker lists, newest first. */
+  readonly versions = signal<VaultCommit[]>([]);
+  readonly versionsError = signal<string | null>(null);
   private request = 0;
-  private diffRequest = 0;
 
   constructor() {
     effect(() => {
@@ -78,8 +94,23 @@ export class ChangesService {
         this.git.lastPull.set(null);
         this.pulled.set([]);
         this.unseen.set(new Set());
+        this.chosen.set(null);
+        this.versions.set([]);
+        this.kind.set("sync");
+        this.reset(null);
       });
     });
+  }
+
+  /** Reads the versions of the vault for the picker. */
+  async loadVersions(): Promise<void> {
+    try {
+      this.versions.set(await backend.gitVaultLog(0, VERSION_LIMIT));
+      this.versionsError.set(null);
+    } catch (err) {
+      this.versions.set([]);
+      this.versionsError.set(String(err instanceof Error ? err.message : err));
+    }
   }
 
   private async recordPull(from: string): Promise<void> {
@@ -101,34 +132,62 @@ export class ChangesService {
 
   /** Lists the notes changed since 24 hours ago. */
   async showYesterday(now = Date.now()): Promise<void> {
-    this.kind.set("yesterday");
+    await this.showAgo("yesterday", DAY_SECONDS, "The history starts less than a day ago", now);
+  }
+
+  /** Lists the notes changed since 7 days ago. */
+  async showWeek(now = Date.now()): Promise<void> {
+    await this.showAgo("week", WEEK_SECONDS, "The history starts less than a week ago", now);
+  }
+
+  private async showAgo(
+    kind: RangeKind,
+    seconds: number,
+    none: string,
+    now: number,
+  ): Promise<void> {
+    this.kind.set(kind);
     let from: string | null = null;
     try {
-      from = await backend.gitRevAt(Math.floor(now / 1000) - DAY_SECONDS);
+      from = await backend.gitRevAt(Math.floor(now / 1000) - seconds);
     } catch (err) {
       this.fail(err);
       return;
     }
-    await this.load(from, "The history starts less than a day ago");
+    await this.load(from, none);
   }
 
-  /** Lists the notes changed since the commit `rev` (an id or a prefix). */
-  async showCommit(rev: string): Promise<void> {
+  /** Switches to the version picker; the list of an earlier pick stays. */
+  async chooseVersion(): Promise<void> {
+    this.kind.set("commit");
+    const chosen = this.chosen();
+    if (chosen === null) this.reset(null);
+    const reload = chosen === null ? Promise.resolve() : this.load(chosen.id, "");
+    await Promise.all([this.loadVersions(), reload]);
+  }
+
+  /** Lists the notes changed since the picked version (a commit id or a prefix). */
+  async showCommit(rev: string, label?: string): Promise<void> {
     this.kind.set("commit");
     const value = rev.trim();
     if (!value) {
-      this.reset("Enter a commit id");
+      this.chosen.set(null);
+      this.reset("Choose a version");
       return;
     }
+    this.chosen.set({ id: value, label: label ?? value.slice(0, 7) });
     await this.load(value, "");
+  }
+
+  /** Lists the notes changed since a version of the picker. */
+  async showVersion(commit: VaultCommit): Promise<void> {
+    await this.showCommit(commit.id, versionDate(commit.time));
   }
 
   private reset(message: string | null): void {
     ++this.request;
     this.changes.set([]);
     this.from.set(null);
-    this.selected.set(null);
-    this.diff.set(null);
     this.loading.set(false);
     this.message.set(message);
   }
@@ -150,7 +209,7 @@ export class ChangesService {
       if (request !== this.request) return;
       this.from.set(from);
       this.changes.set(list);
-      this.message.set(list.length === 0 ? "No notes changed" : null);
+      this.message.set(list.length === 0 ? `Nothing changed since ${this.sinceText()}` : null);
     } catch (err) {
       if (request === this.request) this.fail(err);
     } finally {
@@ -158,26 +217,45 @@ export class ChangesService {
     }
   }
 
-  /** Shows or hides the diff of a note of the list. */
-  async toggle(change: GitChange): Promise<void> {
+  /** The label of the range start in the compare view. */
+  private fromLabel(): string {
+    const kind = this.kind();
+    if (kind === "sync") return "Last sync";
+    if (kind === "yesterday") return "Yesterday";
+    if (kind === "week") return "Last week";
+    return this.chosen()?.label ?? (this.from() ?? "").slice(0, 7);
+  }
+
+  /** The range start as the empty-range message names it. */
+  private sinceText(): string {
+    const kind = this.kind();
+    if (kind === "sync") return "the last sync";
+    if (kind === "yesterday") return "yesterday";
+    if (kind === "week") return "last week";
+    return this.chosen()?.label ?? (this.from() ?? "").slice(0, 7);
+  }
+
+  /** Opens the versions of a note of the list, before the range and now, in the compare view. */
+  async compare(change: GitChange): Promise<void> {
     const from = this.from();
     if (from === null) return;
-    if (this.selected() === change.path) {
-      this.selected.set(null);
-      this.diff.set(null);
-      return;
-    }
-    const request = ++this.diffRequest;
-    this.selected.set(change.path);
-    this.diff.set(null);
     try {
       const [oldText, newText] = await Promise.all([
-        backend.gitNoteVersion(change.path, from),
-        backend.gitNoteVersion(change.path, "HEAD"),
+        change.kind === "added" ? Promise.resolve(null) : backend.gitNoteVersion(change.path, from),
+        change.kind === "deleted"
+          ? Promise.resolve(null)
+          : backend.gitNoteVersion(change.path, "HEAD"),
       ]);
-      if (request === this.diffRequest) this.diff.set({ path: change.path, oldText, newText });
+      this.compareView.open({
+        path: change.path,
+        title: basename(change.path).replace(/\.(md|markdown|mdown|mkd)$/i, ""),
+        oldLabel: this.fromLabel(),
+        newLabel: "Now",
+        oldText,
+        newText,
+      });
     } catch (err) {
-      if (request === this.diffRequest) this.message.set(String(err));
+      this.message.set(String(err));
     }
   }
 }

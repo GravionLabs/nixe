@@ -19,17 +19,34 @@ export interface TokenPrompt {
 export interface SyncState {
   phase: "idle" | "syncing" | "done" | "error";
   message: string;
+  /** The text of the backend behind a failure; the panel keeps it reachable. */
+  detail?: string;
+}
+
+/** What a failed sync means and what to do, in plain words. The raw text goes to `detail`. */
+export function explainSyncError(raw: string): string {
+  if (AUTH_ERROR.test(raw))
+    return "GitHub needs a valid access token. Add one in the sync settings.";
+  if (/conflict/i.test(raw))
+    return "Some notes were changed in two places and could not be joined. Nothing is lost; try again.";
+  if (/no author|user\.name|user\.email/i.test(raw))
+    return "Your name and email are missing. Add them under Author in the sync settings.";
+  if (/network|resolve|connect|timed? ?out|unreachable|offline|dns/i.test(raw))
+    return "The server could not be reached. Check your connection and try again.";
+  if (/no remote|remote.*not|upstream/i.test(raw))
+    return "This vault has no place to send versions to yet. Connect it first.";
+  return "Syncing did not work. Your notes are safe on this computer; try again later.";
 }
 
 /** A readable line for what a sync did. */
 export function describeSync(report: SyncReport): string {
   const parts = [
-    report.committed ? "committed" : "",
-    report.pulled ? "pulled" : "",
-    report.pushed ? "pushed" : "",
+    report.committed ? "saved" : "",
+    report.pulled ? "received" : "",
+    report.pushed ? "sent" : "",
   ].filter(Boolean);
   const n = report.conflicts?.length ?? 0;
-  const text = parts.length ? `Synced (${parts.join(", ")})` : "Already in sync";
+  const text = parts.length ? `Synced (${parts.join(", ")})` : "Everything is synced";
   return n > 0
     ? `${text}; ${n} ${n === 1 ? "note" : "notes"} changed on both sides, both versions kept`
     : text;
@@ -50,8 +67,22 @@ export class GitService {
   readonly tokenPrompt = signal<TokenPrompt | null>(null);
   /** Progress and result of the last sync, for the status bar. */
   readonly syncState = signal<SyncState>({ phase: "idle", message: "" });
+  /** When the last sync of this session succeeded (ms since the epoch); null before one. */
+  readonly lastSynced = signal<number | null>(null);
   /** The last pull that brought changes: the commit HEAD was at before it. A new object per pull. */
   readonly lastPull = signal<{ from: string } | null>(null);
+  /** Changed notes the user took out of the next save; everything else is in it. */
+  private readonly unchecked = signal<ReadonlySet<string>>(new Set());
+  /** The notes the next save contains: the checked ones of the change list. */
+  readonly selected = computed(() =>
+    (this.status()?.changes ?? []).map((c) => c.path).filter((p) => !this.unchecked().has(p)),
+  );
+  /** The tick of the section header: every change, none, or some of them. */
+  readonly selection = computed<"all" | "none" | "some">(() => {
+    const total = this.status()?.changes.length ?? 0;
+    const n = this.selected().length;
+    return n === total ? "all" : n === 0 ? "none" : "some";
+  });
   private request = 0;
   /** The last sync error that was shown; an automatic sync does not show it again. */
   private lastError: string | null = null;
@@ -142,24 +173,80 @@ export class GitService {
     if (request !== this.request) return;
     // An unchanged status keeps its object, so nothing downstream reloads (#289).
     if (JSON.stringify(status) !== JSON.stringify(this.status())) this.status.set(status);
+    this.forgetGone();
+  }
+
+  /** Whether a change is part of the next save. */
+  isChecked(path: string): boolean {
+    return !this.unchecked().has(path);
+  }
+
+  /** Checks or unchecks a change; the two halves of a rename go together. */
+  toggle(path: string): void {
+    const change = this.status()?.changes.find((c) => c.path === path);
+    const paths = change?.pair ? [path, change.pair] : [path];
+    const next = new Set(this.unchecked());
+    const check = next.has(path);
+    for (const p of paths) {
+      if (check) next.delete(p);
+      else next.add(p);
+    }
+    this.unchecked.set(next);
+  }
+
+  /** Checks or unchecks every change. */
+  setAll(checked: boolean): void {
+    this.unchecked.set(
+      checked ? new Set() : new Set((this.status()?.changes ?? []).map((c) => c.path)),
+    );
+  }
+
+  /** A note that is no longer a change has no choice to keep: it comes back checked. */
+  private forgetGone(): void {
+    const status = this.status();
+    if (!status) {
+      if (this.unchecked().size > 0) this.unchecked.set(new Set());
+      return;
+    }
+    const paths = new Set(status.changes.map((c) => c.path));
+    const kept = [...this.unchecked()].filter((p) => paths.has(p));
+    if (kept.length !== this.unchecked().size) this.unchecked.set(new Set(kept));
   }
 
   /**
-   * Commits all changes. An empty message gives the default of the backend.
-   * Throws the error message of the backend (for example "nothing to commit").
+   * Commits the checked changes, or all of them when none was taken out. An empty message gives
+   * the default of the backend. Throws the error message of the backend (for example "nothing
+   * to commit").
    */
   async commit(message: string): Promise<void> {
+    const partial = this.selection() === "some";
+    if (this.selection() === "none" && (this.status()?.changes.length ?? 0) > 0) {
+      throw new Error("no notes are chosen");
+    }
     this.committing.set(true);
     try {
       await backend.gitVaultCommit(
         message.trim() || null,
         this.settings.gitAuthorName().trim() || null,
         this.settings.gitAuthorEmail().trim() || null,
+        partial ? this.selected() : null,
       );
     } finally {
       this.committing.set(false);
       await this.refresh();
     }
+  }
+
+  /**
+   * Saves the checked changes with the message (empty: the automatic one), then syncs when the
+   * vault has a remote. A save of only some notes does not sync: a sync saves everything that is
+   * open. Throws when saving fails; a failed sync shows in `syncState`.
+   */
+  async saveAndSync(message: string): Promise<void> {
+    const status = this.status();
+    const partial = this.selection() === "some";
+    if (status && status.changes.length > 0) await this.commit(message);
+    if (!partial && this.status()?.hasRemote) await this.sync();
   }
 
   /**
@@ -185,15 +272,14 @@ export class GitService {
       const report = await (auto ? call() : this.runRemote(call));
       this.lastError = null;
       if (report.pulled && report.pulledFrom) this.lastPull.set({ from: report.pulledFrom });
+      this.lastSynced.set(Date.now());
       this.syncState.set({ phase: "done", message: describeSync(report) });
     } catch (err) {
       const text = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");
-      const message = AUTH_ERROR.test(text)
-        ? "Sync failed: GitHub needs a valid access token"
-        : `Sync failed: ${text}`;
-      if (auto && message === this.lastError) this.syncState.set(before);
-      else this.syncState.set({ phase: "error", message });
-      this.lastError = message;
+      const message = `Sync failed: ${explainSyncError(text)}`;
+      if (auto && text === this.lastError) this.syncState.set(before);
+      else this.syncState.set({ phase: "error", message, detail: text });
+      this.lastError = text;
     } finally {
       await this.refresh();
     }
