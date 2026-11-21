@@ -94,9 +94,16 @@ export class FocusService {
   /** Shows the files, opens the sidebar when it is collapsed and focuses the filter field above the tree. */
   focusFilter(): Promise<boolean> {
     this.shell.show("files");
-    return this.focusWhenReady(() =>
-      document.querySelector<HTMLInputElement>("app-sidebar .filter"),
-    );
+    let asked = false;
+    return this.focusWhenReady(() => {
+      const field = document.querySelector<HTMLInputElement>("app-sidebar .filter");
+      if (field || asked) return field;
+      // The field is hidden until asked for: the button shows it and focuses it.
+      const toggle = document.querySelector<HTMLElement>("app-sidebar .filter-toggle");
+      toggle?.click();
+      asked = toggle !== null;
+      return null;
+    });
   }
 
   focusNote(): Promise<boolean> {

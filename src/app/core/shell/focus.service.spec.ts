@@ -86,6 +86,21 @@ describe("FocusService", () => {
     expect(document.activeElement?.id).toBe("filter");
   });
 
+  it("shows a hidden filter field with its button before it focuses it", async () => {
+    document.querySelector("#filter")!.remove();
+    const toggle = document.createElement("button");
+    toggle.className = "filter-toggle";
+    toggle.addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.className = "filter";
+      input.id = "filter";
+      document.querySelector("app-sidebar")!.append(input);
+    });
+    document.querySelector("app-sidebar")!.append(toggle);
+    expect(await focus.focusFilter()).toBe(true);
+    expect(document.activeElement?.id).toBe("filter");
+  });
+
   it("focuses the note", async () => {
     await focus.focusNote();
     expect(document.activeElement?.id).toBe("viewer");
