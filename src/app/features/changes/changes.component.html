@@ -31,37 +31,12 @@
         <app-note-row
           [path]="change.path"
           [kind]="change.kind"
-          [expanded]="changes.selected() === change.path"
-          (activated)="changes.toggle(change)"
+          (activated)="changes.compare(change)"
         >
           @if (change.kind !== "deleted") {
             <button rowActions type="button" class="open" (click)="open(change)">Open</button>
           }
         </app-note-row>
-        @if (changes.selected() === change.path && changes.diff()) {
-          <div class="diff" aria-label="Difference">
-            <p class="stat">
-              <span class="add">+{{ stat().added }}</span>
-              <span class="del">−{{ stat().removed }}</span>
-            </p>
-            @for (row of rows(); track $index) {
-              <div class="row" [class]="row.kind">
-                <span class="sign">{{
-                  row.kind === "add" ? "+" : row.kind === "del" ? "−" : " "
-                }}</span>
-                <span class="text">
-                  @if (row.segments; as segments) {
-                    @for (seg of segments; track $index) {
-                      <span [class.word]="seg.changed">{{ seg.text }}</span>
-                    }
-                  } @else {
-                    {{ row.text }}
-                  }
-                </span>
-              </div>
-            }
-          </div>
-        }
       </li>
     } @empty {
       @if (!changes.loading() && !changes.message()) {

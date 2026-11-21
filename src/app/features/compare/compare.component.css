@@ -1,0 +1,45 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--h-content-border-color);
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.range {
+  flex: 1;
+  color: var(--h-text-muted-color);
+  font-size: 12px;
+}
+
+.add {
+  color: var(--nixe-added-color, #2da44e);
+}
+
+.del {
+  color: var(--nixe-removed-color, #cf222e);
+}
+
+.modes button.on {
+  font-weight: 600;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 14px;
+}

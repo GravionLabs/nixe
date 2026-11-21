@@ -116,6 +116,12 @@ is watched for external changes; the watcher event goes to every tab showing tha
   The tab keeps an empty document, so it never reaches the back/forward history; opening a note into
   it turns it into a note tab. `TabState.view` stores it, so it is restored on start. The tab strip of
   each pane is `HxTabBar` (close, reorder, drag between panes, all-tabs menu).
+- Compare view: two versions of a note open as a tab (`CompareService.open`, view `compare`; the
+  tab of the same note is reused). The texts live in `Tab.compare` and are not stored: after a restart
+  the tab comes back empty. Mode "Rendered" (default) or "Source" is remembered in `localStorage`
+  (`nixe.compare-mode`). A `null` text is a version that does not exist (an added or deleted note).
+  The diff template exists once, in `shared/diff/DiffComponent`; the Changes list opens this view, and
+  Review and History embed the same component (their own callers move to the view in later PBIs).
 - The same note in two panes: typing in an editor is passed to the other tabs on that note
   (`DocumentService.typed` → `remote`), an editor there applies it as a change that is not saved
   again; a save marks the write as the pane's own so the watcher does not report a conflict.

@@ -7,6 +7,7 @@ import { MarkdownService } from "../../core/markdown/markdown.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { CompareComponent } from "../compare/compare.component";
 import { EditorComponent } from "../editor/editor.component";
 import { HealthComponent } from "../health/health.component";
 import { StartComponent } from "../start/start.component";
@@ -19,7 +20,14 @@ import { ViewerComponent } from "../viewer/viewer.component";
  */
 @Component({
   selector: "app-pane",
-  imports: [EditorComponent, HealthComponent, SettingsComponent, StartComponent, ViewerComponent],
+  imports: [
+    CompareComponent,
+    EditorComponent,
+    HealthComponent,
+    SettingsComponent,
+    StartComponent,
+    ViewerComponent,
+  ],
   templateUrl: "./pane.component.html",
   styles: `
     :host {
