@@ -76,6 +76,16 @@ describe("sanitizeSettings", () => {
       captureShortcut: "",
     });
     expect(s.propertiesDisplay).toBe("folded");
+    expect(s.defaultView).toBe("live");
+    expect(sanitizeSettings({ defaultView: "reading" }).defaultView).toBe("reading");
+    expect(sanitizeSettings({ defaultView: "source" }).defaultView).toBe("source");
+    expect(sanitizeSettings({ defaultView: "x" }).defaultView).toBe("live");
+    // The former flag migrates; the new key wins.
+    expect(sanitizeSettings({ sourceMode: true }).defaultView).toBe("source");
+    expect(sanitizeSettings({ sourceMode: false }).defaultView).toBe("live");
+    expect(sanitizeSettings({ sourceMode: true, defaultView: "reading" }).defaultView).toBe(
+      "reading",
+    );
     expect(sanitizeSettings({ propertiesDisplay: "visible" }).propertiesDisplay).toBe("visible");
     expect(sanitizeSettings({ propertiesDisplay: "folded" }).propertiesDisplay).toBe("folded");
     expect(sanitizeSettings({ propertiesDisplay: "hidden" }).propertiesDisplay).toBe("hidden");

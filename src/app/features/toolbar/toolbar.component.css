@@ -99,3 +99,37 @@ button.icon.active,
   background: var(--h-content-background);
   border-color: var(--h-content-border-color);
 }
+
+.modes {
+  display: inline-flex;
+  container-type: inline-size;
+}
+
+.seg {
+  display: inline-flex;
+  gap: 2px;
+}
+
+select {
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+/* The segmented control gives way to a menu on small widths. */
+select.compact {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .seg {
+    display: none;
+  }
+
+  select.compact {
+    display: inline-block;
+  }
+}

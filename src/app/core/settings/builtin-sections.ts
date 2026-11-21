@@ -15,7 +15,7 @@ import type { SettingItem, SettingsSection } from "./settings-registry";
 import type { SettingsService } from "./settings.service";
 import { ZOOM_MAX, ZOOM_MIN } from "./settings.service";
 import type { ThemeMode } from "./settings-core";
-import { sanitizePropertiesDisplay } from "./settings-core";
+import { sanitizePropertiesDisplay, sanitizeViewMode } from "./settings-core";
 
 /** What the built-in sections read besides the settings themselves. */
 export interface SectionSources {
@@ -448,6 +448,20 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           ],
           get: () => s.linkPreview(),
           set: (v) => s.linkPreview.set(sanitizeMode(v)),
+        },
+        {
+          kind: "select",
+          id: "default-view",
+          label: "Default view for notes",
+          description: "The mode a new tab opens its note in. Each tab keeps its own mode.",
+          keywords: ["reading", "source", "live preview", "read only", "mode"],
+          options: [
+            { value: "live", label: "Live preview" },
+            { value: "source", label: "Source" },
+            { value: "reading", label: "Reading" },
+          ],
+          get: () => s.defaultView(),
+          set: (v) => s.defaultView.set(sanitizeViewMode(v)),
         },
         {
           kind: "select",

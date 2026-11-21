@@ -84,6 +84,16 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             "Toggle Source Mode",
             Some("CmdOrCtrl+E"),
         )?)
+        .separator()
+        .item(&item("view-live", "Live Preview", None)?)
+        .item(&item("view-source", "Source", None)?)
+        .item(&item("view-reading", "Reading", None)?)
+        .item(&item(
+            "toggle-reading",
+            "Toggle Reading View",
+            Some("CmdOrCtrl+Alt+E"),
+        )?)
+        .separator()
         .item(&item("search", "Search Vault", Some("CmdOrCtrl+Shift+F"))?)
         .item(&item("toggle-math", "Toggle LaTeX Math", None)?)
         .item(&item(

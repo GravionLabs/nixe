@@ -6,7 +6,13 @@ import type { TreeSort } from "../workspace/tree-model";
 import type { LinkPreviewMode } from "../preview/preview-core";
 import type { VaultState, VaultStates } from "../workspace/recent-vaults";
 import { addRecent, pruneStates, removeRecent } from "../workspace/recent-vaults";
-import type { CaptureTarget, PropertiesDisplay, StoredSettings, ThemeMode } from "./settings-core";
+import type {
+  CaptureTarget,
+  PropertiesDisplay,
+  StoredSettings,
+  ThemeMode,
+  ViewMode,
+} from "./settings-core";
 import {
   LEGACY_STORAGE_KEY,
   ZOOM_MAX,
@@ -125,8 +131,8 @@ export class SettingsService {
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   readonly wrapCode = signal<boolean>(this.stored.wrapCode);
 
-  /** The editor shows the plain source instead of the live preview (#243). */
-  readonly sourceMode = signal<boolean>(this.stored.sourceMode);
+  /** The mode a new tab shows its note in: live preview, source or reading view (#377). */
+  readonly defaultView = signal<ViewMode>(this.stored.defaultView);
 
   /** Export and print (#119): breaks before top-level headings, the dark look, the page size. */
   readonly exportPageBreaks = signal<boolean>(this.stored.exportPageBreaks);
@@ -213,7 +219,7 @@ export class SettingsService {
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
       wrapCode: this.wrapCode(),
-      sourceMode: this.sourceMode(),
+      defaultView: this.defaultView(),
       exportPageBreaks: this.exportPageBreaks(),
       exportDark: this.exportDark(),
       exportPageSize: this.exportPageSize(),
@@ -269,7 +275,7 @@ export class SettingsService {
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
     this.wrapCode.set(s.wrapCode);
-    this.sourceMode.set(s.sourceMode);
+    this.defaultView.set(s.defaultView);
     this.exportPageBreaks.set(s.exportPageBreaks);
     this.exportDark.set(s.exportDark);
     this.exportPageSize.set(s.exportPageSize);

@@ -47,6 +47,7 @@ import { overlaysNote, clampPanelWidth } from "./core/panel/panel-width";
 import { TerminalPanelComponent } from "./features/terminal/terminal-panel.component";
 import { TerminalService } from "./core/terminal/terminal.service";
 import { PanelResizerComponent } from "./features/panel-resizer/panel-resizer.component";
+import type { ViewMode } from "./core/settings/settings-core";
 import type { PanelTab } from "./core/settings/settings.service";
 import { SettingsService } from "./core/settings/settings.service";
 import { isPrerelease } from "./core/updater/update-logic";
@@ -494,10 +495,32 @@ export class AppComponent {
           this.run(() => this.editor.toggleMode(this.tabs.activeTab().viewer?.topLine() ?? null)),
       },
       {
-        id: "reading-view",
-        title: "Open reading view",
-        when: () => noteOpen() && this.editor.editing(),
-        run: () => this.run(() => this.editor.openReading()),
+        id: "toggle-reading",
+        title: "Toggle reading view",
+        shortcut: "Mod+Alt+E",
+        when: noteOpen,
+        run: () =>
+          this.run(() =>
+            this.editor.toggleReading(this.tabs.activeTab().viewer?.topLine() ?? null),
+          ),
+      },
+      {
+        id: "view-live",
+        title: "Live preview",
+        when: noteOpen,
+        run: () => this.setViewMode("live"),
+      },
+      {
+        id: "view-source",
+        title: "Source",
+        when: noteOpen,
+        run: () => this.setViewMode("source"),
+      },
+      {
+        id: "view-reading",
+        title: "Reading",
+        when: noteOpen,
+        run: () => this.setViewMode("reading"),
       },
       {
         id: "undo-vault-operation",
@@ -796,6 +819,11 @@ export class AppComponent {
     void getCurrentWindow()
       .close()
       .catch(() => undefined);
+  }
+
+  /** Switches the active tab to a view mode (the toolbar control, the View menu, the palette). */
+  private setViewMode(mode: ViewMode): void {
+    void this.run(() => this.editor.setMode(mode, this.tabs.activeTab().viewer?.topLine() ?? null));
   }
 
   /** A new note in the new-note folder of the vault, opened in the editor. */

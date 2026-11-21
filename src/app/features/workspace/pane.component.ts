@@ -113,6 +113,7 @@ export class PaneComponent implements OnDestroy {
       const view = this.tab.view();
       untracked(() => {
         if (path === null || view !== null) return;
+        this.editor.applyDefaultMode();
         if (this.editor.editing() || this.editor.reading()) return;
         this.editor.toggle(null).catch(() => undefined);
       });

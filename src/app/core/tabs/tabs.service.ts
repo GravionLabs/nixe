@@ -328,6 +328,7 @@ export class TabsService {
       const { history, index } = source.doc.historyState();
       copy.doc.restoreHistory(history, index);
       const line = this.lineOf(source);
+      copy.editor.copyModeFrom(source.editor);
       if (source.editor.editing()) {
         copy.editor.startLine.set(line);
         copy.editor.editing.set(true);
@@ -442,6 +443,7 @@ export class TabsService {
     tab.scrollLine = state.line;
     if (state.editing && (await backend.isUtf8File(path).catch(() => false))) {
       tab.editor.startLine.set(state.line);
+      tab.editor.applyMode("live");
       tab.editor.editing.set(true);
     } else {
       tab.doc.pendingLine.set(state.line);
