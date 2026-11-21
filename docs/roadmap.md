@@ -32,10 +32,12 @@ works on the same plain `.md` files and folder layout as Obsidian, so both apps 
 | M004 | Daily use: templates, daily notes, attachments, editable properties, tabs, settings | #53 |
 | M004.1 | Editor and workspace comforts | #91 |
 | M004.2 | Workspaces of several folders, quick capture, export | #92, #93, #94 |
-| M005 | iOS MVP, sync on open and close | #54 |
-| M006 | Live preview | #55 |
-| M007 | Bases | #56 |
-| M008 | Plugin system, shaped like Obsidian's with partial compatibility | #57 |
+| M004.3 | Git view and history for users without Git knowledge, terminal and agent panel | #291, #313, #314 |
+| M005 | Live preview | #55 |
+| M006 | Bases | #56 |
+| M007 | Plugin system, shaped like Obsidian's with partial compatibility | #57 |
+| M008 | German UI through i18n | #315 |
+| M009 | iOS MVP, sync on open and close | #54 |
 
 M001, M001.1 and M003 together are the desktop MVP: file tree, editor, `[[wikilinks]]` with
 backlinks, search and Git sync. M000 gated Git sync and iOS only; the desktop viewer, index and
@@ -64,8 +66,8 @@ planner when their milestone comes up; the Features and their sub-issues are on 
 
 ## After the MVP and later
 
-- **After the MVP:** daily use (M004), the iOS MVP (M005), live preview (M006), Bases (M007) and
-  the plugin system (M008).
+- **After the MVP:** daily use (M004), the Git view and history (M004.3), live preview (M005),
+  Bases (M006), the plugin system (M007), the German UI (M008) and the iOS MVP (M009).
 - **Later or never:** graph view, canvas, a Claude API client in the app (AI changes come
   through Git branches, #90).
 
