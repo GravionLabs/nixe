@@ -47,6 +47,7 @@ export class AppearanceService {
           this.settings.accentColor(),
           this.settings.fontText(),
           this.settings.fontMono(),
+          this.settings.textSize(),
         ),
       ),
     );

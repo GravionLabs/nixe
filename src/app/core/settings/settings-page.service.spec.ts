@@ -120,6 +120,10 @@ describe("settings page", () => {
     (item("accent-color") as { set(v: string): void }).set("#ABCDEF");
     (item("font-text") as { set(v: string): void }).set("Inter");
     (item("font-mono") as { set(v: string): void }).set("a;b");
+    (item("text-size") as { set(v: number): void }).set(40);
+    expect(settings.textSize()).toBe(24);
+    (item("text-size") as { set(v: number): void }).set(16);
+    expect(settings.textSize()).toBe(16);
     expect([settings.accentColor(), settings.fontText(), settings.fontMono()]).toEqual([
       "#abcdef",
       "Inter",

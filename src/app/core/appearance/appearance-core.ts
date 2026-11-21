@@ -12,6 +12,43 @@ export type CssKind = "themes" | "snippets";
 /** Poll interval for changed theme and snippet files. */
 export const RELOAD_MS = 2000;
 
+export const TEXT_SIZE_MIN = 10;
+export const TEXT_SIZE_MAX = 24;
+
+/** The platforms the default text size is chosen for. */
+export type Platform = "windows" | "macos" | "linux" | "ios";
+
+/** The text size in px that `styles.scss` sets as `--nixe-note-font-size`; a setting that equals it writes no rule. */
+export const STYLESHEET_TEXT_SIZE = 14;
+
+/** The platform of a user agent string; Linux when it is none of the others. */
+export function detectPlatform(userAgent: string): Platform {
+  if (/iPhone|iPad|iPod/.test(userAgent)) return "ios";
+  if (/Windows/.test(userAgent)) return "windows";
+  if (/Mac/.test(userAgent)) return "macos";
+  return "linux";
+}
+
+/**
+ * The default size of the note text, in px. The three desktop systems render the system font at
+ * the same CSS size, so they share one value; the phone (#153) returns its own value here.
+ */
+export function defaultTextSize(platform: Platform): number {
+  switch (platform) {
+    case "ios":
+    case "windows":
+    case "macos":
+    case "linux":
+      return 14;
+  }
+}
+
+/** A text size in whole px between {@link TEXT_SIZE_MIN} and {@link TEXT_SIZE_MAX}; `fallback` when `value` is no number. */
+export function sanitizeTextSize(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(TEXT_SIZE_MAX, Math.max(TEXT_SIZE_MIN, Math.round(value)));
+}
+
 /** Largest accepted font setting. */
 const MAX_FONT = 200;
 
@@ -42,7 +79,12 @@ export function sanitizeNames(value: unknown): string[] {
 }
 
 /** The rule for the accent color and the fonts the settings choose; "" when none is set. */
-export function overridesCss(accent: string, fontText: string, fontMono: string): string {
+export function overridesCss(
+  accent: string,
+  fontText: string,
+  fontMono: string,
+  textSize: number = STYLESHEET_TEXT_SIZE,
+): string {
   const decl: string[] = [];
   const a = sanitizeAccent(accent);
   if (a) {
@@ -53,6 +95,8 @@ export function overridesCss(accent: string, fontText: string, fontMono: string)
   if (text) decl.push(`--nixe-font-text:${text}`);
   const mono = sanitizeFont(fontMono);
   if (mono) decl.push(`--nixe-font-mono:${mono}`);
+  const size = sanitizeTextSize(textSize, STYLESHEET_TEXT_SIZE);
+  if (size !== STYLESHEET_TEXT_SIZE) decl.push(`--nixe-note-font-size:${size}px`);
   return decl.length ? `:root{${decl.join(";")}}` : "";
 }
 

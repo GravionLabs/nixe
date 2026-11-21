@@ -17,7 +17,7 @@ Code: `core/editor/live-preview-core.ts` (pure line analysis) and `features/edit
   `EditorService` switches between viewer and editor.
 - **Styling**: Lezer Markdown nodes get `cm-md-*` classes (heading sizes, bold, italic, code,
   dimmed syntax characters); wikilinks and tags get `cm-wikilink` / `cm-tag`. Colors are the app's
-  CSS variables, the font size follows the zoom. ⌘/Ctrl+click on a wikilink opens the note.
+  CSS variables, the font size is `--nixe-note-font-size` (setting *Text size*, 14 px by default on the desktop; `defaultTextSize(platform)` in `appearance-core.ts`) times the zoom. ⌘/Ctrl+click on a wikilink opens the note.
 - **Saving**: ⌘/Ctrl+S writes at once; otherwise 1 s after the last change, on blur, on note
   switch, when the editor closes and when the window closes. The write is `write_text_file`:
   temp file in the same folder, then rename; the Rust side decides which paths are allowed (vault

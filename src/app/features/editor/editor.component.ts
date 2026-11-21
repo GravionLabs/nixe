@@ -43,8 +43,6 @@ import type { FoldAction } from "./folding";
 import { foldAction, folding, restoreFolds } from "./folding";
 import { headingLineAt } from "../../core/composer/composer-core";
 
-const BASE_FONT_PX = 16;
-
 /** The note being edited: its saver, its view of the disk and the folder a write may reach. */
 interface Session {
   path: string;
@@ -140,8 +138,8 @@ export class EditorComponent implements OnDestroy {
 
     effect(() => {
       const dark = this.settings.dark();
-      const size = (BASE_FONT_PX * this.settings.zoom()) / 100;
-      this.view?.dispatch({ effects: this.theme.reconfigure(editorTheme(dark, size)) });
+      const zoom = this.settings.zoom();
+      this.view?.dispatch({ effects: this.theme.reconfigure(editorTheme(dark, zoom)) });
     });
 
     void this.watchWindowClose();
@@ -242,9 +240,7 @@ export class EditorComponent implements OnDestroy {
           if (this.session === session && !this.restoringFolds) this.folds.set(session.path, lines);
         }),
         this.live.of(this.liveMode(this.settings.sourceMode())),
-        this.theme.of(
-          editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100),
-        ),
+        this.theme.of(editorTheme(this.settings.dark(), this.settings.zoom())),
         EditorView.domEventHandlers({
           paste: (event) => this.onPaste(event),
           scroll: () => this.outline.topLine.set(this.topLine()),
