@@ -150,6 +150,34 @@
                       <button type="button" (click)="deleteToken(item)">Delete token</button>
                     }
                   </span>
+                  @if (item.gh; as gh) {
+                    @if (gh.available()) {
+                      <span class="actions">
+                        @for (host of gh.hosts(); track host) {
+                          <button type="button" [disabled]="gh.busy()" (click)="gh.signIn(host)">
+                            {{
+                              host === "github.com"
+                                ? "Sign in with GitHub (gh)"
+                                : "Sign in to " + host + " (gh)"
+                            }}
+                          </button>
+                        }
+                      </span>
+                      @if (gh.busy()) {
+                        <p class="notice">
+                          @if (gh.code(); as code) {
+                            Enter this code in the browser: <strong>{{ code }}</strong>
+                          } @else {
+                            Waiting for the GitHub CLI…
+                          }
+                          <button type="button" (click)="gh.cancel()">Cancel</button>
+                        </p>
+                      }
+                      @if (gh.error(); as ghError) {
+                        <p class="notice" role="alert">{{ ghError }}</p>
+                      }
+                    }
+                  }
                   @if (tokenError(); as error) {
                     <p class="notice" role="alert">{{ error }}</p>
                   }

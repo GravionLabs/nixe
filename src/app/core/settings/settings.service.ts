@@ -104,6 +104,8 @@ export class SettingsService {
   /** Commit author used when the Git config of the vault has none. */
   readonly gitAuthorName = signal<string>(this.stored.gitAuthorName);
   readonly gitAuthorEmail = signal<string>(this.stored.gitAuthorEmail);
+  /** Optional GitHub Enterprise Server host besides github.com. */
+  readonly gitEnterpriseHost = signal<string>(this.stored.gitEnterpriseHost);
 
   /** Automatic sync of the vault; everything is off by default. */
   readonly autoSync = signal<boolean>(this.stored.autoSync);
@@ -191,6 +193,7 @@ export class SettingsService {
       dailyTemplate: this.dailyTemplate(),
       gitAuthorName: this.gitAuthorName(),
       gitAuthorEmail: this.gitAuthorEmail(),
+      gitEnterpriseHost: this.gitEnterpriseHost(),
       autoSync: this.autoSync(),
       autoSyncMinutes: this.autoSyncMinutes(),
       autoSyncOnFocus: this.autoSyncOnFocus(),
@@ -240,6 +243,7 @@ export class SettingsService {
     this.dailyTemplate.set(s.dailyTemplate);
     this.gitAuthorName.set(s.gitAuthorName);
     this.gitAuthorEmail.set(s.gitAuthorEmail);
+    this.gitEnterpriseHost.set(s.gitEnterpriseHost);
     this.autoSync.set(s.autoSync);
     this.autoSyncMinutes.set(s.autoSyncMinutes);
     this.autoSyncOnFocus.set(s.autoSyncOnFocus);

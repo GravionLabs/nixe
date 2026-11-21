@@ -4,12 +4,19 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import type { CloneProgress } from "../file/backend";
 import { CLONE_CANCELLED, CLONE_PROGRESS_EVENT, backend } from "../file/backend";
+import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { GitService } from "./git.service";
 
-/** True for the `https://github.com/...` urls the backend can clone and send the token to. */
-export function isCloneUrl(url: string): boolean {
-  return /^https:\/\/github\.com\/[^\s@]+$/.test(url.trim());
+/**
+ * True for the `https://<host>/...` urls the backend can clone and send the token to: github.com
+ * or the configured GitHub Enterprise host.
+ */
+export function isCloneUrl(url: string, extraHost = ""): boolean {
+  const m = /^https:\/\/([^\s@/?#]+)\/[^\s@]+$/.exec(url.trim());
+  if (!m) return false;
+  const host = m[1].toLowerCase();
+  return host === "github.com" || (extraHost !== "" && host === extraHost.trim().toLowerCase());
 }
 
 /** "Clone vault": asks for a URL and a folder, clones with progress and opens the new vault. */
@@ -17,6 +24,7 @@ export function isCloneUrl(url: string): boolean {
 export class CloneService {
   private readonly git = inject(GitService);
   private readonly workspace = inject(WorkspaceService);
+  private readonly settings = inject(SettingsService);
 
   readonly visible = signal(false);
   readonly url = signal("");
@@ -31,7 +39,10 @@ export class CloneService {
     return p && p.total > 0 ? Math.min(100, Math.floor((p.received * 100) / p.total)) : null;
   });
   readonly canStart = computed(
-    () => !this.cloning() && isCloneUrl(this.url()) && this.parent() !== "",
+    () =>
+      !this.cloning() &&
+      isCloneUrl(this.url(), this.settings.gitEnterpriseHost()) &&
+      this.parent() !== "",
   );
 
   open(): void {

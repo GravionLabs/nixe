@@ -26,6 +26,7 @@ export interface SectionSources {
     saveToken: (token: string) => Promise<void>;
     deleteToken: () => Promise<void>;
     cancelTokenPrompt: () => void;
+    gh?: NonNullable<Extract<SettingItem, { kind: "token" }>["gh"]>;
   };
   /** The theme and snippet files and the folder they live in (#114); none without the appearance service. */
   appearance?: {
@@ -443,9 +444,18 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
                 save: src.git.saveToken,
                 remove: src.git.deleteToken,
                 cancelPrompt: src.git.cancelTokenPrompt,
+                gh: src.git.gh,
               },
             ]
           : []),
+        text(
+          "git-enterprise-host",
+          "GitHub Enterprise host",
+          s.gitEnterpriseHost,
+          "Host of a GitHub Enterprise Server that may receive the token, for example ghe.example.com. Leave empty for github.com only.",
+          "ghe.example.com",
+          ["git", "github", "enterprise", "ghe", "host", "server", "sync"],
+        ),
         text(
           "git-author-name",
           "Commit author name",

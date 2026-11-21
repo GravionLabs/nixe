@@ -54,6 +54,7 @@ mod fileops;
 mod folds;
 mod git;
 mod gitclone;
+mod gitprovider;
 mod gitsync;
 mod index;
 #[cfg(desktop)]
@@ -1357,6 +1358,10 @@ pub fn run() {
         credentials::git_token_delete,
         gitclone::git_clone_vault,
         gitclone::git_clone_cancel,
+        gitprovider::git_set_hosts,
+        gitprovider::git_provider_available,
+        gitprovider::git_provider_login,
+        gitprovider::git_provider_cancel,
         capture_app::capture_save,
         capture_app::capture_note_names,
         capture_app::capture_link_title,
@@ -1470,6 +1475,10 @@ pub fn run() {
         credentials::git_token_delete,
         gitclone::git_clone_vault,
         gitclone::git_clone_cancel,
+        gitprovider::git_set_hosts,
+        gitprovider::git_provider_available,
+        gitprovider::git_provider_login,
+        gitprovider::git_provider_cancel,
         capture_app::capture_save,
         capture_app::capture_note_names,
         capture_app::capture_link_title,

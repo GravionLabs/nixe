@@ -10,20 +10,11 @@ use git2::{
     RemoteCallbacks, Repository, Signature,
 };
 
-const GITHUB_PREFIX: &str = "https://github.com/";
-
-/// True for plain `https://github.com/...` URLs without user info, whitespace or
-/// control characters. Only such URLs may ever receive the token.
+/// True for plain `https://<allowed host>/...` URLs (github.com or a configured GitHub
+/// Enterprise host) without user info, whitespace or control characters. Only such URLs may
+/// ever receive the token.
 pub fn is_github_https(url: &str) -> bool {
-    match url.strip_prefix(GITHUB_PREFIX) {
-        Some(rest) => {
-            let host_and_path_ok = !rest.is_empty()
-                && !rest.contains('@')
-                && !rest.chars().any(|c| c.is_whitespace() || c.is_control());
-            host_and_path_ok
-        }
-        None => false,
-    }
+    crate::gitprovider::is_allowed_https(url)
 }
 
 /// The only directory the webview may touch: `<app data dir>/vault`.
@@ -58,7 +49,7 @@ pub fn callbacks(auth: Option<&Auth>) -> RemoteCallbacks<'_> {
         cb.credentials(move |url, _, _| {
             if !is_github_https(url) {
                 return Err(git2::Error::from_str(
-                    "refusing to send credentials to a non-GitHub url",
+                    "refusing to send credentials to a host that is not configured",
                 ));
             }
             // libgit2 asks again after a rejected credential: fail instead of looping.
@@ -362,7 +353,10 @@ pub fn sync_vault(
 #[tauri::command]
 pub async fn git_clone(app: tauri::AppHandle, url: String) -> Result<u128, String> {
     if !is_github_https(&url) {
-        return Err("only https://github.com/ urls without credentials are allowed".into());
+        return Err(
+            "only https urls of github.com or a configured host, without credentials, are allowed"
+                .into(),
+        );
     }
     let dest = vault_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -808,5 +802,29 @@ mod tests {
         let start = std::time::Instant::now();
         clone(&url, &dest, None).unwrap();
         println!("clone took {} ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn a_configured_enterprise_host_gets_the_token_and_another_does_not() {
+        let _guard = crate::gitprovider::HOSTS_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        crate::gitprovider::set_extra_hosts(&["ghe.example.com".into()]);
+        let store = credentials::MemoryStore::default();
+        store.set("ghe.example.com", "ghe-secret").unwrap();
+        let seen = with_auth("https://ghe.example.com/a/b.git", &store, |auth| {
+            Ok(auth.map(|a| a.token.clone()))
+        });
+        assert_eq!(seen, Ok(Some("ghe-secret".to_owned())));
+        // A host that is not configured never gets a token: the operation runs without one.
+        let other = with_auth("https://other.example.com/a/b.git", &store, |auth| {
+            Ok(auth.is_none())
+        });
+        assert_eq!(other, Ok(true));
+        crate::gitprovider::set_extra_hosts(&[]);
+        let gone = with_auth("https://ghe.example.com/a/b.git", &store, |auth| {
+            Ok(auth.is_none())
+        });
+        assert_eq!(gone, Ok(true));
     }
 }
