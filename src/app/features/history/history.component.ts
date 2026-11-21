@@ -3,6 +3,7 @@ import { Component, computed, inject, signal, viewChild } from "@angular/core";
 import type { HxMenuItem } from "@gravionlabs/helix-ui";
 import { HxMenu } from "@gravionlabs/helix-ui";
 
+import type { DeletedNote, RecentNote } from "../../core/file/backend";
 import type { TimelineEntry } from "../../core/git/history.service";
 import { HistoryService } from "../../core/git/history.service";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
@@ -22,7 +23,7 @@ export function formatCommitTime(secs: number): string {
   return new Date(secs * 1000).toISOString().slice(0, 16).replace("T", " ");
 }
 
-/** Sidebar: the timeline of the open note; the versions are compared in the main area (#324). */
+/** Sidebar: the timeline of the open note, the recently changed notes without one, the trash; the versions are compared in the main area (#324). */
 @Component({
   selector: "app-history",
   imports: [PanelSectionComponent, NoteRowComponent, EmptyStateComponent, HxMenu],
@@ -42,6 +43,14 @@ export class HistoryComponent implements OnDestroy {
   protected readonly label = computed(() => {
     const path = this.history.notePath();
     return path === null ? null : noteLabel(path);
+  });
+
+  /** The filter of the trash: matches title and folder. */
+  protected readonly filter = signal("");
+  protected readonly trash = computed(() => {
+    const q = this.filter().trim().toLowerCase();
+    if (q === "") return this.history.deleted();
+    return this.history.deleted().filter((n) => n.path.toLowerCase().includes(q));
   });
 
   protected readonly groups = computed(() => groupByDay(this.history.timeline(), this.now()));
@@ -72,7 +81,7 @@ export class HistoryComponent implements OnDestroy {
   protected relative(entry: TimelineEntry): string {
     return relativeTime(entry.time, this.now());
   }
-  protected exact(entry: TimelineEntry): string {
+  protected exact(entry: { time: number }): string {
     return exactTime(entry.time);
   }
 
@@ -85,6 +94,13 @@ export class HistoryComponent implements OnDestroy {
       { x: event.clientX, y: event.clientY },
       event.currentTarget as Element | null,
     );
+  }
+
+  protected deletedAgo(note: DeletedNote): string {
+    return `deleted ${relativeTime(note.time, this.now())}`;
+  }
+  protected changedAgo(note: RecentNote): string {
+    return relativeTime(note.time, this.now());
   }
 
   protected time(entry: TimelineEntry): string {

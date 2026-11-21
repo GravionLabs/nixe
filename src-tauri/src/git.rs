@@ -731,6 +731,69 @@ pub fn deleted_notes(root: &Path, commits: usize) -> Result<Vec<DeletedNote>, St
     Ok(out)
 }
 
+/// A note that one of the latest commits added or changed, with that commit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentNote {
+    /// Vault-relative path of the note.
+    pub path: String,
+    pub id: String,
+    pub author: String,
+    /// Seconds since the epoch.
+    pub time: i64,
+    pub message: String,
+}
+
+/// The Markdown notes that the last `commits` commits (newest first) added or changed and that
+/// exist in HEAD, each once at its newest change, at most `limit` of them.
+pub fn recent_notes(root: &Path, commits: usize, limit: usize) -> Result<Vec<RecentNote>, String> {
+    let Some(backend) = Git2Backend::open(root) else {
+        return Ok(vec![]);
+    };
+    let repo = &backend.repo;
+    if repo.head().is_err() {
+        return Ok(vec![]);
+    }
+    let mut walk = repo.revwalk().map_err(e)?;
+    walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
+        .map_err(e)?;
+    walk.push_head().map_err(e)?;
+    let mut out: Vec<RecentNote> = Vec::new();
+    for oid in walk.take(commits) {
+        let commit = repo.find_commit(oid.map_err(e)?).map_err(e)?;
+        let parent_tree = match commit.parents().next() {
+            Some(p) => Some(p.tree().map_err(e)?),
+            None => None,
+        };
+        let diff = repo
+            .diff_tree_to_tree(parent_tree.as_ref(), Some(&commit.tree().map_err(e)?), None)
+            .map_err(e)?;
+        for d in diff.deltas() {
+            if d.status() == git2::Delta::Deleted {
+                continue;
+            }
+            let Some(path) = d.new_file().path().and_then(Path::to_str) else {
+                continue;
+            };
+            if !path.to_lowercase().ends_with(".md") || out.iter().any(|n| n.path == path) {
+                continue;
+            }
+            out.push(RecentNote {
+                path: path.to_owned(),
+                id: commit.id().to_string(),
+                author: commit.author().name().unwrap_or("").to_owned(),
+                time: commit.time().seconds(),
+                message: commit.summary().ok().flatten().unwrap_or("").to_owned(),
+            });
+        }
+    }
+    // A note a later commit deleted is not in HEAD; the trash lists it.
+    let head_tree = repo.head().and_then(|h| h.peel_to_tree()).map_err(e)?;
+    out.retain(|n| blob_id(&head_tree, &n.path).is_some());
+    out.truncate(limit);
+    Ok(out)
+}
+
 /// The Markdown notes that differ between the commit `from` and `to` (HEAD when `None`):
 /// added, modified and deleted ones, sorted by path (#107). Renames show as a delete and an add.
 pub fn changes_between(
@@ -1240,6 +1303,27 @@ mod tests {
         assert!(vault_log(&dir, 5, 10).unwrap().is_empty());
         let none = temp("vault-log-none");
         assert!(vault_log(&none, 0, 10).unwrap().is_empty());
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::remove_dir_all(none);
+    }
+
+    #[test]
+    fn recent_notes_lists_changed_notes_once_newest_first() {
+        let (dir, backend) = repo_with_commit("recent");
+        commit_file(&dir, &backend, "b.md", "b", "add b");
+        commit_file(&dir, &backend, "gone.md", "g", "add gone");
+        commit_file(&dir, &backend, "img.png", "x", "add img");
+        commit_file(&dir, &backend, "b.md", "b2", "edit b");
+        fs::remove_file(dir.join("gone.md")).unwrap();
+        backend.commit(Some("delete"), None).unwrap();
+        let r = recent_notes(&dir, 10, 10).unwrap();
+        let paths: Vec<&str> = r.iter().map(|n| n.path.as_str()).collect();
+        assert_eq!(paths, vec!["b.md", "a.md"]);
+        assert_eq!(r[0].message, "edit b");
+        assert_eq!(recent_notes(&dir, 10, 1).unwrap().len(), 1);
+        assert_eq!(recent_notes(&dir, 1, 10).unwrap().len(), 0);
+        let none = temp("recent-none");
+        assert!(recent_notes(&none, 10, 10).unwrap().is_empty());
         let _ = fs::remove_dir_all(dir);
         let _ = fs::remove_dir_all(none);
     }

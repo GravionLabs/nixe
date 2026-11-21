@@ -388,6 +388,15 @@ export interface DeletedNote {
   message: string;
 }
 
+/** A note that a recent commit added or changed. */
+export interface RecentNote {
+  path: string;
+  id: string;
+  author: string;
+  time: number;
+  message: string;
+}
+
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
 export type RootKind = "obsidian" | "wiki" | "folder";
 
@@ -618,6 +627,9 @@ export const backend = {
   gitReviewStateSave: (branch: string, content: string | null) =>
     invoke<void>("git_review_state_save", { branch, content }),
   gitDeletedNotes: (commits: number) => invoke<DeletedNote[]>("git_deleted_notes", { commits }),
+  /** Notes the last `commits` commits added or changed and that exist now, newest first, at most `limit`. */
+  gitRecentNotes: (commits: number, limit: number) =>
+    invoke<RecentNote[]>("git_recent_notes", { commits, limit }),
   /**
    * Stages everything and commits; returns the commit id. An empty `message` gives
    * `vault backup: <timestamp>`; `name` and `email` are used when the Git config has no author.

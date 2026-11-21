@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 
-import type { DeletedNote, HistoryEntry } from "../file/backend";
+import type { DeletedNote, HistoryEntry, RecentNote } from "../file/backend";
 import { backend } from "../file/backend";
 import type { CompareInput } from "../compare/compare";
 import { CompareService } from "../compare/compare.service";
@@ -16,6 +16,9 @@ import { GitService } from "./git.service";
 export const PAGE_SIZE = 50;
 /** How many of the latest commits are searched for deleted notes. */
 export const DELETED_COMMITS = 50;
+/** How many of the latest commits are searched for recently changed notes, and how many notes are listed. */
+export const RECENT_COMMITS = 200;
+export const RECENT_NOTES = 30;
 
 /** A row of the timeline: a commit, or the uncommitted state (`id` null). */
 export interface TimelineEntry {
@@ -54,10 +57,15 @@ export class HistoryService {
   readonly error = signal<string | null>(null);
   /** Notes the latest commits deleted. */
   readonly deleted = signal<DeletedNote[]>([]);
+  /** The notes the latest commits changed, newest first. */
+  readonly recent = signal<RecentNote[]>([]);
+  /** Whether the vault is a Git repository: without one there are no versions. */
+  readonly available = computed(() => this.git.available());
   /** Result or failure of the last restore, for the view. */
   readonly notice = signal<string | null>(null);
   private request = 0;
   private deletedRequest = 0;
+  private recentRequest = 0;
 
   /** Vault-relative path of the open note; null without a note in a Git vault. */
   readonly notePath = computed(() => {
@@ -97,7 +105,10 @@ export class HistoryService {
       this.git.available();
       this.index.revision();
       this.git.status();
-      untracked(() => void this.loadDeleted());
+      untracked(() => {
+        void this.loadDeleted();
+        void this.loadRecent();
+      });
     });
   }
 
@@ -113,6 +124,50 @@ export class HistoryService {
       if (request === this.deletedRequest) this.deleted.set(list);
     } catch {
       if (request === this.deletedRequest) this.deleted.set([]);
+    }
+  }
+
+  /** Reads the notes the latest commits changed. */
+  async loadRecent(): Promise<void> {
+    const request = ++this.recentRequest;
+    if (!this.git.available()) {
+      this.recent.set([]);
+      return;
+    }
+    try {
+      const list = await backend.gitRecentNotes(RECENT_COMMITS, RECENT_NOTES);
+      if (request === this.recentRequest) this.recent.set(list);
+    } catch {
+      if (request === this.recentRequest) this.recent.set([]);
+    }
+  }
+
+  /** Opens a note of the "recently changed" list; its history follows. */
+  async openRecent(note: RecentNote): Promise<void> {
+    const root = this.workspace.vaultRoot();
+    if (!root) return;
+    await this.doc.open(`${toSlashes(root).replace(/\/+$/, "")}/${note.path}`);
+  }
+
+  /** Shows the last content of a deleted note in the main area, with a Restore button. */
+  async reviewDeleted(note: DeletedNote): Promise<void> {
+    try {
+      const newText = await backend.gitNoteVersion(note.path, note.parent);
+      this.compareView.open({
+        path: note.path,
+        title: noteLabel(note.path).title,
+        oldText: null,
+        newText,
+        oldLabel: "deleted",
+        newLabel: note.parent.slice(0, 7),
+        action: {
+          label: "Restore",
+          note: "The note comes back with this content",
+          run: () => this.restoreDeleted(note),
+        },
+      });
+    } catch (err) {
+      this.error.set(String(err));
     }
   }
 
@@ -146,9 +201,9 @@ export class HistoryService {
   }
 
   /** Brings a deleted note back with its last content; refuses when a file of that name exists. */
-  async restoreDeleted(note: DeletedNote): Promise<void> {
+  async restoreDeleted(note: DeletedNote): Promise<boolean> {
     const root = this.workspace.vaultRoot();
-    if (!root) return;
+    if (!root) return false;
     this.notice.set(null);
     try {
       const file = `${toSlashes(root).replace(/\/+$/, "")}/${note.path}`;
@@ -160,8 +215,10 @@ export class HistoryService {
       await this.git.refresh();
       await this.doc.open(file);
       this.notice.set(`Restored ${note.path}`);
+      return true;
     } catch (err) {
       this.notice.set(`Restore failed: ${String(err)}`);
+      return false;
     }
   }
 

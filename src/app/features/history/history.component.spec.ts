@@ -36,13 +36,29 @@ function render(
   _unused: null,
   notePath: string | null = "a.md",
   entries: TimelineEntry[] = timeline,
+  extra: { available?: boolean; deleted?: unknown[]; recent?: unknown[] } = {},
 ) {
+  const available = extra.available ?? true;
+  const recent = extra.recent ?? [];
+  const deleted = extra.deleted ?? [
+    {
+      path: "dir/gone.md",
+      id: "d1",
+      parent: "p1",
+      author: "Ann",
+      time: Math.floor(NOW / 1000) - 21 * 86_400,
+      message: "delete",
+    },
+    { path: "other.md", id: "d2", parent: "p2", author: "Ann", time: 0, message: "delete" },
+  ];
   const loadMore = vi.fn().mockResolvedValue(undefined);
   const open = vi.fn().mockResolvedValue(undefined);
   const reviewRestore = vi.fn().mockResolvedValue(undefined);
   const compareWithCurrent = vi.fn().mockResolvedValue(undefined);
   const compareBetween = vi.fn().mockResolvedValue(undefined);
-  const restoreDeleted = vi.fn().mockResolvedValue(undefined);
+  const restoreDeleted = vi.fn().mockResolvedValue(true);
+  const reviewDeleted = vi.fn().mockResolvedValue(undefined);
+  const openRecent = vi.fn().mockResolvedValue(undefined);
   const versionText = vi.fn().mockResolvedValue("whole version");
   const notice = signal<string | null>(null);
   TestBed.resetTestingModule();
@@ -61,11 +77,13 @@ function render(
           compareWithCurrent,
           compareBetween,
           restoreDeleted,
+          reviewDeleted,
+          openRecent,
+          available: signal(available),
+          recent: signal(recent),
           versionText,
           notice,
-          deleted: signal([
-            { path: "gone.md", id: "d1", parent: "p1", author: "Ann", time: 0, message: "delete" },
-          ]),
+          deleted: signal(deleted),
         },
       },
       { provide: MarkdownService, useValue: { render: (t: string) => `<p>${t}</p>` } },
@@ -91,6 +109,8 @@ function render(
     compareWithCurrent,
     compareBetween,
     restoreDeleted,
+    reviewDeleted,
+    openRecent,
     versionText,
     notice,
   };
@@ -224,7 +244,7 @@ describe("HistoryComponent", () => {
   });
 
   it("asks for a note when none is open", () => {
-    const { el } = render(null, null);
+    const { el } = render(null, null, [], { available: false });
     expect(el.textContent).toContain("Open a note");
   });
 
@@ -257,11 +277,78 @@ describe("HistoryComponent", () => {
     expect(notice()).toBe("Copied the selection");
   });
 
-  it("lists the deleted notes with a Restore button", () => {
+  it("lists the trash with title, folder and the time of the deletion; Restore restores", () => {
     const { el, restoreDeleted } = render(null);
     const li = el.querySelector(".deleted li")!;
-    expect(li.querySelector(".main")!.getAttribute("title")).toBe("gone.md");
+    expect(li.querySelector(".main")!.getAttribute("title")).toBe("dir/gone.md");
+    expect(li.querySelector(".title")!.textContent).toBe("gone");
+    expect(li.querySelector(".folder")!.textContent).toBe("dir");
+    expect(li.querySelector(".meta")!.textContent).toContain("deleted 21 days ago");
     li.querySelector<HTMLButtonElement>("button:not(.main)")!.click();
-    expect(restoreDeleted).toHaveBeenCalledWith(expect.objectContaining({ path: "gone.md" }));
+    expect(restoreDeleted).toHaveBeenCalledWith(expect.objectContaining({ path: "dir/gone.md" }));
+  });
+
+  it("shows the last content of a deleted note on a click", () => {
+    const { el, reviewDeleted } = render(null);
+    el.querySelector<HTMLButtonElement>(".deleted li .main")!.click();
+    expect(reviewDeleted).toHaveBeenCalledWith(expect.objectContaining({ path: "dir/gone.md" }));
+  });
+
+  it("narrows the trash by title and folder", () => {
+    const { fixture, el } = render(null);
+    const filter = el.querySelector<HTMLInputElement>("input.filter")!;
+    const type = (v: string) => {
+      filter.value = v;
+      filter.dispatchEvent(new Event("input"));
+      fixture.detectChanges();
+    };
+    type("DIR");
+    expect(el.querySelectorAll(".deleted li .main").length).toBe(1);
+    type("other");
+    expect(el.querySelector(".deleted .title")!.textContent).toBe("other");
+    type("zzz");
+    expect(el.querySelector(".deleted")!.textContent).toContain("No deleted note matches");
+  });
+
+  it("shows an empty trash", () => {
+    const { el } = render(null, "a.md", timeline, { deleted: [] });
+    expect(el.querySelector(".deleted")!.textContent).toContain("The trash is empty");
+    expect(el.querySelector("input.filter")).toBeNull();
+  });
+
+  it("lists the recently changed notes while no note is open and opens one on a click", () => {
+    const recent = [
+      {
+        path: "dir/new.md",
+        id: "r1",
+        author: "A",
+        time: Math.floor(NOW / 1000) - 3600,
+        message: "m",
+      },
+    ];
+    const { el, openRecent } = render(null, null, [], { recent });
+    const row = el.querySelector(".recent li")!;
+    expect(row.querySelector(".title")!.textContent).toBe("new");
+    expect(row.querySelector(".folder")!.textContent).toBe("dir");
+    expect(row.querySelector(".meta")!.textContent).toContain("1 hour ago");
+    row.querySelector<HTMLButtonElement>(".main")!.click();
+    expect(openRecent).toHaveBeenCalledWith(expect.objectContaining({ path: "dir/new.md" }));
+  });
+
+  it("shows empty states for a vault without versions", () => {
+    const { el } = render(null, null, [], { deleted: [], recent: [] });
+    expect(el.querySelector(".recent")!.textContent).toContain("No versions yet");
+    expect(el.querySelector(".deleted")!.textContent).toContain("The trash is empty");
+  });
+
+  it("hides recent notes and the trash without a repository", () => {
+    const { el } = render(null, null, [], { available: false });
+    expect(el.textContent).toContain("Open a note to see its history.");
+    expect(el.querySelector(".deleted")).toBeNull();
+  });
+
+  it("hides the recently changed notes while a note is open", () => {
+    const { el } = render(null);
+    expect(el.querySelector(".recent")).toBeNull();
   });
 });

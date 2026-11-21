@@ -128,3 +128,15 @@ li:focus-within > .row-actions {
   padding: 0;
   list-style: none;
 }
+
+.recent {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filter {
+  box-sizing: border-box;
+  width: calc(100% - 24px);
+  margin: 4px 12px;
+}
