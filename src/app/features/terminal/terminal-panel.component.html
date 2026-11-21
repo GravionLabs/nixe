@@ -1,0 +1,19 @@
+<div
+  class="resizer"
+  role="separator"
+  aria-orientation="horizontal"
+  aria-label="Resize terminal"
+  tabindex="0"
+  [attr.aria-valuenow]="height()"
+  [attr.aria-valuemin]="min"
+  [attr.aria-valuemax]="max()"
+  (pointerdown)="dragStart($event)"
+  (pointermove)="dragMove($event)"
+  (pointerup)="dragEnd($event)"
+  (pointercancel)="dragEnd($event)"
+  (keydown)="key($event)"
+></div>
+<div class="screen" #screen role="region" aria-label="Terminal"></div>
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}

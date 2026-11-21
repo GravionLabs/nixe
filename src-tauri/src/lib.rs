@@ -1388,6 +1388,8 @@ pub fn run() {
         #[cfg(desktop)]
         terminal::terminal_open,
         #[cfg(desktop)]
+        terminal::terminal_attach,
+        #[cfg(desktop)]
         terminal::terminal_write,
         #[cfg(desktop)]
         terminal::terminal_resize,
@@ -1501,6 +1503,8 @@ pub fn run() {
         capture_app::capture_apply,
         #[cfg(desktop)]
         terminal::terminal_open,
+        #[cfg(desktop)]
+        terminal::terminal_attach,
         #[cfg(desktop)]
         terminal::terminal_write,
         #[cfg(desktop)]

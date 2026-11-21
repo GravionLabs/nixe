@@ -157,6 +157,12 @@ export class SettingsService {
   readonly captureInbox = signal<string>(this.stored.captureInbox);
   readonly captureTemplate = signal<string>(this.stored.captureTemplate);
 
+  /** The terminal (#360): off by default; the first time it is turned on the user confirms. */
+  readonly terminalEnabled = signal<boolean>(this.stored.terminalEnabled);
+  readonly terminalConfirmed = signal<boolean>(this.stored.terminalConfirmed);
+  readonly terminalVisible = signal<boolean>(this.stored.terminalVisible);
+  readonly terminalHeight = signal<number>(this.stored.terminalHeight);
+
   private readonly systemDark = signal(false);
   readonly dark = computed(
     () => this.themeMode() === "dark" || (this.themeMode() === "system" && this.systemDark()),
@@ -222,6 +228,10 @@ export class SettingsService {
       captureTarget: this.captureTarget(),
       captureInbox: this.captureInbox(),
       captureTemplate: this.captureTemplate(),
+      terminalEnabled: this.terminalEnabled(),
+      terminalConfirmed: this.terminalConfirmed(),
+      terminalVisible: this.terminalVisible(),
+      terminalHeight: this.terminalHeight(),
     };
   }
 
@@ -273,6 +283,10 @@ export class SettingsService {
     this.captureTarget.set(s.captureTarget);
     this.captureInbox.set(s.captureInbox);
     this.captureTemplate.set(s.captureTemplate);
+    this.terminalEnabled.set(s.terminalEnabled);
+    this.terminalConfirmed.set(s.terminalConfirmed);
+    this.terminalVisible.set(s.terminalVisible);
+    this.terminalHeight.set(s.terminalHeight);
   }
 
   /** True once the settings file is known to be readable; only then it is written. */

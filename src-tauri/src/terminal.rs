@@ -99,6 +99,8 @@ struct Session {
     child: Box<dyn Child + Send + Sync>,
     reader: Option<JoinHandle<()>>,
     reader_done: Arc<AtomicBool>,
+    /// The reader thread waits for this before it emits; `attach` sends it. Dropped on close.
+    go: Option<std::sync::mpsc::Sender<()>>,
 }
 
 /// The open sessions by id.
@@ -144,9 +146,13 @@ impl Sessions {
         let sink: Sink = Arc::new(move |event| sink(id, event));
         let done = Arc::new(AtomicBool::new(false));
         let thread_done = done.clone();
+        let (go, wait) = std::sync::mpsc::channel::<()>();
         let handle = std::thread::Builder::new()
             .name(format!("terminal-{id}"))
             .spawn(move || {
+                // The frontend listens only once it has the id; output before that would be lost.
+                // A closed session drops the sender, which ends the wait too.
+                let _ = wait.recv();
                 let mut buf = [0u8; 8192];
                 while let Ok(n) = reader.read(&mut buf) {
                     if n == 0 {
@@ -166,9 +172,20 @@ impl Sessions {
                 child,
                 reader: Some(handle),
                 reader_done: done,
+                go: Some(go),
             },
         );
         Ok(id)
+    }
+
+    /// The frontend listens now: the output of the session starts to flow.
+    pub fn attach(&self, id: u64) -> Result<(), String> {
+        let mut map = self.map.lock().unwrap();
+        let session = map.get_mut(&id).ok_or_else(|| not_open(id))?;
+        if let Some(go) = session.go.take() {
+            let _ = go.send(());
+        }
+        Ok(())
     }
 
     /// Sends `data` to the shell.
@@ -292,6 +309,17 @@ pub fn terminal_open(
     })
 }
 
+/// Starts the output of session `id`; call it once the listeners for its events are registered.
+#[tauri::command]
+pub fn terminal_attach(
+    app: AppHandle,
+    sessions: State<'_, Sessions>,
+    id: u64,
+) -> Result<(), String> {
+    ensure_enabled(&app)?;
+    sessions.attach(id)
+}
+
 /// Sends input to the shell of session `id`.
 #[tauri::command]
 pub fn terminal_write(
@@ -413,6 +441,7 @@ mod tests {
                 let _ = tx.lock().unwrap().send((id, e));
             })
             .unwrap();
+        sessions.attach(id).unwrap();
         (id, rx)
     }
 

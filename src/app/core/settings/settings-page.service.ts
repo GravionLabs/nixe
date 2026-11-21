@@ -6,6 +6,7 @@ import type { ObsidianSetting } from "../file/backend";
 import { backend } from "../file/backend";
 import { GitService } from "../git/git.service";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { TerminalService } from "../terminal/terminal.service";
 import { UpdateService } from "../updater/update.service";
 import { builtinSections } from "./builtin-sections";
 import { SettingsRegistry, filterSections } from "./settings-registry";
@@ -30,6 +31,7 @@ export class SettingsPageService {
     const updater = inject(UpdateService);
     const appearance = inject(AppearanceService);
     const git = inject(GitService);
+    const terminal = inject(TerminalService);
     const sections = builtinSections({
       appearance: {
         themes: () => appearance.themes(),
@@ -52,6 +54,7 @@ export class SettingsPageService {
           cancel: () => git.cancelGhSignIn(),
         },
       },
+      terminal: terminal.supported ? { setEnabled: (v) => terminal.setEnabled(v) } : undefined,
       settings: inject(SettingsService),
       obsidian: () => this.obsidian(),
       commands: () => commands.all(),
