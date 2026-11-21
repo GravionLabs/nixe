@@ -14,6 +14,12 @@
     >
       {{ git.syncState().phase === "syncing" ? "Syncing…" : "Sync now" }}
     </button>
+    @if (tokenNotice(); as notice) {
+      <p class="status token-notice" role="alert">
+        {{ notice }}
+        <button type="button" class="link" (click)="openSyncSettings()">Open sync settings</button>
+      </p>
+    }
     @if (git.syncState(); as sync) {
       @if (sync.phase === "error") {
         <p class="status" role="alert">{{ sync.message }}</p>
@@ -65,96 +71,6 @@
   }
 
   <app-changes />
-
-  <app-panel-section title="Sync settings" storageKey="git-settings" [initiallyOpen]="false">
-    <details>
-      <summary>Author (used when none is set up on this computer)</summary>
-      <input
-        type="text"
-        aria-label="Author name"
-        placeholder="Name"
-        [value]="settings.gitAuthorName()"
-        (change)="settings.gitAuthorName.set($any($event.target).value)"
-      />
-      <input
-        type="email"
-        aria-label="Author email"
-        placeholder="Email"
-        [value]="settings.gitAuthorEmail()"
-        (change)="settings.gitAuthorEmail.set($any($event.target).value)"
-      />
-    </details>
-    <app-panel-section class="auto-sync" title="Automatic sync" storageKey="git-auto-sync">
-      <label>
-        <input
-          type="checkbox"
-          [checked]="settings.autoSync()"
-          (change)="settings.autoSync.set($any($event.target).checked)"
-        />
-        Sync automatically
-      </label>
-      @if (settings.autoSync()) {
-        <label>
-          Every
-          <input
-            type="number"
-            min="1"
-            max="1440"
-            aria-label="Sync interval in minutes"
-            [value]="settings.autoSyncMinutes()"
-            (change)="setMinutes($any($event.target))"
-          />
-          minutes
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            [checked]="settings.autoSyncOnFocus()"
-            (change)="settings.autoSyncOnFocus.set($any($event.target).checked)"
-          />
-          Sync when the app gets focus
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            [checked]="settings.autoSyncOnQuit()"
-            (change)="settings.autoSyncOnQuit.set($any($event.target).checked)"
-          />
-          Sync when the app quits
-        </label>
-        <p class="status">Waits until you have stopped typing for a few seconds.</p>
-      }
-    </app-panel-section>
-
-    <app-panel-section title="Access token" storageKey="git-token">
-      @if (git.tokenPrompt(); as prompt) {
-        <p class="status" role="alert">
-          {{
-            prompt.reason === "failed"
-              ? "GitHub rejected the token. Enter a new one."
-              : "Enter a personal access token to reach GitHub."
-          }}
-          <button type="button" (click)="git.cancelTokenPrompt()">Cancel</button>
-        </p>
-      }
-      <p class="status">
-        {{ git.tokenStored() ? "A token is stored in the system keychain." : "No token stored." }}
-      </p>
-      <input
-        #token
-        type="password"
-        autocomplete="off"
-        aria-label="Personal access token"
-        placeholder="Personal access token"
-      />
-      <button type="button" (click)="saveToken(token)">
-        {{ git.tokenStored() ? "Replace token" : "Save token" }}
-      </button>
-      @if (git.tokenStored()) {
-        <button type="button" (click)="deleteToken()">Delete token</button>
-      }
-    </app-panel-section>
-  </app-panel-section>
 } @else {
   <app-empty-state
     text="This vault is not connected to Git yet"

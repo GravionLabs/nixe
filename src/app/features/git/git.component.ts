@@ -1,6 +1,5 @@
 import { Component, inject, output } from "@angular/core";
 
-import { clampMinutes } from "../../core/git/auto-sync";
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { CompareService } from "../../core/compare/compare.service";
 import type { GitChange } from "../../core/file/backend";
@@ -11,7 +10,7 @@ import { GitService } from "../../core/git/git.service";
 import { ReviewService } from "../../core/git/review.service";
 import { syncSummary } from "../../core/git/sync-summary";
 import { basename, joinPath } from "../../core/markdown/paths";
-import { SettingsService } from "../../core/settings/settings.service";
+import { SettingsPageService } from "../../core/settings/settings-page.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 import { NoteRowComponent } from "../../shared/panel/note-row.component";
@@ -34,7 +33,7 @@ import { ReviewComponent } from "../review/review.component";
 })
 export class GitComponent {
   protected readonly git = inject(GitService);
-  protected readonly settings = inject(SettingsService);
+  private readonly settingsPage = inject(SettingsPageService);
   protected readonly review = inject(ReviewService);
   private readonly discarding = inject(DiscardService);
   private readonly doc = inject(DocumentService);
@@ -59,18 +58,30 @@ export class GitComponent {
     return parts.join(" · ");
   }
 
+  /** One line when the token is missing or was rejected; empty when there is nothing to say. */
+  protected tokenNotice(): string {
+    const prompt = this.git.tokenPrompt();
+    if (prompt) {
+      return prompt.reason === "failed"
+        ? "GitHub rejected the access token."
+        : "GitHub needs an access token.";
+    }
+    return this.git.status()?.hasRemote && !this.git.tokenStored()
+      ? "No access token stored yet."
+      : "";
+  }
+
+  protected openSyncSettings(): void {
+    this.settingsPage.select("sync");
+    this.commands.execute("open-settings");
+  }
+
   protected setUp(): void {
     this.commands.execute("open-settings");
   }
 
   protected async syncNow(): Promise<void> {
     await this.git.sync();
-  }
-
-  protected setMinutes(input: HTMLInputElement): void {
-    const minutes = clampMinutes(input.valueAsNumber);
-    this.settings.autoSyncMinutes.set(minutes);
-    input.value = String(minutes);
   }
 
   protected async open(rel: string): Promise<void> {
@@ -111,23 +122,6 @@ export class GitComponent {
         oldText,
         newText,
       });
-    } catch (err) {
-      this.failed.emit(String(err));
-    }
-  }
-
-  protected async saveToken(input: HTMLInputElement): Promise<void> {
-    try {
-      await this.git.saveToken(input.value);
-      input.value = "";
-    } catch (err) {
-      this.failed.emit(String(err));
-    }
-  }
-
-  protected async deleteToken(): Promise<void> {
-    try {
-      await this.git.deleteToken();
     } catch (err) {
       this.failed.emit(String(err));
     }
