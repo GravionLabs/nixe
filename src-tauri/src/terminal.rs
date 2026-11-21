@@ -254,7 +254,12 @@ struct OutputPayload {
 
 fn ensure_enabled(app: &AppHandle) -> Result<(), String> {
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    if is_enabled(settings::read_settings(&dir)?.as_deref()) {
+    check_enabled(&dir)
+}
+
+/// Ok when the settings file in `dir` turns the terminal on; every command starts with it.
+fn check_enabled(dir: &Path) -> Result<(), String> {
+    if is_enabled(settings::read_settings(dir)?.as_deref()) {
         Ok(())
     } else {
         Err("the terminal is turned off in the settings".into())
@@ -360,6 +365,19 @@ mod tests {
         assert!(!is_enabled(Some(r#"{"terminalEnabled":"yes"}"#)));
         assert!(!is_enabled(Some(r#"{"terminalEnabled":false}"#)));
         assert!(is_enabled(Some(r#"{"terminalEnabled":true}"#)));
+    }
+
+    #[test]
+    fn commands_are_refused_unless_enabled_in_the_settings_file() {
+        let dir = std::env::temp_dir().join(format!("nixe-term-set-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let err = check_enabled(&dir).unwrap_err();
+        assert!(err.contains("turned off"), "{err}");
+        settings::write_settings(&dir, r#"{"terminalEnabled":false}"#).unwrap();
+        assert!(check_enabled(&dir).is_err());
+        settings::write_settings(&dir, r#"{"terminalEnabled":true}"#).unwrap();
+        assert!(check_enabled(&dir).is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn collect(rx: &mpsc::Receiver<(u64, Event)>) -> (String, bool) {

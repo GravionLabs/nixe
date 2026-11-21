@@ -1374,14 +1374,6 @@ pub fn run() {
         capture_app::capture_link_title,
         capture_app::capture_hide,
         capture_app::capture_apply,
-        #[cfg(desktop)]
-        terminal::terminal_open,
-        #[cfg(desktop)]
-        terminal::terminal_write,
-        #[cfg(desktop)]
-        terminal::terminal_resize,
-        #[cfg(desktop)]
-        terminal::terminal_close,
         gitsync::git_clone,
         gitsync::git_spike_edit,
         gitsync::git_commit,
