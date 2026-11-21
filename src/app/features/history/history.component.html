@@ -1,51 +1,64 @@
 <header>
-  <span>History</span>
+  @if (label(); as l) {
+    <span class="title" [title]="history.notePath()">{{ l.title }}</span>
+    @if (l.folder) {
+      <span class="folder">{{ l.folder }}</span>
+    }
+  } @else {
+    <span>History</span>
+  }
 </header>
 
-@if (history.notePath(); as path) {
-  <p class="path" [title]="path">{{ path }}</p>
+@if (history.notePath()) {
   @if (history.error(); as error) {
     <p class="status" role="alert">{{ error }}</p>
   }
   <app-panel-section title="Versions" storageKey="history-versions">
     <ul class="timeline" aria-label="Versions" #list (scroll)="onScroll(list)">
-      @for (entry of history.timeline(); track entry.id ?? "uncommitted") {
-        <li>
-          <button
-            type="button"
-            [class.selected]="selected(entry)"
-            [attr.aria-pressed]="selected(entry)"
-            (click)="history.select(entry)"
-          >
-            <span class="message">
-              @if (entry.operation) {
-                <span class="operation">{{ entry.operation }}</span>
+      @for (group of groups(); track group.label) {
+        <li class="day" role="presentation">{{ group.label }}</li>
+        @for (entry of group.entries; track entry.id ?? "uncommitted") {
+          <li (contextmenu)="openMenu($event, entry)">
+            <button
+              type="button"
+              [class.selected]="selected(entry)"
+              [attr.aria-pressed]="selected(entry)"
+              (click)="history.select(entry)"
+            >
+              <span class="message">
+                @if (describe(entry); as d) {
+                  @if (d.icon) {
+                    <span class="operation" aria-hidden="true">{{ d.icon }}</span>
+                  }
+                  {{ d.text }}
+                }
+              </span>
+              @if (entry.id !== null) {
+                <span class="meta"
+                  ><span class="when" [title]="exact(entry)">{{ relative(entry) }}</span>
+                  @if (showAuthor() && entry.author) {
+                    · {{ entry.author }}
+                  }
+                </span>
               }
-              {{ entry.message }}
-            </span>
-            <span class="meta"
-              >{{ time(entry) }}
-              @if (entry.author) {
-                · {{ entry.author }}
-              }
-            </span>
-          </button>
-          @if (entry.id !== null) {
-            <span class="row-actions">
-              <button type="button" class="restore" (click)="history.restore(entry)">
-                Restore this version
-              </button>
-              <button
-                type="button"
-                class="copy"
-                (mousedown)="$event.preventDefault()"
-                (click)="copy(entry)"
-              >
-                Copy
-              </button>
-            </span>
-          }
-        </li>
+            </button>
+            @if (entry.id !== null) {
+              <span class="row-actions">
+                <button type="button" class="restore" (click)="history.restore(entry)">
+                  Restore this version
+                </button>
+                <button
+                  type="button"
+                  class="copy"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="copy(entry)"
+                >
+                  Copy content
+                </button>
+              </span>
+            }
+          </li>
+        }
       } @empty {
         @if (!history.loading()) {
           <li><app-empty-state text="No commits touched this note" /></li>
@@ -55,6 +68,7 @@
         <li class="status">Loading…</li>
       }
     </ul>
+    <hx-menu #contextMenu popup ariaLabel="Version actions" [model]="menuItems()" />
   </app-panel-section>
 
   @if (history.comparison(); as comparison) {
