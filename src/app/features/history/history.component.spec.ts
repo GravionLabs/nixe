@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import type { Comparison, TimelineEntry } from "../../core/git/history.service";
+import type { TimelineEntry } from "../../core/git/history.service";
 import { HistoryService } from "../../core/git/history.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -33,13 +33,15 @@ const timeline: TimelineEntry[] = [
 ];
 
 function render(
-  comparison: Comparison | null,
+  _unused: null,
   notePath: string | null = "a.md",
   entries: TimelineEntry[] = timeline,
 ) {
   const loadMore = vi.fn().mockResolvedValue(undefined);
-  const select = vi.fn().mockResolvedValue(undefined);
-  const restore = vi.fn().mockResolvedValue(undefined);
+  const open = vi.fn().mockResolvedValue(undefined);
+  const reviewRestore = vi.fn().mockResolvedValue(undefined);
+  const compareWithCurrent = vi.fn().mockResolvedValue(undefined);
+  const compareBetween = vi.fn().mockResolvedValue(undefined);
   const restoreDeleted = vi.fn().mockResolvedValue(undefined);
   const versionText = vi.fn().mockResolvedValue("whole version");
   const notice = signal<string | null>(null);
@@ -51,13 +53,13 @@ function render(
         useValue: {
           notePath: signal(notePath),
           timeline: signal(entries),
-          selection: signal(["abc1234"]),
-          comparison: signal(comparison),
           error: signal(null),
           loading: signal(false),
           loadMore,
-          select,
-          restore,
+          open,
+          reviewRestore,
+          compareWithCurrent,
+          compareBetween,
           restoreDeleted,
           versionText,
           notice,
@@ -84,8 +86,10 @@ function render(
     fixture,
     el: fixture.nativeElement as HTMLElement,
     loadMore,
-    select,
-    restore,
+    open,
+    reviewRestore,
+    compareWithCurrent,
+    compareBetween,
     restoreDeleted,
     versionText,
     notice,
@@ -110,7 +114,6 @@ describe("HistoryComponent", () => {
     expect(rows[1]).toContain("edit");
     expect(rows[1]).toContain("12 hours ago");
     expect(rows[1].includes("Ann")).toBe(false);
-    expect(el.querySelector("button.selected")?.textContent).toContain("edit");
   });
 
   it("names the operation of a commit that a vault operation wrote", () => {
@@ -158,47 +161,66 @@ describe("HistoryComponent", () => {
     expect(metas[1]).toContain("Bob");
   });
 
-  it("offers Restore this version and Copy content in a context menu", () => {
-    const { fixture, el, restore } = render(null);
+  function menuItems(fixture: ReturnType<typeof render>["fixture"], el: HTMLElement) {
     const row = el.querySelectorAll<HTMLElement>(".timeline li:not(.day)")[1];
     row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
     fixture.detectChanges();
     const menu = fixture.debugElement.query(By.directive(HxMenu)).componentInstance as HxMenu;
-    const items = menu.model() as { label: string; command: () => void }[];
-    expect(items.map((i) => i.label)).toEqual(["Restore this version", "Copy content"]);
+    return menu.model() as { label: string; command: () => void }[];
+  }
+
+  it("offers compare, restore and copy in a context menu", () => {
+    const { fixture, el, reviewRestore, compareWithCurrent } = render(null);
+    const items = menuItems(fixture, el);
+    expect(items.map((i) => i.label)).toEqual([
+      "Compare with current version",
+      "Compare with…",
+      "Restore this version",
+      "Copy content",
+    ]);
     items[0].command();
-    expect(restore).toHaveBeenCalledWith(timeline[1]);
+    expect(compareWithCurrent).toHaveBeenCalledWith(timeline[1]);
+    items[2].command();
+    expect(reviewRestore).toHaveBeenCalledWith(timeline[1]);
   });
 
-  it("selects an entry on click and loads older entries near the end of the list", () => {
-    const { el, select, loadMore } = render(null);
+  it("picks the second version after Compare with…", () => {
+    const { fixture, el, open, compareBetween } = render(null);
+    menuItems(fixture, el)[1].command();
+    fixture.detectChanges();
+    expect(el.querySelector(".pick")?.textContent).toContain("Pick the version");
+    el.querySelectorAll<HTMLButtonElement>(".timeline li > button")[2].click();
+    fixture.detectChanges();
+    expect(compareBetween).toHaveBeenCalledWith(timeline[1], timeline[2]);
+    expect(open).not.toHaveBeenCalled();
+    expect(el.querySelector(".pick")).toBeNull();
+  });
+
+  it("cancels the pick without comparing", () => {
+    const { fixture, el, open, compareBetween } = render(null);
+    menuItems(fixture, el)[1].command();
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>(".cancel-pick")!.click();
+    fixture.detectChanges();
+    expect(el.querySelector(".pick")).toBeNull();
     el.querySelectorAll<HTMLButtonElement>(".timeline button")[1].click();
-    expect(select).toHaveBeenCalledWith(timeline[1]);
+    expect(open).toHaveBeenCalledWith(timeline[1]);
+    expect(compareBetween).not.toHaveBeenCalled();
+  });
+
+  it("opens a version in the main area on click and loads older entries near the end", () => {
+    const { el, open, loadMore } = render(null);
+    el.querySelectorAll<HTMLButtonElement>(".timeline button")[1].click();
+    expect(open).toHaveBeenCalledWith(timeline[1]);
     el.querySelector(".timeline")!.dispatchEvent(new Event("scroll"));
     expect(loadMore).toHaveBeenCalled();
   });
 
-  it("shows the source diff with word highlighting, then the rendered versions", () => {
-    const { el, fixture } = render({
-      oldText: "the quick fox",
-      newText: "the slow fox",
-      oldLabel: "before",
-      newLabel: "abc1234",
-      path: "a.md",
-    });
-    expect(el.querySelector(".row.del")).not.toBeNull();
-    expect(el.querySelector(".row.add .word")?.textContent).toBe("slow");
-    expect(el.querySelector(".stat")?.textContent).toContain("+1");
-    const rendered = [...el.querySelectorAll<HTMLButtonElement>(".toolbar button")].find(
-      (b) => b.textContent?.trim() === "Rendered",
-    )!;
-    rendered.click();
-    fixture.detectChanges();
-    expect(el.querySelector(".diff")).toBeNull();
-    expect([...el.querySelectorAll(".md")].map((m) => m.textContent)).toEqual([
-      "the quick fox",
-      "the slow fox",
-    ]);
+  it("renders no diff in the side panel", () => {
+    const { el } = render(null);
+    expect(el.querySelector("app-diff")).toBeNull();
+    expect(el.querySelector(".toolbar")).toBeNull();
+    expect(el.querySelector("button.selected")).toBeNull();
   });
 
   it("asks for a note when none is open", () => {
@@ -212,12 +234,12 @@ describe("HistoryComponent", () => {
   });
 
   it("offers Restore this version and Copy on commits only", () => {
-    const { el, restore } = render(null);
+    const { el, reviewRestore } = render(null);
     const rows = el.querySelectorAll(".timeline li:not(.day)");
     expect(rows[0].querySelector(".restore")).toBeNull();
     expect(rows[1].querySelector(".copy")?.textContent).toContain("Copy content");
     rows[1].querySelector<HTMLButtonElement>(".restore")!.click();
-    expect(restore).toHaveBeenCalledWith(timeline[1]);
+    expect(reviewRestore).toHaveBeenCalledWith(timeline[1]);
   });
 
   it("copies the whole version, or the selected part when text is selected", async () => {

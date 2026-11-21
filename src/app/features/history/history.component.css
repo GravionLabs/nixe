@@ -98,31 +98,17 @@ header .folder {
   color: var(--h-text-muted-color);
 }
 
-.toolbar {
+.pick {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
   font-size: 11px;
-}
-
-.toolbar .range {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--h-text-muted-color);
 }
 
-.toolbar button.on {
-  font-weight: 600;
-}
-
-.add {
-  color: var(--nixe-added-color, #2da44e);
-}
-
-.del {
-  color: var(--nixe-removed-color, #cf222e);
+.pick span {
+  flex: 1;
 }
 
 /* The actions of a version show while the row is hovered or holds the keyboard focus. */

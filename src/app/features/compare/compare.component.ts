@@ -1,8 +1,8 @@
-import { Component, computed, inject } from "@angular/core";
+import { Component, computed, inject, signal } from "@angular/core";
 
 import { CompareService } from "../../core/compare/compare.service";
 import { diffLines, diffStat } from "../../core/git/line-diff";
-import { CURRENT_TAB } from "../../core/tabs/tabs.service";
+import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { DiffComponent } from "../../shared/diff/diff.component";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 
@@ -15,6 +15,9 @@ import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 })
 export class CompareComponent {
   private readonly tab = inject(CURRENT_TAB);
+  private readonly tabs = inject(TabsService);
+  /** The action (Restore) runs. */
+  protected readonly busy = signal(false);
   protected readonly compare = inject(CompareService);
 
   protected readonly input = this.tab.compare;
@@ -22,4 +25,18 @@ export class CompareComponent {
     const c = this.input();
     return c ? diffStat(diffLines(c.oldText ?? "", c.newText ?? "")) : { added: 0, removed: 0 };
   });
+
+  /** Runs the action of the view; when it is done the compare tab has nothing left to show. */
+  protected async act(): Promise<void> {
+    const action = this.input()?.action;
+    if (!action || this.busy()) return;
+    this.busy.set(true);
+    try {
+      if (!(await action.run())) return;
+      const pane = this.tabs.panes().find((p) => p.tabs.includes(this.tab));
+      if (pane) this.tabs.closeTab(pane.id, this.tab.id);
+    } finally {
+      this.busy.set(false);
+    }
+  }
 }

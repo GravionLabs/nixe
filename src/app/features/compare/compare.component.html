@@ -26,6 +26,14 @@
         Source
       </button>
     </span>
+    @if (c.action; as action) {
+      <span class="action">
+        <span class="note">{{ action.note }}</span>
+        <button type="button" class="primary" [disabled]="busy()" (click)="act()">
+          {{ action.label }}
+        </button>
+      </span>
+    }
   </header>
   <app-diff
     class="body"

@@ -13,18 +13,19 @@
   @if (history.error(); as error) {
     <p class="status" role="alert">{{ error }}</p>
   }
+  @if (pickFrom(); as from) {
+    <div class="pick" role="status">
+      <span>Pick the version to compare with {{ describe(from)?.text }}</span>
+      <button type="button" class="cancel-pick" (click)="pickFrom.set(null)">Cancel</button>
+    </div>
+  }
   <app-panel-section title="Versions" storageKey="history-versions">
     <ul class="timeline" aria-label="Versions" #list (scroll)="onScroll(list)">
       @for (group of groups(); track group.label) {
         <li class="day" role="presentation">{{ group.label }}</li>
         @for (entry of group.entries; track entry.id ?? "uncommitted") {
           <li (contextmenu)="openMenu($event, entry)">
-            <button
-              type="button"
-              [class.selected]="selected(entry)"
-              [attr.aria-pressed]="selected(entry)"
-              (click)="history.select(entry)"
-            >
+            <button type="button" [class.selected]="pickFrom() === entry" (click)="activate(entry)">
               <span class="message">
                 @if (describe(entry); as d) {
                   @if (d.icon) {
@@ -44,7 +45,7 @@
             </button>
             @if (entry.id !== null) {
               <span class="row-actions">
-                <button type="button" class="restore" (click)="history.restore(entry)">
+                <button type="button" class="restore" (click)="history.reviewRestore(entry)">
                   Restore this version
                 </button>
                 <button
@@ -70,31 +71,6 @@
     </ul>
     <hx-menu #contextMenu popup ariaLabel="Version actions" [model]="menuItems()" />
   </app-panel-section>
-
-  @if (history.comparison(); as comparison) {
-    <div class="toolbar">
-      <span class="stat"
-        ><span class="add">+{{ stat().added }}</span>
-        <span class="del">−{{ stat().removed }}</span></span
-      >
-      <span class="range">{{ comparison.oldLabel }} → {{ comparison.newLabel }}</span>
-      <button type="button" [class.on]="mode() === 'source'" (click)="mode.set('source')">
-        Source
-      </button>
-      <button type="button" [class.on]="mode() === 'rendered'" (click)="mode.set('rendered')">
-        Rendered
-      </button>
-    </div>
-    <app-diff
-      [oldText]="comparison.oldText"
-      [newText]="comparison.newText"
-      [oldLabel]="comparison.oldLabel"
-      [newLabel]="comparison.newLabel"
-      [mode]="mode()"
-    />
-  } @else {
-    <app-empty-state text="Select a version to see its change, or two to compare them." />
-  }
 } @else {
   <app-empty-state text="Open a note to see its history." />
 }

@@ -8,6 +8,8 @@ export interface CompareInput {
   newLabel: string;
   oldText: string | null;
   newText: string | null;
+  /** A button under the title with a note, e.g. "Restore"; `run` resolves true when it is done. */
+  action?: { label: string; note: string; run: () => Promise<boolean> };
 }
 
 export type CompareMode = "rendered" | "source";
