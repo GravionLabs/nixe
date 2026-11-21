@@ -101,7 +101,7 @@ pub async fn git_clone_vault(
 ) -> Result<String, String> {
     let url = url.trim().to_owned();
     if !is_github_https(&url) {
-        return Err("only https://github.com/ urls without credentials are supported".into());
+        return Err("only https urls of github.com or a configured host, without credentials, are supported".into());
     }
     let cancel: Arc<AtomicBool> = state.clone_cancel.clone();
     cancel.store(false, Ordering::SeqCst);

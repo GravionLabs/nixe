@@ -663,6 +663,18 @@ export const backend = {
   /** Stores or replaces the token of a remote host in the OS keychain. */
   gitTokenSet: (host: string, token: string) => invoke<void>("git_token_set", { host, token }),
   gitTokenDelete: (host: string) => invoke<void>("git_token_delete", { host }),
+  /** Tells the backend which hosts besides github.com may receive a token (GitHub Enterprise Server). */
+  gitSetHosts: (hosts: string[]) => invoke<void>("git_set_hosts", { hosts }),
+  /** Whether the GitHub CLI (`gh`) is installed. */
+  gitProviderAvailable: () => invoke<boolean>("git_provider_available"),
+  /**
+   * Signs in through `gh` and stores the token in the keychain; the token never reaches the
+   * webview. A web login shows its one-time code as `GIT_PROVIDER_CODE_EVENT`. Rejects with
+   * `cancelled` or a plain message.
+   */
+  gitProviderLogin: (host: string) => invoke<void>("git_provider_login", { host }),
+  /** Gives up the running web login. */
+  gitProviderCancel: () => invoke<void>("git_provider_cancel"),
   /**
    * Clones a GitHub HTTPS url into `<parent>/<repository name>` and returns that folder. Progress comes
    * as `CLONE_PROGRESS_EVENT`. A failed or cancelled clone removes the folder it created. A missing or
@@ -722,6 +734,8 @@ export interface VaultChange {
   from?: string;
 }
 export const MENU_EVENT = "menu";
+/** Emitted with the one-time code (a string) while `gh` waits for the browser login. */
+export const GIT_PROVIDER_CODE_EVENT = "git-provider-code";
 /** Emitted with a `CloneProgress` while a vault is cloned. */
 export const CLONE_PROGRESS_EVENT = "git-clone-progress";
 export interface CloneProgress {

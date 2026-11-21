@@ -14,7 +14,11 @@ import { CloneService } from "../../core/git/clone.service";
 import { GitService } from "../../core/git/git.service";
 import { CloneComponent } from "./clone.component";
 
-function render(prompt: { reason: "required" | "failed" } | null = null, cloning = false) {
+function render(
+  prompt: { reason: "required" | "failed"; host: string } | null = null,
+  cloning = false,
+  gh = { available: false, signingIn: false, code: null as string | null },
+) {
   const clone = {
     visible: signal(true),
     url: signal("https://github.com/a/b"),
@@ -27,7 +31,16 @@ function render(prompt: { reason: "required" | "failed" } | null = null, cloning
     close: vi.fn(),
     chooseFolder: vi.fn().mockResolvedValue(undefined),
   };
-  const git = { tokenPrompt: signal(prompt), saveToken: vi.fn().mockResolvedValue(undefined) };
+  const git = {
+    tokenPrompt: signal(prompt),
+    saveToken: vi.fn().mockResolvedValue(undefined),
+    ghAvailable: signal(gh.available),
+    ghSigningIn: signal(gh.signingIn),
+    ghCode: signal(gh.code),
+    ghError: signal(""),
+    signInWithGh: vi.fn().mockResolvedValue(undefined),
+    cancelGhSignIn: vi.fn().mockResolvedValue(undefined),
+  };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -80,7 +93,7 @@ describe("CloneComponent", () => {
   });
 
   it("reuses the token prompt of the Git service", () => {
-    const { git, el } = render({ reason: "failed" });
+    const { git, el } = render({ reason: "failed", host: "github.com" });
     expect(el.querySelector("[role=alert]")?.textContent).toContain("rejected");
     const input = el.querySelector("input[type=password]") as HTMLInputElement;
     input.value = "tok";
@@ -91,5 +104,33 @@ describe("CloneComponent", () => {
   it("has no token field without a prompt", () => {
     const { el } = render();
     expect(el.querySelector("input[type=password]")).toBeNull();
+  });
+
+  const prompt = { reason: "required", host: "ghe.example.com" } as const;
+  const signInButton = (el: HTMLElement) =>
+    [...el.querySelectorAll("button")].find((b) => b.textContent?.includes("Sign in with GitHub"));
+
+  it("hides the gh sign-in without gh", () => {
+    const { el } = render(prompt);
+    expect(signInButton(el)).toBeUndefined();
+    expect(el.querySelector("input[type=password]")).not.toBeNull();
+  });
+
+  it("signs in through gh for the host that asked", () => {
+    const { git, el } = render(prompt, false, { available: true, signingIn: false, code: null });
+    signInButton(el)!.click();
+    expect(git.signInWithGh).toHaveBeenCalledWith("ghe.example.com");
+  });
+
+  it("shows the one-time code and can cancel", () => {
+    const { git, el } = render(prompt, false, {
+      available: true,
+      signingIn: true,
+      code: "ABCD-1234",
+    });
+    expect(el.querySelector(".gh")?.textContent).toContain("ABCD-1234");
+    expect(signInButton(el)!.disabled).toBe(true);
+    (el.querySelector(".gh button") as HTMLElement).click();
+    expect(git.cancelGhSignIn).toHaveBeenCalled();
   });
 });

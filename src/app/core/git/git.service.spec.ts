@@ -3,6 +3,7 @@ import "@angular/compiler";
 import { signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
+import { listen } from "@tauri-apps/api/event";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -29,6 +30,7 @@ describe("GitService", () => {
   const revision = signal(0);
   const name = signal("");
   const email = signal("");
+  const enterprise = signal("");
   let git: GitService;
 
   beforeAll(() => {
@@ -40,13 +42,21 @@ describe("GitService", () => {
     revision.set(0);
     name.set("");
     email.set("");
+    enterprise.set("");
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         { provide: WorkspaceService, useValue: { vaultRoot } },
         { provide: IndexService, useValue: { revision } },
-        { provide: SettingsService, useValue: { gitAuthorName: name, gitAuthorEmail: email } },
+        {
+          provide: SettingsService,
+          useValue: {
+            gitAuthorName: name,
+            gitAuthorEmail: email,
+            gitEnterpriseHost: enterprise,
+          },
+        },
       ],
     });
     vi.spyOn(backend, "gitVaultStatus").mockResolvedValue(status);
@@ -407,7 +417,7 @@ describe("GitService", () => {
       expect(git.tokenStored()).toBe(true);
       await git.deleteToken();
       expect(del).toHaveBeenCalledWith("github.com");
-      expect(git.tokenStored()).toBe(false);
+      expect(git.tokenStored()).toBeFalsy();
     });
 
     it("refuses an empty token", async () => {
@@ -435,7 +445,9 @@ describe("GitService", () => {
         .mockRejectedValueOnce("auth-required:github.com")
         .mockResolvedValue("done");
       const run = git.runRemote(op);
-      await vi.waitFor(() => expect(git.tokenPrompt()).toEqual({ reason: "required" }));
+      await vi.waitFor(() =>
+        expect(git.tokenPrompt()).toEqual({ reason: "required", host: "github.com" }),
+      );
       await git.saveToken("ghp_x");
       await expect(run).resolves.toBe("done");
       expect(op).toHaveBeenCalledTimes(2);
@@ -450,10 +462,14 @@ describe("GitService", () => {
         .mockRejectedValueOnce("auth-failed:github.com")
         .mockResolvedValue("done");
       const run = git.runRemote(op);
-      await vi.waitFor(() => expect(git.tokenPrompt()).toEqual({ reason: "failed" }));
+      await vi.waitFor(() =>
+        expect(git.tokenPrompt()).toEqual({ reason: "failed", host: "github.com" }),
+      );
       await git.saveToken("bad");
       await vi.waitFor(() => expect(op).toHaveBeenCalledTimes(2));
-      await vi.waitFor(() => expect(git.tokenPrompt()).toEqual({ reason: "failed" }));
+      await vi.waitFor(() =>
+        expect(git.tokenPrompt()).toEqual({ reason: "failed", host: "github.com" }),
+      );
       await git.saveToken("good");
       await expect(run).resolves.toBe("done");
     });
@@ -464,6 +480,83 @@ describe("GitService", () => {
       git.cancelTokenPrompt();
       await expect(run).rejects.toBe("auth-required:github.com");
       expect(git.tokenPrompt()).toBeNull();
+    });
+  });
+
+  describe("sign in with gh", () => {
+    it("is offered only when gh is installed", async () => {
+      vi.spyOn(backend, "gitProviderAvailable").mockResolvedValue(false);
+      await git.refreshGh();
+      expect(git.ghAvailable()).toBe(false);
+      vi.spyOn(backend, "gitProviderAvailable").mockResolvedValue(true);
+      await git.refreshGh();
+      expect(git.ghAvailable()).toBe(true);
+    });
+
+    it("lists github.com and the configured Enterprise host", () => {
+      expect(git.hosts()).toEqual(["github.com"]);
+      enterprise.set(" GHE.example.com ");
+      expect(git.hosts()).toEqual(["github.com", "ghe.example.com"]);
+    });
+
+    it("sends the Enterprise host to the backend", async () => {
+      const send = vi.spyOn(backend, "gitSetHosts").mockResolvedValue();
+      enterprise.set("ghe.example.com");
+      TestBed.tick();
+      await vi.waitFor(() => expect(send).toHaveBeenCalledWith(["ghe.example.com"]));
+    });
+
+    it("signs in, refreshes the token state and retries a waiting operation", async () => {
+      vi.spyOn(backend, "gitTokenStatus").mockResolvedValue(true);
+      const login = vi.spyOn(backend, "gitProviderLogin").mockResolvedValue();
+      const op = vi
+        .fn()
+        .mockRejectedValueOnce("auth-required:ghe.example.com")
+        .mockResolvedValue("done");
+      const run = git.runRemote(op);
+      await vi.waitFor(() => expect(git.tokenPrompt()?.host).toBe("ghe.example.com"));
+      await git.signInWithGh();
+      await expect(run).resolves.toBe("done");
+      expect(login).toHaveBeenCalledWith("ghe.example.com");
+      expect(git.tokenStored()).toBe(true);
+      expect(git.ghError()).toBe("");
+      expect(git.ghSigningIn()).toBe(false);
+    });
+
+    it("shows the code while the login runs and clears it afterwards", async () => {
+      let onCode: ((e: { payload: string }) => void) | undefined;
+      vi.mocked(listen).mockImplementation((async (_e: string, cb: typeof onCode) => {
+        onCode = cb;
+        return () => undefined;
+      }) as never);
+      let finish!: () => void;
+      vi.spyOn(backend, "gitProviderLogin").mockReturnValue(new Promise((r) => (finish = r)));
+      vi.spyOn(backend, "gitTokenStatus").mockResolvedValue(true);
+      const done = git.signInWithGh("github.com");
+      await vi.waitFor(() => expect(onCode).toBeDefined());
+      onCode!({ payload: "ABCD-1234" });
+      expect(git.ghCode()).toBe("ABCD-1234");
+      expect(git.ghSigningIn()).toBe(true);
+      finish();
+      await done;
+      expect(git.ghCode()).toBeNull();
+    });
+
+    it("keeps quiet on a cancel and shows any other failure", async () => {
+      const login = vi.spyOn(backend, "gitProviderLogin");
+      login.mockRejectedValue("cancelled");
+      await git.signInWithGh("github.com");
+      expect(git.ghError()).toBe("");
+      login.mockRejectedValue("The GitHub CLI (gh) is not installed.");
+      await git.signInWithGh("github.com");
+      expect(git.ghError()).toContain("not installed");
+      expect(git.tokenStored()).toBeFalsy();
+    });
+
+    it("cancels through the backend", async () => {
+      const cancel = vi.spyOn(backend, "gitProviderCancel").mockResolvedValue();
+      await git.cancelGhSignIn();
+      expect(cancel).toHaveBeenCalled();
     });
   });
 });

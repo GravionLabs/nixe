@@ -1,7 +1,8 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
+import { listen } from "@tauri-apps/api/event";
 
 import type { GitStatus, SyncReport } from "../file/backend";
-import { backend } from "../file/backend";
+import { GIT_PROVIDER_CODE_EVENT, backend } from "../file/backend";
 import { IndexService } from "../index/index.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
@@ -9,11 +10,13 @@ import { WorkspaceService } from "../workspace/workspace.service";
 /** Remotes are GitHub over HTTPS; the token is keyed by this host. */
 export const GIT_HOST = "github.com";
 
-const AUTH_ERROR = /^auth-(required|failed):/;
+const AUTH_ERROR = /^auth-(required|failed):(\S*)/;
 
 /** The backend wants a token: none is stored (`required`) or the server refused it (`failed`). */
 export interface TokenPrompt {
   reason: "required" | "failed";
+  /** The host that wants the token (`github.com` or the Enterprise host). */
+  host: string;
 }
 
 export interface SyncState {
@@ -63,6 +66,19 @@ export class GitService {
   readonly committing = signal(false);
   /** Whether a token is stored for `GIT_HOST`. The token itself is never read into the frontend. */
   readonly tokenStored = signal(false);
+  /** Whether the GitHub CLI (`gh`) is installed; the sign-in button shows only then. */
+  readonly ghAvailable = signal(false);
+  /** The one-time code of a running `gh` web login; null when none runs. */
+  readonly ghCode = signal<string | null>(null);
+  /** True while `gh` signs in. */
+  readonly ghSigningIn = signal(false);
+  /** Why the last `gh` sign-in did not work; empty after a success or a cancel. */
+  readonly ghError = signal("");
+  /** Hosts that can be signed in to: github.com and the configured Enterprise host. */
+  readonly hosts = computed(() => {
+    const extra = this.settings.gitEnterpriseHost().trim().toLowerCase();
+    return extra && extra !== GIT_HOST ? [GIT_HOST, extra] : [GIT_HOST];
+  });
   /** Set while a remote operation waits for a token. */
   readonly tokenPrompt = signal<TokenPrompt | null>(null);
   /** Progress and result of the last sync, for the status bar. */
@@ -100,7 +116,63 @@ export class GitService {
       this.index.revision();
       untracked(() => void this.refresh());
     });
+    // The backend sends a token only to github.com and the configured Enterprise host.
+    effect(() => {
+      const extra = this.hosts().slice(1);
+      untracked(() => void this.sendHosts(extra));
+    });
     void this.refreshToken();
+    void this.refreshGh();
+  }
+
+  private async sendHosts(extra: string[]): Promise<void> {
+    try {
+      await backend.gitSetHosts(extra);
+    } catch {
+      // Without the list the backend allows github.com only.
+    }
+  }
+
+  async refreshGh(): Promise<void> {
+    try {
+      this.ghAvailable.set((await backend.gitProviderAvailable()) === true);
+    } catch {
+      this.ghAvailable.set(false);
+    }
+  }
+
+  /**
+   * Signs in through the GitHub CLI. The backend stores the token in the keychain; this side
+   * only learns that it worked. Answers a waiting prompt. `cancelled` is no error.
+   */
+  async signInWithGh(host: string = this.tokenPrompt()?.host ?? GIT_HOST): Promise<void> {
+    if (this.ghSigningIn()) return;
+    this.ghSigningIn.set(true);
+    this.ghError.set("");
+    this.ghCode.set(null);
+    let unlisten: (() => void) | undefined;
+    try {
+      unlisten = await listen<string>(GIT_PROVIDER_CODE_EVENT, (e) => this.ghCode.set(e.payload));
+    } catch {
+      // Without events the code is not shown; the login itself still works in the browser.
+    }
+    try {
+      await backend.gitProviderLogin(host);
+      await this.refreshToken();
+      this.answerPrompt("");
+    } catch (err) {
+      const message = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");
+      if (message !== "cancelled") this.ghError.set(message);
+    } finally {
+      unlisten?.();
+      this.ghCode.set(null);
+      this.ghSigningIn.set(false);
+    }
+  }
+
+  /** Gives up the running `gh` sign-in; nothing is stored. */
+  async cancelGhSignIn(): Promise<void> {
+    await backend.gitProviderCancel().catch(() => undefined);
   }
 
   async refreshToken(): Promise<void> {
@@ -150,7 +222,10 @@ export class GitService {
         const match = AUTH_ERROR.exec(message.replace(/^Error: /, ""));
         if (!match) throw err;
         this.cancelTokenPrompt();
-        this.tokenPrompt.set({ reason: match[1] === "failed" ? "failed" : "required" });
+        this.tokenPrompt.set({
+          reason: match[1] === "failed" ? "failed" : "required",
+          host: match[2],
+        });
         const token = await new Promise<string | null>((resolve) => (this.promptResult = resolve));
         if (token === null) throw err;
       }

@@ -48,6 +48,8 @@ export interface StoredSettings {
   dailyTemplate: string;
   gitAuthorName: string;
   gitAuthorEmail: string;
+  /** Host of a GitHub Enterprise Server that may receive the token, e.g. `ghe.example.com`. */
+  gitEnterpriseHost: string;
   autoSync: boolean;
   autoSyncMinutes: number;
   autoSyncOnFocus: boolean;
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   dailyTemplate: "",
   gitAuthorName: "",
   gitAuthorEmail: "",
+  gitEnterpriseHost: "",
   autoSync: false,
   autoSyncMinutes: 10,
   autoSyncOnFocus: false,
@@ -182,6 +185,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     dailyTemplate: text(o["dailyTemplate"], d.dailyTemplate),
     gitAuthorName: text(o["gitAuthorName"], d.gitAuthorName),
     gitAuthorEmail: text(o["gitAuthorEmail"], d.gitAuthorEmail),
+    gitEnterpriseHost: text(o["gitEnterpriseHost"], d.gitEnterpriseHost),
     autoSync: o["autoSync"] === true,
     autoSyncMinutes: clampMinutes(Number(o["autoSyncMinutes"] ?? d.autoSyncMinutes)),
     autoSyncOnFocus: o["autoSyncOnFocus"] === true,

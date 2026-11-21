@@ -44,6 +44,28 @@
           placeholder="Personal access token"
         />
         <button type="button" (click)="saveToken(token)">Save token</button>
+        @if (git.ghAvailable()) {
+          <button
+            type="button"
+            [disabled]="git.ghSigningIn()"
+            (click)="git.signInWithGh(prompt.host)"
+          >
+            Sign in with GitHub (gh)
+          </button>
+        }
+        @if (git.ghSigningIn()) {
+          <p class="gh">
+            @if (git.ghCode(); as code) {
+              Enter this code in the browser: <strong class="code">{{ code }}</strong>
+            } @else {
+              Waiting for the GitHub CLI…
+            }
+            <button type="button" (click)="git.cancelGhSignIn()">Cancel</button>
+          </p>
+        }
+        @if (git.ghError(); as error) {
+          <p class="error" role="alert">{{ error }}</p>
+        }
       </div>
     }
 
