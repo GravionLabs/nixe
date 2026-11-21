@@ -19,6 +19,8 @@ export interface EditorHandle {
   blocked(): boolean;
   /** Writes the text in the editor to a copy next to the note (the note itself is gone). */
   saveCopy(): Promise<void>;
+  /** Replaces the note text with `text` as one change the editor can undo (only the differing part is touched). */
+  applyText?(text: string): void;
   /** Inserts an expanded template at the cursor and merges its frontmatter into the note's. */
   insertTemplate(template: string): void;
   /** Brings dropped files into the vault and inserts `![[name]]` links at the cursor. */

@@ -122,6 +122,17 @@
         >
           Outline
         </button>
+        <button
+          type="button"
+          role="tab"
+          id="panel-tab-properties"
+          aria-controls="panel-body"
+          [attr.aria-selected]="panelTab() === 'properties'"
+          [class.active]="panelTab() === 'properties'"
+          (click)="settings.showPanelTab('properties')"
+        >
+          Properties
+        </button>
         @if (linksAvailable()) {
           <button
             type="button"
@@ -155,6 +166,8 @@
       >
         @if (panelTab() === "outline") {
           <app-outline />
+        } @else if (panelTab() === "properties") {
+          <app-properties-panel (failed)="showError($event)" />
         } @else if (panelTab() === "related") {
           <app-related (failed)="showError($event)" />
         } @else {

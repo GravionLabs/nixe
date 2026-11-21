@@ -48,6 +48,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
+import { textChange } from "./text-change";
 import { PropertiesComponent } from "../properties/properties.component";
 import { ExternalCompareComponent } from "./external-compare.component";
 import type { LivePreviewHooks, PropertiesHandle } from "./live-preview";
@@ -121,6 +122,7 @@ export class EditorComponent implements OnDestroy {
       blocked: () => this.conflict() !== null,
       saveCopy: () => this.saveCopy(),
       insertTemplate: (template) => this.insertTemplate(template),
+      applyText: (text) => this.applyText(text),
       attachPaths: (paths) => this.attachPaths(paths),
       fold: (action) => this.fold(action),
       selection: () => this.selection(),
@@ -289,6 +291,14 @@ export class EditorComponent implements OnDestroy {
     if (line !== null) this.scrollToLine(line);
     this.outline.topLine.set(this.topLine());
     this.view.focus();
+  }
+
+  /** A change from outside the text (the properties panel): one undoable transaction. */
+  private applyText(next: string): void {
+    const view = this.view;
+    if (!view) return;
+    const change = textChange(view.state.doc.toString(), next);
+    if (change) view.dispatch({ changes: change });
   }
 
   private liveMode(source: boolean): Extension {

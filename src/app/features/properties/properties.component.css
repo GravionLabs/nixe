@@ -181,3 +181,47 @@ select {
 :host(.in-editor) .prop-add {
   margin-right: 12px;
 }
+
+/* In the sidebar panel (#376) the panel is narrow: no frame, the name above its value. */
+.properties-empty {
+  margin: 0;
+  color: var(--h-text-muted-color);
+}
+
+.prop-move {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--h-text-muted-color);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.prop-move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+:host(.in-sidebar) .properties-panel {
+  padding: 8px;
+  border: 0;
+  background: transparent;
+}
+
+:host(.in-sidebar) .prop {
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+:host(.in-sidebar) .prop-key {
+  flex: 1 1 60%;
+}
+
+:host(.in-sidebar) .prop-value {
+  flex: 1 0 100%;
+  order: 3;
+}
+
+:host(.in-sidebar) .prop-remove {
+  visibility: visible;
+}

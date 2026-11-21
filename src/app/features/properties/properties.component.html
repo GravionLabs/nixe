@@ -17,7 +17,9 @@
   }
 } @else {
   <section class="properties-panel" aria-label="Properties">
-    @if (props().length) {
+    @if (panel() && !props().length) {
+      <p class="properties-empty">No properties</p>
+    } @else if (props().length && !panel()) {
       <button
         type="button"
         class="properties-header"
@@ -28,7 +30,7 @@
         <span class="fold-icon" aria-hidden="true">▾</span> Properties
       </button>
     }
-    @for (p of props(); track p.key) {
+    @for (p of props(); track p.key; let first = $first; let last = $last) {
       <div class="prop" [attr.data-type]="p.type">
         <input
           class="prop-key"
@@ -86,6 +88,26 @@
             }
           }
         </div>
+        @if (panel()) {
+          <button
+            type="button"
+            class="prop-move"
+            [disabled]="first"
+            [attr.aria-label]="'Move property ' + p.key + ' up'"
+            (click)="move(p.key, -1)"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            class="prop-move"
+            [disabled]="last"
+            [attr.aria-label]="'Move property ' + p.key + ' down'"
+            (click)="move(p.key, 1)"
+          >
+            ↓
+          </button>
+        }
         <button
           type="button"
           class="prop-remove"
@@ -118,7 +140,9 @@
         <button type="button" (click)="adding.set(false)">Cancel</button>
       </form>
     } @else {
-      <button type="button" class="prop-add" (click)="adding.set(true)">+ Add property</button>
+      <button type="button" class="prop-add" (click)="adding.set(true)">
+        {{ panel() ? "Add property" : "+ Add property" }}
+      </button>
     }
   </section>
 }
@@ -136,14 +160,14 @@
     <input
       type="text"
       class="chip-field"
-      [attr.list]="'suggest-' + p.key"
+      [attr.list]="suggestId(p.key)"
       [attr.aria-label]="'Add to ' + p.key"
       placeholder="Add…"
       (focus)="loadSuggestions()"
       (keydown)="onChipKey($event, p)"
       (change)="addChip(p, $any($event.target))"
     />
-    <datalist [id]="'suggest-' + p.key">
+    <datalist [id]="suggestId(p.key)">
       @for (s of suggest(source, p); track s) {
         <option [value]="s"></option>
       }
