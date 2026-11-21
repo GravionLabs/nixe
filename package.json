@@ -15,7 +15,8 @@
     "lint:fix": "oxlint --fix --ignore-pattern \"src/testing/lint-probe/**\" && eslint --fix \"src/**/*.html\"",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "start:demo": "ng serve --configuration demo"
+    "start:demo": "ng serve --configuration demo",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "private": true,
   "dependencies": {
@@ -68,6 +69,7 @@
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "oxlint-tsgolint": "7.0.2007",
+    "playwright": "^1.65.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.2",
     "vitest": "^4.1.11"

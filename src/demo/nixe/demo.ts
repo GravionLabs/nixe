@@ -42,6 +42,7 @@ export function createNixeDemo(): NixeDemo {
     daily_notes_config: { folder: "Daily", format: "YYYY-MM-DD", template: null },
     last_vault_operation: null,
     is_utf8_file: true,
+    conflict_pair: null,
     watch_file: null,
     read_data_uri: null,
     read_bundled_data_uri: null,
@@ -85,6 +86,7 @@ export function createNixeDemo(): NixeDemo {
     tags: () => vault.tags(),
     search_notes: (a) => vault.search(str(a, "query")),
     capture_note_names: () => vault.notes().map((n) => n.title),
+    notes_list: () => vault.notes().map((n) => n.title),
   });
   return { backend, vault };
 }
