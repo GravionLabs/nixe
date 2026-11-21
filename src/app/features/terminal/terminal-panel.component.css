@@ -6,10 +6,6 @@
   background: var(--h-surface-frame);
 }
 
-:host(.open) {
-  display: block;
-}
-
 .resizer {
   position: absolute;
   inset-inline: 0;
@@ -26,10 +22,52 @@
   background: var(--h-primary-color);
 }
 
-.screen {
-  height: 100%;
-  padding: 4px 8px;
-  box-sizing: border-box;
+:host(.open) {
+  display: flex;
+  flex-direction: column;
+}
+
+.tabs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--h-content-border-color);
+  font-size: 12px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.tab.active {
+  background: var(--h-surface-hover, rgb(128 128 128 / 20%));
+}
+
+.tabs button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+
+.screens {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.empty {
+  position: absolute;
+  inset: 28px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .error {

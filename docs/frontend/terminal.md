@@ -10,10 +10,10 @@ The PTY lives in the Rust core (`terminal_open`, `terminal_write`, `terminal_res
 
 | Part | Role |
 |---|---|
-| `core/terminal/terminal.service.ts` | The command `toggle-terminal` (shortcut `Mod+\``, needs an open vault), the opt-in and its confirmation, the `open` signal, a `notice` for the toast. |
+| `core/terminal/terminal.service.ts` | The commands `toggle-terminal` (shortcut `Mod+\``), `new-terminal-tab` and `close-terminal-tab` (need an open vault), the tab state (`tabs`, `activeKey`), the opt-in and its confirmation, the `open` signal, a `notice` for the toast. |
 | `core/terminal/terminal-backend.ts` | `invoke` and `listen` wrappers for the four commands and the events `terminal-output-<id>` (base64 bytes) and `terminal-exit-<id>`. A spec replaces it by a fake. |
 | `core/terminal/terminal-height.ts` | Pure height rules: default 240, minimum 80, the note keeps 160px, keys and sanitising. |
-| `features/terminal/terminal-panel.component.ts` | The panel: xterm, the fit addon, the session, the drag handle (a horizontal separator on the top edge). |
+| `features/terminal/terminal-panel.component.ts` | The panel: the tab strip, one xterm with its fit addon and session per tab, the drag handle (a horizontal separator on the top edge). |
 
 ## Settings
 
@@ -36,7 +36,8 @@ panel and ends the session.
 - **Toggle:** with the terminal on, `toggle-terminal` shows or hides the panel. Hiding keeps the
   component mounted, so the session lives on. With the terminal off the command changes nothing and
   shows a toast that names the setting.
-- **Session:** it starts when the panel is first shown, in the vault root, with the size of the
+- **Tabs:** `new-terminal-tab` (or the `+` button) opens a tab with its own session and shows the panel; switching keeps the output of every tab (each has its own xterm, the others are hidden). Closing a tab (`close-terminal-tab` or its ×) ends only its session; hiding the panel ends none. Closing the last tab leaves the panel open and empty with a "New terminal" button. The first tab of a vault opens when the panel is first shown. Turning the terminal off or opening another vault ends all sessions and forgets the tabs.
+- **Session:** a tab's session starts when the tab is first shown, in the vault root, with the size of the
   terminal. Input goes to `terminal_write`; the panel and the window resize the PTY through the fit
   addon. When the shell ends, a key starts a new one. A session belongs to its vault: opening another
   vault ends it, and the next one starts there. Closing the app closes all sessions (Rust).

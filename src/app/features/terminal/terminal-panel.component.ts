@@ -23,10 +23,22 @@ import {
 import { TerminalService } from "../../core/terminal/terminal.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 
+/** A tab at run time: its terminal and its session. `generation` makes output and exit of an old session ignored. */
+interface Run {
+  readonly key: number;
+  readonly el: HTMLElement;
+  readonly term: Terminal;
+  readonly fit: FitAddon;
+  session: number | null;
+  generation: number;
+  starting: boolean;
+  unlisten: (() => void)[];
+}
+
 /**
- * The bottom panel with one terminal. The component stays mounted while the terminal is enabled, so
- * hiding the panel keeps the session; the session starts when the panel is first shown and ends when
- * the terminal is turned off, the vault changes or the app closes.
+ * The bottom panel with its terminal tabs. The component stays mounted while the terminal is enabled, so
+ * hiding the panel keeps the sessions; the first tab opens when the panel is first shown. A session ends
+ * when its tab is closed, the terminal is turned off, the vault changes or the app closes.
  */
 @Component({
   selector: "app-terminal-panel",
@@ -46,7 +58,7 @@ export class TerminalPanelComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   // Decorator query: signal queries are not registered when the specs run under the JIT compiler.
-  @ViewChild("screen", { static: true }) private screen!: ElementRef<HTMLElement>;
+  @ViewChild("screens", { static: true }) private screens!: ElementRef<HTMLElement>;
   protected readonly error = signal<string | null>(null);
   protected readonly min = MIN_TERMINAL_HEIGHT;
 
@@ -55,141 +67,178 @@ export class TerminalPanelComponent {
   protected readonly height = () =>
     clampTerminalHeight(this.settings.terminalHeight(), this.windowHeight());
 
-  private term: Terminal | null = null;
-  private fit: FitAddon | null = null;
-  private session: number | null = null;
-  /** Counts the sessions started, so output and exit of an old one are ignored. */
-  private generation = 0;
-  private starting = false;
-  private unlisten: (() => void)[] = [];
+  private readonly runs = new Map<number, Run>();
+  private readonly ready = signal(false);
   private observer: ResizeObserver | null = null;
   private drag: { y: number; height: number } | null = null;
   private root: string | null = null;
 
   constructor() {
     afterNextRender(() => {
-      const term = new Terminal({
-        cursorBlink: true,
-        fontFamily: "var(--nixe-font-mono)",
-        fontSize: 13,
-        scrollback: 5000,
-      });
-      const fit = new FitAddon();
-      term.loadAddon(fit);
-      term.open(this.screen.nativeElement);
-      term.onData((data) => this.input(data));
-      term.onResize(({ rows, cols }) => {
-        if (this.session !== null)
-          void this.backend.resize(this.session, rows, cols).catch(() => undefined);
-      });
-      this.term = term;
-      this.fit = fit;
       if (typeof ResizeObserver !== "undefined") {
         this.observer = new ResizeObserver(() => this.refit());
         this.observer.observe(this.host.nativeElement);
       }
-      this.shown(this.terminal.open());
+      this.ready.set(true);
     });
 
-    // Showing the panel starts the session and focuses it; the height follows the stored one.
+    // Showing the panel opens the first tab; the tabs and the height are followed.
     effect(() => {
       const open = this.terminal.open();
+      const ready = this.ready();
+      this.terminal.tabs();
+      this.terminal.activeKey();
       this.height();
-      untracked(() => this.shown(open));
+      untracked(() => this.sync(open && ready));
     });
 
     // A session belongs to the vault it started in.
     effect(() => {
       const root = this.workspace.vaultRoot();
       untracked(() => {
-        if (this.root !== null && root !== this.root) this.endSession(true);
+        if (this.root !== null && root !== this.root) {
+          for (const key of this.runs.keys()) this.dispose(key);
+          this.terminal.reset();
+        }
         this.root = root;
       });
     });
 
     inject(DestroyRef).onDestroy(() => {
       this.observer?.disconnect();
-      this.endSession(false);
-      this.term?.dispose();
-      this.term = null;
+      for (const key of this.runs.keys()) this.dispose(key);
     });
   }
 
-  private shown(open: boolean): void {
-    if (!open || !this.term) return;
+  /** Brings the terminals in line with the tabs: closes the removed, opens the new, shows the active one. */
+  private sync(shown: boolean): void {
+    const tabs = this.terminal.tabs();
+    for (const key of this.runs.keys()) {
+      if (!tabs.some((t) => t.key === key)) this.dispose(key);
+    }
+    if (!shown) return;
+    if (tabs.length === 0) this.terminal.seed();
+    const active = this.terminal.activeKey();
+    for (const tab of this.terminal.tabs()) {
+      if (!this.runs.has(tab.key)) this.create(tab.key);
+    }
+    for (const [key, run] of this.runs) run.el.style.display = key === active ? "" : "none";
+    const run = active === null ? undefined : this.runs.get(active);
+    if (!run) return;
     this.refit();
-    this.term.focus();
-    if (this.session === null && !this.starting) void this.start();
+    run.term.focus();
+    if (run.session === null && !run.starting) void this.start(run);
+  }
+
+  private create(key: number): void {
+    const el = document.createElement("div");
+    // Created outside the template, so the component styles do not reach it.
+    el.style.cssText = "height:100%;padding:4px 8px;box-sizing:border-box";
+    el.setAttribute("role", "region");
+    el.setAttribute(
+      "aria-label",
+      this.terminal.tabs().find((t) => t.key === key)?.title ?? "Terminal",
+    );
+    this.screens.nativeElement.append(el);
+    const term = new Terminal({
+      cursorBlink: true,
+      fontFamily: "var(--nixe-font-mono)",
+      fontSize: 13,
+      scrollback: 5000,
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(el);
+    const run: Run = {
+      key,
+      el,
+      term,
+      fit,
+      session: null,
+      generation: 0,
+      starting: false,
+      unlisten: [],
+    };
+    term.onData((data) => this.input(run, data));
+    term.onResize(({ rows, cols }) => {
+      if (run.session !== null)
+        void this.backend.resize(run.session, rows, cols).catch(() => undefined);
+    });
+    this.runs.set(key, run);
   }
 
   private refit(): void {
-    if (!this.terminal.open() || !this.term) return;
+    const key = this.terminal.activeKey();
+    const run = key === null ? undefined : this.runs.get(key);
+    if (!this.terminal.open() || !run) return;
     try {
-      this.fit?.fit();
+      run.fit.fit();
     } catch {
       // the panel has no size yet
     }
   }
 
-  private async start(): Promise<void> {
-    const term = this.term;
-    if (!term) return;
-    this.starting = true;
-    const generation = ++this.generation;
+  private async start(run: Run): Promise<void> {
+    const { term } = run;
+    run.starting = true;
+    const generation = ++run.generation;
     this.error.set(null);
     try {
       const id = await this.backend.open(term.rows, term.cols);
-      if (generation !== this.generation || this.term !== term) {
+      if (generation !== run.generation) {
         void this.backend.close(id).catch(() => undefined);
         return;
       }
-      this.session = id;
+      run.session = id;
       // The shell emits as soon as it runs, so the listeners come first and `attach` starts the output.
       const off = [
         await this.backend.onOutput(id, (bytes) => {
-          if (generation === this.generation) term.write(bytes);
+          if (generation === run.generation) term.write(bytes);
         }),
         await this.backend.onExit(id, () => {
-          if (generation !== this.generation) return;
-          this.releaseListeners();
-          this.session = null;
+          if (generation !== run.generation) return;
+          this.releaseListeners(run);
+          run.session = null;
           term.write("\r\n[process ended – press a key to start a new shell]\r\n");
         }),
       ];
-      if (generation !== this.generation) {
+      if (generation !== run.generation) {
         for (const f of off) f();
         return;
       }
-      this.unlisten.push(...off);
+      run.unlisten.push(...off);
       await this.backend.attach(id);
     } catch (err) {
       this.error.set(String(err));
     } finally {
-      this.starting = false;
+      run.starting = false;
     }
   }
 
-  private input(data: string): void {
-    if (this.session === null) {
-      if (!this.starting && this.terminal.open()) void this.start();
+  private input(run: Run, data: string): void {
+    if (run.session === null) {
+      if (!run.starting && this.terminal.open()) void this.start(run);
       return;
     }
-    void this.backend.write(this.session, data).catch((err) => this.error.set(String(err)));
+    void this.backend.write(run.session, data).catch((err) => this.error.set(String(err)));
   }
 
-  private releaseListeners(): void {
-    for (const off of this.unlisten.splice(0)) off();
+  private releaseListeners(run: Run): void {
+    for (const off of run.unlisten.splice(0)) off();
   }
 
-  /** Ends the session; `clear` also empties the screen for the next one. */
-  private endSession(clear: boolean): void {
-    this.generation++;
-    this.releaseListeners();
-    const id = this.session;
-    this.session = null;
+  /** Ends the session of a tab and removes its terminal. */
+  private dispose(key: number): void {
+    const run = this.runs.get(key);
+    if (!run) return;
+    this.runs.delete(key);
+    run.generation++;
+    this.releaseListeners(run);
+    const id = run.session;
+    run.session = null;
     if (id !== null) void this.backend.close(id).catch(() => undefined);
-    if (clear) this.term?.reset();
-    if (clear && this.terminal.open()) this.shown(true);
+    run.term.dispose();
+    run.el.remove();
   }
 
   protected onWindowResize(): void {

@@ -12,6 +12,12 @@ export const TERMINAL_OFF_NOTICE =
 export const TERMINAL_CONFIRM =
   "The terminal runs commands with your rights, like any program you start. A vault from someone else, or a note that tells you to paste a command, can harm your computer. Enable the terminal?";
 
+/** One tab of the panel: its own session; `key` is stable for the life of the tab. */
+export interface TerminalTab {
+  readonly key: number;
+  readonly title: string;
+}
+
 /** The bottom panel with the shell: the command, the opt-in setting and its confirmation. Desktop only. */
 @Injectable({ providedIn: "root" })
 export class TerminalService {
@@ -32,8 +38,28 @@ export class TerminalService {
       this.workspace.vaultRoot() !== null,
   );
 
+  /** The tabs of the panel, in order. */
+  readonly tabs = signal<readonly TerminalTab[]>([]);
+  /** The key of the shown tab, or null while there is none. */
+  readonly activeKey = signal<number | null>(null);
+  private nextKey = 1;
+  /** The first tab of a vault was opened; closing the last tab then leaves the panel empty. */
+  private seeded = false;
+
   constructor() {
     if (!this.supported) return;
+    this.commands.register({
+      id: "new-terminal-tab",
+      title: "New terminal tab",
+      when: () => this.workspace.vaultRoot() !== null,
+      run: () => this.newTab(),
+    });
+    this.commands.register({
+      id: "close-terminal-tab",
+      title: "Close terminal tab",
+      when: () => this.open() && this.activeKey() !== null,
+      run: () => this.closeTab(),
+    });
     this.commands.register({
       id: "toggle-terminal",
       title: "Toggle terminal",
@@ -54,6 +80,51 @@ export class TerminalService {
     this.settings.terminalVisible.update((v) => !v);
   }
 
+  /** Opens a tab with its own session and shows it, also the panel. While the terminal is off it explains the setting. */
+  newTab(): void {
+    if (!this.supported) return;
+    if (!this.settings.terminalEnabled()) {
+      this.notice.set(TERMINAL_OFF_NOTICE);
+      return;
+    }
+    this.settings.terminalVisible.set(true);
+    this.addTab();
+  }
+
+  /** Opens the first tab of a vault once; the panel calls it when it is first shown. */
+  seed(): void {
+    if (!this.seeded) this.addTab();
+  }
+
+  private addTab(): void {
+    this.seeded = true;
+    const key = this.nextKey++;
+    this.tabs.update((tabs) => [...tabs, { key, title: `Terminal ${key}` }]);
+    this.activeKey.set(key);
+  }
+
+  selectTab(key: number): void {
+    if (this.tabs().some((t) => t.key === key)) this.activeKey.set(key);
+  }
+
+  /** Closes a tab (default: the shown one) and with it its session; the panel stays open, also when it was the last. */
+  closeTab(key: number | null = this.activeKey()): void {
+    const tabs = this.tabs();
+    const index = tabs.findIndex((t) => t.key === key);
+    if (index < 0) return;
+    const rest = tabs.filter((t) => t.key !== key);
+    this.tabs.set(rest);
+    if (this.activeKey() === key)
+      this.activeKey.set(rest[Math.min(index, rest.length - 1)]?.key ?? null);
+  }
+
+  /** Forgets all tabs, for a new vault or a terminal that is turned off; the next vault starts with one tab again. */
+  reset(): void {
+    this.tabs.set([]);
+    this.activeKey.set(null);
+    this.seeded = false;
+  }
+
   /** Turns the terminal on or off; turning it on asks once. Returns whether the setting changed to `value`. */
   async setEnabled(value: boolean): Promise<boolean> {
     if (!this.supported) return false;
@@ -67,7 +138,10 @@ export class TerminalService {
       this.settings.terminalConfirmed.set(true);
     }
     this.settings.terminalEnabled.set(value);
-    if (!value) this.settings.terminalVisible.set(false);
+    if (!value) {
+      this.settings.terminalVisible.set(false);
+      this.reset();
+    }
     return true;
   }
 }

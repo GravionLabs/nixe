@@ -130,4 +130,79 @@ describe("TerminalService", () => {
     expect(ask).not.toHaveBeenCalled();
     expect(service.open()).toBe(false);
   });
+
+  describe("tabs", () => {
+    beforeEach(() => {
+      terminalEnabled.set(true);
+      terminalVisible.set(true);
+    });
+
+    it("seeds one tab per vault, and a closed last tab is not replaced", () => {
+      const { service } = create();
+      service.seed();
+      service.seed();
+      expect(service.tabs().map((t) => t.title)).toEqual(["Terminal 1"]);
+      service.closeTab();
+      expect(service.tabs()).toEqual([]);
+      expect(service.activeKey()).toBeNull();
+      service.seed();
+      expect(service.tabs()).toEqual([]);
+      service.reset();
+      service.seed();
+      expect(service.tabs()).toHaveLength(1);
+    });
+
+    it("opens, switches and closes tabs", () => {
+      const { service } = create();
+      service.newTab();
+      service.newTab();
+      service.newTab();
+      const [a, b, c] = service.tabs().map((t) => t.key);
+      expect(service.activeKey()).toBe(c);
+      service.selectTab(a);
+      expect(service.activeKey()).toBe(a);
+      service.selectTab(999);
+      expect(service.activeKey()).toBe(a);
+      service.closeTab(a);
+      expect(service.activeKey()).toBe(b);
+      service.closeTab(c);
+      expect(service.tabs().map((t) => t.key)).toEqual([b]);
+      expect(service.activeKey()).toBe(b);
+      service.closeTab(999);
+      expect(service.tabs()).toHaveLength(1);
+    });
+
+    it("registers new and close tab in the palette", () => {
+      terminalVisible.set(false);
+      const { service, commands } = create();
+      expect(commands.available().some((c) => c.id === "new-terminal-tab")).toBe(true);
+      expect(commands.available().some((c) => c.id === "close-terminal-tab")).toBe(false);
+      commands.execute("new-terminal-tab");
+      expect(terminalVisible()).toBe(true);
+      expect(service.tabs()).toHaveLength(1);
+      expect(commands.available().some((c) => c.id === "close-terminal-tab")).toBe(true);
+      commands.execute("close-terminal-tab");
+      expect(service.tabs()).toEqual([]);
+    });
+
+    it("does not open a tab while the terminal is off", () => {
+      terminalEnabled.set(false);
+      const { service } = create();
+      service.newTab();
+      expect(service.tabs()).toEqual([]);
+      expect(service.notice()).toBe(TERMINAL_OFF_NOTICE);
+    });
+
+    it("forgets the tabs when the terminal is turned off", async () => {
+      const { service } = create();
+      service.newTab();
+      await service.setEnabled(false);
+      expect(service.tabs()).toEqual([]);
+    });
+
+    it("has no tab commands on iOS", () => {
+      const { commands } = create("mobile");
+      expect(commands.all().some((c) => c.id.endsWith("-terminal-tab"))).toBe(false);
+    });
+  });
 });
