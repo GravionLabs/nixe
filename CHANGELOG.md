@@ -5,6 +5,32 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.8.0] — 2026-11-21
+
+### Features
+- **compare**: Compare two versions of a note in the main area (#317) (#338)
+- **git**: Status header, change list and save box in plain language (#318) (#341)
+- **git**: Discard the changes of a note (#319) (#342)
+- **settings**: Sync settings for token, automatic sync and author (#320) (#343)
+- **git**: Changes since a version picked from a list (#321) (#344)
+- **review**: Review a suggestion in the main area (#322) (#345)
+- **icon**: Markdown mark with N and fluke as the app icon (#346) (#347)
+- **history**: Timeline grouped by day with readable entries (#323) (#348)
+- **history**: Compare and restore versions in the main area (#324) (#349)
+- **history**: Trash for deleted notes and recently changed notes (#325) (#350)
+- **git**: Choose the notes that go into a save (#326) (#351)
+
+
+### Refactoring
+- **ui**: Shared sections, note rows and empty states for the side panels (#316) (#336)
+
+
+## [1.7.0] — 2026-11-20
+
+### Documentation
+- Update CHANGELOG.md for v1.7.0 [skip ci]
+
+
 ## [1.6.1] — 2026-11-20
 
 ### Bug Fixes
