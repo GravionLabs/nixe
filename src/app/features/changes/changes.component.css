@@ -29,25 +29,10 @@
   list-style: none;
 }
 
-.entry {
-  display: flex;
-  gap: 6px;
-  width: 100%;
-  text-align: left;
-}
-
-.name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.kind.added,
 .add {
   color: #2da44e;
 }
 
-.kind.deleted,
 .del {
   color: #cf222e;
 }

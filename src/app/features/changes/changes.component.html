@@ -1,5 +1,4 @@
-<section aria-label="Changes since">
-  <h2>Changes since</h2>
+<app-panel-section title="Changes since" storageKey="changes-since">
   <div class="range" role="group" aria-label="Range">
     <button type="button" [class.on]="changes.kind() === 'sync'" (click)="changes.showSync()">
       Last sync
@@ -29,19 +28,16 @@
   <ul class="list" aria-label="Changed notes">
     @for (change of changes.changes(); track change.path) {
       <li>
-        <button
-          type="button"
-          class="entry"
-          [attr.aria-expanded]="changes.selected() === change.path"
-          [title]="change.path"
-          (click)="changes.toggle(change)"
+        <app-note-row
+          [path]="change.path"
+          [kind]="change.kind"
+          [expanded]="changes.selected() === change.path"
+          (activated)="changes.toggle(change)"
         >
-          <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
-          <span class="name">{{ change.path }}</span>
-        </button>
-        @if (change.kind !== "deleted") {
-          <button type="button" class="open" (click)="open(change)">Open</button>
-        }
+          @if (change.kind !== "deleted") {
+            <button rowActions type="button" class="open" (click)="open(change)">Open</button>
+          }
+        </app-note-row>
         @if (changes.selected() === change.path && changes.diff()) {
           <div class="diff" aria-label="Difference">
             <p class="stat">
@@ -67,6 +63,10 @@
           </div>
         }
       </li>
+    } @empty {
+      @if (!changes.loading() && !changes.message()) {
+        <li><app-empty-state text="No notes changed" /></li>
+      }
     }
   </ul>
-</section>
+</app-panel-section>

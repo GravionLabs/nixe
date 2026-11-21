@@ -7,53 +7,55 @@
   @if (history.error(); as error) {
     <p class="status" role="alert">{{ error }}</p>
   }
-  <ul class="timeline" aria-label="Versions" #list (scroll)="onScroll(list)">
-    @for (entry of history.timeline(); track entry.id ?? "uncommitted") {
-      <li>
-        <button
-          type="button"
-          [class.selected]="selected(entry)"
-          [attr.aria-pressed]="selected(entry)"
-          (click)="history.select(entry)"
-        >
-          <span class="message">
-            @if (entry.operation) {
-              <span class="operation">{{ entry.operation }}</span>
-            }
-            {{ entry.message }}
-          </span>
-          <span class="meta"
-            >{{ time(entry) }}
-            @if (entry.author) {
-              · {{ entry.author }}
-            }
-          </span>
-        </button>
-        @if (entry.id !== null) {
-          <span class="actions">
-            <button type="button" class="restore" (click)="history.restore(entry)">
-              Restore this version
-            </button>
-            <button
-              type="button"
-              class="copy"
-              (mousedown)="$event.preventDefault()"
-              (click)="copy(entry)"
-            >
-              Copy
-            </button>
-          </span>
+  <app-panel-section title="Versions" storageKey="history-versions">
+    <ul class="timeline" aria-label="Versions" #list (scroll)="onScroll(list)">
+      @for (entry of history.timeline(); track entry.id ?? "uncommitted") {
+        <li>
+          <button
+            type="button"
+            [class.selected]="selected(entry)"
+            [attr.aria-pressed]="selected(entry)"
+            (click)="history.select(entry)"
+          >
+            <span class="message">
+              @if (entry.operation) {
+                <span class="operation">{{ entry.operation }}</span>
+              }
+              {{ entry.message }}
+            </span>
+            <span class="meta"
+              >{{ time(entry) }}
+              @if (entry.author) {
+                · {{ entry.author }}
+              }
+            </span>
+          </button>
+          @if (entry.id !== null) {
+            <span class="row-actions">
+              <button type="button" class="restore" (click)="history.restore(entry)">
+                Restore this version
+              </button>
+              <button
+                type="button"
+                class="copy"
+                (mousedown)="$event.preventDefault()"
+                (click)="copy(entry)"
+              >
+                Copy
+              </button>
+            </span>
+          }
+        </li>
+      } @empty {
+        @if (!history.loading()) {
+          <li><app-empty-state text="No commits touched this note" /></li>
         }
-      </li>
-    } @empty {
-      @if (!history.loading()) {
-        <li class="status">No commits touched this note</li>
       }
-    }
-    @if (history.loading()) {
-      <li class="status">Loading…</li>
-    }
-  </ul>
+      @if (history.loading()) {
+        <li class="status">Loading…</li>
+      }
+    </ul>
+  </app-panel-section>
 
   @if (history.comparison(); as comparison) {
     <div class="toolbar">
@@ -105,10 +107,10 @@
       }
     }
   } @else {
-    <p class="status">Select a version to see its change, or two to compare them.</p>
+    <app-empty-state text="Select a version to see its change, or two to compare them." />
   }
 } @else {
-  <p class="status">Open a note to see its history.</p>
+  <app-empty-state text="Open a note to see its history." />
 }
 
 @if (history.notice(); as notice) {
@@ -116,22 +118,28 @@
 }
 
 @if (history.deleted().length > 0) {
-  <h3 class="deleted-title">Deleted notes</h3>
-  <ul class="deleted" aria-label="Deleted notes">
-    @for (note of history.deleted(); track note.path) {
-      <li>
-        <span class="message" [title]="note.path">{{ note.path }}</span>
-        <span class="meta">{{
-          time({
-            id: note.id,
-            author: note.author,
-            time: note.time,
-            message: note.message,
-            path: note.path,
-          })
-        }}</span>
-        <button type="button" (click)="history.restoreDeleted(note)">Restore</button>
-      </li>
-    }
-  </ul>
+  <app-panel-section
+    title="Deleted notes"
+    [count]="history.deleted().length"
+    storageKey="history-deleted"
+  >
+    <ul class="deleted" aria-label="Deleted notes">
+      @for (note of history.deleted(); track note.path) {
+        <li>
+          <app-note-row [path]="note.path" kind="deleted" [interactive]="false">
+            <span rowEnd class="meta">{{
+              time({
+                id: note.id,
+                author: note.author,
+                time: note.time,
+                message: note.message,
+                path: note.path,
+              })
+            }}</span>
+            <button rowActions type="button" (click)="history.restoreDeleted(note)">Restore</button>
+          </app-note-row>
+        </li>
+      }
+    </ul>
+  </app-panel-section>
 }

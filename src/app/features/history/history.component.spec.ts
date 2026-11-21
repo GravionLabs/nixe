@@ -176,8 +176,8 @@ describe("HistoryComponent", () => {
   it("lists the deleted notes with a Restore button", () => {
     const { el, restoreDeleted } = render(null);
     const li = el.querySelector(".deleted li")!;
-    expect(li.textContent).toContain("gone.md");
-    li.querySelector("button")!.click();
+    expect(li.querySelector(".main")!.getAttribute("title")).toBe("gone.md");
+    li.querySelector<HTMLButtonElement>("button:not(.main)")!.click();
     expect(restoreDeleted).toHaveBeenCalledWith(expect.objectContaining({ path: "gone.md" }));
   });
 });

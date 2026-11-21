@@ -1,7 +1,4 @@
-<section aria-label="Review">
-  <h2>
-    Review <span class="count">{{ review.count() }}</span>
-  </h2>
+<app-panel-section title="Review" [count]="review.count()" storageKey="review">
   @if (review.error(); as error) {
     <p class="status" role="alert">{{ error }}</p>
   }
@@ -41,37 +38,34 @@
           <ul class="list" aria-label="Changed notes">
             @for (change of review.changes(); track change.path) {
               <li>
-                <button
-                  type="button"
-                  class="entry"
-                  [attr.aria-expanded]="review.selected() === change.path"
-                  [title]="change.path"
-                  (click)="review.select(change)"
+                <app-note-row
+                  [path]="change.path"
+                  [kind]="change.kind"
+                  [expanded]="review.selected() === change.path"
+                  (activated)="review.select(change)"
                 >
-                  <span class="kind" [class]="change.kind">{{ letter(change.kind) }}</span>
-                  <span class="name">{{ change.path }}</span>
-                  <span class="state" [class]="review.stateOf(change.path)">{{
+                  <span rowEnd class="state" [class]="review.stateOf(change.path)">{{
                     review.stateOf(change.path)
                   }}</span>
-                </button>
-                <span class="decide">
-                  <button
-                    type="button"
-                    [attr.aria-label]="'Accept ' + change.path"
-                    [class.on]="review.stateOf(change.path) === 'accepted'"
-                    (click)="review.setNote(change.path, true)"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    [attr.aria-label]="'Reject ' + change.path"
-                    [class.on]="review.stateOf(change.path) === 'rejected'"
-                    (click)="review.setNote(change.path, false)"
-                  >
-                    Reject
-                  </button>
-                </span>
+                  <span rowActions class="decide">
+                    <button
+                      type="button"
+                      [attr.aria-label]="'Accept ' + change.path"
+                      [class.on]="review.stateOf(change.path) === 'accepted'"
+                      (click)="review.setNote(change.path, true)"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      [attr.aria-label]="'Reject ' + change.path"
+                      [class.on]="review.stateOf(change.path) === 'rejected'"
+                      (click)="review.setNote(change.path, false)"
+                    >
+                      Reject
+                    </button>
+                  </span>
+                </app-note-row>
                 @if (review.selected() === change.path && review.diff(); as diff) {
                   <div class="toolbar">
                     <span class="stat"
@@ -205,7 +199,7 @@
               </li>
             } @empty {
               @if (!review.loading()) {
-                <li class="status">No notes changed</li>
+                <li><app-empty-state text="No notes changed" /></li>
               }
             }
           </ul>
@@ -267,7 +261,7 @@
         }
       </li>
     } @empty {
-      <li class="status">Nothing waits for review</li>
+      <li><app-empty-state text="Nothing waits for review" /></li>
     }
   </ul>
-</section>
+</app-panel-section>
