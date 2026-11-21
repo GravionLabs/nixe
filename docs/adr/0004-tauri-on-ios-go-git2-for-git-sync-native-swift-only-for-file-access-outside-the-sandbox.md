@@ -43,7 +43,7 @@ notes, iPad, sync conflicts on a device, background behavior, and Git over SSH.
 
 1. **Go for Tauri 2 on iOS.** The Rust core, the Angular frontend and the CodeMirror 6 editor
    run on the iPhone as ADR 0003 assumed. The spike gate of ADR 0003 is passed. M001, M001.1
-   and M003 are not blocked by iOS, and M005 (iOS MVP) can be planned.
+   and M003 are not blocked by iOS, and M009 (iOS MVP) can be planned.
 2. **Git sync uses `git2` (libgit2) in the Rust core**, over HTTPS with a personal access
    token, with the features `https`, `vendored-libgit2` and `vendored-openssl` (`git2` 0.21 has no default features, so SSH is not compiled in). The same code serves desktop and iOS. The token is kept in the
    Keychain (macOS and iOS) through `keyring`. Windows and Linux have no token store yet; the
@@ -58,7 +58,7 @@ notes, iPad, sync conflicts on a device, background behavior, and Git over SSH.
    that calls `startAccessingSecurityScopedResource` and stores a bookmark. It is not part of
    the iOS MVP: the MVP vault is a clone inside the container. Keychain access does not need
    Swift, and neither do Git, the index or the editor. The share sheet was not tested and stays
-   open until M005 is planned.
+   open until M009 is planned.
 5. **Follow-ups, not decided here:**
    - Sync today aborts a rebase on a conflict. ADR 0003 asks for conflict copies; that is a
      task of M003.
@@ -91,7 +91,7 @@ notes, iPad, sync conflicts on a device, background behavior, and Git over SSH.
 
 - **No-go, SwiftUI frontend through UniFFI or desktop only.** Not chosen: nothing in the spike
   blocked the Tauri route. The editor, Git and the Keychain all worked on the iPhone. It stays
-  the fallback of ADR 0003 if M005 finds a blocker.
+  the fallback of ADR 0003 if M009 finds a blocker.
 - **`gix` (gitoxide) instead of `git2`.** Not evaluated in the spike. `git2` already did clone,
   commit, pull --rebase and push on the iPhone, so there was no need to try another library.
 - **GitHub REST API instead of a local repository.** Not evaluated. It would avoid libgit2, but
