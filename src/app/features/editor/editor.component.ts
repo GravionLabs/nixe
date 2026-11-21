@@ -1,5 +1,6 @@
 import type { ElementRef, OnDestroy } from "@angular/core";
 import { Component, effect, inject, output, signal, untracked, viewChild } from "@angular/core";
+import type { Extension } from "@codemirror/state";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { HxMessageService } from "@gravionlabs/helix-ui";
@@ -23,6 +24,8 @@ import { EditorService } from "../../core/editor/editor.service";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
 import { embedFor, pastedImageName } from "../../core/editor/attachment-core";
+import { MarkdownService } from "../../core/markdown/markdown.service";
+import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { insertTemplate } from "../../core/templates/template-core";
 import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
@@ -34,6 +37,8 @@ import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
 import { ExternalCompareComponent } from "./external-compare.component";
+import type { LivePreviewHooks } from "./live-preview";
+import { livePreview } from "./live-preview";
 import type { FoldAction } from "./folding";
 import { foldAction, folding, restoreFolds } from "./folding";
 import { headingLineAt } from "../../core/composer/composer-core";
@@ -83,6 +88,10 @@ export class EditorComponent implements OnDestroy {
   private undoToast: number | null = null;
 
   private readonly theme = new Compartment();
+  /** Holds the live preview; empty in source mode. */
+  private readonly live = new Compartment();
+  private readonly markdown = inject(MarkdownService);
+  private readonly mermaid = new MermaidRenderer();
   private view: EditorView | undefined;
   private session: Session | null = null;
   private loading = false;
@@ -119,6 +128,14 @@ export class EditorComponent implements OnDestroy {
       const path = this.doc.path();
       const host = this.host().nativeElement;
       untracked(() => void this.openNote(path, host));
+    });
+
+    // The live preview and the plain source mode (Mod+E) swap without reloading the note.
+    effect(() => {
+      const source = this.settings.sourceMode();
+      untracked(() =>
+        this.view?.dispatch({ effects: this.live.reconfigure(this.liveMode(source)) }),
+      );
     });
 
     effect(() => {
@@ -224,6 +241,7 @@ export class EditorComponent implements OnDestroy {
         folding((lines) => {
           if (this.session === session && !this.restoringFolds) this.folds.set(session.path, lines);
         }),
+        this.live.of(this.liveMode(this.settings.sourceMode())),
         this.theme.of(
           editorTheme(this.settings.dark(), (BASE_FONT_PX * this.settings.zoom()) / 100),
         ),
@@ -258,6 +276,30 @@ export class EditorComponent implements OnDestroy {
     this.outline.topLine.set(this.topLine());
     this.view.focus();
   }
+
+  private liveMode(source: boolean): Extension {
+    return source ? [] : livePreview(this.liveHooks);
+  }
+
+  /** Blocks of the live preview go through the same pipeline as the reading view. */
+  private readonly liveHooks: LivePreviewHooks = {
+    render: (el, source) => {
+      const ctx = {
+        filePath: this.doc.path(),
+        wikiRoot: this.doc.wikiRoot(),
+        math: this.settings.math(),
+        vaultFiles: this.workspace.vaultFiles(),
+        vaultRoot: this.workspace.vaultRoot(),
+      };
+      el.classList.add("markdown-body");
+      el.innerHTML = this.markdown.render(source, ctx); // sanitized by DOMPurify
+      void this.markdown
+        .expandEmbeds(el, ctx)
+        .catch(() => undefined)
+        .then(() => this.mermaid.render(el, this.settings.dark()))
+        .then(() => this.view?.requestMeasure());
+    },
+  };
 
   private restoringFolds = false;
 

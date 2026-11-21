@@ -81,7 +81,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         )?)
         .item(&item(
             "toggle-editor",
-            "Toggle Editor",
+            "Toggle Source Mode",
             Some("CmdOrCtrl+E"),
         )?)
         .item(&item("search", "Search Vault", Some("CmdOrCtrl+Shift+F"))?)

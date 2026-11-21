@@ -1,6 +1,7 @@
-import { Injectable, inject, signal } from "@angular/core";
+import { Injectable, Injector, inject, signal } from "@angular/core";
 
 import { DocumentService } from "../file/document.service";
+import { SettingsService } from "../settings/settings.service";
 import { backend } from "../file/backend";
 import type { TextStats } from "./text-stats";
 
@@ -34,8 +35,12 @@ export interface EditorHandle {
 @Injectable({ providedIn: "root" })
 export class EditorService {
   private readonly doc = inject(DocumentService);
+  /** Settings are read on demand: most users of this service never switch the mode. */
+  private readonly injector = inject(Injector);
 
   readonly editing = signal(false);
+  /** The user left the editor for the read-only reading view; a note opened later does not undo it. */
+  readonly reading = signal(false);
   /** True while an external change blocks closing the editor; mirrors the open editor's conflict. */
   readonly blocked = signal(false);
   /**
@@ -58,6 +63,7 @@ export class EditorService {
         throw new Error("This note is not valid UTF-8; editing it would damage it.");
       }
       this.startLine.set(viewerLine);
+      this.reading.set(false);
       this.editing.set(true);
       return;
     }
@@ -67,6 +73,24 @@ export class EditorService {
     const line = handle?.topLine() ?? null;
     await handle?.flush();
     this.doc.pendingLine.set(line);
+    this.reading.set(true);
     this.editing.set(false);
+  }
+
+  /**
+   * Mod+E: between the live preview and the plain source. The reading view goes back to the
+   * editor first, in the mode that was last used.
+   */
+  async toggleMode(viewerLine: number | null): Promise<void> {
+    if (!this.editing()) {
+      await this.toggle(viewerLine);
+      return;
+    }
+    this.injector.get(SettingsService).sourceMode.update((source) => !source);
+  }
+
+  /** Leaves the editor for the read-only reading view. */
+  async openReading(): Promise<void> {
+    if (this.editing()) await this.toggle(null);
   }
 }

@@ -465,11 +465,17 @@ export class AppComponent {
       },
       {
         id: "toggle-editor",
-        title: "Toggle editor",
+        title: "Toggle source mode",
         shortcut: "Mod+E",
         when: noteOpen,
         run: () =>
-          this.run(() => this.editor.toggle(this.tabs.activeTab().viewer?.topLine() ?? null)),
+          this.run(() => this.editor.toggleMode(this.tabs.activeTab().viewer?.topLine() ?? null)),
+      },
+      {
+        id: "reading-view",
+        title: "Open reading view",
+        when: () => noteOpen() && this.editor.editing(),
+        run: () => this.run(() => this.editor.openReading()),
       },
       {
         id: "undo-vault-operation",

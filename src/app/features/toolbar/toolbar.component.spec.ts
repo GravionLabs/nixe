@@ -66,7 +66,11 @@ function render(opts: {
       { provide: VaultOpsService, useValue: { rename } },
       {
         provide: SettingsService,
-        useValue: { outlineVisible: signal(true), backlinksVisible: signal(false) },
+        useValue: {
+          outlineVisible: signal(true),
+          backlinksVisible: signal(false),
+          sourceMode: signal(true),
+        },
       },
     ],
   });
@@ -80,7 +84,9 @@ function render(opts: {
   const fixture = TestBed.createComponent(ToolbarComponent);
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
-  const button = [...el.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Edit")!;
+  const button = [...el.querySelectorAll("button")].find(
+    (b) => b.textContent?.trim() === "Source",
+  )!;
   return { fixture, button, execute, editing, blocked, el, back, forward, show, reveal, rename };
 }
 
@@ -100,7 +106,7 @@ describe("ToolbarComponent edit toggle", () => {
     expect(button.getAttribute("aria-pressed")).toBe("false");
     expect(button.classList.contains("active")).toBe(false);
     const tip = fixture.debugElement.query(By.css("button.toggle")).injector.get(HxTooltip);
-    expect(tip.text()).toBe("Toggle editor");
+    expect(tip.text()).toBe("Toggle source mode");
     expect(tip.shortcut()).toEqual(["Ctrl", "E"]);
     button.click();
     expect(execute).toHaveBeenCalledWith("toggle-editor");
@@ -129,7 +135,7 @@ describe("ToolbarComponent content", () => {
       "Back",
       "Forward",
       "n.md",
-      "Edit",
+      "Source",
       "Toggle outline",
       "Toggle backlinks",
     ]);
