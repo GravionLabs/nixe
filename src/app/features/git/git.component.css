@@ -64,9 +64,44 @@ button:hover {
   white-space: nowrap;
 }
 
-.branch {
-  margin: 8px 12px 0;
+.summary {
+  padding: 8px 0;
+}
+
+.state {
+  margin: 0 12px;
   font-weight: 600;
+}
+
+.branch {
+  margin: 2px 12px 6px;
+  font-size: 11px;
+  color: var(--h-text-muted-color);
+}
+
+button.sync {
+  align-items: center;
+  width: auto;
+  margin: 0 12px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+}
+
+button.sync:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.detail-box {
+  margin: 4px 12px;
+  font-size: 11px;
+  color: var(--h-text-muted-color);
+}
+
+.detail-box pre {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 form {
@@ -106,4 +141,10 @@ form button.primary {
 form button.primary:disabled {
   cursor: default;
   opacity: 0.5;
+}
+
+button.open {
+  width: auto;
+  padding: 2px 6px;
+  font-size: 11px;
 }

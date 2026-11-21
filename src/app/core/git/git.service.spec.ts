@@ -14,13 +14,14 @@ import { backend } from "../file/backend";
 import { IndexService } from "../index/index.service";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { GitService, describeSync } from "./git.service";
+import { GitService, describeSync, explainSyncError } from "./git.service";
 
 const status: GitStatus = {
   branch: "main",
   changes: [{ path: "a.md", kind: "modified" }],
   ahead: 1,
   behind: 0,
+  hasRemote: true,
 };
 
 describe("GitService", () => {
@@ -106,6 +107,40 @@ describe("GitService", () => {
     expect(git.committing()).toBe(false);
   });
 
+  describe("saveAndSync", () => {
+    const report = { committed: false, pulled: false, pushed: true, conflicts: [] };
+
+    it("saves the changes with the message, then syncs", async () => {
+      await git.refresh();
+      const commit = vi.spyOn(backend, "gitVaultCommit").mockResolvedValue("abc");
+      const sync = vi.spyOn(backend, "gitVaultSync").mockResolvedValue(report);
+      await git.saveAndSync("note");
+      expect(commit).toHaveBeenCalledWith("note", null, null);
+      expect(sync).toHaveBeenCalled();
+      expect(git.lastSynced()).not.toBeNull();
+    });
+
+    it("only saves when there is no remote", async () => {
+      vi.mocked(backend.gitVaultStatus).mockResolvedValue({ ...status, hasRemote: false });
+      await git.refresh();
+      const commit = vi.spyOn(backend, "gitVaultCommit").mockResolvedValue("abc");
+      const sync = vi.spyOn(backend, "gitVaultSync").mockResolvedValue(report);
+      await git.saveAndSync("");
+      expect(commit).toHaveBeenCalledWith(null, null, null);
+      expect(sync).not.toHaveBeenCalled();
+    });
+
+    it("only syncs when nothing changed", async () => {
+      vi.mocked(backend.gitVaultStatus).mockResolvedValue({ ...status, changes: [] });
+      await git.refresh();
+      const commit = vi.spyOn(backend, "gitVaultCommit").mockResolvedValue("abc");
+      const sync = vi.spyOn(backend, "gitVaultSync").mockResolvedValue(report);
+      await git.saveAndSync("");
+      expect(commit).not.toHaveBeenCalled();
+      expect(sync).toHaveBeenCalled();
+    });
+  });
+
   describe("sync", () => {
     beforeEach(async () => {
       await git.refresh();
@@ -124,7 +159,7 @@ describe("GitService", () => {
       expect(sync).toHaveBeenCalledWith("Ann", "ann@example.com");
       expect(git.syncState()).toEqual({
         phase: "done",
-        message: "Synced (committed, pulled, pushed)",
+        message: "Synced (saved, received, sent)",
       });
     });
 
@@ -152,7 +187,7 @@ describe("GitService", () => {
         conflicts: [],
       });
       await git.sync();
-      expect(git.syncState().message).toBe("Already in sync");
+      expect(git.syncState().message).toBe("Everything is synced");
     });
 
     it("shows a failure and reads the status again", async () => {
@@ -161,7 +196,9 @@ describe("GitService", () => {
       await git.sync();
       expect(git.syncState()).toEqual({
         phase: "error",
-        message: "Sync failed: sync stopped: conflict",
+        message:
+          "Sync failed: Some notes were changed in two places and could not be joined. Nothing is lost; try again.",
+        detail: "sync stopped: conflict",
       });
       expect(vi.mocked(backend.gitVaultStatus).mock.calls.length).toBeGreaterThan(calls);
     });
@@ -177,7 +214,7 @@ describe("GitService", () => {
       await git.saveToken("ghp_x");
       await run;
       expect(sync).toHaveBeenCalledTimes(2);
-      expect(git.syncState().message).toBe("Synced (pulled)");
+      expect(git.syncState().message).toBe("Synced (received)");
     });
 
     it("explains a cancelled token prompt", async () => {
@@ -221,7 +258,12 @@ describe("GitService", () => {
     it("shows an error once and not again on the next interval", async () => {
       vi.spyOn(backend, "gitVaultSync").mockRejectedValue("network down");
       await git.sync({ auto: true });
-      expect(git.syncState()).toEqual({ phase: "error", message: "Sync failed: network down" });
+      expect(git.syncState()).toEqual({
+        phase: "error",
+        message:
+          "Sync failed: The server could not be reached. Check your connection and try again.",
+        detail: "network down",
+      });
       git.syncState.set({ phase: "idle", message: "" });
       await git.sync({ auto: true });
       expect(git.syncState()).toEqual({ phase: "idle", message: "" });
@@ -232,13 +274,13 @@ describe("GitService", () => {
       await git.sync({ auto: true });
       sync.mockRejectedValue("b");
       await git.sync({ auto: true });
-      expect(git.syncState().message).toBe("Sync failed: b");
+      expect(git.syncState().detail).toBe("b");
       sync.mockResolvedValue({ committed: false, pulled: false, pushed: false, conflicts: [] });
       await git.sync({ auto: true });
       expect(git.syncState().phase).toBe("done");
       sync.mockRejectedValue("b");
       await git.sync({ auto: true });
-      expect(git.syncState()).toEqual({ phase: "error", message: "Sync failed: b" });
+      expect(git.syncState()).toMatchObject({ phase: "error", detail: "b" });
     });
 
     it("never asks for a token", async () => {
@@ -330,13 +372,25 @@ describe("GitService", () => {
   });
 });
 
+describe("explainSyncError", () => {
+  it("says what happened and what to do, without Git words", () => {
+    expect(explainSyncError("auth-failed:github.com")).toContain("access token");
+    expect(explainSyncError("could not resolve host")).toContain("could not be reached");
+    expect(explainSyncError("no author: set user.name")).toContain("name and email");
+    expect(explainSyncError("no remote configured")).toContain("Connect");
+    const generic = explainSyncError("fatal: object 3f2a is corrupt");
+    expect(generic).not.toContain("fatal");
+    expect(generic).toContain("try again");
+  });
+});
+
 describe("describeSync", () => {
   it("names the notes that kept both versions", () => {
     const report = { committed: false, pulled: true, pushed: true, conflicts: ["a.md"] };
     expect(describeSync(report)).toBe(
-      "Synced (pulled, pushed); 1 note changed on both sides, both versions kept",
+      "Synced (received, sent); 1 note changed on both sides, both versions kept",
     );
     expect(describeSync({ ...report, conflicts: ["a.md", "b.md"] })).toContain("2 notes changed");
-    expect(describeSync({ ...report, conflicts: [] })).toBe("Synced (pulled, pushed)");
+    expect(describeSync({ ...report, conflicts: [] })).toBe("Synced (received, sent)");
   });
 });

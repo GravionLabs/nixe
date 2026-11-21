@@ -62,7 +62,7 @@ describe("HistoryService", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     path.set("/vault/a.md");
-    status.set({ branch: "main", changes: [], ahead: 0, behind: 0 });
+    status.set({ branch: "main", changes: [], ahead: 0, behind: 0, hasRemote: true });
     revision.set(0);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -106,6 +106,7 @@ describe("HistoryService", () => {
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     await ready();
     expect(history.timeline().map((t) => t.id)).toEqual([null, "c2", "c1"]);
@@ -177,6 +178,7 @@ describe("HistoryService", () => {
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     await ready();
     await history.select(history.timeline()[0]);
@@ -193,6 +195,7 @@ describe("HistoryService", () => {
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     await ready();
     await history.select(history.timeline()[0]);
@@ -211,6 +214,7 @@ describe("HistoryService", () => {
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     revision.set(1);
     TestBed.tick();
@@ -279,6 +283,7 @@ describe("HistoryService", () => {
       changes: [{ path: "a.md", kind: "modified" }],
       ahead: 0,
       behind: 0,
+      hasRemote: true,
     });
     await ready();
     await history.restore(history.timeline()[0]);

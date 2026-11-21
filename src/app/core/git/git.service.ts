@@ -19,17 +19,34 @@ export interface TokenPrompt {
 export interface SyncState {
   phase: "idle" | "syncing" | "done" | "error";
   message: string;
+  /** The text of the backend behind a failure; the panel keeps it reachable. */
+  detail?: string;
+}
+
+/** What a failed sync means and what to do, in plain words. The raw text goes to `detail`. */
+export function explainSyncError(raw: string): string {
+  if (AUTH_ERROR.test(raw))
+    return "GitHub needs a valid access token. Add one in the sync settings.";
+  if (/conflict/i.test(raw))
+    return "Some notes were changed in two places and could not be joined. Nothing is lost; try again.";
+  if (/no author|user\.name|user\.email/i.test(raw))
+    return "Your name and email are missing. Add them under Author in the sync settings.";
+  if (/network|resolve|connect|timed? ?out|unreachable|offline|dns/i.test(raw))
+    return "The server could not be reached. Check your connection and try again.";
+  if (/no remote|remote.*not|upstream/i.test(raw))
+    return "This vault has no place to send versions to yet. Connect it first.";
+  return "Syncing did not work. Your notes are safe on this computer; try again later.";
 }
 
 /** A readable line for what a sync did. */
 export function describeSync(report: SyncReport): string {
   const parts = [
-    report.committed ? "committed" : "",
-    report.pulled ? "pulled" : "",
-    report.pushed ? "pushed" : "",
+    report.committed ? "saved" : "",
+    report.pulled ? "received" : "",
+    report.pushed ? "sent" : "",
   ].filter(Boolean);
   const n = report.conflicts?.length ?? 0;
-  const text = parts.length ? `Synced (${parts.join(", ")})` : "Already in sync";
+  const text = parts.length ? `Synced (${parts.join(", ")})` : "Everything is synced";
   return n > 0
     ? `${text}; ${n} ${n === 1 ? "note" : "notes"} changed on both sides, both versions kept`
     : text;
@@ -50,6 +67,8 @@ export class GitService {
   readonly tokenPrompt = signal<TokenPrompt | null>(null);
   /** Progress and result of the last sync, for the status bar. */
   readonly syncState = signal<SyncState>({ phase: "idle", message: "" });
+  /** When the last sync of this session succeeded (ms since the epoch); null before one. */
+  readonly lastSynced = signal<number | null>(null);
   /** The last pull that brought changes: the commit HEAD was at before it. A new object per pull. */
   readonly lastPull = signal<{ from: string } | null>(null);
   private request = 0;
@@ -163,6 +182,16 @@ export class GitService {
   }
 
   /**
+   * Saves the open changes with the message (empty: the automatic one), then syncs when the vault
+   * has a remote. Throws when saving fails; a failed sync shows in `syncState`.
+   */
+  async saveAndSync(message: string): Promise<void> {
+    const status = this.status();
+    if (status && status.changes.length > 0) await this.commit(message);
+    if (this.status()?.hasRemote) await this.sync();
+  }
+
+  /**
    * Brings the vault in line with the remote: commits open changes, rebases onto the remote
    * branch and pushes. Progress and result are in `syncState`; never throws. The backend
    * leaves the repository clean on every failure. The index and the open note follow the
@@ -185,15 +214,14 @@ export class GitService {
       const report = await (auto ? call() : this.runRemote(call));
       this.lastError = null;
       if (report.pulled && report.pulledFrom) this.lastPull.set({ from: report.pulledFrom });
+      this.lastSynced.set(Date.now());
       this.syncState.set({ phase: "done", message: describeSync(report) });
     } catch (err) {
       const text = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");
-      const message = AUTH_ERROR.test(text)
-        ? "Sync failed: GitHub needs a valid access token"
-        : `Sync failed: ${text}`;
-      if (auto && message === this.lastError) this.syncState.set(before);
-      else this.syncState.set({ phase: "error", message });
-      this.lastError = message;
+      const message = `Sync failed: ${explainSyncError(text)}`;
+      if (auto && text === this.lastError) this.syncState.set(before);
+      else this.syncState.set({ phase: "error", message, detail: text });
+      this.lastError = text;
     } finally {
       await this.refresh();
     }
