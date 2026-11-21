@@ -30,7 +30,7 @@ export interface NoteChoice {
 export type NoteState = "accepted" | "rejected" | "partial";
 
 /**
- * The inbox for changes an agent made on a branch (#108): the branches with the review prefix
+ * The inbox for changes an agent suggested on a branch (#108, #322): the branches with the review prefix
  * that are ahead of the working branch, and per branch the notes it changed against the merge base.
  */
 @Injectable({ providedIn: "root" })
@@ -120,12 +120,9 @@ export class ReviewService {
     this.conflicts.set([]);
   }
 
-  /** Opens a branch: lists its notes against the merge base. Opening the open one closes it. */
-  async toggle(branch: ReviewBranch): Promise<void> {
-    if (this.open()?.name === branch.name) {
-      this.close();
-      return;
-    }
+  /** Opens a suggestion: lists its notes against the merge base. The open one stays as it is. */
+  async view(branch: ReviewBranch): Promise<void> {
+    if (this.open()?.name === branch.name && this.open()?.tip === branch.tip) return;
     await this.show(branch);
   }
 
@@ -156,16 +153,12 @@ export class ReviewService {
     }
   }
 
-  /** Shows or hides the diff of one note of the open branch. */
+  /** Shows the diff of one note of the open branch. */
   async select(change: GitChange): Promise<void> {
     const branch = this.open();
     const base = this.base();
     if (!branch || base === null) return;
-    if (this.selected() === change.path) {
-      this.selected.set(null);
-      this.diff.set(null);
-      return;
-    }
+    if (this.selected() === change.path && this.diff()) return;
     const request = ++this.diffRequest;
     this.selected.set(change.path);
     this.diff.set(null);
@@ -319,8 +312,8 @@ export class ReviewService {
       const count = out.applied.length;
       const text =
         count === 0
-          ? `Nothing accepted: ${branch.name} deleted without changes`
-          : `${count} ${count === 1 ? "note" : "notes"} from ${branch.name} merged`;
+          ? "Nothing taken over: the suggestion was removed without changes"
+          : `${count} ${count === 1 ? "note" : "notes"} taken over from the suggestion`;
       this.close();
       this.result.set(out.warning ? `${text}. ${out.warning}` : text);
       await this.git.refresh();
