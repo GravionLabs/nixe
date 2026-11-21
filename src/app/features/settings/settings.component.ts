@@ -1,5 +1,5 @@
 import type { ElementRef, OnDestroy } from "@angular/core";
-import { Component, effect, inject, viewChild } from "@angular/core";
+import { Component, effect, inject, signal, viewChild } from "@angular/core";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { ShortcutService } from "../../core/commands/shortcut.service";
@@ -37,6 +37,30 @@ export class SettingsComponent implements OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     this.shortcuts.capture(event);
+  }
+
+  protected readonly tokenError = signal("");
+
+  protected async saveToken(
+    item: Extract<SettingItem, { kind: "token" }>,
+    input: HTMLInputElement,
+  ): Promise<void> {
+    try {
+      await item.save(input.value);
+      input.value = "";
+      this.tokenError.set("");
+    } catch (err) {
+      this.tokenError.set(String(err));
+    }
+  }
+
+  protected async deleteToken(item: Extract<SettingItem, { kind: "token" }>): Promise<void> {
+    try {
+      await item.remove();
+      this.tokenError.set("");
+    } catch (err) {
+      this.tokenError.set(String(err));
+    }
   }
 
   protected value(event: Event): string {

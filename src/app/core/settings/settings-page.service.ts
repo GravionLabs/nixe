@@ -4,6 +4,7 @@ import { AppearanceService } from "../appearance/appearance.service";
 import { CommandRegistry } from "../commands/command-registry";
 import type { ObsidianSetting } from "../file/backend";
 import { backend } from "../file/backend";
+import { GitService } from "../git/git.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { UpdateService } from "../updater/update.service";
 import { builtinSections } from "./builtin-sections";
@@ -28,11 +29,19 @@ export class SettingsPageService {
     const commands = inject(CommandRegistry);
     const updater = inject(UpdateService);
     const appearance = inject(AppearanceService);
+    const git = inject(GitService);
     const sections = builtinSections({
       appearance: {
         themes: () => appearance.themes(),
         snippets: () => appearance.snippets(),
         folder: () => appearance.folder(),
+      },
+      git: {
+        tokenStored: () => git.tokenStored(),
+        tokenPrompt: () => git.tokenPrompt()?.reason ?? null,
+        saveToken: (token) => git.saveToken(token),
+        deleteToken: () => git.deleteToken(),
+        cancelTokenPrompt: () => git.cancelTokenPrompt(),
       },
       settings: inject(SettingsService),
       obsidian: () => this.obsidian(),

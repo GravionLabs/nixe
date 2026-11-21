@@ -60,7 +60,7 @@ describe("settings page", () => {
       "Files and links",
       "Capture",
       "Appearance",
-      "Git",
+      "Sync",
       "Shortcuts",
     ]);
   });
@@ -159,8 +159,8 @@ describe("settings page", () => {
   it("filters the settings with the search field and lists the selected section otherwise", async () => {
     await page.open();
     expect(page.listed().map((s) => s.id)).toEqual(["general"]);
-    page.select("git");
-    expect(page.listed().map((s) => s.id)).toEqual(["git"]);
+    page.select("sync");
+    expect(page.listed().map((s) => s.id)).toEqual(["sync"]);
     page.query.set("dark");
     expect(page.listed().map((s) => [s.id, s.items.map((i) => i.id)])).toEqual([
       ["export", ["export-dark"]],
@@ -168,6 +168,35 @@ describe("settings page", () => {
     ]);
     page.query.set("zzz");
     expect(page.listed()).toEqual([]);
+  });
+
+  it("has the Sync section with automatic sync, the token and the author, and search finds them", () => {
+    const ids = page
+      .sections()
+      .find((s) => s.id === "sync")!
+      .items.map((i) => i.id);
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        "git-token",
+        "git-author-name",
+        "git-author-email",
+        "auto-sync",
+        "auto-sync-minutes",
+        "auto-sync-focus",
+        "auto-sync-quit",
+      ]),
+    );
+    const found = (q: string) => {
+      page.query.set(q);
+      return page.listed().flatMap((s) => s.items.map((i) => i.id));
+    };
+    expect(found("token")).toContain("git-token");
+    expect(found("keychain")).toContain("git-token");
+    expect(found("author")).toEqual(
+      expect.arrayContaining(["git-author-name", "git-author-email"]),
+    );
+    expect(found("interval")).toContain("auto-sync-minutes");
+    expect(found("focus")).toContain("auto-sync-focus");
   });
 
   it("lists every command in the Shortcuts section, with or without a shortcut", () => {

@@ -123,11 +123,6 @@ form input {
   width: calc(100% - 24px);
 }
 
-details input {
-  width: 100%;
-  margin: 4px 0;
-}
-
 form button.primary {
   align-items: center;
   width: auto;
@@ -147,4 +142,15 @@ button.open {
   width: auto;
   padding: 2px 6px;
   font-size: 11px;
+}
+
+button.link {
+  display: inline;
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--h-primary-color);
+  text-decoration: underline;
+  cursor: pointer;
 }

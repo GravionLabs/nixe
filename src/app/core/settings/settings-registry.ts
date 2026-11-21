@@ -22,6 +22,16 @@ export type SettingItem = SettingBase &
     | { kind: "number"; min: number; max: number; get: () => number; set: (value: number) => void }
     /** The keyboard shortcut of a command; the page records, changes, removes and resets it. */
     | { kind: "shortcut"; commandId: string }
+    /** The access token for GitHub: saved, replaced or deleted; it is never read back. */
+    | {
+        kind: "token";
+        stored: () => boolean;
+        /** Set while a running sync waits for a token. */
+        prompt: () => "required" | "failed" | null;
+        save: (token: string) => Promise<void>;
+        remove: () => Promise<void>;
+        cancelPrompt: () => void;
+      }
     /** A value the app only shows: from `.obsidian/` (with its file as `source`) (or from the app). */
     | { kind: "readonly"; value: () => string; source?: () => string }
   );

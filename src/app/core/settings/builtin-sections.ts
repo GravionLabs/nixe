@@ -19,6 +19,14 @@ export interface SectionSources {
   commands: () => readonly Command[];
   /** The running app version; empty until known. */
   version: () => string;
+  /** The access token of the Git sync; without it the Sync section has no token entry. */
+  git?: {
+    tokenStored: () => boolean;
+    tokenPrompt: () => "required" | "failed" | null;
+    saveToken: (token: string) => Promise<void>;
+    deleteToken: () => Promise<void>;
+    cancelTokenPrompt: () => void;
+  };
   /** The theme and snippet files and the folder they live in (#114); none without the appearance service. */
   appearance?: {
     themes: () => readonly CssFile[];
@@ -38,7 +46,7 @@ export function parseList(value: string): string[] {
 /** The shown form of an Obsidian setting that the file does not set. */
 export const NOT_SET = "Not set";
 
-/** General, Editor, Files and links, Appearance, Git and Shortcuts. */
+/** General, Editor, Files and links, Appearance, Sync and Shortcuts. */
 export function builtinSections(src: SectionSources): SettingsSection[] {
   const s = src.settings;
   const toggle = (
@@ -62,12 +70,14 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
     signal: { (): string; set(v: string): void },
     description?: string,
     placeholder?: string,
+    keywords?: string[],
   ): SettingItem => ({
     kind: "text",
     id,
     label,
     description,
     placeholder,
+    keywords,
     get: () => signal(),
     set: (v) => signal.set(v.trim()),
   });
@@ -415,21 +425,42 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       ],
     },
     {
-      id: "git",
-      title: "Git",
+      id: "sync",
+      title: "Sync",
       order: 50,
       items: () => [
+        ...(src.git
+          ? [
+              {
+                kind: "token" as const,
+                id: "git-token",
+                label: "Access token",
+                description:
+                  "A personal access token to reach GitHub. It is kept in the system keychain.",
+                keywords: ["git", "github", "password", "key", "keychain", "login", "sync"],
+                stored: src.git.tokenStored,
+                prompt: src.git.tokenPrompt,
+                save: src.git.saveToken,
+                remove: src.git.deleteToken,
+                cancelPrompt: src.git.cancelTokenPrompt,
+              },
+            ]
+          : []),
         text(
           "git-author-name",
           "Commit author name",
           s.gitAuthorName,
           "Used when the Git config of the vault has none.",
+          undefined,
+          ["git", "author", "name", "sync"],
         ),
         text(
           "git-author-email",
           "Commit author email",
           s.gitAuthorEmail,
           "Used when the Git config of the vault has none.",
+          undefined,
+          ["git", "author", "email", "sync"],
         ),
         toggle(
           "auto-sync",
@@ -442,7 +473,7 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           kind: "number",
           id: "auto-sync-minutes",
           label: "Sync every (minutes)",
-          keywords: ["interval", "timer"],
+          keywords: ["interval", "timer", "git", "sync"],
           min: 1,
           max: 1440,
           get: () => s.autoSyncMinutes(),
