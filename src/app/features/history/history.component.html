@@ -126,7 +126,7 @@
     <ul class="deleted" aria-label="Deleted notes">
       @for (note of history.deleted(); track note.path) {
         <li>
-          <app-note-row [path]="note.path" kind="deleted">
+          <app-note-row [path]="note.path" kind="deleted" [interactive]="false">
             <span rowEnd class="meta">{{
               time({
                 id: note.id,

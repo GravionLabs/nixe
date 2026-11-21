@@ -158,3 +158,9 @@ li:hover > .row-actions,
 li:focus-within > .row-actions {
   display: flex;
 }
+
+.deleted {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

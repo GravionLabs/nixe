@@ -111,6 +111,17 @@ describe("shared panel blocks", () => {
     expect(fixture.componentInstance.activated).toBe(1);
   });
 
+  it("renders a non-interactive row as text with visible actions", () => {
+    const f = TestBed.createComponent(NoteRowComponent);
+    f.componentRef.instance.path = "a/gone.md";
+    f.componentRef.instance.interactive = false;
+    f.detectChanges();
+    expect(f.nativeElement.querySelector("button.main")).toBeNull();
+    expect(f.nativeElement.querySelector(".row.static .main")!.getAttribute("title")).toBe(
+      "a/gone.md",
+    );
+  });
+
   it("names every kind of status", () => {
     const labels = (["added", "modified", "deleted", "renamed"] as const).map((kind) => {
       const f = TestBed.createComponent(StatusIconComponent);

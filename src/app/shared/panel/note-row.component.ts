@@ -71,6 +71,7 @@ import { type ChangeKind, StatusIconComponent } from "./status-icon.component";
       flex: none;
     }
 
+    .static .actions,
     .row:hover .actions,
     .row:focus-within .actions {
       display: inline-flex;
@@ -81,6 +82,8 @@ export class NoteRowComponent {
   @Input({ required: true }) path!: string;
   @Input() kind?: ChangeKind;
   @Input() disabled = false;
+  /** False renders the row as plain text: no click, and its actions are always visible. */
+  @Input() interactive = true;
   /** Set when the row expands something; it is announced as `aria-expanded`. */
   @Input() expanded?: boolean;
   @Output() readonly activated = new EventEmitter<void>();
