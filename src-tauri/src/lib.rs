@@ -456,6 +456,22 @@ async fn git_vault_commit(
     .map_err(|e| e.to_string())?
 }
 
+/// Takes the changes of one note back: the saved version returns, a new note is removed. One
+/// operation commit, so `undo_vault_operation` undoes it (#319).
+#[tauri::command]
+async fn git_discard_note(
+    state: State<'_, AppState>,
+    path: String,
+    name: Option<String>,
+    email: Option<String>,
+) -> Result<git::Operation, String> {
+    let root = vault_root_of(&state)?;
+    let fallback = identity_of(name, email);
+    tauri::async_runtime::spawn_blocking(move || git::discard_note(&root, &path, fallback.as_ref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// Sync: commits open changes, rebases onto the remote branch and pushes (#75).
 /// A missing or rejected token gives `auth-required:<host>` / `auth-failed:<host>`.
 #[tauri::command]
@@ -1269,6 +1285,7 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_discard_note,
         git_note_history,
         git_note_version,
         git_deleted_notes,
@@ -1378,6 +1395,7 @@ pub fn run() {
         watch_file,
         git_vault_status,
         git_vault_commit,
+        git_discard_note,
         git_note_history,
         git_note_version,
         git_deleted_notes,

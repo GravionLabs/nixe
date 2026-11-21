@@ -33,6 +33,9 @@
         @if (change.kind !== "deleted") {
           <button rowActions type="button" class="open" (click)="open(change.path)">Open</button>
         }
+        <button rowActions type="button" class="discard" (click)="discard(change)">
+          Discard changes
+        </button>
       </app-note-row>
     } @empty {
       <app-empty-state text="Everything is saved" />
