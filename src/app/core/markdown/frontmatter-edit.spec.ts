@@ -208,3 +208,20 @@ describe("editFrontmatter move", () => {
     expect(Object.keys(splitFrontmatter(out).data)).toEqual(["b", "a"]);
   });
 });
+
+describe("editFrontmatter move, comments and anchors", () => {
+  const move = (text: string, key: string, direction: -1 | 1) =>
+    editFrontmatter(text, { kind: "move", key, direction });
+
+  it("moves the comment lines above a key with it and leaves trailing comments", () => {
+    const text = "---\na: 1\n# about b\nb: 2\n# trailing\n---\n";
+    expect(move(text, "b", -1)).toBe("---\n# about b\nb: 2\na: 1\n# trailing\n---\n");
+    expect(move(text, "a", 1)).toBe("---\n# about b\nb: 2\na: 1\n# trailing\n---\n");
+  });
+
+  it("refuses to put an alias before its anchor", () => {
+    const text = "---\na: &x 1\nb: *x\n---\n";
+    expect(() => move(text, "b", -1)).toThrow(/alias/);
+    expect(() => move(text, "a", 1)).toThrow(/alias/);
+  });
+});

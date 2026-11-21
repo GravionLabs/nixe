@@ -148,6 +148,18 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
   }
 }
 
+/** True when the YAML parses and every alias has its anchor before it. */
+function parsesWithAliases(yamlText: string): boolean {
+  const doc = parseDocument(yamlText);
+  if (doc.errors.length) return false;
+  try {
+    doc.toJS();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Swaps the lines of the property with those of its neighbour; nothing else changes. */
 function moveBlock(
   text: string,
@@ -159,14 +171,37 @@ function moveBlock(
   const i = pairs.findIndex((p) => keyOf(p) === edit.key);
   const j = i + edit.direction;
   if (i < 0 || j < 0 || j >= pairs.length) return text;
-  const lineStart = (p: Pair): number =>
+  const keyLine = (p: Pair): number =>
     yamlText.lastIndexOf("\n", (p.key as { range: [number, number, number] }).range[0] - 1) + 1;
+  // A comment block directly above a key belongs to it and moves with it.
+  const lineStart = (k: number): number => {
+    let at = keyLine(pairs[k]);
+    const floor = k > 0 ? keyLine(pairs[k - 1]) : 0;
+    while (at > floor) {
+      const prev = yamlText.lastIndexOf("\n", at - 2) + 1;
+      if (prev <= floor || !/^\s*#/.test(yamlText.slice(prev, at))) break;
+      at = prev;
+    }
+    return at;
+  };
   const lo = Math.min(i, j);
-  const a = lineStart(pairs[lo]);
-  const b = lineStart(pairs[lo + 1]);
-  const c = lo + 2 < pairs.length ? lineStart(pairs[lo + 2]) : yamlText.length;
+  const a = lineStart(lo);
+  const b = lineStart(lo + 1);
+  let c: number;
+  if (lo + 2 < pairs.length) c = lineStart(lo + 2);
+  else {
+    const last = pairs[lo + 1];
+    const keyEnd = (last.key as { range: [number, number, number] }).range[1];
+    const valueRange = (last.value as { range?: [number, number, number] } | null)?.range;
+    const valueEnd = valueRange ? lineContentEnd(yamlText, valueRange[1]) : keyEnd + 1;
+    const nl = yamlText.indexOf("\n", Math.max(valueEnd - 1, keyEnd));
+    c = nl < 0 ? yamlText.length : nl + 1;
+  }
   const swapped =
     yamlText.slice(0, a) + yamlText.slice(b, c) + yamlText.slice(a, b) + yamlText.slice(c);
+  // An anchor and its alias must not trade places: the result has to stay valid YAML.
+  if (!parsesWithAliases(swapped))
+    throw new Error(`"${edit.key}" cannot be moved here: an alias would come before its anchor.`);
   return text.slice(0, block.start) + swapped + text.slice(block.end);
 }
 
