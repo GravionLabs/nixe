@@ -1,7 +1,7 @@
 // Interaction tests on the scripted fake variant: the page answers only what `FAKE_VAULT` gives, and
 // a test asserts an action by the call it made (#401, #405).
 import { test, expect } from "./fixtures";
-import { FAKE_NOTE, FAKE_TEXT, FAKE_VAULT } from "./fake-vault";
+import { FAKE_NOTE, FAKE_VAULT } from "./fake-vault";
 import { openNote, openPalette, ready, takeCalls } from "./steps";
 
 test.beforeEach(async ({ page }) => {
@@ -30,5 +30,4 @@ test("editing a note saves it with write_text_file", async ({ page }) => {
   await expect
     .poll(async () => (await takeCalls(page, "write_text_file")).at(-1)?.args)
     .toEqual({ path: FAKE_NOTE, content: expect.stringContaining("Added by the test.") });
-  expect(FAKE_TEXT).toContain("# Home");
 });
