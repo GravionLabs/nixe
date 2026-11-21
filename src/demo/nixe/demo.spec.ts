@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import { HOME_NOTE, NOTES, TIME, VAULT } from "./data";
 import { createNixeDemo } from "./demo";
+import { EXCLUDED } from "./excluded";
 import { DemoVault } from "./vault";
 
 beforeEach(() => {
@@ -87,5 +89,49 @@ describe("the demo backend of Nixe", () => {
     const { backend } = createNixeDemo();
     await expect(backend.invoke("brand_new_command")).rejects.toThrow("brand_new_command");
     expect(window.__demoFailures).toEqual(["brand_new_command"]);
+  });
+});
+
+/** The commands the app invokes in the typed wrappers of the Rust core: `invoke<T>("name", …)`. */
+function commandsOf(file: string): string[] {
+  const source = readFileSync(new URL(file, import.meta.url), "utf8");
+  return [...source.matchAll(/\binvoke(?:<[^"]*?>)?\(\s*"([a-z_]+)"/g)].map((m) => m[1]!);
+}
+
+describe("the commands of the app", () => {
+  const app = [
+    ...commandsOf("../../app/core/file/backend.ts"),
+    ...commandsOf("../../app/core/terminal/terminal-backend.ts"),
+  ];
+  const answered = new Set(createNixeDemo().backend.commands());
+
+  it("finds the commands of the wrappers", () => {
+    expect(app.length).toBeGreaterThan(100);
+    expect(app).toContain("git_vault_status");
+    expect(app).toContain("terminal_open");
+    expect(app).toContain("workspace_add_root");
+  });
+
+  it("answers every command or lists it as excluded with a reason", () => {
+    const missing = app.filter((c) => !answered.has(c) && !(c in EXCLUDED));
+    expect(
+      missing,
+      `answer these in demo.ts or list them in excluded.ts: ${missing.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("lists no command that is answered or that the app no longer has", () => {
+    for (const [command, reason] of Object.entries(EXCLUDED)) {
+      expect(app, `${command} is not a command of the app`).toContain(command);
+      expect(answered.has(command), `${command} is answered and excluded`).toBe(false);
+      expect(reason.trim(), `${command} has no reason`).not.toBe("");
+    }
+  });
+
+  it("fails an excluded command with its name", async () => {
+    const { backend } = createNixeDemo();
+    await expect(backend.invoke("rename_path", { from: "a", to: "b" })).rejects.toThrow(
+      "rename_path",
+    );
   });
 });
