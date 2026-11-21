@@ -14,8 +14,11 @@ import type { Comparison, TimelineEntry } from "../../core/git/history.service";
 import { HistoryService } from "../../core/git/history.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { By } from "@angular/platform-browser";
+import { HxMenu } from "@gravionlabs/helix-ui";
 import { HistoryComponent, formatCommitTime } from "./history.component";
 
+const NOW = Date.UTC(1970, 0, 2, 12, 0, 0);
 const timeline: TimelineEntry[] = [
   { id: null, author: "", time: 0, message: "Uncommitted changes", path: "a.md" },
   { id: "abc1234", author: "Ann", time: 86_400, message: "edit", path: "a.md" },
@@ -29,7 +32,11 @@ const timeline: TimelineEntry[] = [
   },
 ];
 
-function render(comparison: Comparison | null, notePath: string | null = "a.md") {
+function render(
+  comparison: Comparison | null,
+  notePath: string | null = "a.md",
+  entries: TimelineEntry[] = timeline,
+) {
   const loadMore = vi.fn().mockResolvedValue(undefined);
   const select = vi.fn().mockResolvedValue(undefined);
   const restore = vi.fn().mockResolvedValue(undefined);
@@ -43,7 +50,7 @@ function render(comparison: Comparison | null, notePath: string | null = "a.md")
         provide: HistoryService,
         useValue: {
           notePath: signal(notePath),
-          timeline: signal(timeline),
+          timeline: signal(entries),
           selection: signal(["abc1234"]),
           comparison: signal(comparison),
           error: signal(null),
@@ -70,6 +77,7 @@ function render(comparison: Comparison | null, notePath: string | null = "a.md")
       template: readFileSync("src/app/features/history/history.component.html", "utf8"),
     },
   });
+  vi.useFakeTimers({ toFake: ["Date"], now: NOW });
   const fixture = TestBed.createComponent(HistoryComponent);
   fixture.detectChanges();
   return {
@@ -95,21 +103,71 @@ describe("HistoryComponent", () => {
 
   it("lists the uncommitted state first, then date, author and message of a commit", () => {
     const { el } = render(null);
-    const rows = [...el.querySelectorAll(".timeline li")].map((l) =>
+    const rows = [...el.querySelectorAll(".timeline li:not(.day)")].map((l) =>
       l.textContent!.replace(/\s+/g, " ").trim(),
     );
     expect(rows[0]).toContain("Uncommitted changes");
     expect(rows[1]).toContain("edit");
-    expect(rows[1]).toContain("1970-01-02 00:00 · Ann");
+    expect(rows[1]).toContain("12 hours ago");
+    expect(rows[1].includes("Ann")).toBe(false);
     expect(el.querySelector("button.selected")?.textContent).toContain("edit");
   });
 
   it("names the operation of a commit that a vault operation wrote", () => {
     const { el } = render(null);
-    const rows = el.querySelectorAll(".timeline li");
+    const rows = el.querySelectorAll(".timeline li:not(.day)");
     expect(rows[1].querySelector(".operation")).toBeNull();
-    expect(rows[2].querySelector(".operation")?.textContent).toBe("rename");
-    expect(rows[2].textContent).toContain("rename: a.md -> b.md, links in 2 notes");
+    expect(rows[2].querySelector(".operation")?.textContent).toBe("✎");
+    expect(rows[2].textContent).toContain("Renamed: a.md → b.md");
+    expect(rows[2].textContent).not.toContain("links in 2 notes");
+  });
+
+  it("shows the note title with the folder below it in the header", () => {
+    const { el } = render(null, "notes/a.md");
+    expect(el.querySelector("header .title")?.textContent).toBe("a");
+    expect(el.querySelector("header .folder")?.textContent).toBe("notes");
+  });
+
+  it("groups the entries by day and gives the exact time as tooltip", () => {
+    const { el } = render(null);
+    expect([...el.querySelectorAll(".day")].map((d) => d.textContent)).toEqual(["Now", "Today"]);
+    expect(el.querySelector(".when")?.getAttribute("title")).toMatch(/^1970-01-02 \d\d:\d\d$/);
+  });
+
+  it("shows an automatic backup as Automatic save", () => {
+    const { el } = render(null, "a.md", [
+      {
+        id: "x1",
+        author: "Ann",
+        time: 86_400,
+        message: "vault backup: 1970-01-02 00:00:00",
+        path: "a.md",
+      },
+    ]);
+    expect(el.querySelector(".timeline .message")?.textContent?.trim()).toBe("Automatic save");
+  });
+
+  it("shows the author only when the note has more than one", () => {
+    const two: TimelineEntry[] = [
+      { id: "x1", author: "Ann", time: 86_400, message: "a", path: "a.md" },
+      { id: "x2", author: "Bob", time: 86_400, message: "b", path: "a.md" },
+    ];
+    const { el } = render(null, "a.md", two);
+    const metas = [...el.querySelectorAll(".timeline .meta")].map((m) => m.textContent);
+    expect(metas[0]).toContain("Ann");
+    expect(metas[1]).toContain("Bob");
+  });
+
+  it("offers Restore this version and Copy content in a context menu", () => {
+    const { fixture, el, restore } = render(null);
+    const row = el.querySelectorAll<HTMLElement>(".timeline li:not(.day)")[1];
+    row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    const menu = fixture.debugElement.query(By.directive(HxMenu)).componentInstance as HxMenu;
+    const items = menu.model() as { label: string; command: () => void }[];
+    expect(items.map((i) => i.label)).toEqual(["Restore this version", "Copy content"]);
+    items[0].command();
+    expect(restore).toHaveBeenCalledWith(timeline[1]);
   });
 
   it("selects an entry on click and loads older entries near the end of the list", () => {
@@ -148,12 +206,16 @@ describe("HistoryComponent", () => {
     expect(el.textContent).toContain("Open a note");
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
 
   it("offers Restore this version and Copy on commits only", () => {
     const { el, restore } = render(null);
-    const rows = el.querySelectorAll(".timeline li");
+    const rows = el.querySelectorAll(".timeline li:not(.day)");
     expect(rows[0].querySelector(".restore")).toBeNull();
+    expect(rows[1].querySelector(".copy")?.textContent).toContain("Copy content");
     rows[1].querySelector<HTMLButtonElement>(".restore")!.click();
     expect(restore).toHaveBeenCalledWith(timeline[1]);
   });

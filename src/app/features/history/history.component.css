@@ -11,8 +11,9 @@
 
 header {
   display: flex;
-  align-items: center;
-  height: 34px;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 34px;
   padding: 0 12px;
   border-bottom: 1px solid var(--h-content-border-color);
   font-size: 11px;
@@ -22,7 +23,29 @@ header {
   color: var(--h-text-muted-color);
 }
 
-.path,
+header .title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+header .folder {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day {
+  padding: 6px 12px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--h-text-muted-color);
+}
+
 .status {
   margin: 8px 12px;
   color: var(--h-text-muted-color);
