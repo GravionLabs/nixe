@@ -374,6 +374,111 @@ pub fn undo_operation(root: &Path, fallback: Option<&Identity>) -> Result<Operat
     Ok(op)
 }
 
+/// Commits only `rel` (its file as it is now, or its removal) and nothing else of the open
+/// changes. `false` when that changes nothing in the tree.
+fn commit_path(
+    repo: &Repository,
+    rel: &Path,
+    message: &str,
+    fallback: Option<&Identity>,
+) -> Result<bool, String> {
+    let workdir = repo.workdir().ok_or("the vault has no working folder")?;
+    let mut index = repo.index().map_err(e)?;
+    if workdir.join(rel).is_file() {
+        index.add_path(rel).map_err(e)?;
+    } else {
+        // A path that is not in the index is already gone.
+        let _ = index.remove_path(rel);
+    }
+    index.write().map_err(e)?;
+    let tree = repo.find_tree(index.write_tree().map_err(e)?).map_err(e)?;
+    let parent = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
+    if parent.as_ref().is_some_and(|p| p.tree_id() == tree.id()) {
+        return Ok(false);
+    }
+    let sig = match repo.signature() {
+        Ok(sig) => sig,
+        Err(_) => {
+            let id = fallback
+                .filter(|i| !i.name.trim().is_empty() && !i.email.trim().is_empty())
+                .ok_or(
+                    "no author: set user.name and user.email in the Git config or in the settings",
+                )?;
+            Signature::now(id.name.trim(), id.email.trim()).map_err(e)?
+        }
+    };
+    let parents: Vec<&git2::Commit> = parent.iter().collect();
+    repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parents)
+        .map_err(e)?;
+    Ok(true)
+}
+
+/// Takes the changes of one note back (#319): a changed or deleted note gets its saved version
+/// again, a new note is removed. Only this note is committed: first as it is now, then the
+/// discard as one operation commit, so Undo brings the discarded state back. The other open
+/// changes stay open. A rename shows as a deleted old path and a new path; each is discarded on
+/// its own.
+pub fn discard_note(
+    root: &Path,
+    path: &str,
+    fallback: Option<&Identity>,
+) -> Result<Operation, String> {
+    let rel = Path::new(path);
+    let plain = !path.is_empty()
+        && rel
+            .components()
+            .all(|c| matches!(c, std::path::Component::Normal(_)))
+        && rel.components().next().map(|c| c.as_os_str()) != Some(std::ffi::OsStr::new(".git"));
+    if !plain {
+        return Err(format!("not a note of the vault: {path}"));
+    }
+    let backend =
+        Git2Backend::open(root).ok_or_else(|| "the vault is not a Git repository".to_string())?;
+    let repo = &backend.repo;
+    let status = repo.status_file(rel).map_err(e)?;
+    if kind_of(status).is_none() {
+        return Err(format!("{path} has no changes to discard"));
+    }
+    // The saved version, read before anything is committed.
+    let saved: Option<Vec<u8>> = match repo.head().and_then(|h| h.peel_to_tree()) {
+        Ok(tree) => match tree.get_path(rel) {
+            Ok(entry) => Some(repo.find_blob(entry.id()).map_err(e)?.content().to_vec()),
+            Err(_) => None,
+        },
+        Err(_) => None,
+    };
+    commit_path(repo, rel, "checkpoint before discard", fallback)?;
+    let file = root.join(rel);
+    let summary = match &saved {
+        Some(bytes) => {
+            if let Some(dir) = file.parent() {
+                std::fs::create_dir_all(dir).map_err(|err| err.to_string())?;
+            }
+            std::fs::write(&file, bytes).map_err(|err| err.to_string())?;
+            format!("discard changes: {path}")
+        }
+        None => {
+            match std::fs::remove_file(&file) {
+                Ok(()) => {}
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+                Err(err) => return Err(err.to_string()),
+            }
+            // Folders that only held this note go with it (remove_dir fails on a used one).
+            let mut dir = file.parent();
+            while let Some(d) = dir.filter(|d| *d != root) {
+                if std::fs::remove_dir(d).is_err() {
+                    break;
+                }
+                dir = d.parent();
+            }
+            format!("discard new note: {path}")
+        }
+    };
+    let message = format!("{summary}\n\n{OPERATION_TRAILER}: discard\n");
+    commit_path(repo, rel, &message, fallback)?;
+    last_operation(root)?.ok_or_else(|| "the discard was not recorded".to_string())
+}
+
 /// One commit that touched a note (#105).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1335,6 +1440,115 @@ mod tests {
         assert_eq!(head.author().email().ok(), Some("s@example.com"));
         let _ = fs::remove_dir_all(dir);
         let _ = fs::remove_dir_all(empty);
+    }
+
+    fn changes_of(dir: &Path) -> Vec<(String, ChangeKind)> {
+        vault_status(dir)
+            .unwrap()
+            .unwrap()
+            .changes
+            .into_iter()
+            .map(|c| (c.path, c.kind))
+            .collect()
+    }
+
+    #[test]
+    fn discard_gives_a_changed_note_its_saved_version_and_undo_brings_the_edit_back() {
+        let (dir, _backend) = repo_with_commit("discard-mod");
+        fs::write(dir.join("a.md"), "edited").unwrap();
+        let op = discard_note(&dir, "a.md", None).unwrap();
+        assert_eq!(op.kind, "discard");
+        assert_eq!(fs::read_to_string(dir.join("a.md")).unwrap(), "a");
+        assert!(changes_of(&dir).is_empty());
+        undo_operation(&dir, None).unwrap();
+        assert_eq!(fs::read_to_string(dir.join("a.md")).unwrap(), "edited");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn discard_removes_a_new_note_and_its_empty_folder_and_undo_restores_it() {
+        let (dir, _backend) = repo_with_commit("discard-new");
+        fs::create_dir_all(dir.join("sub/deep")).unwrap();
+        fs::write(dir.join("sub/deep/n.md"), "new").unwrap();
+        fs::write(dir.join("other.md"), "keep").unwrap();
+        discard_note(&dir, "sub/deep/n.md", None).unwrap();
+        assert!(!dir.join("sub").exists());
+        // The other open change stays.
+        assert_eq!(fs::read_to_string(dir.join("other.md")).unwrap(), "keep");
+        assert_eq!(
+            changes_of(&dir),
+            [("other.md".to_string(), ChangeKind::Added)]
+        );
+        undo_operation(&dir, None).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.join("sub/deep/n.md")).unwrap(),
+            "new"
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn discard_restores_a_deleted_note_also_in_a_removed_folder() {
+        let (dir, backend) = repo_with_commit("discard-del");
+        fs::create_dir_all(dir.join("old")).unwrap();
+        commit_file(&dir, &backend, "old/d.md", "deleted text", "add d");
+        fs::remove_dir_all(dir.join("old")).unwrap();
+        assert_eq!(
+            changes_of(&dir),
+            [("old/d.md".to_string(), ChangeKind::Deleted)]
+        );
+        discard_note(&dir, "old/d.md", None).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.join("old/d.md")).unwrap(),
+            "deleted text"
+        );
+        assert!(changes_of(&dir).is_empty());
+        undo_operation(&dir, None).unwrap();
+        assert!(!dir.join("old/d.md").exists());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn discard_handles_the_two_sides_of_a_rename_one_at_a_time() {
+        let (dir, _backend) = repo_with_commit("discard-rename");
+        fs::rename(dir.join("a.md"), dir.join("b.md")).unwrap();
+        let seen = changes_of(&dir);
+        assert_eq!(
+            seen,
+            [
+                ("a.md".to_string(), ChangeKind::Deleted),
+                ("b.md".to_string(), ChangeKind::Added)
+            ]
+        );
+        // The new name goes away, the old note stays deleted.
+        discard_note(&dir, "b.md", None).unwrap();
+        assert!(!dir.join("b.md").exists());
+        assert_eq!(
+            changes_of(&dir),
+            [("a.md".to_string(), ChangeKind::Deleted)]
+        );
+        // The old name comes back.
+        discard_note(&dir, "a.md", None).unwrap();
+        assert_eq!(fs::read_to_string(dir.join("a.md")).unwrap(), "a");
+        assert!(changes_of(&dir).is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn discard_refuses_unchanged_notes_and_paths_outside_the_vault() {
+        let (dir, _backend) = repo_with_commit("discard-refuse");
+        assert!(discard_note(&dir, "a.md", None)
+            .unwrap_err()
+            .contains("no changes"));
+        for bad in ["", "../x.md", "/etc/passwd", ".git/config", "sub/../a.md"] {
+            assert!(discard_note(&dir, bad, None).is_err(), "{bad}");
+        }
+        let plain = temp("discard-nogit");
+        assert!(discard_note(&plain, "a.md", None)
+            .unwrap_err()
+            .contains("not a Git repository"));
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::remove_dir_all(plain);
     }
 
     #[test]

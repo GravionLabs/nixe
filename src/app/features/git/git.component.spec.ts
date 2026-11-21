@@ -15,6 +15,7 @@ import { DocumentService } from "../../core/file/document.service";
 import { backend } from "../../core/file/backend";
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { CompareService } from "../../core/compare/compare.service";
+import { DiscardService } from "../../core/git/discard.service";
 import { GitService } from "../../core/git/git.service";
 import { ReviewService } from "../../core/git/review.service";
 import { SettingsService } from "../../core/settings/settings.service";
@@ -55,6 +56,7 @@ function render(
   const cancelTokenPrompt = vi.fn();
   const open = vi.fn().mockResolvedValue(undefined);
   const close = vi.fn();
+  const discard = vi.fn().mockResolvedValue(true);
   const settings = {
     gitAuthorName: signal(""),
     gitAuthorEmail: signal(""),
@@ -83,6 +85,7 @@ function render(
           cancelTokenPrompt,
         },
       },
+      { provide: DiscardService, useValue: { discard } },
       { provide: SettingsService, useValue: settings },
       { provide: ReviewService, useValue: { count: signal(extra.reviewCount ?? 0) } },
       { provide: CompareService, useValue: { open: compareOpen } },
@@ -110,6 +113,7 @@ function render(
     el: fixture.nativeElement as HTMLElement,
     open,
     close,
+    discard,
     commit,
     sync,
     compareOpen,
@@ -200,6 +204,20 @@ describe("GitComponent", () => {
     quit.dispatchEvent(new Event("change"));
     expect(settings.autoSyncOnFocus()).toBe(true);
     expect(settings.autoSyncOnQuit()).toBe(true);
+  });
+
+  it("offers Discard changes on every kind of change and hands the change over", async () => {
+    const { el, discard, fixture, errors } = render(status);
+    const buttons = el.querySelectorAll<HTMLButtonElement>("button.discard");
+    expect(buttons).toHaveLength(3);
+    expect(buttons[0].textContent?.trim()).toBe("Discard changes");
+    buttons[2].click();
+    await fixture.whenStable();
+    expect(discard).toHaveBeenCalledWith({ path: "gone.md", kind: "deleted" });
+    discard.mockRejectedValueOnce("no changes to discard");
+    buttons[0].click();
+    await fixture.whenStable();
+    expect(errors).toEqual(["no changes to discard"]);
   });
 
   it("compares the saved version with now on a click and opens the note with Open", async () => {

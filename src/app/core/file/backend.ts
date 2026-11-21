@@ -416,6 +416,12 @@ export const backend = {
   /** Reverts the last vault operation as a new commit; rejects when it conflicts with later changes. */
   undoVaultOperation: (author?: GitAuthor) =>
     invoke<VaultOperation>("undo_vault_operation", { ...author }),
+  /**
+   * Takes the changes of one note back (#319): the saved version returns, a new note is removed.
+   * One vault operation, so `undoVaultOperation` brings the discarded state back.
+   */
+  gitDiscardNote: (path: string, author?: GitAuthor) =>
+    invoke<VaultOperation>("git_discard_note", { path, ...author }),
   /** The notes an extraction into `target` would change; changes nothing. */
   extractPreview: (source: string, target: string, what: ExtractWhat, embed: boolean) =>
     invoke<ComposeChange[]>("extract_preview", { source, target, what, embed }),

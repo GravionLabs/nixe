@@ -6,6 +6,7 @@ import { CompareService } from "../../core/compare/compare.service";
 import type { GitChange } from "../../core/file/backend";
 import { backend } from "../../core/file/backend";
 import { DocumentService } from "../../core/file/document.service";
+import { DiscardService } from "../../core/git/discard.service";
 import { GitService } from "../../core/git/git.service";
 import { ReviewService } from "../../core/git/review.service";
 import { syncSummary } from "../../core/git/sync-summary";
@@ -35,6 +36,7 @@ export class GitComponent {
   protected readonly git = inject(GitService);
   protected readonly settings = inject(SettingsService);
   protected readonly review = inject(ReviewService);
+  private readonly discarding = inject(DiscardService);
   private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
   private readonly compareView = inject(CompareService);
@@ -76,6 +78,15 @@ export class GitComponent {
     if (!root) return;
     try {
       await this.doc.open(joinPath(root, rel));
+    } catch (err) {
+      this.failed.emit(String(err));
+    }
+  }
+
+  /** Asks, then takes the changes of the note back; Undo is offered afterwards. */
+  protected async discard(change: GitChange): Promise<void> {
+    try {
+      await this.discarding.discard(change);
     } catch (err) {
       this.failed.emit(String(err));
     }
