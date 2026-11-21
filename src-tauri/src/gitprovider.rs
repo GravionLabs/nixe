@@ -83,6 +83,8 @@ pub fn git_set_hosts(hosts: Vec<String>) {
 
 /// A way to get a token for one host from a local tool.
 pub trait GitProvider {
+    // Part of the contract for providers added later; nothing reads it yet.
+    #[allow(dead_code)]
     fn id(&self) -> &str;
     fn host(&self) -> &str;
     fn is_available(&self) -> bool;
@@ -524,6 +526,14 @@ mod tests {
         assert!(!is_allowed_https("https://github.com/a b"));
         set_extra_hosts(&[]);
         assert!(!is_allowed_https("https://ghe.example.com/a/b.git"));
+    }
+
+    #[test]
+    fn the_provider_names_itself_and_its_host() {
+        let fake = Fake::new(true, None, Err("unused"));
+        let provider = GitHubCli::new("github.com", &fake);
+        assert_eq!(provider.id(), "github-cli");
+        assert_eq!(provider.host(), "github.com");
     }
 
     #[test]
