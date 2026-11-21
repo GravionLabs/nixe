@@ -1,7 +1,5 @@
-// @vitest-environment jsdom
 import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 
 import { textChange } from "./text-change";
@@ -31,12 +29,10 @@ describe("textChange", () => {
   });
 
   it("is one undo step in the editor", () => {
-    const view = new EditorView({
-      state: EditorState.create({ doc: "x\n", extensions: [history()] }),
-    });
-    view.dispatch({ changes: textChange("x\n", "---\na: 1\n---\nx\n")! });
-    expect(view.state.doc.toString()).toBe("---\na: 1\n---\nx\n");
-    undo(view);
-    expect(view.state.doc.toString()).toBe("x\n");
+    let state = EditorState.create({ doc: "x\n", extensions: [history()] });
+    state = state.update({ changes: textChange("x\n", "---\na: 1\n---\nx\n")! }).state;
+    expect(state.doc.toString()).toBe("---\na: 1\n---\nx\n");
+    undo({ state, dispatch: (tr) => (state = tr.state) });
+    expect(state.doc.toString()).toBe("x\n");
   });
 });
