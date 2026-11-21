@@ -5,6 +5,8 @@ import { getHxPlatform, getHxPlatformKind } from "@gravionlabs/helix-desktop";
 import { CommandRegistry } from "../commands/command-registry";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { TerminalBackend } from "./terminal-backend";
+import { TERMINAL_PRESETS, type TerminalPreset } from "./terminal-presets";
 
 export const TERMINAL_OFF_NOTICE =
   "The terminal is off. Turn on “Enable terminal” in the settings to use it.";
@@ -16,6 +18,8 @@ export const TERMINAL_CONFIRM =
 export interface TerminalTab {
   readonly key: number;
   readonly title: string;
+  /** The preset whose CLI runs in the tab instead of the shell. */
+  readonly preset: string | null;
 }
 
 /** The bottom panel with the shell: the command, the opt-in setting and its confirmation. Desktop only. */
@@ -24,6 +28,7 @@ export class TerminalService {
   private readonly settings = inject(SettingsService);
   private readonly workspace = inject(WorkspaceService);
   private readonly commands = inject(CommandRegistry);
+  private readonly backend = inject(TerminalBackend);
 
   /** iOS has no process spawning: there the command, the setting and the panel are absent. */
   readonly supported = getHxPlatformKind(getHxPlatform()) !== "mobile";
@@ -54,6 +59,14 @@ export class TerminalService {
       when: () => this.workspace.vaultRoot() !== null,
       run: () => this.newTab(),
     });
+    for (const preset of TERMINAL_PRESETS) {
+      this.commands.register({
+        id: preset.commandId,
+        title: preset.commandTitle,
+        when: () => this.workspace.vaultRoot() !== null,
+        run: () => this.openPreset(preset),
+      });
+    }
     this.commands.register({
       id: "close-terminal-tab",
       title: "Close terminal tab",
@@ -91,15 +104,36 @@ export class TerminalService {
     this.addTab();
   }
 
+  /**
+   * Opens a tab that runs the CLI of `preset` in the vault root. A missing CLI is found out before:
+   * the notice carries the install hint and no tab opens.
+   */
+  async openPreset(preset: TerminalPreset): Promise<void> {
+    if (!this.supported) return;
+    if (!this.settings.terminalEnabled()) {
+      this.notice.set(TERMINAL_OFF_NOTICE);
+      return;
+    }
+    try {
+      await this.backend.checkPreset(preset.id);
+    } catch (err) {
+      this.notice.set(String(err));
+      return;
+    }
+    this.settings.terminalVisible.set(true);
+    this.addTab(preset);
+  }
+
   /** Opens the first tab of a vault once; the panel calls it when it is first shown. */
   seed(): void {
     if (!this.seeded) this.addTab();
   }
 
-  private addTab(): void {
+  private addTab(preset: TerminalPreset | null = null): void {
     this.seeded = true;
     const key = this.nextKey++;
-    this.tabs.update((tabs) => [...tabs, { key, title: `Terminal ${key}` }]);
+    const title = preset?.title ?? `Terminal ${key}`;
+    this.tabs.update((tabs) => [...tabs, { key, title, preset: preset?.id ?? null }]);
     this.activeKey.set(key);
   }
 

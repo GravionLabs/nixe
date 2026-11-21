@@ -1386,6 +1386,8 @@ pub fn run() {
         notes::spike_external_read,
         notes::spike_external_write,
         #[cfg(desktop)]
+        terminal::terminal_preset_check,
+        #[cfg(desktop)]
         terminal::terminal_open,
         #[cfg(desktop)]
         terminal::terminal_attach,
@@ -1501,6 +1503,8 @@ pub fn run() {
         capture_app::capture_link_title,
         capture_app::capture_hide,
         capture_app::capture_apply,
+        #[cfg(desktop)]
+        terminal::terminal_preset_check,
         #[cfg(desktop)]
         terminal::terminal_open,
         #[cfg(desktop)]

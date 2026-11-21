@@ -81,8 +81,16 @@ class FakeBackend {
   closed: number[] = [];
   output = new Map<number, (b: Uint8Array) => void>();
   exit = new Map<number, () => void>();
-  async open(rows: number, cols: number) {
+  presets: (string | null)[] = [];
+  checks: string[] = [];
+  missing: string | null = null;
+  async checkPreset(id: string) {
+    this.checks.push(id);
+    if (this.missing) throw this.missing;
+  }
+  async open(rows: number, cols: number, preset: string | null = null) {
     this.opened.push([rows, cols]);
+    this.presets.push(preset);
     return this.nextId++;
   }
   attached: number[] = [];
@@ -165,6 +173,29 @@ describe("TerminalPanelComponent", () => {
     backend.output.get(1)!(new TextEncoder().encode("hi"));
     expect(term.written).toEqual([new TextEncoder().encode("hi")]);
     expect(term.focused).toBeGreaterThan(0);
+  });
+
+  it("starts the shell without a preset, the CLI with one, from the buttons", async () => {
+    const { fixture } = await render();
+    expect(backend.presets).toEqual([null]);
+    const buttons: HTMLButtonElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll("button.tab-preset"),
+    );
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["Claude", "Copilot"]);
+    buttons[1].click();
+    await vi.waitFor(() => expect(backend.presets).toEqual([null, "copilot"]));
+    expect(backend.checks).toEqual(["copilot"]);
+  });
+
+  it("opens no tab for a missing CLI", async () => {
+    const { fixture } = await render();
+    backend.missing = "Claude Code is not installed.";
+    fixture.nativeElement.querySelectorAll("button.tab-preset")[0].click();
+    await vi.waitFor(() =>
+      expect(TestBed.inject(TerminalService).notice()).toBe("Claude Code is not installed."),
+    );
+    expect(TestBed.inject(TerminalService).tabs()).toHaveLength(1);
+    expect(backend.opened).toHaveLength(1);
   });
 
   it("sends the input to the session and its size changes", async () => {

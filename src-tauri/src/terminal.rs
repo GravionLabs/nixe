@@ -54,15 +54,72 @@ pub fn detect_shell(env_shell: Option<&str>, windows: bool, found: impl Fn(&str)
     }
 }
 
-/// True when `name` (with the Windows executable suffixes) exists in a `PATH` directory.
-fn on_path(name: &str) -> bool {
-    let Some(path) = std::env::var_os("PATH") else {
-        return false;
-    };
-    std::env::split_paths(&path).any(|dir| {
+/// The file `name` (with the Windows executable suffixes) in a directory of `path`, if any.
+pub fn find_program(name: &str, path: Option<&std::ffi::OsStr>) -> Option<PathBuf> {
+    let path = path?;
+    std::env::split_paths(path).find_map(|dir| {
         ["", ".exe", ".cmd", ".bat"]
             .iter()
-            .any(|ext| dir.join(format!("{name}{ext}")).is_file())
+            .map(|ext| dir.join(format!("{name}{ext}")))
+            .find(|p| is_executable(p))
+    })
+}
+
+#[cfg(unix)]
+fn is_executable(p: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    p.metadata()
+        .map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn is_executable(p: &Path) -> bool {
+    p.is_file()
+}
+
+/// True when `name` exists in a `PATH` directory.
+fn on_path(name: &str) -> bool {
+    find_program(name, std::env::var_os("PATH").as_deref()).is_some()
+}
+
+/// An agent CLI that a tab can start in the vault root instead of the shell. The list is data:
+/// a new entry is a new preset; the frontend names them by `id`.
+pub struct Preset {
+    pub id: &'static str,
+    pub program: &'static str,
+    pub install_hint: &'static str,
+}
+
+pub const PRESETS: &[Preset] = &[
+    Preset {
+        id: "claude",
+        program: "claude",
+        install_hint: "Claude Code is not installed. Install it from https://docs.claude.com/en/docs/claude-code and make sure `claude` is on your PATH.",
+    },
+    Preset {
+        id: "copilot",
+        program: "copilot",
+        install_hint: "GitHub Copilot CLI is not installed. Install it from https://github.com/features/copilot/cli and make sure `copilot` is on your PATH.",
+    },
+];
+
+/// The shell for a preset: its program as found on `path`. An unknown id or a missing program is
+/// an error whose text is for the user (the install hint).
+pub fn preset_shell(
+    presets: &[Preset],
+    id: &str,
+    path: Option<&std::ffi::OsStr>,
+) -> Result<Shell, String> {
+    let preset = presets
+        .iter()
+        .find(|p| p.id == id)
+        .ok_or_else(|| format!("unknown terminal preset “{id}”"))?;
+    let found =
+        find_program(preset.program, path).ok_or_else(|| preset.install_hint.to_string())?;
+    Ok(Shell {
+        program: found.to_string_lossy().into_owned(),
+        args: Vec::new(),
     })
 }
 
@@ -283,7 +340,14 @@ fn check_enabled(dir: &Path) -> Result<(), String> {
     }
 }
 
-/// Starts the shell in the vault root; output arrives as `terminal-output-<id>` events and the
+/// Checks that the CLI of preset `id` is installed; the error is the install hint.
+#[tauri::command]
+pub fn terminal_preset_check(app: AppHandle, id: String) -> Result<(), String> {
+    ensure_enabled(&app)?;
+    preset_shell(PRESETS, &id, std::env::var_os("PATH").as_deref()).map(|_| ())
+}
+
+/// Starts the shell (or the CLI of `preset`) in the vault root; output arrives as `terminal-output-<id>` events and the
 /// end as `terminal-exit-<id>`.
 #[tauri::command]
 pub fn terminal_open(
@@ -292,11 +356,16 @@ pub fn terminal_open(
     sessions: State<'_, Sessions>,
     rows: u16,
     cols: u16,
+    preset: Option<String>,
 ) -> Result<u64, String> {
     ensure_enabled(&app)?;
     let root: PathBuf = crate::vault_root_of(&state)?;
+    let shell = match preset {
+        Some(id) => preset_shell(PRESETS, &id, std::env::var_os("PATH").as_deref())?,
+        None => default_shell(),
+    };
     let handle = app.clone();
-    sessions.open(&default_shell(), &root, rows, cols, move |id, event| {
+    sessions.open(&shell, &root, rows, cols, move |id, event| {
         let _ = match event {
             Event::Output(bytes) => handle.emit(
                 &format!("terminal-output-{id}"),
@@ -406,6 +475,49 @@ mod tests {
         settings::write_settings(&dir, r#"{"terminalEnabled":true}"#).unwrap();
         assert!(check_enabled(&dir).is_ok());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    fn temp_bin(tag: &str, name: &str, mode: u32) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("nixe-term-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join(name);
+        std::fs::write(&file, "#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(mode)).unwrap();
+        dir
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preset_cli_is_found_on_the_path() {
+        let dir = temp_bin("found", "claude", 0o755);
+        let path = std::env::join_paths([dir.clone()]).unwrap();
+        let shell = preset_shell(PRESETS, "claude", Some(&path)).unwrap();
+        assert_eq!(PathBuf::from(&shell.program), dir.join("claude"));
+        assert!(shell.args.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preset_cli_missing_gives_the_install_hint() {
+        // A file without the execute bit does not count.
+        let dir = temp_bin("missing", "copilot", 0o644);
+        let path = std::env::join_paths([dir.clone()]).unwrap();
+        let err = preset_shell(PRESETS, "copilot", Some(&path)).unwrap_err();
+        assert!(err.contains("not installed"), "{err}");
+        assert!(err.contains("copilot"), "{err}");
+        assert!(preset_shell(PRESETS, "claude", Some(&path)).is_err());
+        assert!(preset_shell(PRESETS, "claude", None).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn unknown_preset_is_an_error() {
+        let err = preset_shell(PRESETS, "nope", None).unwrap_err();
+        assert!(err.contains("unknown"), "{err}");
     }
 
     fn collect(rx: &mpsc::Receiver<(u64, Event)>) -> (String, bool) {

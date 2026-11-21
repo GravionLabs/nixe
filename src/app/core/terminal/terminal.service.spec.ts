@@ -16,6 +16,8 @@ vi.mock("@gravionlabs/helix-desktop", () => ({
 import { CommandRegistry } from "../commands/command-registry";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { TerminalBackend } from "./terminal-backend";
+import { TERMINAL_PRESETS } from "./terminal-presets";
 import { TERMINAL_OFF_NOTICE, TerminalService } from "./terminal.service";
 
 describe("TerminalService", () => {
@@ -23,6 +25,7 @@ describe("TerminalService", () => {
   const terminalConfirmed = signal(false);
   const terminalVisible = signal(false);
   const vaultRoot = signal<string | null>("/v");
+  const backend = { checkPreset: vi.fn<(id: string) => Promise<void>>() };
 
   beforeAll(() => TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting()));
 
@@ -36,6 +39,7 @@ describe("TerminalService", () => {
           useValue: { terminalEnabled, terminalConfirmed, terminalVisible },
         },
         { provide: WorkspaceService, useValue: { vaultRoot } },
+        { provide: TerminalBackend, useValue: backend },
       ],
     });
     const commands = TestBed.inject(CommandRegistry);
@@ -48,6 +52,7 @@ describe("TerminalService", () => {
     terminalVisible.set(false);
     vaultRoot.set("/v");
     ask.mockReset();
+    backend.checkPreset.mockReset().mockResolvedValue(undefined);
   });
 
   it("registers the toggle-terminal command with a shortcut", () => {
@@ -129,6 +134,51 @@ describe("TerminalService", () => {
     expect(await service.setEnabled(true)).toBe(false);
     expect(ask).not.toHaveBeenCalled();
     expect(service.open()).toBe(false);
+  });
+
+  describe("presets", () => {
+    beforeEach(() => terminalEnabled.set(true));
+
+    it("lists Claude and Copilot as data with one command each", () => {
+      expect(TERMINAL_PRESETS.map((p) => p.id)).toEqual(["claude", "copilot"]);
+      const { commands } = create();
+      const titles = commands.available().map((c) => c.title);
+      expect(titles).toContain("Open Claude in the vault");
+      expect(titles).toContain("Open Copilot in the vault");
+    });
+
+    it("opens a titled tab with the preset and shows the panel", async () => {
+      const { service, commands } = create();
+      commands.execute("open-copilot-in-vault");
+      await vi.waitFor(() => expect(service.tabs()).toHaveLength(1));
+      expect(backend.checkPreset).toHaveBeenCalledWith("copilot");
+      expect(service.tabs()[0]).toMatchObject({ title: "Copilot", preset: "copilot" });
+      expect(service.activeKey()).toBe(service.tabs()[0].key);
+      expect(terminalVisible()).toBe(true);
+    });
+
+    it("opens no tab and shows the install hint when the CLI is missing", async () => {
+      backend.checkPreset.mockRejectedValue("Claude Code is not installed.");
+      const { service } = create();
+      await service.openPreset(TERMINAL_PRESETS[0]);
+      expect(service.tabs()).toEqual([]);
+      expect(terminalVisible()).toBe(false);
+      expect(service.notice()).toBe("Claude Code is not installed.");
+    });
+
+    it("points to the setting while the terminal is off, without a check", async () => {
+      terminalEnabled.set(false);
+      const { service } = create();
+      await service.openPreset(TERMINAL_PRESETS[0]);
+      expect(service.notice()).toBe(TERMINAL_OFF_NOTICE);
+      expect(backend.checkPreset).not.toHaveBeenCalled();
+      expect(service.tabs()).toEqual([]);
+    });
+
+    it("has no preset command on iOS", () => {
+      const { commands } = create("mobile");
+      expect(commands.all().some((c) => c.id === "open-claude-in-vault")).toBe(false);
+    });
   });
 
   describe("tabs", () => {

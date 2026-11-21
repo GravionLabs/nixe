@@ -6,8 +6,14 @@ import { listen } from "@tauri-apps/api/event";
 /** The commands and events of the PTY in the Rust core (`terminal.rs`); a spec provides a fake. */
 @Injectable({ providedIn: "root" })
 export class TerminalBackend {
-  open(rows: number, cols: number): Promise<number> {
-    return invoke<number>("terminal_open", { rows, cols });
+  /** Starts the shell, or the CLI of `preset`, in the vault root. */
+  open(rows: number, cols: number, preset: string | null = null): Promise<number> {
+    return invoke<number>("terminal_open", { rows, cols, preset });
+  }
+
+  /** Rejects with an install hint when the CLI of preset `id` is not installed. */
+  checkPreset(id: string): Promise<void> {
+    return invoke<void>("terminal_preset_check", { id });
   }
 
   /** Starts the output of session `id`; call it once the listeners are registered. */
