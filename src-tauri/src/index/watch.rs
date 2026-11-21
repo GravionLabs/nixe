@@ -41,6 +41,9 @@ impl VaultChange {
     }
 }
 
+/// Suffix of the temp file the app writes before it renames it over a note.
+const OWN_TEMP_SUFFIX: &str = ".nixe-tmp";
+
 fn relative(root: &Path, path: &Path) -> Option<String> {
     let rel = path
         .strip_prefix(root)
@@ -48,6 +51,10 @@ fn relative(root: &Path, path: &Path) -> Option<String> {
         .to_string_lossy()
         .replace('\\', "/");
     if rel.is_empty() || rel.split('/').any(|c| SKIPPED_DIRS.contains(&c)) {
+        return None;
+    }
+    // The temp file of the app's own atomic write (`write.rs`) never loops back as a change.
+    if rel.ends_with(OWN_TEMP_SUFFIX) {
         return None;
     }
     Some(rel)
@@ -90,6 +97,9 @@ pub fn map_events(root: &Path, raw: &[PathBuf], known: &HashMap<String, u64>) ->
         if raw_path.is_dir() {
             let mut inner = Vec::new();
             files_below(raw_path, root, &mut inner);
+            if inner.is_empty() {
+                push(rel, &mut paths);
+            }
             for p in inner {
                 push(p, &mut paths);
             }
@@ -109,11 +119,15 @@ pub fn map_events(root: &Path, raw: &[PathBuf], known: &HashMap<String, u64>) ->
     let mut removed: Vec<(String, u64)> = Vec::new();
     let mut created: Vec<(String, u64)> = Vec::new();
     let mut changes = Vec::new();
+    let mut folders: Vec<(String, ChangeKind)> = Vec::new();
     for p in &paths {
         match (size_of(&root.join(p)), known.get(p)) {
             (Some(size), None) => created.push((p.clone(), size)),
             (Some(_), Some(_)) => changes.push(VaultChange::new(p, ChangeKind::Modify)),
             (None, Some(size)) => removed.push((p.clone(), *size)),
+            // A folder without files (new, or gone) changes the tree, not the index.
+            (None, None) if root.join(p).is_dir() => folders.push((p.clone(), ChangeKind::Create)),
+            (None, None) if !root.join(p).exists() => folders.push((p.clone(), ChangeKind::Remove)),
             (None, None) => {}
         }
     }
@@ -134,6 +148,13 @@ pub fn map_events(root: &Path, raw: &[PathBuf], known: &HashMap<String, u64>) ->
     for (path, _) in &removed {
         if !renamed.contains(path) {
             changes.push(VaultChange::new(path, ChangeKind::Remove));
+        }
+    }
+    for (path, kind) in &folders {
+        // A folder with removed files below is already reported through them.
+        let prefix = format!("{path}/");
+        if !changes.iter().any(|c| c.path.starts_with(&prefix)) {
+            changes.push(VaultChange::new(path, *kind));
         }
     }
     changes.sort_by(|a, b| a.path.cmp(&b.path));

@@ -9,15 +9,18 @@ import { signal } from "@angular/core";
 import { EditorService } from "./editor.service";
 
 function make(path: string | null) {
+  const settings = { sourceMode: signal(false) };
   const doc = { path: signal(path), pendingLine: signal<number | null>(null) };
   const service = Object.create(EditorService.prototype) as EditorService;
   Object.assign(service, {
     doc,
     editing: signal(false),
+    reading: signal(false),
+    injector: { get: () => settings },
     startLine: signal<number | null>(null),
     handle: null,
   });
-  return { service, doc };
+  return { service, doc, settings };
 }
 
 describe("EditorService", () => {
@@ -60,5 +63,28 @@ describe("EditorService", () => {
     service.handle = { topLine: () => 1, flush: vi.fn(), blocked: () => true };
     await expect(service.toggle(null)).rejects.toThrow(/Reload or Keep mine/);
     expect(service.editing()).toBe(true);
+  });
+
+  it("Mod+E switches between live preview and source while the editor is open", async () => {
+    const { service, settings } = make("/v/a.md");
+    await service.toggle(1);
+    await service.toggleMode(null);
+    expect(settings.sourceMode()).toBe(true);
+    await service.toggleMode(null);
+    expect(settings.sourceMode()).toBe(false);
+    expect(service.editing()).toBe(true);
+  });
+
+  it("Mod+E leaves the reading view for the editor", async () => {
+    const { service } = make("/v/a.md");
+    await service.openReading();
+    expect(service.editing()).toBe(false);
+    await service.toggle(1);
+    await service.openReading();
+    expect(service.reading()).toBe(true);
+    await service.toggleMode(5);
+    expect(service.editing()).toBe(true);
+    expect(service.reading()).toBe(false);
+    expect(service.startLine()).toBe(5);
   });
 });

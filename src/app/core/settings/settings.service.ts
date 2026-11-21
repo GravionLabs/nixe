@@ -104,6 +104,8 @@ export class SettingsService {
   /** Commit author used when the Git config of the vault has none. */
   readonly gitAuthorName = signal<string>(this.stored.gitAuthorName);
   readonly gitAuthorEmail = signal<string>(this.stored.gitAuthorEmail);
+  /** Optional GitHub Enterprise Server host besides github.com. */
+  readonly gitEnterpriseHost = signal<string>(this.stored.gitEnterpriseHost);
 
   /** Automatic sync of the vault; everything is off by default. */
   readonly autoSync = signal<boolean>(this.stored.autoSync);
@@ -122,6 +124,9 @@ export class SettingsService {
 
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   readonly wrapCode = signal<boolean>(this.stored.wrapCode);
+
+  /** The editor shows the plain source instead of the live preview (#243). */
+  readonly sourceMode = signal<boolean>(this.stored.sourceMode);
 
   /** Export and print (#119): breaks before top-level headings, the dark look, the page size. */
   readonly exportPageBreaks = signal<boolean>(this.stored.exportPageBreaks);
@@ -151,6 +156,12 @@ export class SettingsService {
   readonly captureTarget = signal<CaptureTarget>(this.stored.captureTarget);
   readonly captureInbox = signal<string>(this.stored.captureInbox);
   readonly captureTemplate = signal<string>(this.stored.captureTemplate);
+
+  /** The terminal (#360): off by default; the first time it is turned on the user confirms. */
+  readonly terminalEnabled = signal<boolean>(this.stored.terminalEnabled);
+  readonly terminalConfirmed = signal<boolean>(this.stored.terminalConfirmed);
+  readonly terminalVisible = signal<boolean>(this.stored.terminalVisible);
+  readonly terminalHeight = signal<number>(this.stored.terminalHeight);
 
   private readonly systemDark = signal(false);
   readonly dark = computed(
@@ -191,6 +202,7 @@ export class SettingsService {
       dailyTemplate: this.dailyTemplate(),
       gitAuthorName: this.gitAuthorName(),
       gitAuthorEmail: this.gitAuthorEmail(),
+      gitEnterpriseHost: this.gitEnterpriseHost(),
       autoSync: this.autoSync(),
       autoSyncMinutes: this.autoSyncMinutes(),
       autoSyncOnFocus: this.autoSyncOnFocus(),
@@ -199,6 +211,7 @@ export class SettingsService {
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
       wrapCode: this.wrapCode(),
+      sourceMode: this.sourceMode(),
       exportPageBreaks: this.exportPageBreaks(),
       exportDark: this.exportDark(),
       exportPageSize: this.exportPageSize(),
@@ -215,6 +228,10 @@ export class SettingsService {
       captureTarget: this.captureTarget(),
       captureInbox: this.captureInbox(),
       captureTemplate: this.captureTemplate(),
+      terminalEnabled: this.terminalEnabled(),
+      terminalConfirmed: this.terminalConfirmed(),
+      terminalVisible: this.terminalVisible(),
+      terminalHeight: this.terminalHeight(),
     };
   }
 
@@ -240,6 +257,7 @@ export class SettingsService {
     this.dailyTemplate.set(s.dailyTemplate);
     this.gitAuthorName.set(s.gitAuthorName);
     this.gitAuthorEmail.set(s.gitAuthorEmail);
+    this.gitEnterpriseHost.set(s.gitEnterpriseHost);
     this.autoSync.set(s.autoSync);
     this.autoSyncMinutes.set(s.autoSyncMinutes);
     this.autoSyncOnFocus.set(s.autoSyncOnFocus);
@@ -248,6 +266,7 @@ export class SettingsService {
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
     this.wrapCode.set(s.wrapCode);
+    this.sourceMode.set(s.sourceMode);
     this.exportPageBreaks.set(s.exportPageBreaks);
     this.exportDark.set(s.exportDark);
     this.exportPageSize.set(s.exportPageSize);
@@ -264,6 +283,10 @@ export class SettingsService {
     this.captureTarget.set(s.captureTarget);
     this.captureInbox.set(s.captureInbox);
     this.captureTemplate.set(s.captureTemplate);
+    this.terminalEnabled.set(s.terminalEnabled);
+    this.terminalConfirmed.set(s.terminalConfirmed);
+    this.terminalVisible.set(s.terminalVisible);
+    this.terminalHeight.set(s.terminalHeight);
   }
 
   /** True once the settings file is known to be readable; only then it is written. */

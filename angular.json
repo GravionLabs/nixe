@@ -28,6 +28,7 @@
               "node_modules/@gravionlabs/helix-ui/styles.css",
               "node_modules/@gravionlabs/helix-desktop/styles.css",
               "node_modules/katex/dist/katex.min.css",
+              "node_modules/@xterm/xterm/css/xterm.css",
               "src/styles.scss"
             ],
             "stylePreprocessorOptions": {

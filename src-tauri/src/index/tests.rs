@@ -547,6 +547,62 @@ mod watching {
     }
 
     #[test]
+    fn an_empty_folder_is_created_and_removed() {
+        let (root, conn) = setup("emptydir");
+        fs::create_dir_all(root.join("fresh")).unwrap();
+        let changes = events(&root, &conn, &["fresh"]);
+        assert_eq!(kinds(&changes), [("fresh", ChangeKind::Create)]);
+        fs::remove_dir(root.join("fresh")).unwrap();
+        let changes = events(&root, &conn, &["fresh"]);
+        assert_eq!(kinds(&changes), [("fresh", ChangeKind::Remove)]);
+    }
+
+    #[test]
+    fn the_temp_file_of_an_own_write_is_no_change() {
+        let (root, conn) = setup("owntmp");
+        write(&root, "a.md", "one");
+        write(&root, ".a.md.nixe-tmp", "two");
+        assert_eq!(
+            kinds(&events(&root, &conn, &[".a.md.nixe-tmp"])),
+            Vec::<(&str, ChangeKind)>::new()
+        );
+    }
+
+    #[test]
+    fn a_burst_is_debounced_to_few_batches() {
+        use notify_debouncer_mini::new_debouncer;
+        use notify_debouncer_mini::notify::RecursiveMode;
+        use std::sync::{Arc, Mutex};
+        use std::time::Duration;
+
+        let (root, _conn) = setup("burst");
+        let batches = Arc::new(Mutex::new(Vec::<usize>::new()));
+        let sink = batches.clone();
+        let mut debouncer = new_debouncer(Duration::from_millis(300), move |res| {
+            if let Ok(events) = res {
+                let events: Vec<_> = events;
+                sink.lock().unwrap().push(events.len());
+            }
+        })
+        .unwrap();
+        debouncer
+            .watcher()
+            .watch(&root, RecursiveMode::Recursive)
+            .unwrap();
+        for i in 0..40 {
+            write(&root, &format!("burst/{i}.md"), "x");
+            write(&root, &format!("burst/{i}.md"), "xy");
+        }
+        std::thread::sleep(Duration::from_millis(1500));
+        let seen = batches.lock().unwrap().clone();
+        assert!(!seen.is_empty(), "the burst is reported");
+        // Repeated writes of one file collapse (fewer events than writes); the batches follow the ticks
+        // of the debouncer, not the 80 writes.
+        assert!(seen.iter().sum::<usize>() < 80, "{seen:?}");
+        assert!(seen.len() <= 12, "{} batches for 80 writes", seen.len());
+    }
+
+    #[test]
     fn applies_changes_to_the_index_like_a_full_scan() {
         let (root, mut conn) = setup("apply");
         write(&root, "a.md", "see [[b]]");

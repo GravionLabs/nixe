@@ -1,0 +1,80 @@
+:host {
+  display: none;
+  position: relative;
+  flex: none;
+  border-top: 1px solid var(--h-content-border-color);
+  background: var(--h-surface-frame);
+}
+
+.resizer {
+  position: absolute;
+  inset-inline: 0;
+  top: -3px;
+  height: 6px;
+  z-index: 2;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.resizer:hover,
+.resizer:focus-visible,
+.resizer.dragging {
+  background: var(--h-primary-color);
+}
+
+:host(.open) {
+  display: flex;
+  flex-direction: column;
+}
+
+.tabs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--h-content-border-color);
+  font-size: 12px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.tab.active {
+  background: var(--h-surface-hover, rgb(128 128 128 / 20%));
+}
+
+.tabs button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+
+.screens {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.empty {
+  position: absolute;
+  inset: 28px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error {
+  position: absolute;
+  inset-inline: 8px;
+  bottom: 4px;
+  margin: 0;
+  color: var(--nixe-danger-color);
+  font-size: 12px;
+}

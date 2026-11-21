@@ -54,6 +54,7 @@ mod fileops;
 mod folds;
 mod git;
 mod gitclone;
+mod gitprovider;
 mod gitsync;
 mod index;
 #[cfg(desktop)]
@@ -65,6 +66,8 @@ mod notes;
 mod review;
 mod settings;
 mod site;
+#[cfg(desktop)]
+mod terminal;
 mod tree;
 mod vault;
 pub mod workspace;
@@ -1190,6 +1193,11 @@ pub fn run() {
         .manage(AppState::default())
         .manage(index::commands::IndexState::default());
 
+    #[cfg(desktop)]
+    {
+        builder = builder.manage(terminal::Sessions::default());
+    }
+
     // The updater checks only when the user asks (frontend `check()`); nothing runs at startup.
     #[cfg(desktop)]
     {
@@ -1357,6 +1365,10 @@ pub fn run() {
         credentials::git_token_delete,
         gitclone::git_clone_vault,
         gitclone::git_clone_cancel,
+        gitprovider::git_set_hosts,
+        gitprovider::git_provider_available,
+        gitprovider::git_provider_login,
+        gitprovider::git_provider_cancel,
         capture_app::capture_save,
         capture_app::capture_note_names,
         capture_app::capture_link_title,
@@ -1372,7 +1384,19 @@ pub fn run() {
         notes::notes_write,
         notes::spike_external_path,
         notes::spike_external_read,
-        notes::spike_external_write
+        notes::spike_external_write,
+        #[cfg(desktop)]
+        terminal::terminal_preset_check,
+        #[cfg(desktop)]
+        terminal::terminal_open,
+        #[cfg(desktop)]
+        terminal::terminal_attach,
+        #[cfg(desktop)]
+        terminal::terminal_write,
+        #[cfg(desktop)]
+        terminal::terminal_resize,
+        #[cfg(desktop)]
+        terminal::terminal_close
     ]);
     #[cfg(not(any(debug_assertions, mobile)))]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -1470,11 +1494,27 @@ pub fn run() {
         credentials::git_token_delete,
         gitclone::git_clone_vault,
         gitclone::git_clone_cancel,
+        gitprovider::git_set_hosts,
+        gitprovider::git_provider_available,
+        gitprovider::git_provider_login,
+        gitprovider::git_provider_cancel,
         capture_app::capture_save,
         capture_app::capture_note_names,
         capture_app::capture_link_title,
         capture_app::capture_hide,
-        capture_app::capture_apply
+        capture_app::capture_apply,
+        #[cfg(desktop)]
+        terminal::terminal_preset_check,
+        #[cfg(desktop)]
+        terminal::terminal_open,
+        #[cfg(desktop)]
+        terminal::terminal_attach,
+        #[cfg(desktop)]
+        terminal::terminal_write,
+        #[cfg(desktop)]
+        terminal::terminal_resize,
+        #[cfg(desktop)]
+        terminal::terminal_close
     ]);
 
     let app = builder
@@ -1482,6 +1522,13 @@ pub fn run() {
         .expect("error while building nixe");
 
     app.run(|_app, _event| {
+        // No child process outlives the app.
+        #[cfg(desktop)]
+        if let tauri::RunEvent::Exit = &_event {
+            if let Some(sessions) = _app.try_state::<terminal::Sessions>() {
+                sessions.close_all();
+            }
+        }
         // macOS delivers files opened via Finder / file association as an event.
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         if let tauri::RunEvent::Opened { urls } = &_event {

@@ -31,6 +31,18 @@ export type SettingItem = SettingBase &
         save: (token: string) => Promise<void>;
         remove: () => Promise<void>;
         cancelPrompt: () => void;
+        /** Sign-in through the GitHub CLI; absent when the app has no Git. */
+        gh?: {
+          available: () => boolean;
+          /** The one-time code of a running web login. */
+          code: () => string | null;
+          busy: () => boolean;
+          error: () => string;
+          /** Hosts to sign in to: github.com and the configured Enterprise host. */
+          hosts: () => string[];
+          signIn: (host: string) => Promise<void>;
+          cancel: () => Promise<void>;
+        };
       }
     /** A value the app only shows: from `.obsidian/` (with its file as `source`) (or from the app). */
     | { kind: "readonly"; value: () => string; source?: () => string }

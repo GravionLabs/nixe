@@ -1,0 +1,60 @@
+<div
+  class="resizer"
+  role="separator"
+  aria-orientation="horizontal"
+  aria-label="Resize terminal"
+  tabindex="0"
+  [attr.aria-valuenow]="height()"
+  [attr.aria-valuemin]="min"
+  [attr.aria-valuemax]="max()"
+  (pointerdown)="dragStart($event)"
+  (pointermove)="dragMove($event)"
+  (pointerup)="dragEnd($event)"
+  (pointercancel)="dragEnd($event)"
+  (keydown)="key($event)"
+></div>
+<div class="tabs" role="tablist" aria-label="Terminals">
+  @for (tab of terminal.tabs(); track tab.key) {
+    <div class="tab" [class.active]="tab.key === terminal.activeKey()">
+      <button
+        type="button"
+        role="tab"
+        class="tab-title"
+        [attr.aria-selected]="tab.key === terminal.activeKey()"
+        (click)="terminal.selectTab(tab.key)"
+      >
+        {{ tab.title }}
+      </button>
+      <button
+        type="button"
+        class="tab-close"
+        [attr.aria-label]="'Close ' + tab.title"
+        (click)="terminal.closeTab(tab.key)"
+      >
+        ×
+      </button>
+    </div>
+  }
+  <button type="button" class="tab-new" aria-label="New terminal" (click)="terminal.newTab()">
+    +
+  </button>
+  @for (preset of presets; track preset.id) {
+    <button
+      type="button"
+      class="tab-preset"
+      [title]="preset.commandTitle"
+      (click)="terminal.openPreset(preset)"
+    >
+      {{ preset.title }}
+    </button>
+  }
+</div>
+<div class="screens" #screens></div>
+@if (terminal.tabs().length === 0) {
+  <div class="empty">
+    <button type="button" (click)="terminal.newTab()">New terminal</button>
+  </div>
+}
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}

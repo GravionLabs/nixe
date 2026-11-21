@@ -12,6 +12,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import type { CloneProgress } from "../file/backend";
 import { backend } from "../file/backend";
+import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { CloneService, isCloneUrl } from "./clone.service";
 import { GitService } from "./git.service";
@@ -26,9 +27,17 @@ describe("isCloneUrl", () => {
       "https://gitlab.com/a/b",
       "https://u@github.com/a/b",
       "/tmp/x",
+      "https://ghe.example.com/a/b",
     ]) {
       expect(isCloneUrl(url), url).toBe(false);
     }
+  });
+
+  it("accepts the configured Enterprise host and no other", () => {
+    expect(isCloneUrl("https://ghe.example.com/a/b.git", "GHE.example.com")).toBe(true);
+    expect(isCloneUrl("https://ghe.example.com.evil.com/a/b", "ghe.example.com")).toBe(false);
+    expect(isCloneUrl("https://other.example.com/a/b", "ghe.example.com")).toBe(false);
+    expect(isCloneUrl("https://u@ghe.example.com/a/b", "ghe.example.com")).toBe(false);
   });
 });
 
@@ -57,6 +66,7 @@ describe("CloneService", () => {
       providers: [
         { provide: GitService, useValue: { runRemote, cancelTokenPrompt } },
         { provide: WorkspaceService, useValue: { openFolder } },
+        { provide: SettingsService, useValue: { gitEnterpriseHost: () => "" } },
       ],
     });
     clone = TestBed.inject(CloneService);

@@ -1,8 +1,16 @@
 # Editor
 
-The *Edit* toggle in the toolbar, ⌘/Ctrl+E and View → Toggle Editor all run the `toggle-editor` command and swap the viewer for a CodeMirror 6 editor of the open note.
-The toolbar button shows `editing()` as `active`/`aria-pressed` and is disabled without an open note or while `EditorService.blocked()` (unresolved external change) holds the editor open.
-`EditorComponent` is rendered inside `@defer`, so the CodeMirror chunk loads on first use.
+A note opens in a CodeMirror 6 editor with a **live preview** (#243): every block is drawn except the one that holds the cursor, which shows its Markdown. There is no edit mode to switch on.
+⌘/Ctrl+E, the toolbar button *Source* and View → Toggle Source Mode (command `toggle-editor`) switch between the live preview and the plain source; the choice is the setting `sourceMode`. The command *Open reading view* (`reading-view`) leaves the editor for the read-only viewer of the tab, and ⌘/Ctrl+E brings the editor back (`EditorService.reading` keeps a later note in the reading view). `EditorComponent` is rendered inside `@defer`, so the CodeMirror chunk loads on first use. The toolbar button is disabled without an open note or while `EditorService.blocked()` (unresolved external change) holds the editor open.
+
+## Live preview
+
+Code: `core/editor/live-preview-core.ts` (pure line analysis) and `features/editor/live-preview.ts` (CodeMirror extension, in a compartment of `EditorComponent`).
+
+- **Blocks as widgets**: tables, `mermaid` fences, `$$` math, callouts and lines that are only an embed or image (`![[…]]`, `![](…)`) are replaced by a widget that renders the block with the pipeline of the reading view (`MarkdownService.render`, `expandEmbeds`, `MermaidRenderer`). A block with a selection on it, its first or last character included, shows its source again; the text is never changed by this.
+- **Inline syntax** outside the cursor's block is hidden: heading marks, `**`, `*`, `~~`, `==`, backticks, `[[ ]]` (and the target of `[[a|b]]`) and the `[` `](url)` of links. List markers are drawn as bullets, task items as a checkbox that toggles the `[ ]`. The cursor's block is the heading line, the list item with its continuation lines, or the paragraph up to the blank lines.
+- Code fences stay source with a background, the frontmatter stays source dimmed.
+- **Cost**: the block scan runs when the text changes (a pure pass over the lines), inline marks only for the visible lines, widgets are drawn by CodeMirror only when they scroll into view.
 
 - **Logic**: `core/editor/editor-core.ts` has no framework imports: `AutoSaver` (debounce),
   `ExternalChangeTracker`, the scroll mapping and the `[[wikilink]]` / `#tag` scanner.

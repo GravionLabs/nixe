@@ -44,6 +44,24 @@ describe("sanitizeSettings", () => {
     expect(s.treeGitStatus).toBe(true);
     expect(sanitizeSettings({ treeGitStatus: false }).treeGitStatus).toBe(false);
     expect(sanitizeSettings({ treeGitStatus: "no" }).treeGitStatus).toBe(true);
+    // The terminal is opt-in: only an explicit true turns anything on.
+    expect(s.terminalEnabled).toBe(false);
+    expect(s.terminalConfirmed).toBe(false);
+    expect(s.terminalVisible).toBe(false);
+    expect(s.terminalHeight).toBe(240);
+    const t = sanitizeSettings({
+      terminalEnabled: true,
+      terminalConfirmed: true,
+      terminalVisible: true,
+      terminalHeight: 300,
+    });
+    expect([t.terminalEnabled, t.terminalConfirmed, t.terminalVisible, t.terminalHeight]).toEqual([
+      true,
+      true,
+      true,
+      300,
+    ]);
+    expect(sanitizeSettings({ terminalEnabled: "yes" }).terminalEnabled).toBe(false);
     expect(s.captureShortcut).toBe("");
     expect(s.captureTarget).toBe("daily");
     expect(

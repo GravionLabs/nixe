@@ -3,6 +3,7 @@ import { sanitizePageSize } from "../export/export-core";
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
 import { DEFAULT_PANEL_WIDTH, sanitizePanelWidth } from "../panel/panel-width";
+import { DEFAULT_TERMINAL_HEIGHT, sanitizeTerminalHeight } from "../terminal/terminal-height";
 import type { LinkPreviewMode } from "../preview/preview-core";
 import { sanitizeMode } from "../preview/preview-core";
 import type { TreeSort } from "../workspace/tree-model";
@@ -48,6 +49,8 @@ export interface StoredSettings {
   dailyTemplate: string;
   gitAuthorName: string;
   gitAuthorEmail: string;
+  /** Host of a GitHub Enterprise Server that may receive the token, e.g. `ghe.example.com`. */
+  gitEnterpriseHost: string;
   autoSync: boolean;
   autoSyncMinutes: number;
   autoSyncOnFocus: boolean;
@@ -60,6 +63,8 @@ export interface StoredSettings {
   extractEmbed: boolean;
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   wrapCode: boolean;
+  /** The editor shows the plain Markdown source instead of the live preview (#243). */
+  sourceMode: boolean;
   /** Export and print: a page break before every top-level heading (#119). */
   exportPageBreaks: boolean;
   /** Export and print in the dark look (#119). */
@@ -91,6 +96,14 @@ export interface StoredSettings {
   captureInbox: string;
   /** Vault-relative template note of a new inbox note; `{{content}}` marks the text. */
   captureTemplate: string;
+  /** The terminal may be used (#360); off by default, because it runs commands with the rights of the user. */
+  terminalEnabled: boolean;
+  /** The user has confirmed once that the terminal runs arbitrary code. */
+  terminalConfirmed: boolean;
+  /** The bottom panel with the terminal is shown. */
+  terminalVisible: boolean;
+  /** Height of the bottom panel, in px. */
+  terminalHeight: number;
 }
 
 export type CaptureTarget = "daily" | "inbox";
@@ -116,6 +129,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   dailyTemplate: "",
   gitAuthorName: "",
   gitAuthorEmail: "",
+  gitEnterpriseHost: "",
   autoSync: false,
   autoSyncMinutes: 10,
   autoSyncOnFocus: false,
@@ -124,6 +138,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   bookmarksInVault: false,
   extractEmbed: false,
   wrapCode: false,
+  sourceMode: false,
   exportPageBreaks: true,
   exportDark: false,
   exportPageSize: "A4",
@@ -140,6 +155,10 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   captureTarget: "daily",
   captureInbox: "",
   captureTemplate: "",
+  terminalEnabled: false,
+  terminalConfirmed: false,
+  terminalVisible: false,
+  terminalHeight: DEFAULT_TERMINAL_HEIGHT,
 };
 
 const bool = (value: unknown, fallback: boolean): boolean =>
@@ -182,6 +201,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     dailyTemplate: text(o["dailyTemplate"], d.dailyTemplate),
     gitAuthorName: text(o["gitAuthorName"], d.gitAuthorName),
     gitAuthorEmail: text(o["gitAuthorEmail"], d.gitAuthorEmail),
+    gitEnterpriseHost: text(o["gitEnterpriseHost"], d.gitEnterpriseHost),
     autoSync: o["autoSync"] === true,
     autoSyncMinutes: clampMinutes(Number(o["autoSyncMinutes"] ?? d.autoSyncMinutes)),
     autoSyncOnFocus: o["autoSyncOnFocus"] === true,
@@ -190,6 +210,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     bookmarksInVault: o["bookmarksInVault"] === true,
     extractEmbed: o["extractEmbed"] === true,
     wrapCode: o["wrapCode"] === true,
+    sourceMode: o["sourceMode"] === true,
     exportPageBreaks: bool(o["exportPageBreaks"], d.exportPageBreaks),
     exportDark: o["exportDark"] === true,
     exportPageSize: sanitizePageSize(o["exportPageSize"]),
@@ -206,6 +227,10 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     captureTarget: o["captureTarget"] === "inbox" ? "inbox" : "daily",
     captureInbox: text(o["captureInbox"], d.captureInbox),
     captureTemplate: text(o["captureTemplate"], d.captureTemplate),
+    terminalEnabled: o["terminalEnabled"] === true,
+    terminalConfirmed: o["terminalConfirmed"] === true,
+    terminalVisible: o["terminalVisible"] === true,
+    terminalHeight: sanitizeTerminalHeight(o["terminalHeight"]),
   };
 }
 
