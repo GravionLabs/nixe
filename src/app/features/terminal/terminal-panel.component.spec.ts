@@ -79,6 +79,10 @@ class FakeBackend {
     this.opened.push([rows, cols]);
     return this.nextId++;
   }
+  attached: number[] = [];
+  async attach(id: number) {
+    this.attached.push(id);
+  }
   async write(id: number, data: string) {
     this.written.push([id, data]);
   }
@@ -151,13 +155,14 @@ describe("TerminalPanelComponent", () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    await vi.waitFor(() => expect(backend.output.size).toBe(1));
+    await vi.waitFor(() => expect(backend.attached).toEqual([1]));
     return { fixture, term: xterm.instances[0] as FakeTerm };
   }
 
   it("opens a session with the size of the terminal and shows its output", async () => {
     const { term } = await render();
     expect(backend.opened).toEqual([[24, 80]]);
+    expect(backend.attached).toEqual([1]); // after the listeners, so no output is lost
     backend.output.get(1)!(new TextEncoder().encode("hi"));
     expect(term.written).toEqual([new TextEncoder().encode("hi")]);
     expect(term.focused).toBeGreaterThan(0);

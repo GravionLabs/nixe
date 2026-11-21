@@ -144,7 +144,8 @@ export class TerminalPanelComponent {
         return;
       }
       this.session = id;
-      this.unlisten.push(
+      // The shell emits as soon as it runs, so the listeners come first and `attach` starts the output.
+      const off = [
         await this.backend.onOutput(id, (bytes) => {
           if (generation === this.generation) term.write(bytes);
         }),
@@ -154,7 +155,13 @@ export class TerminalPanelComponent {
           this.session = null;
           term.write("\r\n[process ended – press a key to start a new shell]\r\n");
         }),
-      );
+      ];
+      if (generation !== this.generation) {
+        for (const f of off) f();
+        return;
+      }
+      this.unlisten.push(...off);
+      await this.backend.attach(id);
     } catch (err) {
       this.error.set(String(err));
     } finally {

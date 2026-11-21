@@ -107,6 +107,7 @@ Desktop only (`cfg(desktop)`, `terminal.rs`; not compiled on iOS). Every command
 | Command | Signature | Notes |
 |---|---|---|
 | `terminal_open` | `(rows: u16, cols: u16) -> Result<u64, String>` | Starts the detected shell in the vault root and returns the session id; no open vault is an error. Shell: `SHELL`, else `/bin/sh`; Windows: `pwsh`, `powershell`, `cmd`. |
+| `terminal_attach` | `(id: u64) -> Result<(), String>` | Starts the output of the session. The reader thread emits nothing until the frontend has registered its listeners and calls this, so no early output or exit is lost. |
 | `terminal_write` | `(id: u64, data: String) -> Result<(), String>` | Input for the shell. |
 | `terminal_resize` | `(id: u64, rows: u16, cols: u16) -> Result<(), String>` | Resizes the PTY. |
 | `terminal_close` | `(id: u64) -> Result<(), String>` | Kills and reaps the child, frees the session. |

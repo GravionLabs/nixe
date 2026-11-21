@@ -10,6 +10,11 @@ export class TerminalBackend {
     return invoke<number>("terminal_open", { rows, cols });
   }
 
+  /** Starts the output of session `id`; call it once the listeners are registered. */
+  attach(id: number): Promise<void> {
+    return invoke<void>("terminal_attach", { id });
+  }
+
   write(id: number, data: string): Promise<void> {
     return invoke<void>("terminal_write", { id, data });
   }
