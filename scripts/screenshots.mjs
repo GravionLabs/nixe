@@ -37,8 +37,8 @@ async function main() {
           await page.waitForTimeout(400);
           const missing = await page.evaluate(() => window.__demoFailures ?? []);
           if (missing.length) {
-            failures.push(`${view.name}: no demo answer for ${[...new Set(missing)].join(", ")}`);
-            continue;
+            // The catch below records the failure and leaves the picture in tmp/shots.
+            throw new Error(`no demo answer for ${[...new Set(missing)].join(", ")}`);
           }
           const file = join(out, `${view.name}-${theme}.png`);
           await page.screenshot({ path: file, animations: "disabled", caret: "hide" });

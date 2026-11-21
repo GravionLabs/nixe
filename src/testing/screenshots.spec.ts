@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -43,6 +44,25 @@ describe("scripts/screenshots", () => {
     });
     expect(run.status).toBe(2);
     expect(run.stderr).toContain("unknown view: nope");
+  });
+
+  it("opens the demo server in the light and the dark theme", async () => {
+    const href = pathToFileURL(resolve(root, "scripts/browser/playwright.mjs")).href;
+    const mod = (await import(/* @vite-ignore */ href)) as {
+      THEMES: string[];
+      TARGETS: { demo: { name: string; port: number } };
+      withBrowser: unknown;
+    };
+    expect(mod.THEMES).toEqual(["light", "dark"]);
+    expect(mod.TARGETS.demo).toEqual({ name: "nixe:serve:demo", port: 1422 });
+    expect(mod.withBrowser).toBeTypeOf("function");
+  });
+
+  it("leaves a picture in tmp/shots for a failed view, also for a missing demo answer", () => {
+    const source = readFileSync(resolve(root, "scripts/screenshots.mjs"), "utf8");
+    expect(source).toContain("no demo answer for");
+    expect(source).toContain("tmp/shots/failed-");
+    expect(source.indexOf("no demo answer for")).toBeLessThan(source.indexOf("catch (err)"));
   });
 
   it("registers the pnpm script", async () => {
