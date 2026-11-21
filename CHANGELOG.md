@@ -5,7 +5,48 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.9.0] — 2026-11-21
+
+### Documentation
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+
+
+### Features
+- **git**: Sign in to GitHub through the gh CLI, optional GitHub Enterprise (#353) (#355)
+- **editor**: No edit mode, the block under the cursor shows its source (#243) (#357)
+- **vault**: Watch the whole vault so changes by an agent show up (#363) (#366)
+- **terminal**: Bottom panel with xterm.js, toggle command and opt-in setting (#360) (#367)
+- **terminal**: Several terminal tabs (#361) (#368)
+- **terminal**: Claude and Copilot presets start the CLI in the vault (#362) (#369)
+
+
+### Reverts
+- **vault**: Watch the whole vault so changes by an agent show up (#363) (#366)
+
+
+### Security
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+- ADR 0006 for the terminal and agent panel (#358) (#364)
+
+
 ## [1.8.0] — 2026-11-21
+
+### Documentation
+- Update CHANGELOG.md for v1.8.0 [skip ci]
+
 
 ### Features
 - **compare**: Compare two versions of a note in the main area (#317) (#338)
