@@ -115,8 +115,8 @@ describe("ReviewService", () => {
     expect(service.error()).toBe("boom");
   });
 
-  it("opens a branch, shows a note's diff against the merge base and closes again", async () => {
-    await service.toggle(service.branches()[0]);
+  it("opens a suggestion once, shows a note's diff against the merge base and closes again", async () => {
+    await service.view(service.branches()[0]);
     expect(backend.gitReviewChanges).toHaveBeenCalledWith("t1");
     expect(service.changes()).toEqual(changes);
     await service.select(changes[0]);
@@ -124,14 +124,17 @@ describe("ReviewService", () => {
     expect(backend.gitNoteVersion).toHaveBeenCalledWith("a.md", "t1");
     expect(service.diff()).toEqual({ path: "a.md", oldText: "before", newText: "after" });
     await service.select(changes[0]);
-    expect(service.diff()).toBeNull();
-    await service.toggle(service.branches()[0]);
+    expect(service.diff()).toEqual({ path: "a.md", oldText: "before", newText: "after" });
+    await service.view(service.branches()[0]);
+    expect(service.open()?.name).toBe("claude/a");
+    expect(backend.gitReviewChanges).toHaveBeenCalledTimes(1);
+    service.close();
     expect(service.open()).toBeNull();
     expect(service.changes()).toEqual([]);
   });
 
   it("follows the open branch to its new tip and closes it once it is merged", async () => {
-    await service.toggle(service.branches()[0]);
+    await service.view(service.branches()[0]);
     branches.mockResolvedValue([branch("claude/a", "t9")]);
     await service.refresh();
     await flush();
@@ -144,7 +147,7 @@ describe("ReviewService", () => {
   });
 
   describe("decisions (#109)", () => {
-    const open = async () => service.toggle(service.branches()[0]);
+    const open = async () => service.view(service.branches()[0]);
 
     it("loads the hunks of every note and starts with everything rejected", async () => {
       await open();
@@ -218,7 +221,7 @@ describe("ReviewService", () => {
         null,
       );
       expect(service.open()).toBeNull();
-      expect(service.result()).toBe("1 note from claude/a merged");
+      expect(service.result()).toBe("1 note taken over from the suggestion");
       expect(refresh).toHaveBeenCalled();
     });
 
@@ -233,7 +236,7 @@ describe("ReviewService", () => {
       await open();
       await service.finish();
       expect(service.result()).toBe(
-        "Nothing accepted: claude/a deleted without changes. the branch stays on origin: offline",
+        "Nothing taken over: the suggestion was removed without changes. the branch stays on origin: offline",
       );
     });
 

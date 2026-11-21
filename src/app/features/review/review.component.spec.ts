@@ -10,11 +10,9 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { DocumentService } from "../../core/file/document.service";
-import type { GitChange, ReviewBranch, ReviewConflict, ReviewHunk } from "../../core/file/backend";
+import type { ReviewBranch } from "../../core/file/backend";
 import { ReviewService } from "../../core/git/review.service";
-import { MarkdownService } from "../../core/markdown/markdown.service";
-import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { ReviewComponent } from "./review.component";
 
 const branches: ReviewBranch[] = [
@@ -39,59 +37,22 @@ const branches: ReviewBranch[] = [
     notes: 1,
   },
 ];
-const changes: GitChange[] = [
-  { path: "a.md", kind: "modified" },
-  { path: "new.md", kind: "added" },
-];
 
-function render() {
+function render(list: ReviewBranch[] = branches) {
   const service = {
-    branches: signal(branches),
-    count: signal(2),
+    branches: signal(list),
+    count: signal(list.length),
     error: signal<string | null>(null),
-    open: signal<ReviewBranch | null>(branches[0]),
-    changes: signal(changes),
-    selected: signal<string | null>("a.md"),
-    diff: signal({ path: "a.md", oldText: "one\ntwo", newText: "one\nthree" }),
-    loading: signal(false),
     result: signal<string | null>(null),
-    hunks: signal<Record<string, ReviewHunk[]>>({
-      "a.md": [
-        {
-          index: 0,
-          oldStart: 1,
-          oldLines: 1,
-          newStart: 1,
-          newLines: 1,
-          old: "two\n",
-          new: "three\n",
-        },
-        { index: 1, oldStart: 5, oldLines: 0, newStart: 5, newLines: 1, old: "", new: "tail\n" },
-      ],
-    }),
-    choices: signal<Record<string, { resolve?: string }>>({}),
-    conflicts: signal<ReviewConflict[]>([]),
-    finishing: signal(false),
-    accepted: signal(1),
-    stateOf: vi.fn(() => "rejected"),
-    isAccepted: vi.fn((_p: string, i: number) => i === 0),
-    editedText: vi.fn((_p: string, i: number) => (i === 0 ? undefined : "edited\n")),
-    setNote: vi.fn(),
-    setHunk: vi.fn(),
-    editHunk: vi.fn(),
-    resetHunk: vi.fn(),
-    resolve: vi.fn(),
-    finish: vi.fn(async () => undefined),
-    toggle: vi.fn(),
-    select: vi.fn(),
+    open: signal<ReviewBranch | null>(null),
+    view: vi.fn(async () => undefined),
   };
+  const tabs = { openView: vi.fn() };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
       { provide: ReviewService, useValue: service },
-      { provide: MarkdownService, useValue: { render: (t: string) => `<p>${t}</p>` } },
-      { provide: DocumentService, useValue: {} },
-      { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
+      { provide: TabsService, useValue: tabs },
     ],
   });
   TestBed.overrideComponent(ReviewComponent, {
@@ -103,7 +64,7 @@ function render() {
   });
   const fixture = TestBed.createComponent(ReviewComponent);
   fixture.detectChanges();
-  return { service, fixture, el: fixture.nativeElement as HTMLElement };
+  return { service, tabs, fixture, el: fixture.nativeElement as HTMLElement };
 }
 
 describe("ReviewComponent", () => {
@@ -111,105 +72,38 @@ describe("ReviewComponent", () => {
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
   });
 
-  it("lists the branches with author, date, commit messages and the number of notes", () => {
+  it("shows a suggestion as a card with who, when, number of notes and messages", () => {
     const { el } = render();
     expect(el.querySelector(".count")!.textContent).toContain("2");
-    const rows = [...el.querySelectorAll(".branch")].map((b) =>
-      b.textContent!.replace(/\s+/g, " ").trim(),
+    const cards = [...el.querySelectorAll(".card")];
+    expect(cards[0].querySelector(".who")!.textContent).toBe("Claude");
+    expect(cards[0].querySelector(".meta")!.textContent!.replace(/\s+/g, " ").trim()).toBe(
+      "2023-11-14 22:13 · 2 notes",
     );
-    expect(rows[0]).toBe("claude/a Claude · 2023-11-14 22:13 · 2 notes");
-    expect(rows[1]).toContain("remote");
-    expect(rows[1]).toContain("1 note");
-    expect(
-      [...el.querySelectorAll(".messages")[0].querySelectorAll("li")].map((l) => l.textContent),
-    ).toEqual(["tidy inbox", "fix links"]);
+    expect(cards[1].querySelector(".meta")!.textContent).toContain("1 note");
+    expect([...cards[0].querySelectorAll(".messages li")].map((l) => l.textContent)).toEqual([
+      "tidy inbox",
+      "fix links",
+    ]);
   });
 
-  it("opens a branch and one of its notes", () => {
-    const { el, service } = render();
-    el.querySelectorAll<HTMLElement>(".branch")[1].click();
-    expect(service.toggle).toHaveBeenCalledWith(branches[1]);
-    const entries = [...el.querySelectorAll(".main")].map((b) =>
-      b.textContent!.replace(/\s+/g, " ").trim(),
-    );
-    expect(entries).toEqual(["●arejected", "＋newrejected"]);
-    el.querySelectorAll<HTMLElement>(".main")[1].click();
-    expect(service.select).toHaveBeenCalledWith(changes[1]);
+  it("names the branch only as tooltip", () => {
+    const { el } = render();
+    const cards = [...el.querySelectorAll<HTMLElement>(".card")];
+    expect(cards[0].title).toBe("claude/a");
+    expect(el.textContent).not.toContain("claude/a");
+    expect(el.textContent).not.toContain("remote");
   });
 
-  it("shows the source diff and switches to the rendered versions", () => {
-    const { el, fixture } = render();
-    el.querySelectorAll<HTMLElement>(".toolbar button")[1].click();
-    fixture.detectChanges();
-    expect(el.querySelectorAll(".diff .row.add")).toHaveLength(1);
-    expect(el.querySelectorAll(".diff .row.del")).toHaveLength(1);
-    el.querySelectorAll<HTMLElement>(".toolbar button")[2].click();
-    fixture.detectChanges();
-    expect(el.querySelector(".diff")).toBeNull();
-    const md = [...el.querySelectorAll(".rendered .md")].map((m) => m.textContent);
-    expect(md).toEqual(["one\ntwo", "one\nthree"]);
+  it("opens a suggestion in a review tab of the main area", () => {
+    const { el, service, tabs } = render();
+    el.querySelectorAll<HTMLElement>(".card")[1].click();
+    expect(service.view).toHaveBeenCalledWith(branches[1]);
+    expect(tabs.openView).toHaveBeenCalledWith("review");
   });
 
-  const button = (el: HTMLElement, label: string) =>
-    [...el.querySelectorAll<HTMLElement>("button")].find(
-      (b) => b.textContent!.trim() === label || b.getAttribute("aria-label") === label,
-    )!;
-
-  it("accepts or rejects a note and a hunk", () => {
-    const { el, service } = render();
-    expect(el.querySelectorAll(".hunk")).toHaveLength(2);
-    button(el, "Accept a.md").click();
-    expect(service.setNote).toHaveBeenCalledWith("a.md", true);
-    button(el, "Reject a.md").click();
-    expect(service.setNote).toHaveBeenCalledWith("a.md", false);
-    const hunks = el.querySelectorAll<HTMLElement>(".hunk");
-    (hunks[0].querySelectorAll("button")[1] as HTMLElement).click();
-    expect(service.setHunk).toHaveBeenCalledWith("a.md", 0, false);
-    (hunks[1].querySelectorAll("button")[0] as HTMLElement).click();
-    expect(service.setHunk).toHaveBeenCalledWith("a.md", 1, true);
-    expect(hunks[1].querySelector("pre.add")!.textContent).toBe("edited\n");
-    expect(hunks[1].textContent).toContain("edited");
-  });
-
-  it("edits an accepted hunk before it is applied", () => {
-    const { el, fixture, service } = render();
-    button(el, "Edit").click();
-    fixture.detectChanges();
-    const area = el.querySelector<HTMLTextAreaElement>("textarea")!;
-    expect(area.value).toBe("three\n");
-    area.value = "four\n";
-    button(el, "Apply edit").click();
-    fixture.detectChanges();
-    expect(service.editHunk).toHaveBeenCalledWith("a.md", 0, "four\n");
-    expect(el.querySelector("textarea")).toBeNull();
-  });
-
-  it("asks before it finishes the review and deletes the branch", () => {
-    const { el, fixture, service } = render();
-    button(el, "Finish review").click();
-    fixture.detectChanges();
-    expect(service.finish).not.toHaveBeenCalled();
-    expect(el.querySelector(".finish")!.textContent).toContain(
-      "delete claude/a locally and on the remote",
-    );
-    button(el, "Cancel").click();
-    fixture.detectChanges();
-    expect(el.querySelector(".finish p")).toBeNull();
-    button(el, "Finish review").click();
-    fixture.detectChanges();
-    button(el, "Confirm").click();
-    expect(service.finish).toHaveBeenCalled();
-  });
-
-  it("shows both versions of a conflicting note and lets the user decide", () => {
-    const { el, fixture, service } = render();
-    service.conflicts.set([{ path: "a.md", mine: "mine text", branch: null }]);
-    fixture.detectChanges();
-    expect(el.querySelector(".conflict .mine")!.textContent).toBe("mine text");
-    expect(el.querySelector(".conflict .theirs")!.textContent).toBe("(deleted)");
-    button(el, "Keep mine").click();
-    expect(service.resolve).toHaveBeenCalledWith("a.md", "mine");
-    button(el, "Use branch version").click();
-    expect(service.resolve).toHaveBeenCalledWith("a.md", "branch");
+  it("says when nothing waits", () => {
+    const { el } = render([]);
+    expect(el.textContent).toContain("No suggestions to review");
   });
 });

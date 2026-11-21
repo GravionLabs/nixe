@@ -88,7 +88,7 @@ export class StatusBarComponent {
     this.shell.show("git");
   }
 
-  /** Opens the Git view, which lists the branches waiting for review. */
+  /** Opens the Git view, which lists the suggestions waiting for review. */
   protected showReview(): void {
     this.shell.show("git");
   }

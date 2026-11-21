@@ -42,10 +42,10 @@
             slot="start"
             kind="button"
             class="review"
-            hx-tooltip="Branches waiting for review"
+            hx-tooltip="Suggestions waiting for review"
             (click)="showReview()"
           >
-            {{ n }} {{ n === 1 ? "branch" : "branches" }} to review
+            {{ n }} {{ n === 1 ? "suggestion" : "suggestions" }} to review
           </hx-status-item>
         }
         @if (git.syncState().message; as message) {

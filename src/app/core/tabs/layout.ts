@@ -1,8 +1,8 @@
 /** The views that open as a tab instead of a note and are restored with the layout. */
 export const TAB_VIEWS = ["settings", "health"] as const;
 export type StoredView = (typeof TAB_VIEWS)[number];
-/** The compare view is not stored: its texts live in memory only. */
-export type TabView = StoredView | "compare";
+/** The compare and review views are not stored: their texts live in memory only. */
+export type TabView = StoredView | "compare" | "review";
 
 /** What a vault restores of its tabs: the panes, their tabs and the divider. */
 export interface TabState {

@@ -1,0 +1,175 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--h-content-border-color);
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.range {
+  flex: 1;
+  color: var(--h-text-muted-color);
+  font-size: 12px;
+}
+
+.finish {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.notes {
+  flex: 0 0 280px;
+  overflow: auto;
+  padding: 8px;
+  border-right: 1px solid var(--h-content-border-color);
+}
+
+.compare {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 8px 14px;
+}
+
+.status {
+  margin: 4px 0;
+  color: var(--h-text-muted-color);
+  font-size: 12px;
+}
+
+.tag {
+  font-size: 10px;
+  color: var(--h-text-muted-color);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.toolbar .stat {
+  flex: 1;
+}
+
+.toolbar .on {
+  font-weight: 600;
+}
+
+.add {
+  color: #2da44e;
+}
+
+.del {
+  color: #cf222e;
+}
+
+.state {
+  margin-left: auto;
+  font-size: 0.75em;
+  opacity: 0.7;
+}
+.state.accepted {
+  color: #2da44e;
+}
+.state.partial {
+  color: #bf8700;
+}
+.decide {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.decide button,
+.section-head button,
+.finish button,
+.conflict button {
+  font: inherit;
+  font-size: 0.8em;
+}
+.decide button.on,
+.section-head button.on,
+.conflict button.on {
+  font-weight: 600;
+  text-decoration: underline;
+}
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.section {
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+}
+.section.accepted {
+  border-color: #2da44e;
+}
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.85em;
+}
+.section pre {
+  margin: 0.25rem 0;
+  white-space: pre-wrap;
+}
+.section pre.del {
+  background: rgba(248, 81, 73, 0.15);
+}
+.section pre.add {
+  background: rgba(46, 160, 67, 0.15);
+}
+.section textarea {
+  width: 100%;
+  font-family: var(--nixe-font-mono, monospace);
+}
+.conflicts {
+  border: 1px solid #bf8700;
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin: 0.5rem 14px;
+}
+.versions {
+  display: flex;
+  gap: 12px;
+}
+.versions section {
+  flex: 1;
+  min-width: 0;
+}
+.conflict pre {
+  white-space: pre-wrap;
+  margin: 0;
+}
