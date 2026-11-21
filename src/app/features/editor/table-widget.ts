@@ -1,3 +1,4 @@
+import { redo, undo } from "@codemirror/commands";
 import { WidgetType } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 
@@ -272,6 +273,15 @@ class TableEditor {
   private onKeyDown(event: KeyboardEvent): void {
     const at = this.pos(event.target as Element);
     if (!at || event.isComposing) return;
+    // The cells are outside the editor's key handling: undo and redo go to the note's history.
+    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+      const k = event.key.toLowerCase();
+      if (k === "z" || k === "y") {
+        event.preventDefault();
+        (k === "y" || event.shiftKey ? redo : undo)(this.view);
+        return;
+      }
+    }
     const last = this.model.rows.length - 1;
     const cols = this.model.aligns.length;
     if (event.key === "Tab") {

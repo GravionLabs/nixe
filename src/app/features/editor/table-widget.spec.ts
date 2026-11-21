@@ -107,6 +107,28 @@ describe("table widget", () => {
     expect(v.state.doc.toString()).toBe(DOC);
   });
 
+  it("undoes and redoes from inside a cell through the note's history", () => {
+    const v = mount();
+    cells(v)[3].focus();
+    key(cells(v)[3], "Tab");
+    expect(cells(v)).toHaveLength(6);
+    const ctrl = (td: HTMLElement, k: string, shiftKey = false) =>
+      td.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: k,
+          ctrlKey: true,
+          shiftKey,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    ctrl(cells(v)[4], "z");
+    expect(v.state.doc.toString()).toBe(DOC);
+    expect(cells(v)).toHaveLength(4);
+    ctrl(cells(v)[0], "z", true);
+    expect(cells(v)).toHaveLength(6);
+  });
+
   it("moves with Tab and Shift+Tab, Enter goes down", () => {
     const v = mount();
     const focus = () => (document.activeElement as HTMLElement).textContent;
