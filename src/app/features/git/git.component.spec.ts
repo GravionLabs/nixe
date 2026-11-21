@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@angular/compiler";
 import { readFileSync } from "node:fs";
-import { NO_ERRORS_SCHEMA, signal } from "@angular/core";
+import { NO_ERRORS_SCHEMA, computed, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -54,6 +54,18 @@ function render(
   const close = vi.fn();
   const discard = vi.fn().mockResolvedValue(true);
   const selected = vi.fn();
+  const statusValue = extra.status === undefined ? value : extra.status;
+  const checkedPaths = signal(new Set((statusValue?.changes ?? []).map((c) => c.path)));
+  const total = statusValue?.changes.length ?? 0;
+  const selection = computed(() =>
+    checkedPaths().size === total ? "all" : checkedPaths().size === 0 ? "none" : "some",
+  );
+  const toggle = vi.fn((p: string) => {
+    const next = new Set(checkedPaths());
+    if (!next.delete(p)) next.add(p);
+    checkedPaths.set(next);
+  });
+  const setAll = vi.fn();
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -62,6 +74,11 @@ function render(
         useValue: {
           status: signal(extra.status === undefined ? value : extra.status),
           committing: signal(false),
+          selection,
+          selected: computed(() => [...checkedPaths()]),
+          isChecked: (p: string) => checkedPaths().has(p),
+          toggle,
+          setAll,
           saveAndSync: commit,
           sync,
           lastSynced: signal<number | null>(null),
@@ -105,6 +122,9 @@ function render(
     compareOpen,
     execute,
     errors,
+    toggle,
+    setAll,
+    checkedPaths,
   };
 }
 
@@ -157,6 +177,39 @@ describe("GitComponent", () => {
     expect(
       render(status, undefined, {}, { reviewCount: 1 }).el.querySelector("app-review"),
     ).not.toBeNull();
+  });
+
+  it("puts a labelled checkbox on every row and on the header", () => {
+    const { el, toggle, setAll, fixture } = render(status);
+    const rows = [...el.querySelectorAll<HTMLInputElement>("app-note-row input[type=checkbox]")];
+    expect(rows.map((r) => r.getAttribute("aria-label"))).toEqual([
+      "Include a in the save",
+      "Include b in the save",
+      "Include gone in the save",
+    ]);
+    expect(rows.every((r) => r.checked)).toBe(true);
+    rows[1].click();
+    expect(toggle).toHaveBeenCalledWith("new/b.md");
+    fixture.detectChanges();
+    const head = el.querySelector<HTMLInputElement>(
+      "input[aria-label='Include all changes in the save']",
+    )!;
+    expect(head.indeterminate).toBe(true);
+    head.click();
+    expect(setAll).toHaveBeenCalledWith(true);
+  });
+
+  it("names the count when not all are checked and disables Save with none", () => {
+    const { el, fixture, checkedPaths } = render(status);
+    const save = () => el.querySelector<HTMLButtonElement>("button.primary")!;
+    expect(save().textContent?.trim()).toBe("Save and sync");
+    checkedPaths.set(new Set(["a.md", "gone.md"]));
+    fixture.detectChanges();
+    expect(save().textContent?.trim()).toBe("Save 2 of 3");
+    expect(save().disabled).toBe(false);
+    checkedPaths.set(new Set());
+    fixture.detectChanges();
+    expect(save().disabled).toBe(true);
   });
 
   it("offers to set up a vault without Git", () => {

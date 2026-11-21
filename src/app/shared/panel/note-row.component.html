@@ -1,4 +1,5 @@
 <div class="row" [class.static]="!interactive">
+  <ng-content select="[rowStart]" />
   @if (interactive) {
     <button
       type="button"

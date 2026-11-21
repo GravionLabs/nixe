@@ -13,6 +13,7 @@ import { basename, joinPath } from "../../core/markdown/paths";
 import { SettingsPageService } from "../../core/settings/settings-page.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
+import { noteLabel } from "../../shared/panel/note-label";
 import { NoteRowComponent } from "../../shared/panel/note-row.component";
 import { PanelSectionComponent } from "../../shared/panel/panel-section.component";
 import { ChangesComponent } from "../changes/changes.component";
@@ -43,6 +44,19 @@ export class GitComponent {
 
   readonly failed = output<string>();
   readonly committed = output<void>();
+
+  protected titleOf(path: string): string {
+    return noteLabel(path).title;
+  }
+
+  /** "Save 2 of 5" when only some changes are checked; else Save, or Save and sync with a remote. */
+  protected saveLabel(): string {
+    const status = this.git.status();
+    if (this.git.selection() === "some" && status) {
+      return `Save ${this.git.selected().length} of ${status.changes.length}`;
+    }
+    return status?.hasRemote ? "Save and sync" : "Save";
+  }
 
   protected summary(): string {
     const status = this.git.status();

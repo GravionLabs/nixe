@@ -240,6 +240,8 @@ export interface GitChange {
   kind: "added" | "modified" | "deleted";
   /** A new note Git does not track yet; only the working-tree status sets it. */
   untracked?: boolean;
+  /** The other half of a rename or move: the new path on the deleted note, the old on the added. */
+  pair?: string;
 }
 
 /** A branch that waits for review (#108). */
@@ -634,8 +636,12 @@ export const backend = {
    * Stages everything and commits; returns the commit id. An empty `message` gives
    * `vault backup: <timestamp>`; `name` and `email` are used when the Git config has no author.
    */
-  gitVaultCommit: (message: string | null, name: string | null, email: string | null) =>
-    invoke<string>("git_vault_commit", { message, name, email }),
+  gitVaultCommit: (
+    message: string | null,
+    name: string | null,
+    email: string | null,
+    paths: string[] | null = null,
+  ) => invoke<string>("git_vault_commit", { message, name, email, paths }),
   /**
    * Sync: commits open changes, fetches, rebases the local commits onto the remote branch and
    * pushes. A conflict never stops it: the remote text stays in the note and the local text goes

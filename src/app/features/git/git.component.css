@@ -154,3 +154,10 @@ button.link {
   text-decoration: underline;
   cursor: pointer;
 }
+
+input.check {
+  width: auto;
+  margin: 0 0 0 12px;
+  padding: 0;
+  accent-color: var(--h-primary-color, currentColor);
+}

@@ -27,6 +27,11 @@ import { type ChangeKind, StatusIconComponent } from "./status-icon.component";
       background: var(--h-surface-hover);
     }
 
+    ::slotted([rowStart]) {
+      flex: none;
+      margin: 0 0 0 12px;
+    }
+
     .main {
       display: flex;
       flex: 1;
