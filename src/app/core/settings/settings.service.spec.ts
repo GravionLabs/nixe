@@ -201,6 +201,20 @@ describe("SettingsService right panel tabs", () => {
     expect(settings.panelTab()).toBe("outline");
   });
 
+  it("has a Properties tab that shares the stored flag with Links and toggles like the others", () => {
+    const settings = TestBed.inject(SettingsService);
+    settings.togglePanelTab("properties");
+    expect([settings.panelOpen(), settings.panelTab()]).toEqual([true, "properties"]);
+    settings.showPanelTab("links");
+    expect(settings.panelTab()).toBe("links");
+    settings.showPanelTab("properties");
+    settings.showPanelTab("related");
+    expect(settings.panelTab()).toBe("related");
+    settings.showPanelTab("properties");
+    settings.togglePanelTab("properties");
+    expect(settings.panelOpen()).toBe(false);
+  });
+
   it("shows the outline when an old setting has both panels on", () => {
     const settings = TestBed.inject(SettingsService);
     settings.outlineVisible.set(true);

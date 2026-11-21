@@ -1,5 +1,14 @@
 import { NgTemplateOutlet } from "@angular/common";
-import { Component, Input, computed, inject, output, signal } from "@angular/core";
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  computed,
+  inject,
+  output,
+  signal,
+} from "@angular/core";
 
 import { backend } from "../../core/file/backend";
 import { SettingsService } from "../../core/settings/settings.service";
@@ -30,10 +39,11 @@ const today = (): string => {
   templateUrl: "./properties.component.html",
   styleUrl: "./properties.component.css",
   imports: [NgTemplateOutlet],
-  host: { "[class.in-editor]": "inEditor()" },
+  host: { "[class.in-editor]": "inEditor()", "[class.in-sidebar]": "panel()" },
 })
 export class PropertiesComponent {
-  readonly failed = output<string>();
+  // `@Output` (not `output()`) so a template listener also works in the JIT-compiled tests.
+  @Output() readonly failed = new EventEmitter<string>();
 
   /**
    * The frontmatter text of the live preview (#375). Set: the component shows this text and hands a
@@ -45,15 +55,25 @@ export class PropertiesComponent {
     this.source.set(value);
   }
   /** The new frontmatter text after a change made in the block (live preview only). */
-  readonly edited = output<string>();
+  @Output() readonly edited = new EventEmitter<string>();
   /** The user asked for the YAML of the block in the editor (live preview only). */
   readonly editSource = output<void>();
-  protected readonly inEditor = computed(() => this.source() !== null);
+  /**
+   * The properties panel of the sidebar (#376): always unfolded whatever the display setting says,
+   * with an empty state and buttons to reorder; `sourceText` is then the whole note text.
+   */
+  protected readonly panel = signal(false);
+  @Input() set sidebarPanel(value: boolean) {
+    this.panel.set(value);
+  }
+  protected readonly inEditor = computed(() => this.source() !== null && !this.panel());
 
   private readonly doc = inject(DocumentService);
   private readonly settings = inject(SettingsService);
 
-  protected readonly display = this.settings.propertiesDisplay;
+  protected readonly display = computed(() =>
+    this.panel() ? "expanded" : this.settings.propertiesDisplay(),
+  );
   protected readonly summary = computed(() => propertiesSummary(this.props()));
   protected readonly toggle = (): void => this.settings.toggleProperties();
 
@@ -73,6 +93,11 @@ export class PropertiesComponent {
   /** The index values to complete from: vault tags for `tags`, the aliases of the notes for `aliases`. */
   protected suggestionsFor(key: string): string[] {
     return /^tags?$/i.test(key) ? this.tagIndex() : this.aliasIndex();
+  }
+
+  /** The panel and the block of the live preview can be on screen together: their ids differ. */
+  protected suggestId(key: string): string {
+    return `${this.panel() ? "panel-suggest-" : "suggest-"}${key}`;
   }
 
   protected suggest(source: readonly string[], p: Property): string[] {
@@ -109,6 +134,10 @@ export class PropertiesComponent {
       return;
     }
     if (!(await this.apply({ kind: "rename", from, to }))) input.value = from;
+  }
+
+  protected move(key: string, direction: -1 | 1): Promise<boolean> {
+    return this.apply({ kind: "move", key, direction });
   }
 
   protected remove(key: string): Promise<boolean> {

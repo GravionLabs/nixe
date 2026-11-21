@@ -64,6 +64,7 @@ import { BacklinksComponent } from "./features/backlinks/backlinks.component";
 import { RelatedComponent } from "./features/related/related.component";
 import { LinkPreviewComponent } from "./features/link-preview/link-preview.component";
 import { OutlineComponent } from "./features/outline/outline.component";
+import { PropertiesPanelComponent } from "./features/properties/properties-panel.component";
 import { PaletteComponent } from "./features/palette/palette.component";
 import { SearchComponent } from "./features/search/search.component";
 import { ComposerComponent } from "./features/composer/composer.component";
@@ -102,6 +103,7 @@ export class NavIconDirective {
     NavIconDirective,
     LinkPreviewComponent,
     OutlineComponent,
+    PropertiesPanelComponent,
     BacklinksComponent,
     RelatedComponent,
     CloneComponent,
@@ -196,7 +198,8 @@ export class AppComponent {
   );
 
   protected readonly panelTab = computed<PanelTab>(() =>
-    this.settings.panelTab() !== "outline" && this.linksAvailable()
+    this.settings.panelTab() === "properties" ||
+    (this.settings.panelTab() !== "outline" && this.linksAvailable())
       ? this.settings.panelTab()
       : "outline",
   );
@@ -738,6 +741,12 @@ export class AppComponent {
         shortcut: "Mod+Shift+L",
         when: noteOpen,
         run: () => this.settings.togglePanelTab("outline"),
+      },
+      {
+        id: "show-properties-panel",
+        title: "Show properties panel",
+        when: noteOpen,
+        run: () => this.settings.showPanelTab("properties"),
       },
       {
         id: "toggle-properties",

@@ -181,3 +181,30 @@ describe("round trip", () => {
     expect(text.endsWith("# Body\ntext\n")).toBe(true);
   });
 });
+
+describe("editFrontmatter move", () => {
+  const move = (text: string, key: string, direction: -1 | 1) =>
+    editFrontmatter(text, { kind: "move", key, direction });
+
+  it("swaps the lines of a property with its neighbour and keeps the rest", () => {
+    const text = "---\na: 1\nb:\n  - x\n  - y\nc: 3 # last\n---\nBody\n";
+    expect(move(text, "b", -1)).toBe("---\nb:\n  - x\n  - y\na: 1\nc: 3 # last\n---\nBody\n");
+    expect(move(text, "b", 1)).toBe("---\na: 1\nc: 3 # last\nb:\n  - x\n  - y\n---\nBody\n");
+  });
+
+  it("does nothing at either end or for an unknown key", () => {
+    const text = "---\na: 1\nb: 2\n---\n";
+    expect(move(text, "a", -1)).toBe(text);
+    expect(move(text, "b", 1)).toBe(text);
+    expect(move(text, "zz", 1)).toBe(text);
+  });
+
+  it("keeps CRLF line ends", () => {
+    expect(move("---\r\na: 1\r\nb: 2\r\n---\r\n", "b", -1)).toBe("---\r\nb: 2\r\na: 1\r\n---\r\n");
+  });
+
+  it("reorders a flow mapping", () => {
+    const out = move("---\n{a: 1, b: 2}\n---\n", "a", 1);
+    expect(Object.keys(splitFrontmatter(out).data)).toEqual(["b", "a"]);
+  });
+});

@@ -4,7 +4,9 @@ import { isMap, isScalar, parseDocument, stringify, type Pair } from "yaml";
 export type PropertyEdit =
   | { kind: "set"; key: string; value: unknown }
   | { kind: "rename"; from: string; to: string }
-  | { kind: "remove"; key: string };
+  | { kind: "remove"; key: string }
+  /** One place up (-1) or down (1) among the properties. */
+  | { kind: "move"; key: string; direction: -1 | 1 };
 
 interface Block {
   /** Offset of the first character after the opening fence line. */
@@ -95,12 +97,10 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
 
   if (!isBlock) return flowFallback(text, block, doc, edit, eol);
 
+  if (edit.kind === "move") return moveBlock(text, block, pairs, edit, yamlText);
+
   const pair =
-    edit.kind === "set"
-      ? find(edit.key)
-      : edit.kind === "rename"
-        ? find(edit.from)
-        : find(edit.key);
+    edit.kind === "set" ? find(edit.key) : find(edit.kind === "rename" ? edit.from : edit.key);
 
   switch (edit.kind) {
     case "set": {
@@ -148,6 +148,28 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
   }
 }
 
+/** Swaps the lines of the property with those of its neighbour; nothing else changes. */
+function moveBlock(
+  text: string,
+  block: Block,
+  pairs: Pair[],
+  edit: { key: string; direction: -1 | 1 },
+  yamlText: string,
+): string {
+  const i = pairs.findIndex((p) => keyOf(p) === edit.key);
+  const j = i + edit.direction;
+  if (i < 0 || j < 0 || j >= pairs.length) return text;
+  const lineStart = (p: Pair): number =>
+    yamlText.lastIndexOf("\n", (p.key as { range: [number, number, number] }).range[0] - 1) + 1;
+  const lo = Math.min(i, j);
+  const a = lineStart(pairs[lo]);
+  const b = lineStart(pairs[lo + 1]);
+  const c = lo + 2 < pairs.length ? lineStart(pairs[lo + 2]) : yamlText.length;
+  const swapped =
+    yamlText.slice(0, a) + yamlText.slice(b, c) + yamlText.slice(a, b) + yamlText.slice(c);
+  return text.slice(0, block.start) + swapped + text.slice(block.end);
+}
+
 /** A flow mapping (`{a: 1}`) has no lines of its own: the document is written again. */
 function flowFallback(
   text: string,
@@ -163,6 +185,15 @@ function flowFallback(
     case "remove":
       doc.delete(edit.key);
       break;
+    case "move": {
+      const map = doc.contents;
+      if (!isMap(map)) return text;
+      const i = map.items.findIndex((p) => keyOf(p) === edit.key);
+      const j = i + edit.direction;
+      if (i < 0 || j < 0 || j >= map.items.length) return text;
+      [map.items[i], map.items[j]] = [map.items[j], map.items[i]];
+      break;
+    }
     case "rename": {
       const map = doc.contents;
       if (!isMap(map)) return text;
