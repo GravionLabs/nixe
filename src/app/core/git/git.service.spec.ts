@@ -553,6 +553,15 @@ describe("GitService", () => {
       expect(git.tokenStored()).toBeFalsy();
     });
 
+    it("stores a typed token under the host that asked", async () => {
+      const set = vi.spyOn(backend, "gitTokenSet").mockResolvedValue();
+      const run = git.runRemote(() => Promise.reject("auth-required:ghe.example.com"));
+      run.catch(() => undefined);
+      await vi.waitFor(() => expect(git.tokenPrompt()?.host).toBe("ghe.example.com"));
+      await git.saveToken("tok");
+      expect(set).toHaveBeenCalledWith("ghe.example.com", "tok");
+    });
+
     it("cancels through the backend", async () => {
       const cancel = vi.spyOn(backend, "gitProviderCancel").mockResolvedValue();
       await git.cancelGhSignIn();

@@ -187,8 +187,10 @@ export class GitService {
   async saveToken(token: string): Promise<void> {
     const value = token.trim();
     if (!value) throw new Error("the token is empty");
-    await backend.gitTokenSet(GIT_HOST, value);
-    this.tokenStored.set(true);
+    // A prompt of the Enterprise host stores the token under that host.
+    const host = this.tokenPrompt()?.host ?? GIT_HOST;
+    await backend.gitTokenSet(host, value);
+    if (host === GIT_HOST) this.tokenStored.set(true);
     this.answerPrompt(value);
   }
 

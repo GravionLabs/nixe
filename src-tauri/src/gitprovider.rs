@@ -173,22 +173,21 @@ impl GhRunner for GhCommand {
             .spawn()
             .map_err(|_| "the GitHub CLI could not be started".to_owned())?;
         let (tx, rx) = mpsc::channel::<String>();
-        let mut readers = Vec::new();
         if let Some(out) = child.stdout.take() {
             let tx = tx.clone();
-            readers.push(std::thread::spawn(move || {
+            std::thread::spawn(move || {
                 for line in BufReader::new(out).lines().map_while(Result::ok) {
                     let _ = tx.send(line);
                 }
-            }));
+            });
         }
         if let Some(err) = child.stderr.take() {
             let tx = tx.clone();
-            readers.push(std::thread::spawn(move || {
+            std::thread::spawn(move || {
                 for line in BufReader::new(err).lines().map_while(Result::ok) {
                     let _ = tx.send(line);
                 }
-            }));
+            });
         }
         drop(tx);
         let mut stdin = child.stdin.take();
@@ -223,14 +222,18 @@ impl GhRunner for GhCommand {
                     };
                 }
             }
+            // A browser that `gh` started can keep the pipes open after `gh` is done.
+            match child.try_wait() {
+                Ok(Some(s)) if s.success() => break Ok(()),
+                Ok(Some(_)) => break Err("the GitHub CLI sign-in failed".to_owned()),
+                _ => {}
+            }
         };
         if outcome.is_err() {
             let _ = child.kill();
         }
         let _ = child.wait();
-        for r in readers {
-            let _ = r.join();
-        }
+        // The reader threads end by themselves when the pipes close; never wait for them.
         outcome
     }
 }
