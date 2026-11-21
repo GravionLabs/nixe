@@ -47,6 +47,10 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 ureq = "3"
 
+# Terminal panel (#291): a real PTY (ConPTY on Windows) for the shell; not compiled on mobile.
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies.portable-pty]
+version = "0.9"
+
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
 
