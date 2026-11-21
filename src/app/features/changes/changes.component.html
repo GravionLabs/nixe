@@ -1,23 +1,28 @@
 <app-panel-section title="Changes since" storageKey="changes-since">
-  <div class="range" role="group" aria-label="Range">
-    <button type="button" [class.on]="changes.kind() === 'sync'" (click)="changes.showSync()">
-      Last sync
-    </button>
-    <button
-      type="button"
-      [class.on]="changes.kind() === 'yesterday'"
-      (click)="changes.showYesterday()"
-    >
-      Yesterday
-    </button>
-    <button type="button" [class.on]="changes.kind() === 'commit'" (click)="commit.focus()">
-      Commit
-    </button>
-  </div>
-  <form class="commit" (submit)="$event.preventDefault(); changes.showCommit(commit.value)">
-    <input #commit type="text" aria-label="Commit id" placeholder="Commit id" />
-    <button type="submit">Show</button>
-  </form>
+  <select
+    class="range"
+    aria-label="Range"
+    [value]="changes.kind()"
+    (change)="pick($any($event.target).value)"
+  >
+    <option value="sync" [selected]="changes.kind() === 'sync'">Last sync</option>
+    <option value="yesterday" [selected]="changes.kind() === 'yesterday'">Yesterday</option>
+    <option value="week" [selected]="changes.kind() === 'week'">Last week</option>
+    <option value="commit" [selected]="changes.kind() === 'commit'">Choose a version…</option>
+  </select>
+  @if (changes.kind() === "commit") {
+    <select class="version" aria-label="Version" (change)="pickVersion($any($event.target).value)">
+      <option value="" [selected]="!changes.chosen()" disabled>Pick a version</option>
+      @for (v of changes.versions(); track v.id) {
+        <option [value]="v.id" [selected]="changes.chosen()?.id === v.id">
+          {{ versionLabel(v) }}
+        </option>
+      }
+    </select>
+    @if (changes.versionsError(); as error) {
+      <p class="status">{{ error }}</p>
+    }
+  }
 
   @if (changes.message(); as message) {
     <p class="status">{{ message }}</p>
@@ -38,10 +43,6 @@
           }
         </app-note-row>
       </li>
-    } @empty {
-      @if (!changes.loading() && !changes.message()) {
-        <li><app-empty-state text="No notes changed" /></li>
-      }
     }
   </ul>
 </app-panel-section>

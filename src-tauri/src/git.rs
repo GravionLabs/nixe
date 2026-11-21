@@ -760,6 +760,44 @@ pub fn rev_at(root: &Path, secs: i64) -> Result<Option<String>, String> {
     Ok(None)
 }
 
+/// One commit of the vault log, for the version picker (#321).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultCommit {
+    pub id: String,
+    pub author: String,
+    /// Seconds since the epoch.
+    pub time: i64,
+    /// First line of the message.
+    pub message: String,
+}
+
+/// The commits reachable from HEAD, newest first; skips `offset` and returns at most `limit`.
+pub fn vault_log(root: &Path, offset: usize, limit: usize) -> Result<Vec<VaultCommit>, String> {
+    let Some(backend) = Git2Backend::open(root) else {
+        return Ok(vec![]);
+    };
+    let repo = &backend.repo;
+    if repo.head().is_err() {
+        return Ok(vec![]);
+    }
+    let mut walk = repo.revwalk().map_err(e)?;
+    walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
+        .map_err(e)?;
+    walk.push_head().map_err(e)?;
+    let mut out = Vec::new();
+    for oid in walk.skip(offset).take(limit) {
+        let commit = repo.find_commit(oid.map_err(e)?).map_err(e)?;
+        out.push(VaultCommit {
+            id: commit.id().to_string(),
+            author: commit.author().name().unwrap_or("").to_owned(),
+            time: commit.time().seconds(),
+            message: commit.summary().ok().flatten().unwrap_or("").to_owned(),
+        });
+    }
+    Ok(out)
+}
+
 /// A branch that waits for review (#108): ahead of the working branch and named with the prefix.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1136,6 +1174,25 @@ mod tests {
             .as_secs() as i64;
         assert_eq!(rev_at(&dir, now + 60).unwrap(), Some(head));
         assert_eq!(rev_at(&dir, now - 86_400).unwrap(), None);
+    }
+
+    #[test]
+    fn vault_log_lists_the_commits_newest_first_and_pages() {
+        let (dir, backend) = repo_with_commit("vault-log");
+        commit_file(&dir, &backend, "b.md", "b", "second");
+        commit_file(&dir, &backend, "c.md", "c", "third");
+        let all = vault_log(&dir, 0, 10).unwrap();
+        assert_eq!(all.len(), 3);
+        assert_eq!(all[0].message, "third");
+        assert_eq!(all[1].message, "second");
+        assert!(!all[0].id.is_empty());
+        let page = vault_log(&dir, 1, 1).unwrap();
+        assert_eq!(page, vec![all[1].clone()]);
+        assert!(vault_log(&dir, 5, 10).unwrap().is_empty());
+        let none = temp("vault-log-none");
+        assert!(vault_log(&none, 0, 10).unwrap().is_empty());
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::remove_dir_all(none);
     }
 
     #[test]
