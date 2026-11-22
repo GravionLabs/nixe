@@ -67,6 +67,11 @@
   },
   "overrides": [
     {
+      "files": ["e2e/**/*.ts"],
+      "jsPlugins": ["./e2e/lint/plugin.mjs"],
+      "rules": { "nixe-e2e/no-wait-for-timeout": "error" }
+    },
+    {
       "files": ["**/*.spec.ts"],
       "rules": {
         // Test hosts declare their template inline next to the test.

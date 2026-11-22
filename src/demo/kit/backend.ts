@@ -56,6 +56,11 @@ export class DemoBackend {
     return this.failed;
   }
 
+  /** The commands that have an answer. */
+  commands(): string[] {
+    return [...this.answers.keys()].sort();
+  }
+
   answer(table: Answers): this {
     for (const [command, answer] of Object.entries(table)) this.answers.set(command, answer);
     return this;
