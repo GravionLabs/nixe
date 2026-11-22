@@ -79,6 +79,13 @@ describe("the demo backend of Nixe", () => {
     expect(await backend.invoke<unknown[]>("search_notes", { query: "demo" })).not.toHaveLength(0);
   });
 
+  it("answers the commands the editor asks for on start", async () => {
+    const { backend } = createNixeDemo();
+    expect(await backend.invoke("conflict_pair", { path: HOME_NOTE })).toBeNull();
+    expect(await backend.invoke<string[]>("notes_list")).toContain("Home");
+    expect(window.__demoFailures).toBeUndefined();
+  });
+
   it("writes a note and reads it back", async () => {
     const { backend } = createNixeDemo();
     await backend.invoke("write_text_file", { path: HOME_NOTE, content: "# Changed" });

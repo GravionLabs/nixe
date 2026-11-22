@@ -71,6 +71,7 @@ export function createNixeDemo(): NixeDemo {
     daily_notes_config: { folder: "Daily", format: "YYYY-MM-DD", template: null },
     last_vault_operation: null,
     is_utf8_file: true,
+    conflict_pair: null,
     watch_file: null,
     read_data_uri: null,
     read_bundled_data_uri: null,

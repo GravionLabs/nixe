@@ -16,7 +16,8 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "start:demo": "ng serve --configuration demo",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "private": true,
   "dependencies": {
@@ -70,6 +71,7 @@
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "oxlint-tsgolint": "7.0.2007",
+    "playwright": "^1.65.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.2",
     "vitest": "^4.1.11"
