@@ -8,6 +8,8 @@ export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.e2e.ts",
   fullyParallel: true,
+  // A hang ends here and names the running tests, before the 10 minutes of the CI job.
+  globalTimeout: process.env["CI"] ? 8 * 60_000 : undefined,
   forbidOnly: !!process.env["CI"],
   retries: process.env["CI"] ? 1 : 0,
   reporter: process.env["CI"] ? [["list"], ["html", { open: "never" }]] : "list",
@@ -27,5 +29,7 @@ export default defineConfig({
     url: URL,
     reuseExistingServer: !process.env["CI"],
     timeout: 180_000,
+    // `ng serve` outlives the default SIGKILL of the shell around it and keeps Playwright from exiting.
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
   },
 });
