@@ -17,6 +17,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Documentation
 - **roadmap**: Add the milestone M005.1 to the roadmap (#380) (#381)
+- Update CHANGELOG.md for v1.10.0 [skip ci]
 
 
 ### Features
