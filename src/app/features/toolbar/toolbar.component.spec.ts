@@ -86,8 +86,8 @@ function render(opts: {
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
   const modeButton = (label: string) =>
-    [...el.querySelectorAll<HTMLButtonElement>(".seg button")].find(
-      (b) => b.textContent?.trim() === label,
+    [...el.querySelectorAll<HTMLButtonElement>(".modes button")].find(
+      (b) => b.getAttribute("aria-label") === label,
     )!;
   return {
     fixture,
@@ -119,11 +119,9 @@ describe("ToolbarComponent view mode", () => {
 
   it("offers the three modes and shows the mode of the active tab", () => {
     const { el, modeButton, mode, fixture } = render({ path: "/n.md", editing: true });
-    expect([...el.querySelectorAll(".seg button")].map((b) => b.textContent?.trim())).toEqual([
-      "Live preview",
-      "Source",
-      "Reading",
-    ]);
+    expect(
+      [...el.querySelectorAll(".modes button")].map((b) => b.getAttribute("aria-label")),
+    ).toEqual(["Live preview", "Source", "Reading"]);
     expect(modeButton("Live preview").getAttribute("aria-pressed")).toBe("true");
     expect(modeButton("Source").getAttribute("aria-pressed")).toBe("false");
     mode.set("reading");
@@ -131,7 +129,16 @@ describe("ToolbarComponent view mode", () => {
     expect(modeButton("Reading").getAttribute("aria-pressed")).toBe("true");
     expect(modeButton("Reading").classList.contains("active")).toBe(true);
     expect(modeButton("Live preview").classList.contains("active")).toBe(false);
-    expect(el.querySelector<HTMLSelectElement>("select.compact")!.value).toBe("reading");
+    expect(el.querySelector("select")).toBeNull();
+  });
+
+  it("shows icons without text and names the shortcut of each mode", () => {
+    const { el, modeButton } = render({ path: "/n.md", editing: true });
+    for (const label of ["Live preview", "Source", "Reading"]) {
+      expect(modeButton(label).textContent?.trim()).toBe("");
+      expect(modeButton(label).querySelector("svg path")).not.toBeNull();
+    }
+    expect(el.querySelectorAll(".modes button")).toHaveLength(3);
   });
 
   it("runs the command of the clicked mode", () => {
@@ -144,15 +151,6 @@ describe("ToolbarComponent view mode", () => {
       "view-reading",
       "view-live",
     ]);
-  });
-
-  it("switches the mode from the compact menu", () => {
-    const { el, execute, fixture } = render({ path: "/n.md", editing: true });
-    const select = el.querySelector<HTMLSelectElement>("select.compact")!;
-    select.value = "source";
-    select.dispatchEvent(new Event("change"));
-    fixture.detectChanges();
-    expect(execute).toHaveBeenCalledWith("view-source");
   });
 
   it("is disabled without a note and while an external change blocks closing", () => {

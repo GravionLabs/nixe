@@ -12,14 +12,17 @@ describe("toolbar layout", () => {
     expect(html).toMatch(/<button[^>]*class="icon props"/);
   });
 
-  it("keeps the labels of the view mode switch on one line", () => {
-    expect(css).toMatch(/\.toggle\s*\{[^}]*white-space: nowrap/);
+  it("has the view mode as icon buttons and no select", () => {
+    expect(html).not.toContain("<select");
+    expect(html).toMatch(/class="icon toggle"/);
+    expect(css).not.toContain("select.compact");
   });
 
-  it("swaps the segments for a bounded select at 720 px and below", () => {
-    const media = css.match(/@media \(max-width: 720px\)\s*\{([\s\S]*)\}\s*$/)?.[1] ?? "";
-    expect(media).toMatch(/\.seg\s*\{\s*display: none/);
-    expect(media).toMatch(/select\.compact\s*\{[^}]*max-width: 120px/);
+  it("centres the path with a grid of equal start and end", () => {
+    expect(css).toMatch(
+      /grid-template-columns:\s*minmax\(max-content, 1fr\) minmax\(0, auto\) minmax\(max-content, 1fr\)/,
+    );
+    expect(css).toMatch(/hx-app-toolbar\s*\{[^}]*height: 34px/);
   });
 
   it("does not contain the size of the view mode group (it would collapse to no width)", () => {
