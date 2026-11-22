@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, untracked } from "@angular/core";
+import { Component, computed, effect, inject, signal, untracked } from "@angular/core";
 import {
   HxStatusBar,
   HxStatusItem,
@@ -66,6 +66,9 @@ export class StatusBarComponent {
   /** An RC build is not offered an update. */
   protected readonly rc = computed(() => isPrerelease(this.updater.version()));
 
+  /** The update popover; it closes with the `available` phase so no empty frame stays. */
+  protected readonly updateOpen = signal(false);
+
   protected readonly interactive = computed(() => {
     const phase = this.updater.phase();
     return phase !== "checking" && phase !== "installing";
@@ -77,6 +80,9 @@ export class StatusBarComponent {
   });
 
   constructor() {
+    effect(() => {
+      if (this.updater.phase() !== "available") this.updateOpen.set(false);
+    });
     // The links panel reads the lists only while it is mounted; the count in the bar must follow the index too.
     effect(() => {
       this.links.key();

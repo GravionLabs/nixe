@@ -52,6 +52,7 @@ function render(o: Options = {}) {
   const install = vi.fn();
   const execute = vi.fn();
   const zoom = signal(o.zoom ?? 100);
+  const phase = signal<UpdatePhase>(o.phase ?? "idle");
   const showPanelTab = vi.fn();
   const backlinks = signal(
     Array.from({ length: o.backlinks ?? 0 }, (_, i) => ({ path: `b${i}.md` })),
@@ -108,7 +109,7 @@ function render(o: Options = {}) {
         provide: UpdateService,
         useValue: {
           version: signal(o.version ?? "1.2.0"),
-          phase: signal(o.phase ?? "idle"),
+          phase,
           update: signal(o.update ?? null),
           error: signal(o.error ?? ""),
           percent: signal(o.percent ?? null),
@@ -128,6 +129,7 @@ function render(o: Options = {}) {
     key,
     refresh,
     show,
+    phase,
     showSync,
     sync,
     check,
@@ -372,6 +374,22 @@ describe("StatusBarComponent", () => {
       expect(r.text()).toContain("Fixes");
       r.el.querySelector<HTMLButtonElement>("button.install")!.click();
       expect(r.install).toHaveBeenCalled();
+    });
+
+    it("install and restart leaves no popover behind, and a failed install shows the retry", () => {
+      const r = render({ phase: "available", update: { version: "1.3.0" } });
+      r.el.querySelector<HTMLElement>(".update button")!.click();
+      r.fixture.detectChanges();
+      expect(r.el.querySelector(".hx-status-popover")).not.toBeNull();
+      r.el.querySelector<HTMLButtonElement>("button.install")!.click();
+      r.phase.set("installing");
+      r.fixture.detectChanges();
+      expect(r.el.querySelector(".hx-status-popover")).toBeNull();
+      expect(r.text()).toContain("Installing");
+      r.phase.set("error");
+      r.fixture.detectChanges();
+      expect(r.el.querySelector(".hx-status-popover")).toBeNull();
+      expect(r.text()).toContain("Update failed, retry");
     });
 
     it("installing: shows the progress", () => {

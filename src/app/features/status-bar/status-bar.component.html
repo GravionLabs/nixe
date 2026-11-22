@@ -107,6 +107,7 @@
         "
         [hx-tooltip]="updater.phase() === 'error' ? updater.error() : 'Check for updates'"
         [ariaLabel]="updater.phase() === 'available' ? 'Update details' : null"
+        [(popoverOpen)]="updateOpen"
         (click)="onUpdateClick()"
       >
         @switch (updater.phase()) {
