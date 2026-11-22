@@ -12,6 +12,8 @@ import {
   inlineTokens,
   nodeClass,
   toCrlf,
+  linkAt,
+  linkTokens,
   tokenAt,
   viewerTopLine,
 } from "./editor-core";
@@ -357,5 +359,34 @@ describe("discardedByReload", () => {
     const range = changedRange("disk v2\n", "disk v1\nmy edit")!;
     const restored = "disk v2\n".slice(0, range.from) + range.insert + "disk v2\n".slice(range.to);
     expect(restored).toBe("disk v1\nmy edit");
+  });
+});
+
+describe("linkTokens", () => {
+  it("finds wikilinks, Markdown links and bare URLs", () => {
+    const line = "[[A#h]] [Fly](https://x.app/a/) and https://y.app/b.";
+    expect(linkTokens(line).map((l) => [l.kind, l.target])).toEqual([
+      ["wikilink", "A#h"],
+      ["markdown", "https://x.app/a/"],
+      ["url", "https://y.app/b"],
+    ]);
+  });
+
+  it("reads relative hrefs, angle brackets and titles", () => {
+    expect(linkTokens("[n](../Other-note.md#top)")[0].target).toBe("../Other-note.md#top");
+    expect(linkTokens('[n](<a b.md> "t")')[0].target).toBe("a b.md");
+  });
+
+  it("does not take a URL inside a Markdown link twice, code, images or a closing parenthesis", () => {
+    expect(linkTokens("[x](https://a.b/c)")).toHaveLength(1);
+    expect(linkTokens("`https://a.b` ![i](p.png)")).toHaveLength(0);
+    expect(linkTokens("(see https://a.b/c)")[0].target).toBe("https://a.b/c");
+    expect(linkTokens("https://a.b/(c)")[0].target).toBe("https://a.b/(c)");
+  });
+
+  it("linkAt finds the link under an offset", () => {
+    const line = "go https://a.b/c now";
+    expect(linkAt(line, 5)?.kind).toBe("url");
+    expect(linkAt(line, 1)).toBeNull();
   });
 });

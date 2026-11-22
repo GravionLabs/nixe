@@ -15,7 +15,7 @@ function stateWith(
 ): EditorState {
   const state = EditorState.create({
     doc,
-    extensions: editorBehavior({ onSave: () => {}, onBlur: () => {}, onWikilink: () => {} }),
+    extensions: editorBehavior({ onSave: () => {}, onBlur: () => {}, onLink: () => {} }),
   });
   return state.update({
     effects: setSearchQuery.of(new SearchQuery({ search, caseSensitive, regexp })),
@@ -52,7 +52,7 @@ describe("wikilink hover", () => {
         extensions: editorBehavior({
           onSave: () => {},
           onBlur: () => {},
-          onWikilink: () => {},
+          onLink: () => {},
           onWikilinkHover,
         }),
       }),
@@ -86,6 +86,63 @@ describe("wikilink hover", () => {
   });
 });
 
+describe("link clicks", () => {
+  function mount(plain: boolean) {
+    const opened: Array<[string, string, boolean]> = [];
+    const parent = document.createElement("div");
+    document.body.append(parent);
+    const view = new EditorView({
+      parent,
+      state: EditorState.create({
+        doc: "[[Note]] [t](https://a.b/c) https://d.e plain",
+        extensions: editorBehavior({
+          onSave: () => {},
+          onBlur: () => {},
+          onLink: (l, newTab) => opened.push([l.kind, l.target, newTab]),
+          opensOnPlainClick: () => plain,
+        }),
+      }),
+    });
+    const click = (pos: number, init: MouseEventInit = {}) => {
+      view.posAtCoords = () => pos;
+      const e = new MouseEvent("mousedown", { bubbles: true, cancelable: true, ...init });
+      view.contentDOM.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    return { opened, click };
+  }
+
+  it("opens every kind with the modifier", () => {
+    const { opened, click } = mount(false);
+    expect(click(3, { ctrlKey: true })).toBe(true);
+    click(14, { metaKey: true });
+    click(34, { ctrlKey: true });
+    expect(opened).toEqual([
+      ["wikilink", "Note", true],
+      ["markdown", "https://a.b/c", true],
+      ["url", "https://d.e", true],
+    ]);
+  });
+
+  it("leaves a click without modifier to the editor where it does not open", () => {
+    const { opened, click } = mount(false);
+    click(14);
+    expect(opened).toEqual([]);
+  });
+
+  it("opens in the same tab on a plain click where the preview is drawn", () => {
+    const { opened, click } = mount(true);
+    expect(click(14)).toBe(true);
+    expect(opened).toEqual([["markdown", "https://a.b/c", false]]);
+  });
+
+  it("does not open from the middle of plain text", () => {
+    const { opened, click } = mount(true);
+    click(43, { ctrlKey: true });
+    expect(opened).toEqual([]);
+  });
+});
+
 describe("live preview widget styles", () => {
   it("resets the white space the editor's line wrapping inherits", () => {
     const view = new EditorView({
@@ -109,7 +166,7 @@ describe("frontmatter styling", () => {
       parent,
       state: EditorState.create({
         doc,
-        extensions: editorBehavior({ onSave: () => {}, onBlur: () => {}, onWikilink: () => {} }),
+        extensions: editorBehavior({ onSave: () => {}, onBlur: () => {}, onLink: () => {} }),
       }),
     });
     // The parser runs in the first slice; make sure the tree is complete before reading.
