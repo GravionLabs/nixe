@@ -21,4 +21,8 @@ describe("toolbar layout", () => {
     expect(media).toMatch(/\.seg\s*\{\s*display: none/);
     expect(media).toMatch(/select\.compact\s*\{[^}]*max-width: 120px/);
   });
+
+  it("does not contain the size of the view mode group (it would collapse to no width)", () => {
+    expect(css).not.toContain("container-type");
+  });
 });
