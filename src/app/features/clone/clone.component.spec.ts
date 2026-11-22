@@ -38,6 +38,7 @@ function render(
     ghSigningIn: signal(gh.signingIn),
     ghCode: signal(gh.code),
     ghError: signal(""),
+    ghNotice: signal(""),
     signInWithGh: vi.fn().mockResolvedValue(undefined),
     cancelGhSignIn: vi.fn().mockResolvedValue(undefined),
   };
@@ -120,6 +121,17 @@ describe("CloneComponent", () => {
     const { git, el } = render(prompt, false, { available: true, signingIn: false, code: null });
     signInButton(el)!.click();
     expect(git.signInWithGh).toHaveBeenCalledWith("ghe.example.com");
+  });
+
+  it("shows the notice of a finished gh sign-in", () => {
+    const { git, el, fixture } = render(prompt, false, {
+      available: true,
+      signingIn: false,
+      code: null,
+    });
+    git.ghNotice.set("Signed in to ghe.example.com with the GitHub CLI.");
+    fixture.detectChanges();
+    expect(el.querySelector("[role=status]")?.textContent).toContain("Signed in to");
   });
 
   it("shows the one-time code and can cancel", () => {

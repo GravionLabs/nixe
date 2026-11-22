@@ -173,6 +173,9 @@
                           <button type="button" (click)="gh.cancel()">Cancel</button>
                         </p>
                       }
+                      @if (gh.notice(); as ghNotice) {
+                        <p class="notice" role="status">{{ ghNotice }}</p>
+                      }
                       @if (gh.error(); as ghError) {
                         <p class="notice" role="alert">{{ ghError }}</p>
                       }

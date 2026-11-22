@@ -38,6 +38,8 @@ export type SettingItem = SettingBase &
           code: () => string | null;
           busy: () => boolean;
           error: () => string;
+          /** The result of the last sign-in, for a few seconds. */
+          notice: () => string;
           /** Hosts to sign in to: github.com and the configured Enterprise host. */
           hosts: () => string[];
           signIn: (host: string) => Promise<void>;

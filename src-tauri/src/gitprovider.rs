@@ -275,6 +275,14 @@ impl<R: GhRunner> GitProvider for GitHubCli<R> {
     }
 }
 
+/// What `sign_in` did: the token of an already signed-in provider was copied, or the web login ran.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SignInOutcome {
+    TakenOver,
+    LoggedIn,
+}
+
 /// Gets the token of the provider (running the web login when signed out) and stores it for
 /// the provider's host. Nothing is stored when the login fails or is cancelled.
 pub fn sign_in(
@@ -282,26 +290,28 @@ pub fn sign_in(
     store: &dyn TokenStore,
     on_code: &mut dyn FnMut(&str),
     cancel: &AtomicBool,
-) -> Result<(), String> {
+) -> Result<SignInOutcome, String> {
     if !host_allowed(provider.host()) {
         return Err("this host is not configured".into());
     }
     if !provider.is_available() {
         return Err(MISSING.into());
     }
-    let token = match provider.token()? {
-        Some(t) => t,
+    let (token, outcome) = match provider.token()? {
+        Some(t) => (t, SignInOutcome::TakenOver),
         None => {
             provider.login(on_code, cancel)?;
             if cancel.load(Ordering::SeqCst) {
                 return Err(CANCELLED.into());
             }
-            provider
+            let token = provider
                 .token()?
-                .ok_or("the GitHub CLI gave no token after the sign-in")?
+                .ok_or("the GitHub CLI gave no token after the sign-in")?;
+            (token, SignInOutcome::LoggedIn)
         }
     };
-    store.set(provider.host(), &token)
+    store.set(provider.host(), &token)?;
+    Ok(outcome)
 }
 
 /// Whether `gh` is installed.
@@ -313,9 +323,9 @@ pub async fn git_provider_available() -> bool {
 }
 
 /// Signs in to `host` through `gh` and stores the token in the keychain. The one-time code of a
-/// web login comes as `CODE_EVENT`. Errors: `cancelled`, or a plain message.
+/// web login comes as `CODE_EVENT`. Returns `taken-over` (the token of a signed-in `gh` was copied) or `logged-in`. Errors: `cancelled`, or a plain message.
 #[tauri::command]
-pub async fn git_provider_login(app: AppHandle, host: String) -> Result<(), String> {
+pub async fn git_provider_login(app: AppHandle, host: String) -> Result<SignInOutcome, String> {
     let host = clean_host(&host).ok_or("invalid host")?;
     CANCEL.store(false, Ordering::SeqCst);
     tauri::async_runtime::spawn_blocking(move || {
@@ -392,7 +402,7 @@ mod tests {
         }
     }
 
-    fn run(fake: &Fake, store: &MemoryStore) -> (Result<(), String>, Vec<String>) {
+    fn run(fake: &Fake, store: &MemoryStore) -> (Result<SignInOutcome, String>, Vec<String>) {
         let provider = GitHubCli::new("github.com", fake);
         let mut codes = Vec::new();
         let result = sign_in(
@@ -409,7 +419,7 @@ mod tests {
         let fake = Fake::new(true, Some("tok"), Err("unused"));
         let store = MemoryStore::default();
         let (result, codes) = run(&fake, &store);
-        assert_eq!(result, Ok(()));
+        assert_eq!(result, Ok(SignInOutcome::TakenOver));
         assert!(codes.is_empty());
         assert_eq!(fake.logins.get(), 0);
         assert_eq!(store.get("github.com").unwrap().as_deref(), Some("tok"));
@@ -420,9 +430,21 @@ mod tests {
         let fake = Fake::new(true, None, Ok("fresh"));
         let store = MemoryStore::default();
         let (result, codes) = run(&fake, &store);
-        assert_eq!(result, Ok(()));
+        assert_eq!(result, Ok(SignInOutcome::LoggedIn));
         assert_eq!(codes, vec!["ABCD-1234"]);
         assert_eq!(store.get("github.com").unwrap().as_deref(), Some("fresh"));
+    }
+
+    #[test]
+    fn the_outcome_is_serialized_as_its_kebab_case_name() {
+        assert_eq!(
+            serde_json::to_string(&SignInOutcome::TakenOver).unwrap(),
+            "\"taken-over\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SignInOutcome::LoggedIn).unwrap(),
+            "\"logged-in\""
+        );
     }
 
     #[test]
