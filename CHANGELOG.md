@@ -5,6 +5,42 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.10.2] — 2026-11-22
+
+### Bug Fixes
+- **ci**: The e2e job of the CI never ends (#427) (#433)
+
+
+### Security
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+- **app**: Keep Tauri from rewriting style-src in the CSP (#426) (#431)
+
+
+## [1.10.1] — 2026-11-22
+
+### Documentation
+- Update CHANGELOG.md for v1.10.1 [skip ci]
+
+
 ## [1.10.0] — 2026-11-21
 
 ### Bug Fixes
