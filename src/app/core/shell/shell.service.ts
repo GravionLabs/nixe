@@ -20,17 +20,20 @@ export class ShellService {
     const inVault = () => this.workspace.vaultRoot() !== null;
     this.commands.register({
       id: "toggle-sidebar",
+      group: "View",
       title: "Toggle sidebar",
       shortcut: "Mod+B",
       run: () => this.toggleSidebar(),
     });
     this.commands.register({
       id: "show-files",
+      group: "View",
       title: "Show files",
       run: () => this.show("files"),
     });
     this.commands.register({
       id: "search",
+      group: "Navigate",
       title: "Search vault",
       shortcut: "Mod+Shift+F",
       keys: ["Mod+Shift+F"],
@@ -39,12 +42,14 @@ export class ShellService {
     });
     this.commands.register({
       id: "note-history",
+      group: "Git",
       title: "Note history",
       when: () => this.git.available(),
       run: () => this.show("history"),
     });
     this.commands.register({
       id: "git-changes",
+      group: "Git",
       title: "Git changes",
       when: () => this.git.available(),
       run: () => this.show("git"),

@@ -20,6 +20,25 @@ test("the palette takes the focus, Escape closes it and the focus returns to the
   await expect(opener).toBeFocused();
 });
 
+test("the palette lists the commands under group headings in a full-width input", async ({
+  page,
+}) => {
+  await openPalette(page);
+  const input = page.getByRole("combobox");
+  await input.fill(">");
+  const list = page.locator("#palette-list");
+  await expect(list.locator("li.group").first()).toBeVisible();
+  await expect(list.locator("li.group", { hasText: "File" })).toBeVisible();
+  await expect(list.locator("li.group", { hasText: "View" })).toBeVisible();
+  const inputBox = await input.boundingBox();
+  const listBox = await list.boundingBox();
+  expect(inputBox!.width).toBeGreaterThan(listBox!.width - 24);
+  // The headings are no options; the arrow keys land on commands.
+  await page.keyboard.press("ArrowDown");
+  await expect(list.locator("li.group[aria-selected]")).toHaveCount(0);
+  await expect(list.locator("li[role=option][aria-selected=true]")).toHaveCount(1);
+});
+
 test("editing a note saves it with write_text_file", async ({ page }) => {
   await openNote(page, "Home.md");
   const editor = page.locator(".cm-content");
