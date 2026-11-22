@@ -1,9 +1,24 @@
 import { Injectable, signal } from "@angular/core";
 
+/** The groups of the palette in their fixed order. */
+export const COMMAND_GROUPS = [
+  "File",
+  "Edit",
+  "View",
+  "Navigate",
+  "Git",
+  "Export",
+  "Vault",
+  "Other",
+] as const;
+export type CommandGroup = (typeof COMMAND_GROUPS)[number];
+
 export interface Command {
   /** Unique id; the native menu emits it, plugins register their own. */
   id: string;
   title: string;
+  /** The palette lists the command under this heading. */
+  group: CommandGroup;
   /** Display shortcut like `Mod+Shift+F` (`Mod` is ⌘ on macOS, Ctrl elsewhere). */
   shortcut?: string;
   /** Extra key bindings the webview handles itself (the native menu covers the others). */

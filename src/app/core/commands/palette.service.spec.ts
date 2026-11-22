@@ -102,9 +102,20 @@ describe("PaletteService", () => {
     });
     registry = TestBed.inject(CommandRegistry);
     palette = TestBed.inject(PaletteService);
-    registry.register({ id: "toggle-sidebar", title: "Toggle sidebar", run: () => {} });
-    registry.register({ id: "zoom-in", title: "Zoom in", run: () => {} });
-    registry.register({ id: "hidden", title: "Zoom hidden", when: () => false, run: () => {} });
+    registry.register({
+      id: "toggle-sidebar",
+      group: "View",
+      title: "Toggle sidebar",
+      run: () => {},
+    });
+    registry.register({ id: "zoom-in", group: "View", title: "Zoom in", run: () => {} });
+    registry.register({
+      id: "hidden",
+      group: "View",
+      title: "Zoom hidden",
+      when: () => false,
+      run: () => {},
+    });
   });
 
   const kinds = () => palette.items().map((i) => i.kind);
@@ -128,6 +139,35 @@ describe("PaletteService", () => {
     ]);
   });
 
+  it("lists the commands in groups in a fixed order with one heading per group", () => {
+    registry.register({ id: "sync", group: "Git", title: "Sync", run: () => {} });
+    registry.register({ id: "back", group: "Navigate", title: "Back", run: () => {} });
+    registry.register({ id: "open", group: "File", title: "Open", run: () => {} });
+    palette.open(">");
+    const rows = palette
+      .items()
+      .map((i) => (i.kind === "command" ? [i.command.id, i.heading, i.label] : []));
+    expect(rows).toEqual([
+      ["open", "File", undefined],
+      ["toggle-sidebar", "View", undefined],
+      ["zoom-in", undefined, undefined],
+      ["back", "Navigate", undefined],
+      ["sync", "Git", undefined],
+    ]);
+  });
+
+  it("ranks a query by match and labels the group instead of headings", () => {
+    registry.register({ id: "zoom-out", group: "Edit", title: "Zoom out", run: () => {} });
+    palette.setQuery(">zoom");
+    const rows = palette
+      .items()
+      .map((i) => (i.kind === "command" ? [i.command.id, i.heading, i.label] : []));
+    expect(rows).toEqual([
+      ["zoom-in", undefined, "View"],
+      ["zoom-out", undefined, "Edit"],
+    ]);
+  });
+
   it("puts recently run commands first when the query is empty", async () => {
     palette.open(">");
     await palette.run(palette.items()[1]);
@@ -140,7 +180,7 @@ describe("PaletteService", () => {
 
   it("runs the chosen command and closes", async () => {
     const run = vi.fn();
-    registry.register({ id: "x", title: "Xylophone", run });
+    registry.register({ id: "x", group: "Other", title: "Xylophone", run });
     palette.open(">xylo");
     await palette.run(palette.current()!);
     expect(run).toHaveBeenCalledOnce();

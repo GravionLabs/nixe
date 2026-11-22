@@ -57,13 +57,20 @@ describe("ShortcutService", () => {
     settings = TestBed.inject(SettingsService);
     registry.register({
       id: "one",
+      group: "Other",
       title: "One",
       shortcut: "Mod+1",
       keys: ["Mod+1"],
       run: () => runs.push("one"),
     });
-    registry.register({ id: "two", title: "Two", shortcut: "Mod+2", run: () => runs.push("two") });
-    registry.register({ id: "free", title: "Free", run: () => runs.push("free") });
+    registry.register({
+      id: "two",
+      group: "Other",
+      title: "Two",
+      shortcut: "Mod+2",
+      run: () => runs.push("two"),
+    });
+    registry.register({ id: "free", group: "Other", title: "Free", run: () => runs.push("free") });
     shortcuts = TestBed.inject(ShortcutService);
     await flush();
   });

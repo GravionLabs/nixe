@@ -48,6 +48,7 @@ export class FocusService {
     const noteOpen = () => this.doc.path() !== null;
     this.commands.register({
       id: "focus-file-tree",
+      group: "Navigate",
       title: "Focus file tree",
       shortcut: "Mod+Shift+E",
       keys: ["Mod+Shift+E"],
@@ -56,6 +57,7 @@ export class FocusService {
     });
     this.commands.register({
       id: "focus-note",
+      group: "Navigate",
       title: "Focus note",
       shortcut: "Mod+Shift+N",
       keys: ["Mod+Shift+N"],
@@ -64,6 +66,7 @@ export class FocusService {
     });
     this.commands.register({
       id: "focus-panel",
+      group: "Navigate",
       title: "Focus panel",
       shortcut: "Mod+Shift+I",
       keys: ["Mod+Shift+I"],
@@ -72,6 +75,7 @@ export class FocusService {
     });
     this.commands.register({
       id: "filter-file-tree",
+      group: "Navigate",
       title: "Filter file tree",
       shortcut: "Mod+Alt+E",
       keys: ["Mod+Alt+E"],

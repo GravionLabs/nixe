@@ -19,7 +19,7 @@ import { RecentPickerService } from "../workspace/recent-picker.service";
 import { VaultOpsService } from "../workspace/vault-ops.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import type { Command } from "./command-registry";
-import { CommandRegistry } from "./command-registry";
+import { COMMAND_GROUPS, CommandRegistry } from "./command-registry";
 
 /** What the input searches: notes without a prefix, the others after their prefix character. */
 export type PaletteMode = "notes" | "commands" | "headings" | "tags" | "templates" | "vaults";
@@ -51,7 +51,7 @@ export function parseQuery(raw: string): { mode: PaletteMode; text: string } {
 
 export type PaletteItem =
   | { kind: "note"; match: SwitcherMatch }
-  | { kind: "command"; command: Command }
+  | { kind: "command"; command: Command; heading?: string; label?: string }
   | { kind: "heading"; heading: OutlineHeading }
   | { kind: "tag"; tag: TagCount }
   | { kind: "template"; entry: TemplateEntry }
@@ -130,10 +130,30 @@ export class PaletteService {
         return this.noteSearch().matches.map((match) => ({ kind: "note", match }));
       case "commands": {
         const all = this.registry.available().sort((a, b) => a.title.localeCompare(b.title));
-        const list = text
-          ? filterBy(all, text, (c) => c.title)
-          : recentFirst(all, (c) => c.id, this.usedCommands());
-        return list.map((command) => ({ kind: "command", command }));
+        if (text) {
+          // Ranked by match; the group is a label at the end of the row.
+          return filterBy(all, text, (c) => c.title).map((command) => ({
+            kind: "command",
+            command,
+            label: command.group,
+          }));
+        }
+        // Recently run commands lead under "Recent", the rest follows by group.
+        const recentIds = this.usedCommands();
+        const ordered = recentFirst(all, (c) => c.id, recentIds);
+        const recent = ordered.filter((c) => recentIds.includes(c.id));
+        const rest = all
+          .filter((c) => !recentIds.includes(c.id))
+          .sort((a, b) => COMMAND_GROUPS.indexOf(a.group) - COMMAND_GROUPS.indexOf(b.group));
+        let last: string | undefined;
+        return [
+          ...recent.map((command) => ({ command, group: "Recent" })),
+          ...rest.map((command) => ({ command, group: command.group as string })),
+        ].map(({ command, group }) => {
+          const heading = group === last ? undefined : group;
+          last = group;
+          return { kind: "command", command, heading };
+        });
       }
       case "headings":
         return filterBy(this.outline.headings(), text, (h) => h.text).map((heading) => ({
