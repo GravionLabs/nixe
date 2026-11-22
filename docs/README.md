@@ -30,6 +30,7 @@ links and Mermaid rendering all at once.
   - [frontend/bookmarks.md](frontend/bookmarks.md) — bookmarks of notes, headings and searches
   - [frontend/state-management.md](frontend/state-management.md) — signals & navigation
   - [frontend/terminal.md](frontend/terminal.md) — the terminal panel with xterm.js
+  - [frontend/demo.md](frontend/demo.md) — the demo build, e2e tests and screenshots
 - [theming.md](theming.md) — themes, CSS snippets and the CSS variables
 
 ## System at a glance
@@ -69,9 +70,11 @@ See [architecture.md](architecture.md) for the details behind each box.
 
 ## Demo build
 
+The full description, with how to add the answer for a new command and a test, is in [frontend/demo.md](frontend/demo.md).
+
 `pnpm start:demo` serves the app in a plain browser on port 1422 (`ng serve --configuration demo`). `tsconfig.demo.json` replaces every `@tauri-apps/*` module with a stand-in in `src/demo/tauri/`; the commands are answered by `DemoBackend` (`src/demo/kit/`) from an in-memory vault with fixed notes and a fixed clock (`src/demo/nixe/`), a seeded Git history with open changes and a branch to review (`git.ts`), in-memory workspaces and a terminal that echoes. `src/demo/nixe/demo.spec.ts` fails when a command of `core/file/backend.ts` or `core/terminal/terminal-backend.ts` is neither answered nor listed with a reason in `excluded.ts`; the specs in `src/demo/e2e/` call the typed wrappers of the app against the demo backend per area (Git view, History, Settings). A command nobody answered is listed in `window.__demoFailures`; every call is recorded in `window.__demoCalls`. With `?backend=fake` the page uses the scripted variant instead (`src/demo/kit/fake.ts`, `createFakeBackend(answers)`): it answers only what an init script sets in `window.__demoScript` or a test sets at runtime with `window.__demo.answer(command, value)`, fails every other command by name, pushes events with `window.__demo.emit(event, payload)` and lists the calls with `window.__demo.calls(command?)`. The production build excludes `src/demo`.
 
-`pnpm e2e` runs the Playwright tests in `e2e/` (`playwright.config.ts`) against the demo dev server (`webServer` starts `pnpm start:demo`, or reuses a running one locally), in Chromium, in a light and a dark project, with reduced motion. `e2e/smoke.e2e.ts` runs on the demo variant, `e2e/interaction.e2e.ts` on the fake variant (`?backend=fake`, answers in `e2e/fake-vault.ts`) and asserts an action by its recorded call. `e2e/fixtures.ts` fails every test on a `pageerror`, a `console.error` or an entry of `window.__demoFailures`; `e2e/steps.ts` holds the steps (`ready`, `openNote`, `openPalette`, `takeCalls`, …) that `pnpm screenshots` shares. Tests wait on conditions: the oxlint rule `nixe-e2e/no-wait-for-timeout` (`e2e/lint/plugin.mjs`, probe in `src/testing/lint-probe.spec.ts`) rejects `waitForTimeout`. CI runs the `e2e` job on pull requests as advisory (it is not part of `ci`'s `needs`); a failed run uploads the report and the traces. The first run needs `pnpm exec playwright install chromium`.
+`pnpm e2e` runs the Playwright tests in `e2e/` (`playwright.config.ts`) against the demo dev server (`webServer` starts `pnpm start:demo`, or reuses a running one locally), in Chromium, in a light and a dark project, with reduced motion. `e2e/smoke.e2e.ts` runs on the demo variant, `e2e/interaction.e2e.ts` on the fake variant (`?backend=fake`, answers in `e2e/fake-vault.ts`) and asserts an action by its recorded call. `e2e/fixtures.ts` fails every test on a `pageerror`, a `console.error` or an entry of `window.__demoFailures`; `e2e/steps.ts` holds the steps (`ready`, `openNote`, `openPalette`, `takeCalls`, …) (`pnpm screenshots` keeps its own plain-JS step helpers in `scripts/screenshots/views.mjs`). Tests wait on conditions: the oxlint rule `nixe-e2e/no-wait-for-timeout` (`e2e/lint/plugin.mjs`, probe in `src/testing/lint-probe.spec.ts`) rejects `waitForTimeout`. CI runs the `e2e` job on pull requests as advisory (it is not part of `ci`'s `needs`); a failed run uploads the report and the traces. The first run needs `pnpm exec playwright install chromium`.
 
 ### Screenshots
 
