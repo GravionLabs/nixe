@@ -97,6 +97,24 @@ test.describe("properties toggle", () => {
     }
   });
 
+  for (const width of [1800, 1280, 720]) {
+    test(`the access token setting stays inside its column at ${width} px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.keyboard.press("ControlOrMeta+,");
+      await page.getByRole("searchbox", { name: "Search settings" }).fill("keychain");
+      const token = page.locator(".token");
+      // The demo build has no Git, so the setting may be absent there.
+      if ((await token.count()) === 0) return;
+      const column = await token.boundingBox();
+      expect(column!.width).toBeLessThanOrEqual(320);
+      for (const child of await token.locator("*").all()) {
+        const box = await child.boundingBox();
+        if (!box) continue;
+        expect(box.x + box.width).toBeLessThanOrEqual(column!.x + column!.width + 1);
+      }
+    });
+  }
+
   test("the settings page offers the three states and the toggle follows", async ({ page }) => {
     await page.keyboard.press("ControlOrMeta+,");
     await page.getByRole("searchbox", { name: "Search settings" }).fill("Properties in document");

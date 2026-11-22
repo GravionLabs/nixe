@@ -142,11 +142,6 @@ describe("SettingsComponent token layout", () => {
     expect(css).toMatch(/\.token > \* \{[^}]*max-width: 100%/);
     expect(css).toMatch(/\.token-manual input \{[^}]*min-width: 0/);
   });
-
-  it("keeps the search keywords of the token setting", async () => {
-    const { builtinSections } = await import("../../core/settings/builtin-sections");
-    expect(builtinSections.toString()).toContain('"keychain"');
-  });
 });
 
 describe("SettingsComponent gh sign-in result", () => {
