@@ -5,10 +5,28 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.11.0] — 2026-11-22
+
+### Bug Fixes
+- **git**: Sign in with GitHub (gh) shows no result when gh is already signed in (#407) (#449)
+- **settings**: The access token setting in Sync is cramped and hides the GitHub sign-in (#408) (#451)
+- The command palette is an ungrouped list and its input is narrow (#413) (#452)
+- An empty frame stays after Install and restart (#429) (#454)
+- **toolbar**: The toolbar path is off centre and the view mode switch is wide (#447) (#456)
+
+
+### Features
+- **tabs**: Preview tab on a single click, pinned tab on a double click (#416) (#453)
+
+
 ## [1.10.2] — 2026-11-22
 
 ### Bug Fixes
 - **ci**: The e2e job of the CI never ends (#427) (#433)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.10.2 [skip ci]
 
 
 ### Security
