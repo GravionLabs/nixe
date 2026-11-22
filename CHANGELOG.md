@@ -15,6 +15,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **toolbar**: The toolbar path is off centre and the view mode switch is wide (#447) (#456)
 
 
+### Documentation
+- Update CHANGELOG.md for v1.11.0 [skip ci]
+
+
 ### Features
 - **tabs**: Preview tab on a single click, pinned tab on a double click (#416) (#453)
 
