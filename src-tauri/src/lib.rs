@@ -57,10 +57,10 @@ mod gitclone;
 mod gitprovider;
 mod gitsync;
 mod index;
-#[cfg(desktop)]
 mod logging;
 #[cfg(desktop)]
 pub mod mcp;
+#[cfg(desktop)]
 mod menu;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
@@ -1151,7 +1151,6 @@ fn watch_file(app: AppHandle, state: State<'_, AppState>, path: String) -> Resul
     Ok(())
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// The log plugin: `nixe.log` in the app log directory, rotated by size.
 #[cfg(desktop)]
 fn log_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
@@ -1197,6 +1196,7 @@ fn log_start(app: &AppHandle) {
     );
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // `nixe search …` and friends answer on the terminal and never start the window.
     #[cfg(desktop)]
