@@ -68,6 +68,15 @@ h2 {
   border-bottom: 1px solid var(--h-content-border-color);
 }
 
+/*
+ * The label takes what the control leaves: a long description wraps instead of squeezing the
+ * control (#457: the access token column shrank to 66 px at 720 px and its buttons overflowed).
+ */
+.label {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .description {
   margin: 2px 0 0;
   color: var(--h-text-muted-color);
