@@ -274,11 +274,25 @@ export class TabsService {
    * replaces or which is added; a pinned tab that shows the note is focused instead. With the
    * setting off, the note opens in the shown tab as before.
    */
-  async openPreview(
-    path: string,
-    options: Parameters<DocumentService["open"]>[1] = {},
-  ): Promise<void> {
+  openPreview(path: string, options: Parameters<DocumentService["open"]>[1] = {}): Promise<void> {
     path = toSlashes(path);
+    const run = this.previewOpen(path, options);
+    const entry = { path, run };
+    this.opening = entry;
+    const clear = () => {
+      if (this.opening === entry) this.opening = null;
+    };
+    run.then(clear, clear);
+    return run;
+  }
+
+  /** The preview open that is still reading its note: a double click waits for it to find the tab. */
+  private opening: { path: string; run: Promise<void> } | null = null;
+
+  private async previewOpen(
+    path: string,
+    options: Parameters<DocumentService["open"]>[1],
+  ): Promise<void> {
     if (!this.settings.previewTabs()) {
       await this.openHere(this.activeTab(), path, options);
       return;
@@ -320,6 +334,7 @@ export class TabsService {
     options: Parameters<DocumentService["open"]>[1] = {},
   ): Promise<void> {
     path = toSlashes(path);
+    if (this.opening?.path === path) await this.opening.run.catch(() => undefined);
     if (!this.settings.previewTabs()) {
       await this.openHere(this.activeTab(), path, options);
       return;

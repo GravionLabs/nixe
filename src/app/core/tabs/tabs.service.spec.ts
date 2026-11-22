@@ -537,6 +537,14 @@ describe("TabsService", () => {
       expect(tabs.focusedPane().tabs.filter((t) => tabs.isPreview(t)).length).toBe(1);
     });
 
+    it("a double click while the first click still reads the note pins that tab", async () => {
+      const click = tabs.openPreview("/v/a.md");
+      const dbl = tabs.openPinned("/v/a.md");
+      await Promise.all([click, dbl]);
+      expect(paths()).toEqual(["/v/a.md"]);
+      expect(tabs.activeTab().pinned()).toBe(true);
+    });
+
     it("pins on the first edit, on a save, on Keep open and when the tab moves", async () => {
       const pins: Array<(t: ReturnType<TabsService["activeTab"]>) => unknown> = [
         (t) => t.doc.typed("/v/a.md", "x"),
