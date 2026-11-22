@@ -19,6 +19,8 @@ Run these before opening a pull request. CI runs the same.
 | Frontend lint (oxlint, ESLint for templates) | `pnpm lint` |
 | Frontend tests (Vitest) | `pnpm test` |
 | Frontend build | `pnpm build` |
+| End-to-end tests (Playwright, demo build; advisory in CI, see `docs/frontend/demo.md`) | `pnpm e2e` |
+| Screenshots of the docs and the site (`pnpm screenshots [name...]`; run when a view changes) | `pnpm screenshots` |
 | Rust format | `cargo fmt --manifest-path src-tauri/Cargo.toml --check` |
 | Rust tests | `cargo test --manifest-path src-tauri/Cargo.toml` |
 
