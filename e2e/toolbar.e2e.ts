@@ -103,6 +103,8 @@ test.describe("properties toggle", () => {
       if ((await token.count()) === 0) return;
       const column = await token.boundingBox();
       expect(column!.width).toBeLessThanOrEqual(320);
+      // A long description wraps instead of squeezing the control (#457: 66 px at 720 px).
+      expect(column!.width).toBeGreaterThanOrEqual(150);
       for (const child of await token.locator("*").all()) {
         const box = await child.boundingBox();
         if (!box) continue;
