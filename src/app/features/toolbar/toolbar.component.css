@@ -102,7 +102,6 @@ button.icon.active,
 
 .modes {
   display: inline-flex;
-  container-type: inline-size;
 }
 
 .seg {
