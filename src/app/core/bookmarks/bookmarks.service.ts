@@ -8,6 +8,7 @@ import { SearchService } from "../index/search.service";
 import { outlineOf } from "../outline/outline-core";
 import { OutlineService } from "../outline/outline.service";
 import { SettingsService } from "../settings/settings.service";
+import { TabsService } from "../tabs/tabs.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import type {
   Bookmark,
@@ -48,6 +49,7 @@ export class BookmarksService {
   private readonly workspace = inject(WorkspaceService);
   private readonly settings = inject(SettingsService);
   private readonly doc = inject(DocumentService);
+  private readonly tabs = inject(TabsService);
   private readonly outline = inject(OutlineService);
   private readonly search = inject(SearchService);
 
@@ -232,15 +234,20 @@ export class BookmarksService {
     this.commit(renamePath(this.items(), from, to));
   }
 
-  /** Opens a bookmark: a note (at its heading) or the search. */
-  async open(bookmark: Bookmark, onSearch: (query: string) => void): Promise<void> {
+  /**
+   * Opens a bookmark: a note (at its heading) or the search. A click shows the note in the preview
+   * tab; `pin` (a double click) keeps it in a tab of its own.
+   */
+  async open(bookmark: Bookmark, onSearch: (query: string) => void, pin = false): Promise<void> {
     if (isSearch(bookmark)) {
       onSearch(bookmark.query);
       return;
     }
     const root = this.workspace.vaultRoot();
     if (!isFile(bookmark) || !root) return;
-    await this.doc.open(`${root}/${bookmark.path}`);
+    const path = `${root}/${bookmark.path}`;
+    if (pin) await this.tabs.openPinned(path);
+    else await this.tabs.openPreview(path);
     const line = headingLine(bookmark.subpath, outlineOf(this.doc.content()));
     if (line !== null) this.doc.pendingLine.set(line);
   }

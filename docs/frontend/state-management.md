@@ -103,6 +103,20 @@ the panes (backlinks, outline, commands, the toolbar, the vault operations) ther
 focus without change. A click or focus inside a pane focuses it. Only the note of the focused pane
 is watched for external changes; the watcher event goes to every tab showing that note.
 
+- Preview and pinned tabs (#416): a tab is *preview* (`Tab.pinned` is false; its title is italic, the
+  tooltip adds "(preview)") or pinned. A click on a note (file tree, search, backlinks, related notes, bookmarks,
+  quick switcher, wikilinks, link preview) calls `TabsService.openPreview`: a pinned tab that shows the
+  note is focused; else the shown tab takes it when it is empty, else the preview tab of the focused pane is
+  replaced (history stays), else a preview tab is added. A double click calls `openPinned`: the preview tab
+  that shows the note turns pinned, else a new pinned tab opens. The first click opens at once; the double
+  click only pins, nothing waits for a timeout. `+`, ⌘/Ctrl+click, *Open in new tab*, the views (settings,
+  health, compare, review) and the copy of *Split right* are pinned. A preview tab turns pinned on the first
+  edit or a save (the `typed`/`wrote` hooks of `DocumentService`, so a preview tab never has unsaved
+  text), on a double click on its title, with the command `keep-tab-open` (⌘/Ctrl+Alt+K) or the tab
+  menu entry *Keep open*, and when it is moved. A pane has at most one preview tab. The layout of a vault stores
+  `preview` per tab (`TabState`; an older layout reads as pinned). The setting `previewTabs` (Editor, on by
+  default) turns it off: a click opens the note in the shown tab as before, nothing is italic and *Keep open*
+  does nothing; open tabs stay as they are.
 - Commands: `new-tab` (⌘/Ctrl+T), `close-tab` (⌘/Ctrl+W; closes the window when only an empty tab is
   left), `next-tab` / `previous-tab` (⌃Tab, ⌃⇧Tab), `split-right`, `unsplit`, `focus-other-pane`.
   ⌘/Ctrl+click on a link, a tree entry or a backlink opens the note in a new tab.

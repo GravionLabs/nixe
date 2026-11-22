@@ -33,6 +33,7 @@
       missingTitle="File not found"
       (valueChange)="activate(pane, $event)"
       (closed)="closeTab(pane, $event)"
+      (pinned)="keep(pane, $event)"
       (moved)="tabs.moveTab(pane.id, $event.from, $event.to)"
       (received)="receive(pane, $event)"
       (menuAction)="onMenu(pane, $event)"

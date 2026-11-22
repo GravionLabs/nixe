@@ -120,7 +120,7 @@ export class LinkPreviewComponent {
   private async open(path: string, anchor: string | null, newTab: boolean): Promise<void> {
     try {
       if (newTab) await this.tabs.openInNewTab(path, { anchor });
-      else await this.doc.open(path, { anchor });
+      else await this.tabs.openPreview(path, { anchor });
     } catch (err) {
       this.tabs.notice.set(String(err));
     }

@@ -125,6 +125,7 @@
       [attr.aria-expanded]="node.dirPath ? isOpen(node) : null"
       [style.padding-left.px]="8 + node.depth * 14"
       (click)="select(node, $event)"
+      (dblclick)="pin(node, $event)"
       (focus)="focused.set(path(node))"
       (dragstart)="dragStart($event, node)"
       (dragend)="dragEnd()"

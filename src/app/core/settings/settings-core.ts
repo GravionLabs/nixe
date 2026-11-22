@@ -77,6 +77,8 @@ export interface StoredSettings {
   extractEmbed: boolean;
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   wrapCode: boolean;
+  /** A single click opens a note in the preview tab; a double click pins it (#416). */
+  previewTabs: boolean;
   /** The mode a new tab shows its note in (#377); replaces the former `sourceMode` flag. */
   defaultView: ViewMode;
   /** Export and print: a page break before every top-level heading (#119). */
@@ -154,6 +156,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   bookmarksInVault: false,
   extractEmbed: false,
   wrapCode: false,
+  previewTabs: true,
   defaultView: "live",
   exportPageBreaks: true,
   exportDark: false,
@@ -229,6 +232,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     bookmarksInVault: o["bookmarksInVault"] === true,
     extractEmbed: o["extractEmbed"] === true,
     wrapCode: o["wrapCode"] === true,
+    previewTabs: o["previewTabs"] !== false,
     // A stored `sourceMode: true` of an older version becomes the default view "source".
     defaultView: sanitizeViewMode(
       o["defaultView"] ?? (o["sourceMode"] === true ? "source" : undefined),

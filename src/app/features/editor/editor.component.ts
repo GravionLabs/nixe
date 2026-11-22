@@ -44,6 +44,7 @@ import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikili
 import { fileLabel } from "../../core/switcher/fuzzy";
 import { SettingsService } from "../../core/settings/settings.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
@@ -80,6 +81,7 @@ export class EditorComponent implements OnDestroy {
   readonly failed = output<string>();
 
   private readonly doc = inject(DocumentService);
+  private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
   private readonly preview = inject(LinkPreviewService);
@@ -695,7 +697,9 @@ export class EditorComponent implements OnDestroy {
     const path = joinPath(root, resolved);
     if (!isMarkdownPath(path)) return;
     await this.settle();
-    await this.doc.open(path, { anchor: heading }).catch((err) => this.failed.emit(String(err)));
+    await this.tabs
+      .openPreview(path, { anchor: heading })
+      .catch((err) => this.failed.emit(String(err)));
   }
 }
 

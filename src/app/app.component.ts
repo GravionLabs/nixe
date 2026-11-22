@@ -643,6 +643,15 @@ export class AppComponent {
         run: () => this.run(async () => void this.tabs.newTab()),
       },
       {
+        id: "keep-tab-open",
+        group: "File",
+        title: "Keep tab open",
+        shortcut: "Mod+Alt+K",
+        keys: ["Mod+Alt+K"],
+        when: () => this.settings.previewTabs() && this.tabs.isPreview(this.tabs.activeTab()),
+        run: () => this.tabs.keepOpen(),
+      },
+      {
         id: "close-tab",
         group: "File",
         title: "Close tab",

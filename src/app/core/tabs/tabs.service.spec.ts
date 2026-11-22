@@ -12,6 +12,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import { EditorService } from "../editor/editor.service";
 import { DocumentService } from "../file/document.service";
+import { SettingsService } from "../settings/settings.service";
 import { ACTIVE_TAB_PROVIDERS, TabsService } from "./tabs.service";
 
 const FILES: Record<string, string> = { "/v/a.md": "# A", "/v/b.md": "# B", "/v/c.md": "# C" };
@@ -24,6 +25,8 @@ describe("TabsService", () => {
   });
 
   beforeEach(() => {
+    // The settings read the color scheme.
+    window.matchMedia ??= (() => ({ matches: false, addEventListener: vi.fn() })) as never;
     invoke.mockReset();
     invoke.mockImplementation(async (cmd: string, args: { path: string }) => {
       if (cmd === "read_text_file") {
@@ -488,6 +491,135 @@ describe("TabsService", () => {
       expect(tabs.focusedPane().id).toBe(right.id);
       for (const t of tabs.panes()[0].tabs) tabs.moveTabToPane(left.id, t.id, right.id, 0);
       expect(tabs.panes().length).toBe(1);
+    });
+  });
+
+  describe("preview tab", () => {
+    const paths = () => tabs.focusedPane().tabs.map((t) => t.doc.path());
+
+    it("a click opens in the empty tab as the preview, the next click replaces it", async () => {
+      await tabs.openPreview("/v/a.md");
+      expect(paths()).toEqual(["/v/a.md"]);
+      expect(tabs.isPreview(tabs.activeTab())).toBe(true);
+      await tabs.openPreview("/v/b.md");
+      expect(paths()).toEqual(["/v/b.md"]);
+      expect(tabs.activeTab().doc.historyState().history).toEqual(["/v/a.md", "/v/b.md"]);
+    });
+
+    it("adds the preview tab beside pinned tabs and keeps at most one", async () => {
+      await tabs.openInNewTab("/v/a.md");
+      await tabs.openPreview("/v/b.md");
+      await tabs.openPreview("/v/c.md");
+      expect(paths()).toEqual([null, "/v/a.md", "/v/c.md"]);
+      expect(tabs.focusedPane().tabs.filter((t) => tabs.isPreview(t)).length).toBe(1);
+      expect(shown()).toBe("/v/c.md");
+    });
+
+    it("shows a note that a pinned tab has instead of a second copy", async () => {
+      await tabs.openInNewTab("/v/a.md");
+      const pinned = tabs.activeTab();
+      await tabs.openPreview("/v/b.md");
+      await tabs.openPreview("/v/a.md");
+      expect(tabs.activeTab()).toBe(pinned);
+      expect(paths().filter((p) => p === "/v/a.md").length).toBe(1);
+      expect(paths()).toContain("/v/b.md");
+    });
+
+    it("a double click pins the preview tab that shows the note, or opens a new tab", async () => {
+      await tabs.openPreview("/v/a.md");
+      await tabs.openPinned("/v/a.md");
+      expect(tabs.activeTab().pinned()).toBe(true);
+      await tabs.openPreview("/v/b.md");
+      expect(paths()).toEqual(["/v/a.md", "/v/b.md"]);
+      await tabs.openPinned("/v/c.md");
+      expect(paths()).toEqual(["/v/a.md", "/v/b.md", "/v/c.md"]);
+      expect(tabs.activeTab().pinned()).toBe(true);
+      expect(tabs.focusedPane().tabs.filter((t) => tabs.isPreview(t)).length).toBe(1);
+    });
+
+    it("pins on the first edit, on a save, on Keep open and when the tab moves", async () => {
+      const pins: Array<(t: ReturnType<TabsService["activeTab"]>) => unknown> = [
+        (t) => t.doc.typed("/v/a.md", "x"),
+        (t) => t.doc.write("/v/a.md", "x"),
+        () => tabs.keepOpen(),
+      ];
+      for (const pin of pins) {
+        tabs.reset();
+        await tabs.openPreview("/v/a.md");
+        await pin(tabs.activeTab());
+        expect(tabs.activeTab().pinned()).toBe(true);
+      }
+      tabs.reset();
+      await tabs.openInNewTab("/v/b.md");
+      await tabs.openPreview("/v/a.md");
+      tabs.moveTab(tabs.focusedPane().id, 2, 0);
+      expect(tabs.focusedPane().tabs[0].pinned()).toBe(true);
+    });
+
+    it("never replaces a tab with unsaved text", async () => {
+      await tabs.openPreview("/v/a.md");
+      const first = tabs.activeTab();
+      vi.spyOn(first.editor, "unsaved").mockReturnValue(true);
+      await tabs.openPreview("/v/b.md");
+      expect(first.doc.path()).toBe("/v/a.md");
+      expect(paths()).toEqual(["/v/a.md", "/v/b.md"]);
+    });
+
+    it("views and new tabs are pinned", async () => {
+      expect(tabs.newTab().pinned()).toBe(true);
+      expect(tabs.openView("settings").pinned()).toBe(true);
+      await tabs.openPreview("/v/a.md");
+      expect(tabs.panes()[0].tabs.filter((t) => tabs.isPreview(t)).length).toBe(1);
+    });
+
+    it("drops the new preview tab again when the note cannot be opened", async () => {
+      await tabs.openInNewTab("/v/a.md");
+      await tabs.openPreview("/v/b.md");
+      await tabs.openInNewTab("/v/c.md");
+      const before = paths().length;
+      await expect(tabs.openPreview("/v/missing.md")).rejects.toThrow("missing");
+      expect(paths().length).toBe(before);
+    });
+
+    it("stores the preview state in the layout and restores it", async () => {
+      await tabs.openInNewTab("/v/a.md");
+      await tabs.openPreview("/v/b.md");
+      const layout = tabs.snapshot();
+      expect(layout.panes[0].tabs.map((t) => t.preview)).toEqual([false, false, true]);
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [...ACTIVE_TAB_PROVIDERS] });
+      tabs = TestBed.inject(TabsService);
+      expect(await tabs.restore(layout)).toBe(true);
+      expect(tabs.focusedPane().tabs.map((t) => tabs.isPreview(t))).toEqual([false, false, true]);
+    });
+
+    it("restores at most one preview tab per pane", async () => {
+      const state = (path: string, preview: boolean) => ({
+        view: null,
+        path,
+        history: [path],
+        index: 0,
+        editing: false,
+        line: null,
+        preview,
+      });
+      await tabs.restore({
+        panes: [{ tabs: [state("/v/a.md", true), state("/v/b.md", true)], active: 0 }],
+        focused: 0,
+        ratio: 0.5,
+      });
+      expect(tabs.focusedPane().tabs.map((t) => tabs.isPreview(t))).toEqual([true, false]);
+    });
+
+    it("with the setting off a click opens in the shown tab and Keep open does nothing", async () => {
+      TestBed.inject(SettingsService).previewTabs.set(false);
+      await tabs.openPreview("/v/a.md");
+      await tabs.openPreview("/v/b.md");
+      expect(paths()).toEqual(["/v/b.md"]);
+      tabs.keepOpen();
+      expect(tabs.activeTab().pinned()).toBe(false);
+      await tabs.openPinned("/v/c.md");
+      expect(paths()).toEqual(["/v/c.md"]);
     });
   });
 

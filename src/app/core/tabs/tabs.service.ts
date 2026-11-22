@@ -13,6 +13,7 @@ import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { OutlineService } from "../outline/outline.service";
+import { SettingsService } from "../settings/settings.service";
 import { toSlashes } from "../markdown/paths";
 import type { CompareInput } from "../compare/compare";
 import type { LayoutState, TabState, TabView } from "./layout";
@@ -42,6 +43,12 @@ export interface Tab {
    * it turns it back into a note tab.
    */
   readonly view: WritableSignal<TabView | null>;
+  /**
+   * False for the preview tab (#416): the next preview open replaces its note. A tab is pinned when
+   * it is created by the user (`+`, Ctrl+click, double click) and when it shows a view; an edit, a
+   * save, moving the tab or a double click on its title pins a preview tab.
+   */
+  readonly pinned: WritableSignal<boolean>;
   /** What the compare view of this tab shows; set together with the view `compare`. */
   readonly compare: WritableSignal<CompareInput | null>;
   /** Set by the pane while the viewer of the tab is shown. */
@@ -100,6 +107,10 @@ function followTab<T extends object>(pick: (tab: Tab) => T): T {
 @Injectable({ providedIn: "root" })
 export class TabsService {
   private readonly injector = inject(Injector);
+  /** Looked up when a note opens: the tabs of most tests need no settings. */
+  private get settings(): SettingsService {
+    return this.injector.get(SettingsService);
+  }
   private nextId = 1;
 
   readonly panes = signal<readonly Pane[]>([]);
@@ -131,10 +142,14 @@ export class TabsService {
   });
 
   private readonly hook = {
-    typed: (source: DocumentService, path: string, text: string) =>
-      this.sync(source, path, text, false),
-    wrote: (source: DocumentService, path: string, text: string) =>
-      this.sync(source, path, text, true),
+    typed: (source: DocumentService, path: string, text: string) => {
+      this.pinOf(source);
+      this.sync(source, path, text, false);
+    },
+    wrote: (source: DocumentService, path: string, text: string) => {
+      this.pinOf(source);
+      this.sync(source, path, text, true);
+    },
   };
 
   constructor() {
@@ -143,7 +158,7 @@ export class TabsService {
 
   /** Closes everything and starts with one empty tab. */
   reset(): void {
-    const tab = this.createTab();
+    const tab = this.createTab(false);
     const id = this.nextId++;
     this.panes.set([{ id, tabs: [tab], activeId: tab.id }]);
     this.focusedId.set(id);
@@ -152,9 +167,12 @@ export class TabsService {
 
   /** A new empty tab in the focused pane, shown at once. */
   newTab(): Tab {
-    const pane = this.focusedPane();
+    return this.addTab(this.focusedPane(), true);
+  }
+
+  private addTab(pane: Pane, pinned: boolean): Tab {
     if (pane.tabs.length >= MAX_TABS) throw new Error(`At most ${MAX_TABS} tabs can be open.`);
-    const tab = this.createTab();
+    const tab = this.createTab(pinned);
     this.leave(this.shownTab(pane));
     this.updatePane(pane.id, (p) => ({ ...p, tabs: [...p.tabs, tab], activeId: tab.id }));
     this.watch();
@@ -190,6 +208,7 @@ export class TabsService {
     const tabs = [...pane.tabs];
     const [tab] = tabs.splice(from, 1);
     tabs.splice(to, 0, tab);
+    tab.pinned.set(true);
     this.updatePane(paneId, (p) => ({ ...p, tabs }));
   }
 
@@ -202,6 +221,7 @@ export class TabsService {
     const tab = from?.tabs.find((t) => t.id === tabId);
     if (!from || !to || !tab || to.tabs.length >= MAX_TABS) return;
     this.leave(this.shownTab(to));
+    tab.pinned.set(true);
     const at = Math.min(Math.max(index, 0), to.tabs.length);
     const rest = from.tabs.filter((t) => t.id !== tabId);
     const next = panes
@@ -244,6 +264,114 @@ export class TabsService {
     }
   }
 
+  /** True for a tab that the next preview open replaces (a note, not a view, not pinned). */
+  isPreview(tab: Tab): boolean {
+    return !tab.pinned() && tab.doc.path() !== null && tab.view() === null;
+  }
+
+  /**
+   * A single click on a note (#416): it shows in the preview tab of the focused pane, which it
+   * replaces or which is added; a pinned tab that shows the note is focused instead. With the
+   * setting off, the note opens in the shown tab as before.
+   */
+  async openPreview(
+    path: string,
+    options: Parameters<DocumentService["open"]>[1] = {},
+  ): Promise<void> {
+    path = toSlashes(path);
+    if (!this.settings.previewTabs()) {
+      await this.openHere(this.activeTab(), path, options);
+      return;
+    }
+    const pinned = this.findPinned(path);
+    if (pinned) {
+      this.activate(pinned.paneId, pinned.tab.id);
+      await this.openHere(pinned.tab, path, options);
+      return;
+    }
+    const pane = this.focusedPane();
+    // The shown tab takes the note when it is empty (also a new tab); else the preview tab does.
+    const shown = this.shownTab(pane);
+    const slot =
+      shown.doc.path() === null && shown.view() === null
+        ? shown
+        : pane.tabs.find((t) => this.isPreview(t) && !t.editor.unsaved());
+    if (slot) {
+      this.activate(pane.id, slot.id);
+      await this.openHere(slot, path, options);
+      return;
+    }
+    // Every other tab keeps its note: the preview is a tab of its own.
+    const fresh = this.addTab(pane, false);
+    try {
+      await fresh.doc.open(path, options);
+    } catch (err) {
+      this.closeTab(pane.id, fresh.id);
+      throw err;
+    }
+  }
+
+  /**
+   * A double click on a note (#416): the note stays in a tab of its own. The preview tab that shows
+   * it turns pinned; a pinned tab that shows it is focused; else a new pinned tab opens.
+   */
+  async openPinned(
+    path: string,
+    options: Parameters<DocumentService["open"]>[1] = {},
+  ): Promise<void> {
+    path = toSlashes(path);
+    if (!this.settings.previewTabs()) {
+      await this.openHere(this.activeTab(), path, options);
+      return;
+    }
+    const shown = this.focusedPane().tabs.find((t) => this.isPreview(t) && t.doc.path() === path);
+    if (shown) {
+      shown.pinned.set(true);
+      this.activate(this.focusedPane().id, shown.id);
+      return;
+    }
+    const pinned = this.findPinned(path);
+    if (pinned) {
+      this.activate(pinned.paneId, pinned.tab.id);
+      return;
+    }
+    await this.openInNewTab(path, options);
+  }
+
+  /** Keeps the preview tab (default: the shown one) open. Does nothing while previews are off. */
+  keepOpen(tabId?: number, paneId: number = this.focusedPane().id): void {
+    if (!this.settings.previewTabs()) return;
+    const pane = this.panes().find((p) => p.id === paneId);
+    const tab = pane?.tabs.find((t) => t.id === (tabId ?? pane.activeId));
+    tab?.pinned.set(true);
+  }
+
+  /** Opens `path` in `tab`; a note that it shows already is not read again without a target. */
+  private async openHere(
+    tab: Tab,
+    path: string,
+    options: Parameters<DocumentService["open"]>[1],
+  ): Promise<void> {
+    const { anchor = null, line = null } = options ?? {};
+    if (tab.doc.path() === path && tab.view() === null && anchor === null && line === null) return;
+    await tab.doc.open(path, options);
+  }
+
+  private findPinned(path: string): { paneId: number; tab: Tab } | null {
+    const panes = this.panes();
+    const focused = this.focusedPane();
+    for (const pane of [focused, ...panes.filter((p) => p.id !== focused.id)]) {
+      const tab = pane.tabs.find((t) => t.pinned() && t.view() === null && t.doc.path() === path);
+      if (tab) return { paneId: pane.id, tab };
+    }
+    return null;
+  }
+
+  /** The typing or the saving of a tab keeps it open. */
+  private pinOf(doc: DocumentService): void {
+    for (const tab of this.allTabs()) if (tab.doc === doc) tab.pinned.set(true);
+  }
+
   /**
    * Closes a tab (default: the shown one). The last tab of the second pane takes the pane with it;
    * the last tab of all stays as an empty one. Returns false when there was nothing to close
@@ -267,7 +395,7 @@ export class TabsService {
         return true;
       }
       if (closing.doc.path() === null && closing.view() === null) return false;
-      const fresh = this.createTab();
+      const fresh = this.createTab(false);
       this.panes.set([{ ...pane, tabs: [fresh], activeId: fresh.id }]);
       this.watch();
       return true;
@@ -356,6 +484,8 @@ export class TabsService {
     const panes = this.panes();
     if (panes.length < 2) return;
     const [left, right] = panes;
+    // At most one preview tab per pane.
+    if (left.tabs.some((t) => this.isPreview(t))) for (const t of right.tabs) t.pinned.set(true);
     const activeId = this.focusedPane().id === right.id ? right.activeId : left.activeId;
     if (activeId !== left.activeId) this.leave(this.shownTab(left));
     this.panes.set([{ ...left, tabs: [...left.tabs, ...right.tabs], activeId }]);
@@ -415,6 +545,13 @@ export class TabsService {
       if (b.kept.length === 0) return;
       const shown = b.kept.find((k) => k.i === b.pane.active) ?? b.kept[0];
       const id = this.nextId++;
+      // At most one preview tab per pane: the first one stays, the others are pinned.
+      let preview = false;
+      for (const k of b.kept) {
+        const wanted = b.pane.tabs[k.i].preview && k.tab.doc.path() !== null;
+        k.tab.pinned.set(!wanted || preview);
+        preview ||= wanted;
+      }
       panes.push({ id, tabs: b.kept.map((k) => k.tab), activeId: shown.tab.id });
       if (i === layout.focused) focused = panes.length - 1;
     });
@@ -463,6 +600,7 @@ export class TabsService {
       index,
       editing: path !== null && tab.editor.editing(),
       line: this.lineOf(tab),
+      preview: path !== null && view === null && !tab.pinned(),
     };
   }
 
@@ -509,7 +647,7 @@ export class TabsService {
     for (const tab of this.allTabs()) if (tab.doc !== source) tab.doc.remote(path, text, saved);
   }
 
-  private createTab(): Tab {
+  private createTab(pinned = true): Tab {
     const holder: { tab?: Tab } = {};
     const injector = Injector.create({
       parent: this.injector,
@@ -529,6 +667,7 @@ export class TabsService {
       editor: injector.get(EditorService),
       outline: injector.get(OutlineService),
       view: signal<TabView | null>(null),
+      pinned: signal(pinned),
       compare: signal<CompareInput | null>(null),
       viewer: null,
       scrollLine: null,
