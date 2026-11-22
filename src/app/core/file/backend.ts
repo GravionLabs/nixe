@@ -672,7 +672,8 @@ export const backend = {
    * webview. A web login shows its one-time code as `GIT_PROVIDER_CODE_EVENT`. Rejects with
    * `cancelled` or a plain message.
    */
-  gitProviderLogin: (host: string) => invoke<void>("git_provider_login", { host }),
+  gitProviderLogin: (host: string) =>
+    invoke<"taken-over" | "logged-in">("git_provider_login", { host }),
   /** Gives up the running web login. */
   gitProviderCancel: () => invoke<void>("git_provider_cancel"),
   /**

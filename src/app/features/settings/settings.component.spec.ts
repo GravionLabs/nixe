@@ -14,7 +14,13 @@ import type { SettingItem } from "../../core/settings/settings-registry";
 import { SettingsPageService } from "../../core/settings/settings-page.service";
 import { SettingsComponent } from "./settings.component";
 
-function render(opts: { stored?: boolean; prompt?: "required" | "failed" | null } = {}) {
+function render(
+  opts: {
+    stored?: boolean;
+    prompt?: "required" | "failed" | null;
+    gh?: { notice?: string; error?: string; busy?: boolean };
+  } = {},
+) {
   const save = vi.fn().mockResolvedValue(undefined);
   const remove = vi.fn().mockResolvedValue(undefined);
   const cancelPrompt = vi.fn();
@@ -27,6 +33,16 @@ function render(opts: { stored?: boolean; prompt?: "required" | "failed" | null 
     save,
     remove,
     cancelPrompt,
+    gh: opts.gh && {
+      available: () => true,
+      code: () => null,
+      busy: () => opts.gh!.busy ?? false,
+      error: () => opts.gh!.error ?? "",
+      notice: () => opts.gh!.notice ?? "",
+      hosts: () => ["github.com"],
+      signIn: vi.fn().mockResolvedValue(undefined),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    },
   };
   const page = {
     sections: signal([{ id: "sync", title: "Sync", items: [item] }]),
@@ -99,5 +115,25 @@ describe("SettingsComponent token entry", () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(el.textContent).toContain("keychain locked");
+  });
+});
+
+describe("SettingsComponent gh sign-in result", () => {
+  it("shows the notice of a finished sign-in", () => {
+    const { el } = render({ stored: true, gh: { notice: "Signed in with the GitHub CLI: done." } });
+    expect(el.querySelector("[role=status]")!.textContent).toContain(
+      "Signed in with the GitHub CLI",
+    );
+    expect(el.querySelector("[role=alert]")).toBeNull();
+  });
+
+  it("shows the error of a failed sign-in and no notice", () => {
+    const { el } = render({ gh: { error: "The GitHub CLI (gh) is not installed." } });
+    expect(el.querySelector("[role=alert]")!.textContent).toContain("not installed");
+    expect(el.querySelector("[role=status]")).toBeNull();
+  });
+
+  it("shows the busy notice while the sign-in runs", () => {
+    expect(render({ gh: { busy: true } }).el.textContent).toContain("Waiting for the GitHub CLI");
   });
 });

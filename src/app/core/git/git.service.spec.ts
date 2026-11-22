@@ -523,6 +523,40 @@ describe("GitService", () => {
       expect(git.ghSigningIn()).toBe(false);
     });
 
+    it("tells that the token of a signed-in gh was taken over, then clears the notice", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.spyOn(backend, "gitTokenStatus").mockResolvedValue(true);
+        vi.spyOn(backend, "gitProviderLogin").mockResolvedValue("taken-over");
+        await git.signInWithGh("github.com");
+        expect(git.ghNotice()).toContain("taken over");
+        expect(git.ghError()).toBe("");
+        vi.advanceTimersByTime(7000);
+        expect(git.ghNotice()).toBe("");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("tells that the web login finished", async () => {
+      vi.spyOn(backend, "gitTokenStatus").mockResolvedValue(true);
+      vi.spyOn(backend, "gitProviderLogin").mockResolvedValue("logged-in");
+      await git.signInWithGh("github.com");
+      expect(git.ghNotice()).toBe("Signed in to github.com with the GitHub CLI.");
+    });
+
+    it("shows an error and no notice when gh is missing or the keychain fails", async () => {
+      const login = vi.spyOn(backend, "gitProviderLogin");
+      login.mockRejectedValue("The GitHub CLI (gh) is not installed.");
+      await git.signInWithGh("github.com");
+      expect(git.ghError()).toContain("not installed");
+      expect(git.ghNotice()).toBe("");
+      login.mockRejectedValue("no secret service");
+      await git.signInWithGh("github.com");
+      expect(git.ghError()).toBe("no secret service");
+      expect(git.ghNotice()).toBe("");
+    });
+
     it("shows the code while the login runs and clears it afterwards", async () => {
       let onCode: ((e: { payload: string }) => void) | undefined;
       vi.mocked(listen).mockImplementation((async (_e: string, cb: typeof onCode) => {

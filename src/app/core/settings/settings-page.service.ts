@@ -49,6 +49,7 @@ export class SettingsPageService {
           code: () => git.ghCode(),
           busy: () => git.ghSigningIn(),
           error: () => git.ghError(),
+          notice: () => git.ghNotice(),
           hosts: () => git.hosts(),
           signIn: (host) => git.signInWithGh(host),
           cancel: () => git.cancelGhSignIn(),
