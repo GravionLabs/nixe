@@ -136,6 +136,28 @@ describe("link clicks", () => {
     expect(opened).toEqual([["markdown", "https://a.b/c", false]]);
   });
 
+  it("leaves anchor-only and unsafe links to the editor", () => {
+    const opened: string[] = [];
+    // CodeMirror's own mousedown handling runs for a click nobody takes; jsdom lacks the layout API.
+    Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc: "[a](#top) [b](javascript:x)",
+        extensions: editorBehavior({
+          onSave: () => {},
+          onBlur: () => {},
+          onLink: (l) => opened.push(l.target),
+        }),
+      }),
+    });
+    for (const pos of [2, 18]) {
+      view.posAtCoords = () => pos;
+      view.contentDOM.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, ctrlKey: true }));
+    }
+    expect(opened).toEqual([]);
+  });
+
   it("does not open from the middle of plain text", () => {
     const { opened, click } = mount(true);
     click(43, { ctrlKey: true });

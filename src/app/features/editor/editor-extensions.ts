@@ -15,6 +15,7 @@ import { Decoration, EditorView, ViewPlugin, drawSelection, keymap } from "@code
 import type { CompletionData } from "./completion";
 import { completionExtension } from "./completion";
 import type { EditorLink } from "../../core/editor/editor-core";
+import { classifyHref } from "../../core/markdown/link-resolver";
 import { inlineTokens, linkAt, nodeClass, tokenAt } from "../../core/editor/editor-core";
 
 const CODE_NODES = new Set(["FencedCode", "CodeBlock", "InlineCode", "CommentBlock", "HTMLBlock"]);
@@ -318,7 +319,13 @@ function clickableLink(
   const modifier = event.metaKey || event.ctrlKey;
   if (!modifier && !hooks.opensOnPlainClick?.(state, pos)) return null;
   if (inCode(state, pos)) return null;
-  return linkAt(line.text, pos - line.from);
+  const link = linkAt(line.text, pos - line.from);
+  if (link && link.kind !== "wikilink") {
+    // Same-note anchors and unsafe schemes open nothing: the click stays an edit.
+    const kind = classifyHref(link.target).kind;
+    if (kind === "anchor" || kind === "none") return null;
+  }
+  return link;
 }
 
 /** Extensions that do not depend on the theme. */
