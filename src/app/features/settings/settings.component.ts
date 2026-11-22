@@ -40,6 +40,14 @@ export class SettingsComponent implements OnDestroy {
   }
 
   protected readonly tokenError = signal("");
+  /** The token field is hidden until the user picks Replace or the manual fallback. */
+  protected readonly tokenEditing = signal(false);
+
+  protected showTokenInput(item: Extract<SettingItem, { kind: "token" }>): boolean {
+    return (
+      this.tokenEditing() || item.prompt() !== null || (!item.stored() && !item.gh?.available())
+    );
+  }
 
   protected async saveToken(
     item: Extract<SettingItem, { kind: "token" }>,
@@ -49,6 +57,7 @@ export class SettingsComponent implements OnDestroy {
       await item.save(input.value);
       input.value = "";
       this.tokenError.set("");
+      this.tokenEditing.set(false);
     } catch (err) {
       this.tokenError.set(String(err));
     }
