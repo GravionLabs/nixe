@@ -12,7 +12,7 @@ import {
 
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import type { SearchHit, SearchSnippet } from "../../core/file/backend";
-import { DocumentService } from "../../core/file/document.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { ReplaceService } from "../../core/index/replace.service";
 import type { SearchSort } from "../../core/index/search.service";
 import {
@@ -59,7 +59,7 @@ function storedSort(): SearchSort {
 })
 export class SearchComponent {
   protected readonly search = inject(SearchService);
-  private readonly doc = inject(DocumentService);
+  private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
   protected readonly replace = inject(ReplaceService);
   private readonly bookmarks = inject(BookmarksService);
@@ -159,15 +159,21 @@ export class SearchComponent {
     void this.search.setQuery((event.target as HTMLInputElement).value);
   }
 
-  protected openHit(hit: SearchHit, snippet?: SearchSnippet): Promise<void> {
-    return this.open(hit.rootPath ?? null, hit.path, snippet?.line ?? null);
+  protected openHit(hit: SearchHit, snippet?: SearchSnippet, pin = false): Promise<void> {
+    return this.open(hit.rootPath ?? null, hit.path, snippet?.line ?? null, pin);
   }
 
-  private async open(rootPath: string | null, rel: string, line: number | null): Promise<void> {
+  private async open(
+    rootPath: string | null,
+    rel: string,
+    line: number | null,
+    pin = false,
+  ): Promise<void> {
     const root = rootPath ?? this.workspace.vaultRoot();
     if (!root) return;
     try {
-      await this.doc.open(joinPath(root, rel), { line });
+      if (pin) await this.tabs.openPinned(joinPath(root, rel), { line });
+      else await this.tabs.openPreview(joinPath(root, rel), { line });
     } catch (err) {
       this.failed.emit(String(err));
     }

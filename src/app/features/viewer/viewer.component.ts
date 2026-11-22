@@ -709,7 +709,7 @@ export class ViewerComponent {
   ): Promise<void> {
     try {
       if (newTab) await this.tabs.openInNewTab(path, options);
-      else await this.doc.open(path, options);
+      else await this.tabs.openPreview(path, options);
     } catch (err) {
       this.notify.emit(String(err));
     }

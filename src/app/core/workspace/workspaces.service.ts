@@ -128,6 +128,7 @@ export class WorkspacesService {
     this.unregister = names.map((name) =>
       this.commands.register({
         id: `${OPEN_WORKSPACE_PREFIX}${name}`,
+        group: "File",
         title: `Open workspace: ${name}`,
         run: () => this.openSaved(name),
       }),

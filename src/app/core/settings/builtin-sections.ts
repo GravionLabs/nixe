@@ -254,6 +254,13 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           "Wrap long lines instead of scrolling sideways.",
           ["code", "scroll", "horizontal"],
         ),
+        toggle(
+          "preview-tabs",
+          "Open notes in a preview tab",
+          s.previewTabs,
+          "A click opens a note in the italic preview tab, the next click replaces it; a double click, an edit or a save keeps the tab. Off: every click opens a note in a tab that stays.",
+          ["tab", "single click", "double click", "pin", "italic"],
+        ),
       ],
     },
     {

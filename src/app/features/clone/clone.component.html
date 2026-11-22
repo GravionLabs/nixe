@@ -63,6 +63,9 @@
             <button type="button" (click)="git.cancelGhSignIn()">Cancel</button>
           </p>
         }
+        @if (git.ghNotice(); as notice) {
+          <p class="gh" role="status">{{ notice }}</p>
+        }
         @if (git.ghError(); as error) {
           <p class="error" role="alert">{{ error }}</p>
         }

@@ -21,8 +21,14 @@
   />
   <ul id="palette-list" role="listbox">
     @for (item of palette.items(); track key(item); let i = $index) {
+      @if (item.kind === "command" && item.heading) {
+        <li role="presentation" class="group">{{ item.heading }}</li>
+      }
       <li
         role="option"
+        [attr.aria-label]="
+          item.kind === 'command' ? item.command.title + ', ' + item.command.group : null
+        "
         [attr.aria-selected]="i === palette.selected()"
         [class.selected]="i === palette.selected()"
       >
@@ -52,6 +58,9 @@
                 @if (keys.length) {
                   <hx-kbd class="shortcut" [keys]="keys" size="sm" />
                 }
+              }
+              @if (item.label) {
+                <span class="label">{{ item.label }}</span>
               }
             </button>
           }

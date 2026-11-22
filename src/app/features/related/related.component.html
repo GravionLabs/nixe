@@ -19,6 +19,7 @@
               <button
                 type="button"
                 (click)="open(note, $event)"
+                (dblclick)="open(note, $event)"
                 (mousemove)="hover($event, note)"
                 (mouseleave)="leave()"
                 [title]="note.path"

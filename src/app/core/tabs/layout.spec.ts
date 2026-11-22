@@ -9,12 +9,23 @@ const tab = {
   index: 0,
   editing: false,
   line: 3,
+  preview: false,
 };
 
 describe("sanitizeLayout", () => {
   it("keeps a valid layout", () => {
     const layout = { panes: [{ tabs: [tab], active: 0 }], focused: 0, ratio: 0.4 };
     expect(sanitizeLayout(layout)).toEqual(layout);
+  });
+
+  it("keeps the preview mark of a note tab and reads an older layout as pinned", () => {
+    const layout = (t: object) =>
+      sanitizeLayout({ panes: [{ tabs: [t], active: 0 }], focused: 0, ratio: 0.5 })!;
+    expect(layout({ ...tab, preview: true }).panes[0].tabs[0].preview).toBe(true);
+    expect(layout({ ...tab, preview: "yes" }).panes[0].tabs[0].preview).toBe(false);
+    const { preview: _, ...old } = tab;
+    expect(layout(old).panes[0].tabs[0].preview).toBe(false);
+    expect(layout({ view: "health", preview: true }).panes[0].tabs[0].preview).toBe(false);
   });
 
   it("rejects what is not a layout", () => {
@@ -55,8 +66,24 @@ describe("sanitizeLayout", () => {
       ],
     })!;
     expect(layout.panes[0].tabs).toEqual([
-      { view: null, path: null, history: [], index: -1, editing: false, line: null },
-      { view: null, path: "/v/b.md", history: ["/v/b.md"], index: 0, editing: false, line: null },
+      {
+        view: null,
+        path: null,
+        history: [],
+        index: -1,
+        editing: false,
+        line: null,
+        preview: false,
+      },
+      {
+        view: null,
+        path: "/v/b.md",
+        history: ["/v/b.md"],
+        index: 0,
+        editing: false,
+        line: null,
+        preview: false,
+      },
     ]);
   });
 
@@ -73,8 +100,24 @@ describe("sanitizeLayout", () => {
       ],
     })!;
     expect(layout.panes[0].tabs).toEqual([
-      { view: "health", path: null, history: [], index: -1, editing: false, line: null },
-      { view: null, path: null, history: [], index: -1, editing: false, line: null },
+      {
+        view: "health",
+        path: null,
+        history: [],
+        index: -1,
+        editing: false,
+        line: null,
+        preview: false,
+      },
+      {
+        view: null,
+        path: null,
+        history: [],
+        index: -1,
+        editing: false,
+        line: null,
+        preview: false,
+      },
     ]);
   });
 
@@ -88,7 +131,15 @@ describe("sanitizeLayout", () => {
 
 describe("layout helpers", () => {
   it("tells whether a note is shown", () => {
-    const empty = { view: null, path: null, history: [], index: -1, editing: false, line: null };
+    const empty = {
+      view: null,
+      path: null,
+      history: [],
+      index: -1,
+      editing: false,
+      line: null,
+      preview: false,
+    };
     expect(layoutHasNote({ panes: [{ tabs: [empty], active: 0 }], focused: 0, ratio: 0.5 })).toBe(
       false,
     );

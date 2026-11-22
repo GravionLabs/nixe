@@ -63,8 +63,8 @@ describe("ShellService", () => {
 
     it("runs the command of a tab view or an action and leaves the active view alone", () => {
       const run = vi.fn();
-      commands.register({ id: "vault-health", title: "Health", run });
-      commands.register({ id: "open-settings", title: "Settings", run });
+      commands.register({ id: "vault-health", group: "Other", title: "Health", run });
+      commands.register({ id: "open-settings", group: "Other", title: "Settings", run });
       shell.select("health");
       shell.select("settings");
       expect(run).toHaveBeenCalledTimes(2);
@@ -115,6 +115,7 @@ describe("ShellService", () => {
       expect(label("daily-note")).toBe("Daily note");
       commands.register({
         id: "daily-note",
+        group: "Other",
         title: "Daily note",
         shortcut: "Mod+Shift+D",
         run: () => undefined,

@@ -13,6 +13,7 @@ import {
   viewChildren,
 } from "@angular/core";
 import { HxActivityBar, HxAppShell } from "@gravionlabs/helix-desktop";
+import { HxUpdateService } from "@gravionlabs/helix-desktop/tauri";
 import { HxMessageService, HxToast } from "@gravionlabs/helix-ui";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -50,8 +51,6 @@ import { PanelResizerComponent } from "./features/panel-resizer/panel-resizer.co
 import type { ViewMode } from "./core/settings/settings-core";
 import type { PanelTab } from "./core/settings/settings.service";
 import { SettingsService } from "./core/settings/settings.service";
-import { isPrerelease } from "./core/updater/update-logic";
-import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
@@ -144,7 +143,7 @@ export class AppComponent {
   protected readonly git = inject(GitService);
   protected readonly cloneVault = inject(CloneService);
   private readonly autoSync = inject(AutoSyncService);
-  protected readonly updater = inject(UpdateService);
+  protected readonly updater = inject(HxUpdateService);
   protected readonly switcher = inject(SwitcherService);
   protected readonly composer = inject(ComposerService);
   private readonly daily = inject(DailyService);
@@ -291,7 +290,6 @@ export class AppComponent {
       await listen(OPEN_FILE_EVENT, () => void this.openPending());
       await listen(EXPORT_EVENT, () => void this.runPendingExport());
       await listen<string>(FILE_CHANGED_EVENT, (e) => void this.tabs.onExternalChange(e.payload));
-      await this.updater.init();
       await listen<VaultChange[]>(
         VAULT_CHANGED_EVENT,
         (e) => void this.workspace.onVaultChanged(e.payload ?? []),
@@ -408,6 +406,7 @@ export class AppComponent {
     const commands: Command[] = [
       {
         id: "command-palette",
+        group: "Navigate",
         title: "Command palette",
         shortcut: "Mod+P",
         keys: ["Mod+P"],
@@ -415,6 +414,7 @@ export class AppComponent {
       },
       {
         id: "new-note",
+        group: "File",
         title: "New note",
         shortcut: "Mod+N",
         keys: ["Mod+N"],
@@ -423,6 +423,7 @@ export class AppComponent {
       },
       {
         id: "new-folder",
+        group: "File",
         title: "New folder",
         when: inVault,
         run: () =>
@@ -430,30 +431,35 @@ export class AppComponent {
       },
       ...TREE_SORTS.map((sort) => ({
         id: `sort-file-tree-${sort}`,
+        group: "File" as const,
         title: `Sort file tree: ${TREE_SORT_LABELS[sort]}`,
         when: inVault,
         run: () => this.run(() => this.workspace.setSort(sort)),
       })),
       {
         id: "reveal-active-note",
+        group: "File",
         title: "Reveal the active note in the file tree",
         when: noteOpen,
         run: () => this.run(() => this.workspace.revealActive()),
       },
       {
         id: "collapse-all-folders",
+        group: "File",
         title: "Collapse all folders in the file tree",
         when: inVault,
         run: () => this.workspace.collapseAll(),
       },
       {
         id: "reload-file-tree",
+        group: "File",
         title: "Reload file tree",
         when: inVault,
         run: () => this.run(() => this.workspace.reloadTree()),
       },
       {
         id: "quick-switcher",
+        group: "Navigate",
         title: "Quick switcher",
         shortcut: "Mod+O",
         keys: ["Mod+O"],
@@ -462,6 +468,7 @@ export class AppComponent {
       },
       {
         id: "daily-note",
+        group: "File",
         title: "Open today's daily note",
         shortcut: "Mod+Shift+D",
         keys: ["Mod+Shift+D"],
@@ -470,24 +477,28 @@ export class AppComponent {
       },
       {
         id: "daily-previous",
+        group: "File",
         title: "Open previous daily note",
         when: inVault,
         run: () => this.run(() => this.daily.previous()),
       },
       {
         id: "daily-next",
+        group: "File",
         title: "Open next daily note",
         when: inVault,
         run: () => this.run(() => this.daily.next()),
       },
       {
         id: "insert-template",
+        group: "File",
         title: "Insert template",
         when: () => noteOpen() && this.editor.editing(),
         run: () => this.run(() => this.palette.openTemplates()),
       },
       {
         id: "toggle-editor",
+        group: "View",
         title: "Toggle source mode",
         shortcut: "Mod+E",
         when: noteOpen,
@@ -496,6 +507,7 @@ export class AppComponent {
       },
       {
         id: "toggle-reading",
+        group: "View",
         title: "Toggle reading view",
         shortcut: "Mod+Alt+E",
         when: noteOpen,
@@ -506,36 +518,42 @@ export class AppComponent {
       },
       {
         id: "view-live",
+        group: "View",
         title: "Live preview",
         when: noteOpen,
         run: () => this.setViewMode("live"),
       },
       {
         id: "view-source",
+        group: "View",
         title: "Source",
         when: noteOpen,
         run: () => this.setViewMode("source"),
       },
       {
         id: "view-reading",
+        group: "View",
         title: "Reading",
         when: noteOpen,
         run: () => this.setViewMode("reading"),
       },
       {
         id: "undo-vault-operation",
+        group: "Edit",
         title: "Undo last vault operation",
         when: inVault,
         run: () => void this.vaultUndo.undo(),
       },
       {
         id: "bookmark-note",
+        group: "Navigate",
         title: "Bookmark the note (or remove it)",
         when: noteOpen,
         run: () => this.bookmarks.toggleNote(),
       },
       {
         id: "bookmark-heading",
+        group: "Navigate",
         title: "Bookmark the heading at the top (or remove it)",
         when: noteOpen,
         run: () =>
@@ -545,50 +563,70 @@ export class AppComponent {
       },
       {
         id: "bookmark-search",
+        group: "Navigate",
         title: "Bookmark the search (or remove it)",
         when: inVault,
         run: () => void (this.bookmarks.bookmarkSearch() || this.showToast("The search is empty.")),
       },
       {
         id: "show-bookmarks",
+        group: "Navigate",
         title: "Show bookmarks",
         when: inVault,
         run: () => this.shell.show("bookmarks"),
       },
       {
         id: "extract-selection",
+        group: "Edit",
         title: "Extract selection to a note",
         when: () => noteOpen() && this.editor.editing(),
         run: () => this.run(() => this.composer.extractSelection()),
       },
       {
         id: "extract-heading",
+        group: "Edit",
         title: "Extract heading to a note",
         when: () => noteOpen() && this.editor.editing(),
         run: () => this.run(() => this.composer.extractHeading()),
       },
       {
         id: "merge-into",
+        group: "Edit",
         title: "Merge into…",
         when: noteOpen,
         run: () => this.run(() => this.composer.mergeInto()),
       },
-      { id: "fold", title: "Fold at the cursor", when: noteOpen, run: () => this.foldNote("fold") },
+      {
+        id: "fold",
+        group: "Edit",
+        title: "Fold at the cursor",
+        when: noteOpen,
+        run: () => this.foldNote("fold"),
+      },
       {
         id: "unfold",
+        group: "Edit",
         title: "Unfold at the cursor",
         when: noteOpen,
         run: () => this.foldNote("unfold"),
       },
-      { id: "fold-all", title: "Fold all", when: noteOpen, run: () => this.foldNote("fold-all") },
+      {
+        id: "fold-all",
+        group: "Edit",
+        title: "Fold all",
+        when: noteOpen,
+        run: () => this.foldNote("fold-all"),
+      },
       {
         id: "unfold-all",
+        group: "Edit",
         title: "Unfold all",
         when: noteOpen,
         run: () => this.foldNote("unfold-all"),
       },
       {
         id: "find",
+        group: "Edit",
         title: "Find in note",
         shortcut: "Mod+F",
         keys: ["Mod+F"],
@@ -597,13 +635,30 @@ export class AppComponent {
       },
       {
         id: "new-tab",
+        group: "File",
         title: "New tab",
         shortcut: "Mod+T",
         run: () => this.run(async () => void this.tabs.newTab()),
       },
-      { id: "close-tab", title: "Close tab", shortcut: "Mod+W", run: () => this.closeTab() },
+      {
+        id: "keep-tab-open",
+        group: "File",
+        title: "Keep tab open",
+        shortcut: "Mod+Alt+K",
+        keys: ["Mod+Alt+K"],
+        when: () => this.settings.previewTabs() && this.tabs.isPreview(this.tabs.activeTab()),
+        run: () => this.tabs.keepOpen(),
+      },
+      {
+        id: "close-tab",
+        group: "File",
+        title: "Close tab",
+        shortcut: "Mod+W",
+        run: () => this.closeTab(),
+      },
       {
         id: "next-tab",
+        group: "Navigate",
         title: "Next tab",
         shortcut: "Ctrl+Tab",
         keys: ["Ctrl+Tab"],
@@ -611,6 +666,7 @@ export class AppComponent {
       },
       {
         id: "previous-tab",
+        group: "Navigate",
         title: "Previous tab",
         shortcut: "Ctrl+Shift+Tab",
         keys: ["Ctrl+Shift+Tab"],
@@ -618,24 +674,28 @@ export class AppComponent {
       },
       {
         id: "split-right",
+        group: "Navigate",
         title: "Split tab to the right",
         when: noteOpen,
         run: () => this.run(() => this.tabs.splitRight()),
       },
       {
         id: "unsplit",
+        group: "Navigate",
         title: "Merge the split panes",
         when: () => this.tabs.split(),
         run: () => this.tabs.unsplit(),
       },
       {
         id: "focus-other-pane",
+        group: "Navigate",
         title: "Focus the other pane",
         when: () => this.tabs.split(),
         run: () => this.tabs.focusNextPane(),
       },
       {
         id: "open-settings",
+        group: "File",
         title: "Open settings",
         shortcut: "Mod+,",
         keys: ["Mod+,"],
@@ -647,42 +707,53 @@ export class AppComponent {
       },
       {
         id: "open-file",
+        group: "File",
         title: "Open file",
         shortcut: "Mod+Shift+P",
         run: () => this.run(() => this.doc.openWithDialog()),
       },
       {
         id: "open-folder",
+        group: "File",
         title: "Open folder",
         shortcut: "Mod+Shift+O",
         run: () => this.run(() => this.workspace.openFolderWithDialog()),
       },
       {
         id: "check-updates",
+        group: "File",
         title: "Check for updates…",
-        when: () => !isPrerelease(this.updater.version()),
-        run: () => this.updater.check(),
+        run: () => this.updater.check({ manual: true }),
       },
       {
         id: "add-folder-to-workspace",
+        group: "File",
         title: "Add folder to workspace…",
         when: () => this.workspace.root() !== null,
         run: () => this.run(() => this.workspaces.addFolderWithDialog()),
       },
       {
         id: "save-workspace",
+        group: "File",
         title: "Save workspace",
         when: () => this.workspaces.current() !== null,
         run: () => this.run(() => this.workspaces.save()),
       },
       {
         id: "open-recent",
+        group: "File",
         title: "Open recent vault…",
         run: () => this.palette.open("~"),
       },
-      { id: "clone-vault", title: "Clone vault…", run: () => this.cloneVault.open() },
+      {
+        id: "clone-vault",
+        group: "File",
+        title: "Clone vault…",
+        run: () => this.cloneVault.open(),
+      },
       {
         id: "reload",
+        group: "File",
         title: "Reload",
         shortcut: "Mod+R",
         run: () =>
@@ -693,6 +764,7 @@ export class AppComponent {
       },
       {
         id: "back",
+        group: "Navigate",
         title: "Back",
         shortcut: "Mod+[",
         keys: ["Alt+ArrowLeft"],
@@ -700,6 +772,7 @@ export class AppComponent {
       },
       {
         id: "forward",
+        group: "Navigate",
         title: "Forward",
         shortcut: "Mod+]",
         keys: ["Alt+ArrowRight"],
@@ -707,30 +780,35 @@ export class AppComponent {
       },
       {
         id: "vault-health",
+        group: "Vault",
         title: "Vault health",
         when: inVault,
         run: () => this.run(async () => void this.tabs.openView("health")),
       },
       {
         id: "export-html",
+        group: "Export",
         title: "Export as HTML",
         when: noteOpen,
         run: () => this.exportNote("html"),
       },
       {
         id: "export-site",
+        group: "Export",
         title: "Export folder as site",
         when: inVault,
         run: () => this.exportSite(),
       },
       {
         id: "export-pdf",
+        group: "Export",
         title: "Export as PDF",
         when: noteOpen,
         run: () => this.exportNote("pdf"),
       },
       {
         id: "print",
+        group: "Export",
         title: "Print",
         shortcut: "Mod+Alt+P",
         keys: ["Mod+Alt+P"],
@@ -739,6 +817,7 @@ export class AppComponent {
       },
       {
         id: "git-sync",
+        group: "Git",
         title: "Sync with the remote",
         shortcut: "Mod+Shift+S",
         keys: ["Mod+Shift+S"],
@@ -747,6 +826,7 @@ export class AppComponent {
       },
       {
         id: "toggle-backlinks",
+        group: "View",
         title: "Toggle backlinks panel",
         shortcut: "Mod+Shift+B",
         when: inVault,
@@ -754,12 +834,14 @@ export class AppComponent {
       },
       {
         id: "toggle-related",
+        group: "View",
         title: "Toggle related notes panel",
         when: inVault,
         run: () => this.settings.togglePanelTab("related"),
       },
       {
         id: "toggle-outline",
+        group: "View",
         title: "Toggle outline panel",
         shortcut: "Mod+Shift+L",
         when: noteOpen,
@@ -767,12 +849,14 @@ export class AppComponent {
       },
       {
         id: "show-properties-panel",
+        group: "View",
         title: "Show properties panel",
         when: noteOpen,
         run: () => this.settings.showPanelTab("properties"),
       },
       {
         id: "toggle-properties",
+        group: "View",
         title: "Toggle properties",
         shortcut: "Mod+Alt+P",
         when: noteOpen,
@@ -780,24 +864,40 @@ export class AppComponent {
       },
       {
         id: "toggle-link-preview",
+        group: "View",
         title: "Link preview: always on hover / only with ⌘/Ctrl held",
         run: () =>
           this.settings.linkPreview.update((m) => (m === "always" ? "modifier" : "always")),
       },
       {
         id: "toggle-math",
+        group: "View",
         title: "Toggle LaTeX math",
         run: () => this.settings.math.update((v) => !v),
       },
       {
         id: "cycle-theme",
+        group: "View",
         title: "Cycle theme (system, light, dark)",
         run: () => this.settings.cycleTheme(),
       },
-      { id: "zoom-in", title: "Zoom in", shortcut: "Mod+=", run: () => this.settings.zoomIn() },
-      { id: "zoom-out", title: "Zoom out", shortcut: "Mod+-", run: () => this.settings.zoomOut() },
+      {
+        id: "zoom-in",
+        group: "View",
+        title: "Zoom in",
+        shortcut: "Mod+=",
+        run: () => this.settings.zoomIn(),
+      },
+      {
+        id: "zoom-out",
+        group: "View",
+        title: "Zoom out",
+        shortcut: "Mod+-",
+        run: () => this.settings.zoomOut(),
+      },
       {
         id: "zoom-reset",
+        group: "View",
         title: "Actual size",
         shortcut: "Mod+0",
         run: () => this.settings.resetZoom(),

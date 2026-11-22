@@ -60,7 +60,7 @@ describe("CommandRegistry", () => {
 
   it("runs a registered command by id", () => {
     const run = vi.fn();
-    registry.register({ id: "a", title: "A", run });
+    registry.register({ id: "a", group: "Other", title: "A", run });
     expect(registry.execute("a")).toBe(true);
     expect(run).toHaveBeenCalledOnce();
   });
@@ -72,7 +72,7 @@ describe("CommandRegistry", () => {
   it("evaluates when on every call", () => {
     let on = false;
     const run = vi.fn();
-    registry.register({ id: "a", title: "A", when: () => on, run });
+    registry.register({ id: "a", group: "Other", title: "A", when: () => on, run });
     expect(registry.execute("a")).toBe(false);
     expect(registry.available()).toEqual([]);
     expect(run).not.toHaveBeenCalled();
@@ -82,15 +82,15 @@ describe("CommandRegistry", () => {
   });
 
   it("replaces by id and unregisters only its own registration", () => {
-    const first = registry.register({ id: "a", title: "One", run: () => {} });
-    registry.register({ id: "a", title: "Two", run: () => {} });
+    const first = registry.register({ id: "a", group: "Other", title: "One", run: () => {} });
+    registry.register({ id: "a", group: "Other", title: "Two", run: () => {} });
     first();
     expect(registry.get("a")?.title).toBe("Two");
   });
 
   it("finds a command by key binding", () => {
-    registry.register({ id: "p", title: "P", keys: ["Mod+P"], run: () => {} });
-    registry.register({ id: "q", title: "Q", shortcut: "Mod+Q", run: () => {} });
+    registry.register({ id: "p", group: "Other", title: "P", keys: ["Mod+P"], run: () => {} });
+    registry.register({ id: "q", group: "Other", title: "Q", shortcut: "Mod+Q", run: () => {} });
     expect(registry.findByKey(key("p", { metaKey: true }))?.id).toBe("p");
     expect(registry.findByKey(key("q", { metaKey: true }))).toBeUndefined();
   });

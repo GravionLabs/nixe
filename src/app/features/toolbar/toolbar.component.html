@@ -59,39 +59,22 @@
     }
   </nav>
 
-  <div
-    slot="end"
-    class="modes"
-    role="group"
-    aria-label="View mode"
-    [hx-tooltip]="'Switch view mode'"
-    [hxTooltipShortcut]="shortcuts.keys('toggle-editor')"
-  >
-    <div class="seg">
-      @for (m of modes; track m.id) {
-        <button
-          type="button"
-          class="toggle"
-          [class.active]="editor.mode() === m.id"
-          [attr.aria-pressed]="editor.mode() === m.id"
-          [disabled]="modeDisabled()"
-          (click)="run('view-' + m.id)"
-        >
-          {{ m.label }}
-        </button>
-      }
-    </div>
-    <select
-      class="compact"
-      aria-label="View mode"
-      [disabled]="modeDisabled()"
-      [value]="editor.mode()"
-      (change)="run('view-' + $any($event.target).value)"
-    >
-      @for (m of modes; track m.id) {
-        <option [value]="m.id" [selected]="editor.mode() === m.id">{{ m.label }}</option>
-      }
-    </select>
+  <div slot="end" class="modes" role="group" aria-label="View mode">
+    @for (m of modes; track m.id) {
+      <button
+        type="button"
+        class="icon toggle"
+        [class.active]="editor.mode() === m.id"
+        [attr.aria-pressed]="editor.mode() === m.id"
+        [attr.aria-label]="m.label"
+        [disabled]="modeDisabled()"
+        (click)="run('view-' + m.id)"
+        [hx-tooltip]="m.label"
+        [hxTooltipShortcut]="shortcuts.keys(m.shortcut)"
+      >
+        <svg viewBox="0 0 24 24"><path [attr.d]="m.icon" /></svg>
+      </button>
+    }
   </div>
   <button
     slot="end"

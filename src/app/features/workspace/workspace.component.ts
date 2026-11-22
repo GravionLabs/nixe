@@ -5,6 +5,7 @@ import { HxButton, HxTabBar, HxTooltip } from "@gravionlabs/helix-ui";
 
 import { ShortcutService } from "../../core/commands/shortcut.service";
 import { basename } from "../../core/markdown/paths";
+import { SettingsService } from "../../core/settings/settings.service";
 import type { TabView } from "../../core/tabs/layout";
 import { MAX_RATIO, MIN_RATIO } from "../../core/tabs/layout";
 import type { Pane, Tab } from "../../core/tabs/tabs.service";
@@ -29,8 +30,19 @@ export class WorkspaceComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly shortcuts = inject(ShortcutService);
+  private readonly settings = inject(SettingsService);
   /** The tab menu; "Close" shows the shortcut of the close-tab command. */
   protected readonly menu = computed<readonly HxTabBarMenuItem[]>(() => [
+    ...(this.settings.previewTabs()
+      ? [
+          {
+            action: "keep",
+            label: "Keep open",
+            shortcut: this.shortcuts.display("keep-tab-open"),
+            appliesTo: (id: string) => this.isPreview(Number(id)),
+          },
+        ]
+      : []),
     { action: "close", label: "Close", shortcut: this.shortcuts.display("close-tab") },
   ]);
   protected readonly paneType = PaneComponent;
@@ -56,13 +68,29 @@ export class WorkspaceComponent {
   }
 
   protected items(pane: Pane): HxTabBarItem[] {
-    return pane.tabs.map((tab) => ({
-      id: String(tab.id),
-      label: this.title(tab),
-      title: tab.doc.path() ?? this.title(tab),
-      modified: tab.editor.unsaved(),
-      missing: tab.doc.missing(),
-    }));
+    const previews = this.settings.previewTabs();
+    return pane.tabs.map((tab) => {
+      const preview = previews && this.tabs.isPreview(tab);
+      return {
+        id: String(tab.id),
+        label: this.title(tab),
+        preview,
+        // The italic title has no text of its own: the tooltip and its description say "preview".
+        title: `${tab.doc.path() ?? this.title(tab)}${preview ? " (preview)" : ""}`,
+        modified: tab.editor.unsaved(),
+        missing: tab.doc.missing(),
+      };
+    });
+  }
+
+  private isPreview(tabId: number): boolean {
+    return this.tabs
+      .panes()
+      .some((p) => p.tabs.some((t) => t.id === tabId && this.tabs.isPreview(t)));
+  }
+
+  protected keep(pane: Pane, id: string): void {
+    this.tabs.keepOpen(Number(id), pane.id);
   }
 
   protected activate(pane: Pane, id: string | null): void {
@@ -75,6 +103,7 @@ export class WorkspaceComponent {
 
   protected onMenu(pane: Pane, event: { id: string; action: string }): void {
     if (event.action === "close") this.closeTab(pane, event.id);
+    else if (event.action === "keep") this.keep(pane, event.id);
   }
 
   protected receive(pane: Pane, event: HxTabBarReceive): void {

@@ -206,11 +206,11 @@ importers:
         specifier: ^6.43.15
         version: 6.43.15
       '@gravionlabs/helix-desktop':
-        specifier: ^22.6.0
-        version: 22.6.0(c0f9b038ac1cf89f5f3f3c8c09b69d4b)
+        specifier: ^22.7.0
+        version: 22.7.0(11b4632288a03d865ee664e88efe1578)
       '@gravionlabs/helix-ui':
-        specifier: ^22.6.0
-        version: 22.6.0(8496a19a87ca987f790f5cbd9de14caa)
+        specifier: ^22.7.0
+        version: 22.7.0(8496a19a87ca987f790f5cbd9de14caa)
       '@tauri-apps/api':
         specifier: ^2.12.0
         version: 2.12.0
@@ -829,8 +829,8 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@gravionlabs/helix-desktop@22.6.0':
-    resolution: {integrity: sha512-nnBUgBmUR00Gcnex8+T9ZATgwKgLfh+cGFD8cZ3WOCP1JJdH0OWEIllFnxfV3zheJLjNGn+EkFanzLCgciPhag==}
+  '@gravionlabs/helix-desktop@22.7.0':
+    resolution: {integrity: sha512-P1pcXHV0ztspI0UbD1/F7DXmMukoK0rbYZ7Q+M6yLZhulCK2BZAovhWYDpNEUf5eJMWSGNrCgvzSLe4f11KD7g==}
     peerDependencies:
       '@angular/cdk': '>=22'
       '@angular/common': '>=22'
@@ -847,8 +847,8 @@ packages:
       '@tauri-apps/plugin-updater':
         optional: true
 
-  '@gravionlabs/helix-ui@22.6.0':
-    resolution: {integrity: sha512-kNDuc7L5lI+l/JQ0wZZFjTMXR1q3zb4aFuLo8KWXUTqZNh6DTd8LeKnkP+x05Wk7BLXJPw0EdWjPmHvoS17gxw==}
+  '@gravionlabs/helix-ui@22.7.0':
+    resolution: {integrity: sha512-iNoxa/sPmlvh11mMMst5NYTUQLfmZ8TLi91Nm+9bRn4Zv7TxOFvX2rMuicrwavwA2ajnHf1/skvHuaYZIFzt9Q==}
     peerDependencies:
       '@angular/cdk': '>=22'
       '@angular/common': '>=22'
@@ -4333,19 +4333,19 @@ snapshots:
 
   '@exodus/bytes@1.16.0': {}
 
-  '@gravionlabs/helix-desktop@22.6.0(c0f9b038ac1cf89f5f3f3c8c09b69d4b)':
+  '@gravionlabs/helix-desktop@22.7.0(11b4632288a03d865ee664e88efe1578)':
     dependencies:
       '@angular/cdk': 22.2.7(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(@angular/forms@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(@angular/platform-browser@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)))(rxjs@7.8.2))(@angular/platform-browser@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)))(rxjs@7.8.2)
       '@angular/common': 22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2)
       '@angular/core': 22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)
-      '@gravionlabs/helix-ui': 22.6.0(8496a19a87ca987f790f5cbd9de14caa)
+      '@gravionlabs/helix-ui': 22.7.0(8496a19a87ca987f790f5cbd9de14caa)
       tslib: 2.8.1
     optionalDependencies:
       '@tauri-apps/api': 2.12.0
       '@tauri-apps/plugin-process': 2.4.0
       '@tauri-apps/plugin-updater': 2.13.3
 
-  '@gravionlabs/helix-ui@22.6.0(8496a19a87ca987f790f5cbd9de14caa)':
+  '@gravionlabs/helix-ui@22.7.0(8496a19a87ca987f790f5cbd9de14caa)':
     dependencies:
       '@angular/cdk': 22.2.7(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(@angular/forms@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(@angular/platform-browser@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)))(rxjs@7.8.2))(@angular/platform-browser@22.2.0(@angular/common@22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2)))(rxjs@7.8.2)
       '@angular/common': 22.2.0(@angular/core@22.2.0(@angular/compiler@22.2.0)(rxjs@7.8.2))(rxjs@7.8.2)

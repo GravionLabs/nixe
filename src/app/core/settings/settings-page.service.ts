@@ -7,7 +7,7 @@ import { backend } from "../file/backend";
 import { GitService } from "../git/git.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { TerminalService } from "../terminal/terminal.service";
-import { UpdateService } from "../updater/update.service";
+import { HxUpdateService } from "@gravionlabs/helix-desktop/tauri";
 import { builtinSections } from "./builtin-sections";
 import { SettingsRegistry, filterSections } from "./settings-registry";
 import { SettingsService } from "./settings.service";
@@ -28,7 +28,7 @@ export class SettingsPageService {
 
   constructor() {
     const commands = inject(CommandRegistry);
-    const updater = inject(UpdateService);
+    const updater = inject(HxUpdateService);
     const appearance = inject(AppearanceService);
     const git = inject(GitService);
     const terminal = inject(TerminalService);
@@ -49,6 +49,7 @@ export class SettingsPageService {
           code: () => git.ghCode(),
           busy: () => git.ghSigningIn(),
           error: () => git.ghError(),
+          notice: () => git.ghNotice(),
           hosts: () => git.hosts(),
           signIn: (host) => git.signInWithGh(host),
           cancel: () => git.cancelGhSignIn(),
@@ -58,7 +59,7 @@ export class SettingsPageService {
       settings: inject(SettingsService),
       obsidian: () => this.obsidian(),
       commands: () => commands.all(),
-      version: () => updater.version(),
+      version: () => updater.version,
     });
     for (const section of sections) this.registry.register(section);
   }

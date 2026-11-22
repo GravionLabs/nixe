@@ -17,6 +17,8 @@ export interface TabState {
   editing: boolean;
   /** 1-based first visible line. */
   line: number | null;
+  /** True for the preview tab of the pane (#416); a missing value of an older layout is pinned. */
+  preview: boolean;
 }
 
 export interface PaneState {
@@ -48,7 +50,8 @@ function sanitizeTab(raw: unknown): TabState | null {
   if (typeof raw !== "object" || raw === null) return null;
   const t = raw as Record<string, unknown>;
   const view = TAB_VIEWS.find((v) => v === t["view"]) ?? null;
-  if (view) return { view, path: null, history: [], index: -1, editing: false, line: null };
+  if (view)
+    return { view, path: null, history: [], index: -1, editing: false, line: null, preview: false };
   const path = typeof t["path"] === "string" && t["path"] !== "" ? t["path"] : null;
   const history = Array.isArray(t["history"])
     ? t["history"].filter((p): p is string => typeof p === "string" && p !== "").slice(-MAX_HISTORY)
@@ -68,6 +71,7 @@ function sanitizeTab(raw: unknown): TabState | null {
     index: Math.min(Math.max(index, -1), history.length - 1),
     editing: path !== null && t["editing"] === true,
     line,
+    preview: path !== null && t["preview"] === true,
   };
 }
 

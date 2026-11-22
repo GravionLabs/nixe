@@ -1,20 +1,22 @@
 # Auto update
 
 Nixe updates itself with [`tauri-plugin-updater`](https://v2.tauri.app/plugin/updater/) from the latest GitHub release.
-The plugin and the restart (`tauri-plugin-process`) are desktop only.
+The plugin and the restart (`tauri-plugin-process`) are desktop only. The UI and the state machine are `HxUpdateService` and
+`HxStatusUpdate` of `@gravionlabs/helix-desktop/tauri`; Nixe only saves the open note before the install
+(`core/updater/save-before-install.ts`, the `HX_UPDATE_BEFORE_INSTALL` hook).
 
 ## Use
 
 - **Nixe → Check for Updates…** (macOS) or **Help → Check for Updates…**, the command palette, or the update item
   at the right of the status bar (it shows the running version next to it).
-- A check runs **only** when you ask for it. Nixe makes no other network call to look for updates, not at startup and
+- A check runs **only** when you ask for it (Nixe never calls `HxUpdateService.start()`). Nixe makes no other network call to look for updates, not at startup and
   not on a timer.
 - If a newer version exists, the update item shows `Update <version>`; its popover has the release notes and **Install and restart**. The package is
   downloaded and its signature is verified against `plugins.updater.pubkey` before it is installed. Unsaved text of
-  the editor is written to disk before the installer starts (Windows quits the app when the installer runs).
+  the editor is written to disk before the installer starts, and the install is refused when it could not be saved (Windows quits the app when the installer runs).
 - An error names the failed step ("Check for updates failed", "Update failed"). After a failed install the update
   stays known, so the update item (`Update failed, retry`) installs again without a new check.
-- An RC build (`1.2.0-rc011`) shows the `RC` badge at its version and offers no update: no item, no menu command.
+- An RC build (`1.2.0-rc011`) shows the `RC` badge at its version and makes no automatic check; the manual check stays.
 - On iOS the status bar is not rendered; the version is on the settings page (General).
 - Pre-releases (`1.2.0-rc011`) are not offered to a stable install: the endpoint is `releases/latest`, which GitHub
   resolves to the newest non-pre-release, and the app also ignores a pre-release answer when it runs a stable version.

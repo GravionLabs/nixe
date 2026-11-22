@@ -2,6 +2,8 @@
 import "@angular/compiler";
 import { signal } from "@angular/core";
 import { By } from "@angular/platform-browser";
+import { HX_UPDATE_BACKEND, provideHxAppInfo } from "@gravionlabs/helix-desktop/tauri";
+import type { HxUpdateBackend } from "@gravionlabs/helix-desktop/tauri";
 import { HxTooltip } from "@gravionlabs/helix-ui";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
@@ -22,18 +24,13 @@ import { ReviewService } from "../../core/git/review.service";
 import { ShortcutService } from "../../core/commands/shortcut.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { ShellService } from "../../core/shell/shell.service";
-import type { UpdatePhase } from "../../core/updater/update.service";
-import { UpdateService } from "../../core/updater/update.service";
 import { StatusBarComponent } from "./status-bar.component";
 
 interface Options {
   status?: GitStatus | null;
   syncState?: { phase: string; message: string };
-  phase?: UpdatePhase;
   version?: string;
-  update?: { version: string; body?: string } | null;
-  error?: string;
-  percent?: number | null;
+  update?: { version: string; notes?: string } | null;
   zoom?: number;
   pulled?: number;
   waiting?: number;
@@ -48,8 +45,11 @@ function render(o: Options = {}) {
   const sync = vi.fn();
   const show = vi.fn();
   const showSync = vi.fn();
-  const check = vi.fn();
-  const install = vi.fn();
+  const backend = {
+    check: vi.fn(async () => (o.update ? { notes: null, date: null, ...o.update } : null)),
+    install: vi.fn(async () => {}),
+    relaunch: vi.fn(async () => {}),
+  } satisfies HxUpdateBackend;
   const execute = vi.fn();
   const zoom = signal(o.zoom ?? 100);
   const showPanelTab = vi.fn();
@@ -104,18 +104,8 @@ function render(o: Options = {}) {
         useValue: { state: signal(o.linksState ?? "idle"), backlinks, key, refresh },
       },
       { provide: CommandRegistry, useValue: { execute } },
-      {
-        provide: UpdateService,
-        useValue: {
-          version: signal(o.version ?? "1.2.0"),
-          phase: signal(o.phase ?? "idle"),
-          update: signal(o.update ?? null),
-          error: signal(o.error ?? ""),
-          percent: signal(o.percent ?? null),
-          check,
-          install,
-        },
-      },
+      provideHxAppInfo({ version: o.version ?? "1.2.0" }),
+      { provide: HX_UPDATE_BACKEND, useValue: backend },
     ],
   });
   const fixture = TestBed.createComponent(StatusBarComponent);
@@ -130,8 +120,7 @@ function render(o: Options = {}) {
     show,
     showSync,
     sync,
-    check,
-    install,
+    backend,
     execute,
     zoom,
     fixture,
@@ -329,10 +318,11 @@ describe("StatusBarComponent", () => {
       expect(r.text()).not.toContain("RC");
     });
 
-    it("shows the RC badge and offers no update on an RC build", () => {
+    it("shows the RC badge on an RC build, which keeps the manual check", () => {
       const r = render({ version: "1.3.0-rc011" });
       expect(r.text()).toContain("RC");
-      expect(r.el.querySelector(".update")).toBeNull();
+      expect(r.text()).toContain("Check for updates");
+      expect(r.backend.check).not.toHaveBeenCalled();
     });
 
     it("tooltips the git sync item", () => {
@@ -349,49 +339,25 @@ describe("StatusBarComponent", () => {
   });
 
   describe("update state", () => {
-    it("idle: offers the check", () => {
-      const r = render({ phase: "idle" });
-      expect(r.text()).toContain("Check for updates");
-      r.el.querySelector<HTMLElement>(".update button")!.click();
-      expect(r.check).toHaveBeenCalled();
-    });
-
-    it("checking", () => {
-      expect(render({ phase: "checking" }).text()).toContain("Checking for updates");
-    });
-
-    it("up to date", () => {
-      expect(render({ phase: "up-to-date" }).text()).toContain("Up to date");
-    });
-
-    it("available: shows the version, the notes and installs", () => {
-      const r = render({ phase: "available", update: { version: "1.3.0", body: "Fixes" } });
-      expect(r.text()).toContain("Update 1.3.0");
-      r.el.querySelector<HTMLElement>(".update button")!.click();
+    const flush = async (r: ReturnType<typeof render>) => {
+      await r.fixture.whenStable();
       r.fixture.detectChanges();
-      expect(r.text()).toContain("Fixes");
-      r.el.querySelector<HTMLButtonElement>("button.install")!.click();
-      expect(r.install).toHaveBeenCalled();
+    };
+
+    it("idle: offers the check, and a click with no update shows Up to date", async () => {
+      const r = render();
+      expect(r.text()).toContain("Check for updates");
+      r.el.querySelector<HTMLElement>("hx-status-update button")!.click();
+      await flush(r);
+      expect(r.backend.check).toHaveBeenCalled();
+      expect(r.text()).toContain("Up to date");
     });
 
-    it("installing: shows the progress", () => {
-      const r = render({ phase: "installing", update: { version: "1.3.0" }, percent: 42 });
-      expect(r.text()).toContain("Installing");
-      expect(r.text()).toContain("42%");
-    });
-
-    it("error after a failed install retries the install", () => {
-      const r = render({ phase: "error", update: { version: "1.3.0" }, error: "disk full" });
-      expect(r.text()).toContain("Update failed");
-      r.el.querySelector<HTMLElement>(".update button")!.click();
-      expect(r.install).toHaveBeenCalled();
-    });
-
-    it("error after a failed check retries the check", () => {
-      const r = render({ phase: "error", error: "offline" });
-      expect(r.text()).toContain("Update check failed");
-      r.el.querySelector<HTMLElement>(".update button")!.click();
-      expect(r.check).toHaveBeenCalled();
+    it("a found update shows its version", async () => {
+      const r = render({ update: { version: "1.3.0", notes: "Fixes" } });
+      r.el.querySelector<HTMLElement>("hx-status-update button")!.click();
+      await flush(r);
+      expect(r.text()).toContain("1.3.0");
     });
   });
 });

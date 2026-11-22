@@ -55,6 +55,7 @@ export class TerminalService {
     if (!this.supported) return;
     this.commands.register({
       id: "new-terminal-tab",
+      group: "View",
       title: "New terminal tab",
       when: () => this.workspace.vaultRoot() !== null,
       run: () => this.newTab(),
@@ -62,6 +63,7 @@ export class TerminalService {
     for (const preset of TERMINAL_PRESETS) {
       this.commands.register({
         id: preset.commandId,
+        group: "View",
         title: preset.commandTitle,
         when: () => this.workspace.vaultRoot() !== null,
         run: () => this.openPreset(preset),
@@ -69,12 +71,14 @@ export class TerminalService {
     }
     this.commands.register({
       id: "close-terminal-tab",
+      group: "View",
       title: "Close terminal tab",
       when: () => this.open() && this.activeKey() !== null,
       run: () => this.closeTab(),
     });
     this.commands.register({
       id: "toggle-terminal",
+      group: "View",
       title: "Toggle terminal",
       shortcut: "Mod+`",
       keys: ["Mod+`"],

@@ -273,11 +273,21 @@ export class SidebarComponent {
     try {
       if (node.filePath) {
         if (event?.altKey) await this.tabs.openInNewTab(node.filePath);
-        else await this.doc.open(node.filePath);
+        else await this.tabs.openPreview(node.filePath);
         if (node.dirPath && !node.expanded()) await this.workspace.toggle(node, true);
       } else {
         await this.workspace.toggle(node);
       }
+    } catch (err) {
+      this.failed.emit(String(err));
+    }
+  }
+
+  /** A double click on a note keeps it in a tab of its own. */
+  protected async pin(node: TreeNode, event: MouseEvent): Promise<void> {
+    if (!node.filePath || event.altKey || event.shiftKey || event.metaKey || event.ctrlKey) return;
+    try {
+      await this.tabs.openPinned(node.filePath);
     } catch (err) {
       this.failed.emit(String(err));
     }

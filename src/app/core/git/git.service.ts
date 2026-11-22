@@ -10,6 +10,8 @@ import { WorkspaceService } from "../workspace/workspace.service";
 /** Remotes are GitHub over HTTPS; the token is keyed by this host. */
 export const GIT_HOST = "github.com";
 
+/** How long the result of a `gh` sign-in stays visible. */
+const GH_NOTICE_MS = 6000;
 const AUTH_ERROR = /^auth-(required|failed):(\S*)/;
 
 /** The backend wants a token: none is stored (`required`) or the server refused it (`failed`). */
@@ -74,6 +76,9 @@ export class GitService {
   readonly ghSigningIn = signal(false);
   /** Why the last `gh` sign-in did not work; empty after a success or a cancel. */
   readonly ghError = signal("");
+  /** The result of the last `gh` sign-in, shown for a few seconds; empty otherwise. */
+  readonly ghNotice = signal("");
+  private ghNoticeTimer: ReturnType<typeof setTimeout> | undefined;
   /** Hosts that can be signed in to: github.com and the configured Enterprise host. */
   readonly hosts = computed(() => {
     const extra = this.settings.gitEnterpriseHost().trim().toLowerCase();
@@ -149,6 +154,7 @@ export class GitService {
     if (this.ghSigningIn()) return;
     this.ghSigningIn.set(true);
     this.ghError.set("");
+    this.showGhNotice("");
     this.ghCode.set(null);
     let unlisten: (() => void) | undefined;
     try {
@@ -157,8 +163,13 @@ export class GitService {
       // Without events the code is not shown; the login itself still works in the browser.
     }
     try {
-      await backend.gitProviderLogin(host);
+      const outcome = await backend.gitProviderLogin(host);
       await this.refreshToken();
+      this.showGhNotice(
+        outcome === "taken-over"
+          ? `Signed in with the GitHub CLI: the token of gh was taken over for ${host}.`
+          : `Signed in to ${host} with the GitHub CLI.`,
+      );
       this.answerPrompt("");
     } catch (err) {
       const message = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");
@@ -168,6 +179,12 @@ export class GitService {
       this.ghCode.set(null);
       this.ghSigningIn.set(false);
     }
+  }
+
+  private showGhNotice(text: string): void {
+    clearTimeout(this.ghNoticeTimer);
+    this.ghNotice.set(text);
+    if (text) this.ghNoticeTimer = setTimeout(() => this.ghNotice.set(""), GH_NOTICE_MS);
   }
 
   /** Gives up the running `gh` sign-in; nothing is stored. */

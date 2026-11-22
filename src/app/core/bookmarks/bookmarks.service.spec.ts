@@ -10,6 +10,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
+import { TabsService } from "../tabs/tabs.service";
 import { SearchService } from "../index/search.service";
 import { OutlineService } from "../outline/outline.service";
 import { SettingsService } from "../settings/settings.service";
@@ -38,6 +39,10 @@ describe("BookmarksService", () => {
   let appFile: string | null;
   let vaultFile: string | null;
   let hasFolder: boolean;
+  const tabs = {
+    openPreview: vi.fn().mockResolvedValue(undefined),
+    openPinned: vi.fn().mockResolvedValue(undefined),
+  };
   const writeApp = vi.spyOn(backend, "writeAppBookmarks");
   const writeVault = vi.spyOn(backend, "writeVaultBookmarks");
 
@@ -50,6 +55,7 @@ describe("BookmarksService", () => {
         { provide: WorkspaceService, useValue: { vaultRoot } },
         { provide: SettingsService, useValue: { bookmarksInVault: inVault } },
         { provide: DocumentService, useValue: doc },
+        { provide: TabsService, useValue: tabs },
         { provide: OutlineService, useValue: outline },
         { provide: SearchService, useValue: search },
       ],
@@ -167,7 +173,9 @@ describe("BookmarksService", () => {
   it("opens a bookmarked heading at its line and a search through the callback", async () => {
     await start();
     await service.open({ type: "file", path: "dir/a.md", subpath: "#Deep" }, vi.fn());
-    expect(doc.open).toHaveBeenCalledWith("/v/dir/a.md");
+    expect(tabs.openPreview).toHaveBeenCalledWith("/v/dir/a.md");
+    await service.open({ type: "file", path: "dir/a.md", subpath: "" }, vi.fn(), true);
+    expect(tabs.openPinned).toHaveBeenCalledWith("/v/dir/a.md");
     expect(doc.pendingLine.set).toHaveBeenCalledWith(5);
     const onSearch = vi.fn();
     await service.open({ type: "search", query: "q" }, onSearch);
@@ -182,6 +190,7 @@ describe("BookmarksService", () => {
         { provide: WorkspaceService, useValue: { vaultRoot } },
         { provide: SettingsService, useValue: { bookmarksInVault: inVault } },
         { provide: DocumentService, useValue: doc },
+        { provide: TabsService, useValue: tabs },
         { provide: OutlineService, useValue: outline },
         { provide: SearchService, useValue: search },
       ],

@@ -28,6 +28,7 @@ const note = (path: string, reasons: string[]): RelatedNote => ({
 function render(state: "idle" | "loading" | "error" | "ready", notes: RelatedNote[]) {
   const open = vi.fn().mockResolvedValue(undefined);
   const openInNewTab = vi.fn().mockResolvedValue(undefined);
+  const openPinned = vi.fn().mockResolvedValue(undefined);
   const refresh = vi.fn();
   const preview = { hover: vi.fn(), leave: vi.fn() };
   TestBed.resetTestingModule();
@@ -38,7 +39,7 @@ function render(state: "idle" | "loading" | "error" | "ready", notes: RelatedNot
         useValue: { state: signal(state), notes: signal(notes), key: signal("k"), refresh },
       },
       { provide: DocumentService, useValue: { open } },
-      { provide: TabsService, useValue: { openInNewTab } },
+      { provide: TabsService, useValue: { openInNewTab, openPinned, openPreview: open } },
       { provide: LinkPreviewService, useValue: preview },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
     ],
@@ -52,7 +53,14 @@ function render(state: "idle" | "loading" | "error" | "ready", notes: RelatedNot
   });
   const fixture = TestBed.createComponent(RelatedComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, open, openInNewTab, refresh, preview };
+  return {
+    el: fixture.nativeElement as HTMLElement,
+    open,
+    openInNewTab,
+    openPinned,
+    refresh,
+    preview,
+  };
 }
 
 describe("RelatedComponent", () => {
@@ -74,12 +82,16 @@ describe("RelatedComponent", () => {
   });
 
   it("opens a note on click, in a new tab with ⌘/Ctrl", () => {
-    const { el, open, openInNewTab } = render("ready", [note("sub/B.md", ["links here"])]);
+    const { el, open, openInNewTab, openPinned } = render("ready", [
+      note("sub/B.md", ["links here"]),
+    ]);
     const button = el.querySelector("button")!;
     button.click();
     expect(open).toHaveBeenCalledWith("/vault/sub/B.md");
     button.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true }));
     expect(openInNewTab).toHaveBeenCalledWith("/vault/sub/B.md");
+    button.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(openPinned).toHaveBeenCalledWith("/vault/sub/B.md");
   });
 
   it("previews the note on hover and closes on leave", () => {

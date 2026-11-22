@@ -122,65 +122,88 @@
                   }
                 }
                 @case ("token") {
-                  @if (item.prompt(); as reason) {
-                    <p class="notice" role="alert">
-                      {{
-                        reason === "failed"
-                          ? "GitHub rejected the token. Enter a new one."
-                          : "Enter a personal access token to reach GitHub."
-                      }}
-                      <button type="button" (click)="item.cancelPrompt()">Cancel</button>
-                    </p>
-                  }
-                  <span class="readonly">{{
-                    item.stored() ? "A token is stored in the system keychain." : "No token stored."
-                  }}</span>
-                  <input
-                    #token
-                    type="password"
-                    autocomplete="off"
-                    placeholder="Personal access token"
-                    [id]="'setting-' + item.id"
-                  />
-                  <span class="actions">
-                    <button type="button" (click)="saveToken(item, token)">
-                      {{ item.stored() ? "Replace token" : "Save token" }}
-                    </button>
-                    @if (item.stored()) {
-                      <button type="button" (click)="deleteToken(item)">Delete token</button>
+                  <div class="token">
+                    @if (item.prompt(); as reason) {
+                      <p class="notice" role="alert">
+                        {{
+                          reason === "failed"
+                            ? "GitHub rejected the token. Enter a new one."
+                            : "Enter a personal access token to reach GitHub."
+                        }}
+                        <button type="button" (click)="item.cancelPrompt()">Cancel</button>
+                      </p>
                     }
-                  </span>
-                  @if (item.gh; as gh) {
-                    @if (gh.available()) {
-                      <span class="actions">
-                        @for (host of gh.hosts(); track host) {
-                          <button type="button" [disabled]="gh.busy()" (click)="gh.signIn(host)">
-                            {{
-                              host === "github.com"
-                                ? "Sign in with GitHub (gh)"
-                                : "Sign in to " + host + " (gh)"
-                            }}
-                          </button>
-                        }
-                      </span>
-                      @if (gh.busy()) {
-                        <p class="notice">
-                          @if (gh.code(); as code) {
-                            Enter this code in the browser: <strong>{{ code }}</strong>
-                          } @else {
-                            Waiting for the GitHub CLI…
+                    <div class="token-state">
+                      <span class="readonly">{{
+                        item.stored() ? "Token stored in the system keychain" : "No token stored"
+                      }}</span>
+                      @if (item.stored()) {
+                        <span class="actions">
+                          <button type="button" (click)="tokenEditing.set(true)">Replace</button>
+                          <button type="button" (click)="deleteToken(item)">Delete token</button>
+                        </span>
+                      }
+                    </div>
+                    @if (item.gh; as gh) {
+                      @if (gh.available()) {
+                        <div class="token-signin">
+                          @for (host of gh.hosts(); track host) {
+                            <button
+                              type="button"
+                              class="primary"
+                              [disabled]="gh.busy()"
+                              (click)="gh.signIn(host)"
+                            >
+                              {{
+                                host === "github.com"
+                                  ? "Sign in with GitHub (gh)"
+                                  : "Sign in to " + host + " (gh)"
+                              }}
+                            </button>
                           }
-                          <button type="button" (click)="gh.cancel()">Cancel</button>
-                        </p>
-                      }
-                      @if (gh.error(); as ghError) {
-                        <p class="notice" role="alert">{{ ghError }}</p>
+                        </div>
+                        @if (gh.busy()) {
+                          <p class="notice">
+                            @if (gh.code(); as code) {
+                              Enter this code in the browser: <strong>{{ code }}</strong>
+                            } @else {
+                              Waiting for the GitHub CLI…
+                            }
+                            <button type="button" (click)="gh.cancel()">Cancel</button>
+                          </p>
+                        }
+                        @if (gh.notice(); as ghNotice) {
+                          <p class="notice" role="status">{{ ghNotice }}</p>
+                        }
+                        @if (gh.error(); as ghError) {
+                          <p class="notice" role="alert">{{ ghError }}</p>
+                        }
                       }
                     }
-                  }
-                  @if (tokenError(); as error) {
-                    <p class="notice" role="alert">{{ error }}</p>
-                  }
+                    @if (showTokenInput(item)) {
+                      <div class="token-manual">
+                        <input
+                          #token
+                          type="password"
+                          autocomplete="off"
+                          placeholder="Personal access token"
+                          [id]="'setting-' + item.id"
+                        />
+                        <button type="button" (click)="saveToken(item, token)">
+                          {{ item.stored() ? "Replace token" : "Save token" }}
+                        </button>
+                      </div>
+                    } @else if (!item.stored()) {
+                      <span class="actions">
+                        <button type="button" (click)="tokenEditing.set(true)">
+                          Use a personal access token instead
+                        </button>
+                      </span>
+                    }
+                    @if (tokenError(); as error) {
+                      <p class="notice" role="alert">{{ error }}</p>
+                    }
+                  </div>
                 }
                 @case ("readonly") {
                   <span class="readonly" [id]="'setting-' + item.id">{{ item.value() }}</span>

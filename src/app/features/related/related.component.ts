@@ -1,6 +1,5 @@
 import { Component, effect, inject, output, untracked } from "@angular/core";
 
-import { DocumentService } from "../../core/file/document.service";
 import type { RelatedNote } from "../../core/file/backend";
 import { RelatedService } from "../../core/index/related.service";
 import { joinPath } from "../../core/markdown/paths";
@@ -16,7 +15,6 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 })
 export class RelatedComponent {
   protected readonly related = inject(RelatedService);
-  private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
   private readonly tabs = inject(TabsService);
   private readonly preview = inject(LinkPreviewService);
@@ -36,7 +34,8 @@ export class RelatedComponent {
     try {
       if (event && (event.metaKey || event.ctrlKey))
         await this.tabs.openInNewTab(joinPath(root, note.path));
-      else await this.doc.open(joinPath(root, note.path));
+      else if (event?.type === "dblclick") await this.tabs.openPinned(joinPath(root, note.path));
+      else await this.tabs.openPreview(joinPath(root, note.path));
     } catch (err) {
       this.failed.emit(String(err));
     }

@@ -12,7 +12,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import type { SearchHit } from "../../core/file/backend";
-import { DocumentService } from "../../core/file/document.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import { ReplaceService } from "../../core/index/replace.service";
 import type { SearchState } from "../../core/index/search.service";
 import { SearchService, segments } from "../../core/index/search.service";
@@ -63,6 +63,7 @@ function render(
   roots: { path: string; name: string }[] | null = null,
 ) {
   const open = vi.fn().mockResolvedValue(undefined);
+  const openPinned = vi.fn().mockResolvedValue(undefined);
   const setQuery = vi.fn();
   const close = vi.fn();
   const bookmarkSearch = vi.fn();
@@ -83,7 +84,7 @@ function render(
         },
       },
       { provide: ReplaceService, useValue: replace },
-      { provide: DocumentService, useValue: { open } },
+      { provide: TabsService, useValue: { openPreview: open, openPinned } },
       { provide: BookmarksService, useValue: { bookmarkSearch } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
       { provide: WorkspacesService, useValue: { searchRoots: signal(roots) } },
@@ -98,7 +99,14 @@ function render(
   });
   const fixture = TestBed.createComponent(SearchComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, open, setQuery, close, bookmarkSearch };
+  return {
+    el: fixture.nativeElement as HTMLElement,
+    open,
+    openPinned,
+    setQuery,
+    close,
+    bookmarkSearch,
+  };
 }
 
 describe("SearchComponent", () => {
@@ -121,6 +129,16 @@ describe("SearchComponent", () => {
     expect(open).toHaveBeenLastCalledWith("/vault/work/b.md", { line: 9 });
     el.querySelector<HTMLButtonElement>("button.note")!.click();
     expect(open).toHaveBeenLastCalledWith("/vault/work/b.md", { line: null });
+  });
+
+  it("a double click on a result keeps the note in a tab of its own", () => {
+    const { el, openPinned } = render("ready", [hit]);
+    el.querySelectorAll("button.snippet")[1].dispatchEvent(
+      new MouseEvent("dblclick", { bubbles: true }),
+    );
+    expect(openPinned).toHaveBeenLastCalledWith("/vault/work/b.md", { line: 9 });
+    el.querySelector("button.note")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(openPinned).toHaveBeenLastCalledWith("/vault/work/b.md", { line: null });
   });
 
   it("counts the results and the notes above the list", () => {

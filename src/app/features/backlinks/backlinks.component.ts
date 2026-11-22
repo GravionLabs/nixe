@@ -1,7 +1,6 @@
 import { Component, effect, inject, output, signal, untracked } from "@angular/core";
 
 import type { Backlink, UnlinkedMention } from "../../core/file/backend";
-import { DocumentService } from "../../core/file/document.service";
 import type { OutgoingLink } from "../../core/index/backlinks.service";
 import { BacklinksService } from "../../core/index/backlinks.service";
 import { joinPath } from "../../core/markdown/paths";
@@ -17,7 +16,6 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 })
 export class BacklinksComponent {
   protected readonly links = inject(BacklinksService);
-  private readonly doc = inject(DocumentService);
   private readonly workspace = inject(WorkspaceService);
   private readonly tabs = inject(TabsService);
   private readonly preview = inject(LinkPreviewService);
@@ -85,7 +83,8 @@ export class BacklinksComponent {
       const options = { line, anchor: line === null ? anchor : null };
       if (event && (event.metaKey || event.ctrlKey))
         await this.tabs.openInNewTab(joinPath(root, rel), options);
-      else await this.doc.open(joinPath(root, rel), options);
+      else if (event?.type === "dblclick") await this.tabs.openPinned(joinPath(root, rel), options);
+      else await this.tabs.openPreview(joinPath(root, rel), options);
     } catch (err) {
       this.failed.emit(String(err));
     }

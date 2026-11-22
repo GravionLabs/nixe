@@ -131,6 +131,9 @@ export class SettingsService {
   /** Long lines of code blocks wrap instead of scrolling sideways (#245). */
   readonly wrapCode = signal<boolean>(this.stored.wrapCode);
 
+  /** A single click opens a note in the preview tab, a double click in its own tab (#416). */
+  readonly previewTabs = signal<boolean>(this.stored.previewTabs);
+
   /** The mode a new tab shows its note in: live preview, source or reading view (#377). */
   readonly defaultView = signal<ViewMode>(this.stored.defaultView);
 
@@ -219,6 +222,7 @@ export class SettingsService {
       bookmarksInVault: this.bookmarksInVault(),
       extractEmbed: this.extractEmbed(),
       wrapCode: this.wrapCode(),
+      previewTabs: this.previewTabs(),
       defaultView: this.defaultView(),
       exportPageBreaks: this.exportPageBreaks(),
       exportDark: this.exportDark(),
@@ -275,6 +279,7 @@ export class SettingsService {
     this.bookmarksInVault.set(s.bookmarksInVault);
     this.extractEmbed.set(s.extractEmbed);
     this.wrapCode.set(s.wrapCode);
+    this.previewTabs.set(s.previewTabs);
     this.defaultView.set(s.defaultView);
     this.exportPageBreaks.set(s.exportPageBreaks);
     this.exportDark.set(s.exportDark);

@@ -91,62 +91,8 @@
       [step]="10"
       [reset]="100"
     />
-    @if (updater.version(); as version) {
-      <hx-status-version slot="end" [version]="version" [channel]="rc() ? 'RC' : null" />
-    }
-    @if (!rc()) {
-      <hx-status-item
-        slot="end"
-        class="update"
-        [kind]="interactive() ? 'button' : 'text'"
-        [tone]="tone()"
-        [announce]="
-          updater.phase() === 'checking' ||
-          updater.phase() === 'installing' ||
-          updater.phase() === 'error'
-        "
-        [hx-tooltip]="updater.phase() === 'error' ? updater.error() : 'Check for updates'"
-        [ariaLabel]="updater.phase() === 'available' ? 'Update details' : null"
-        (click)="onUpdateClick()"
-      >
-        @switch (updater.phase()) {
-          @case ("checking") {
-            Checking for updates…
-          }
-          @case ("installing") {
-            Installing…
-            @if (updater.percent(); as percent) {
-              {{ percent }}%
-            }
-          }
-          @case ("available") {
-            Update {{ updater.update()?.version }}
-          }
-          @case ("error") {
-            {{ updater.update() ? "Update failed, retry" : "Update check failed, retry" }}
-          }
-          @case ("up-to-date") {
-            Up to date
-          }
-          @default {
-            Check for updates
-          }
-        }
-        @if (updater.phase() === "available") {
-          <div hxStatusPopover class="details">
-            <p>
-              Nixe {{ updater.update()?.version }} is available (you have {{ updater.version() }}).
-            </p>
-            @if (updater.update()?.body; as notes) {
-              <pre class="notes" aria-label="Release notes">{{ notes }}</pre>
-            }
-            <button type="button" class="install" (click)="updater.install()">
-              Install and restart
-            </button>
-          </div>
-        }
-      </hx-status-item>
-    }
+    <hx-status-app-version slot="end" />
+    <hx-status-update slot="end" [alwaysVisible]="true" />
     <hx-status-item
       slot="end"
       kind="button"

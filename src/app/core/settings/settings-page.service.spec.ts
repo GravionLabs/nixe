@@ -12,7 +12,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ ask }));
 import { AppearanceService } from "../appearance/appearance.service";
 import { CommandRegistry } from "../commands/command-registry";
 import { backend } from "../file/backend";
-import { UpdateService } from "../updater/update.service";
+import { provideHxAppInfo } from "@gravionlabs/helix-desktop/tauri";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { builtinSections, parseList } from "./builtin-sections";
 import { SettingsPageService } from "./settings-page.service";
@@ -38,7 +38,10 @@ describe("settings page", () => {
     localStorage.clear();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: WorkspaceService, useValue: { vaultRoot } }],
+      providers: [
+        { provide: WorkspaceService, useValue: { vaultRoot } },
+        provideHxAppInfo({ version: "1.4.0" }),
+      ],
     });
     settings = TestBed.inject(SettingsService);
     TestBed.inject(CommandRegistry).register({
@@ -70,7 +73,6 @@ describe("settings page", () => {
   });
 
   it("shows the running version read-only in General", () => {
-    TestBed.inject(UpdateService).version.set("1.4.0");
     const item = TestBed.inject(SettingsRegistry)
       .shown()
       .flatMap((s) => s.items)

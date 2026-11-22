@@ -48,6 +48,7 @@ describe("sanitizeStates layout", () => {
     index: 0,
     editing: true,
     line: 2,
+    preview: false,
   };
 
   it("keeps the stored tabs of a vault", () => {
