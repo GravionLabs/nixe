@@ -14,7 +14,7 @@ function make(onChange: (l: number[]) => void = () => {}): EditorView {
     state: EditorState.create({
       doc: DOC,
       extensions: [
-        editorBehavior({ onSave: () => {}, onBlur: () => {}, onWikilink: () => {} }),
+        editorBehavior({ onSave: () => {}, onBlur: () => {}, onLink: () => {} }),
         folding(onChange),
       ],
     }),
