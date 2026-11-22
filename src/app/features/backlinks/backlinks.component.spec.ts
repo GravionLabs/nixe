@@ -11,7 +11,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import type { Backlink, UnlinkedMention } from "../../core/file/backend";
-import { DocumentService } from "../../core/file/document.service";
+import { TabsService } from "../../core/tabs/tabs.service";
 import type { BacklinksState, OutgoingLink } from "../../core/index/backlinks.service";
 import { BacklinksService } from "../../core/index/backlinks.service";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
@@ -53,6 +53,7 @@ function render(
   const loadUnlinked = vi.fn();
   const linkMention = vi.fn().mockResolvedValue(undefined);
   const open = vi.fn().mockResolvedValue(undefined);
+  const openPinned = vi.fn().mockResolvedValue(undefined);
   const refresh = vi.fn();
   const preview = { hover: vi.fn(), leave: vi.fn() };
   TestBed.resetTestingModule();
@@ -72,7 +73,7 @@ function render(
           refresh,
         },
       },
-      { provide: DocumentService, useValue: { open } },
+      { provide: TabsService, useValue: { openPreview: open, openPinned } },
       { provide: LinkPreviewService, useValue: preview },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
     ],
@@ -89,6 +90,7 @@ function render(
   return {
     el: fixture.nativeElement as HTMLElement,
     open,
+    openPinned,
     refresh,
     preview,
     loadUnlinked,
@@ -131,6 +133,12 @@ describe("BacklinksComponent", () => {
     expect(el.textContent).toContain("No outgoing links");
     // Only the fold button of the unlinked mentions.
     expect(el.querySelectorAll("button").length).toBe(1);
+  });
+
+  it("a double click on a backlink keeps the note in a tab of its own", () => {
+    const { el, openPinned } = render("ready", [back], []);
+    el.querySelector("li button")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(openPinned).toHaveBeenCalledWith("/vault/B.md", { line: 7, anchor: null });
   });
 
   it("keeps the unlinked mentions collapsed and unread until they are opened", () => {

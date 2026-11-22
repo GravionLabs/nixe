@@ -10,6 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
+import { SettingsService } from "../../core/settings/settings.service";
 import { ShortcutService } from "../../core/commands/shortcut.service";
 import type { Pane, Tab } from "../../core/tabs/tabs.service";
 import { ACTIVE_TAB_PROVIDERS, TabsService } from "../../core/tabs/tabs.service";
@@ -17,8 +18,16 @@ import { WorkspaceComponent } from "./workspace.component";
 
 type Items = {
   menu(): Array<{ action: string; shortcut?: string }>;
-  items(pane: unknown): Array<{ label: string; missing?: boolean; modified?: boolean }>;
+  items(pane: unknown): Array<{
+    label: string;
+    title?: string;
+    preview?: boolean;
+    missing?: boolean;
+    modified?: boolean;
+  }>;
 };
+
+const tabsMock = { isPreview: () => false, panes: signal([]) };
 
 function tab(id: number, path: string, unsaved: boolean) {
   return {
@@ -42,7 +51,8 @@ describe("WorkspaceComponent", () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        { provide: TabsService, useValue: {} },
+        { provide: TabsService, useValue: tabsMock },
+        { provide: SettingsService, useValue: { previewTabs: signal(true) } },
         { provide: ShortcutService, useValue: { display: () => "Ctrl+W" } },
         { provide: ElementRef, useValue: new ElementRef(document.createElement("div")) },
       ],
@@ -56,7 +66,8 @@ describe("WorkspaceComponent", () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        { provide: TabsService, useValue: {} },
+        { provide: TabsService, useValue: tabsMock },
+        { provide: SettingsService, useValue: { previewTabs: signal(true) } },
         {
           provide: ShortcutService,
           useValue: { display: (id: string) => (id === "close-tab" ? "Ctrl+W" : "") },
@@ -65,9 +76,33 @@ describe("WorkspaceComponent", () => {
       ],
     });
     const ws = TestBed.runInInjectionContext(() => new WorkspaceComponent());
-    expect((ws as unknown as Items).menu()).toEqual([
-      { action: "close", label: "Close", shortcut: "Ctrl+W" },
-    ]);
+    expect((ws as unknown as Items).menu().map((m) => m.action)).toEqual(["keep", "close"]);
+    expect((ws as unknown as Items).menu()[1]).toMatchObject({ shortcut: "Ctrl+W" });
+  });
+
+  it("shows a preview tab in italics with a text alternative, and no mark while previews are off", async () => {
+    invoke.mockImplementation(async (cmd: string) => (cmd === "read_text_file" ? "# A" : "/v"));
+    const settings = { previewTabs: signal(true) };
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        ...ACTIVE_TAB_PROVIDERS,
+        { provide: ShortcutService, useValue: { display: () => "" } },
+        { provide: SettingsService, useValue: settings },
+        { provide: ElementRef, useValue: new ElementRef(document.body) },
+      ],
+    });
+    const tabs = TestBed.inject(TabsService);
+    const workspace = TestBed.runInInjectionContext(() => new WorkspaceComponent());
+    await tabs.openPreview("/v/a.md");
+    const pane = tabs.panes()[0];
+    const items = () => (workspace as unknown as Items).items(pane);
+    expect(items()[0]).toMatchObject({ preview: true, title: "/v/a.md (preview)" });
+    settings.previewTabs.set(false);
+    expect(items()[0]).toMatchObject({ preview: false, title: "/v/a.md" });
+    settings.previewTabs.set(true);
+    tabs.keepOpen();
+    expect(items()[0]).toMatchObject({ preview: false });
   });
 
   it("marks only the tabs with unsaved edits", () => {
@@ -90,6 +125,7 @@ describe("WorkspaceComponent", () => {
       providers: [
         ...ACTIVE_TAB_PROVIDERS,
         { provide: ShortcutService, useValue: { display: () => "Ctrl+W" } },
+        { provide: SettingsService, useValue: { previewTabs: signal(true) } },
         { provide: ElementRef, useValue: new ElementRef(document.body) },
       ],
     });

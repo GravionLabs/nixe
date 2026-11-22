@@ -19,6 +19,7 @@
               <button
                 type="button"
                 (click)="openBacklink(link, $event)"
+                (dblclick)="openBacklink(link, $event)"
                 (mousemove)="hover($event, link.source)"
                 (mouseleave)="leave()"
                 [title]="link.source + ':' + link.line"
@@ -47,6 +48,7 @@
                 [class.unresolved]="!link.resolved"
                 [disabled]="!link.resolved"
                 (click)="openOutgoing(link, $event)"
+                (dblclick)="openOutgoing(link, $event)"
                 (mousemove)="link.resolved && hover($event, link.resolved, link.heading)"
                 (mouseleave)="leave()"
               >
@@ -92,6 +94,7 @@
                       type="button"
                       class="open"
                       (click)="openMention(mention, $event)"
+                      (dblclick)="openMention(mention, $event)"
                       [title]="mention.source + ':' + mention.line"
                     >
                       <span class="name">{{ mention.source }}</span>

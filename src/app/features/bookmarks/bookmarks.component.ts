@@ -140,18 +140,23 @@ export class BookmarksComponent {
     return labelOf(row.bookmark);
   }
 
-  protected open(row: BookmarkRow): void {
+  protected open(row: BookmarkRow, pin = false): void {
     if (row.kind === "group") return;
     void this.bookmarks
-      .open(row.bookmark, (query) => {
-        this.shell.show("search");
-        void this.search.setQuery(query);
-      })
+      .open(
+        row.bookmark,
+        (query) => {
+          this.shell.show("search");
+          void this.search.setQuery(query);
+        },
+        pin,
+      )
       .catch((err) => this.bookmarks.notice.set(String(err)));
   }
 
   protected rename(row: BookmarkRow): void {
     if (row.kind === "group") this.editing.set(row.path);
+    else this.open(row, true);
   }
 
   protected commit(row: BookmarkRow, title: string): void {

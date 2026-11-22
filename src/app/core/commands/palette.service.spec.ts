@@ -94,7 +94,7 @@ describe("PaletteService", () => {
         { provide: WorkspaceService, useValue: { vaultRoot: signal("/v") } },
         { provide: DocumentService, useValue: { open: docOpen, pendingLine } },
         { provide: EditorService, useValue: { editing: () => true, handle: { scrollToLine } } },
-        { provide: TabsService, useValue: { openInNewTab: newTab } },
+        { provide: TabsService, useValue: { openInNewTab: newTab, openPreview: docOpen } },
         { provide: VaultOpsService, useValue: { createNoteForLink: vi.fn() } },
         { provide: SearchService, useValue: { setQuery: searchQuery } },
         { provide: ShellService, useValue: { show } },

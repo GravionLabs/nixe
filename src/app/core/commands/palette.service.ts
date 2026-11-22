@@ -252,7 +252,7 @@ export class PaletteService {
         this.close();
         const path = joinPath(root, item.match.entry.path);
         if (newTab) await this.tabs.openInNewTab(path);
-        else await this.doc.open(path);
+        else await this.tabs.openPreview(path);
         return;
       }
       case "command": {

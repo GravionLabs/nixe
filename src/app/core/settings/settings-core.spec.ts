@@ -33,6 +33,9 @@ describe("sanitizeSettings", () => {
     expect(s.wrapCode).toBe(false);
     expect(sanitizeSettings({ wrapCode: true }).wrapCode).toBe(true);
     expect(sanitizeSettings({ wrapCode: "yes" }).wrapCode).toBe(false);
+    expect(s.previewTabs).toBe(true);
+    expect(sanitizeSettings({ previewTabs: false }).previewTabs).toBe(false);
+    expect(sanitizeSettings({ previewTabs: "no" }).previewTabs).toBe(true);
     expect(s.exportPageBreaks).toBe(true);
     expect(s.exportDark).toBe(false);
     expect(s.exportPageSize).toBe("A4");

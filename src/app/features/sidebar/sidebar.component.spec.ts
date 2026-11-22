@@ -71,7 +71,7 @@ describe("SidebarComponent tree", () => {
   } | null>(null);
   const treeGitStatus = signal(true);
   const ops = { trash: vi.fn(), move: vi.fn() };
-  const tabs = { openInNewTab: vi.fn() };
+  const tabs = { openInNewTab: vi.fn(), openPreview: vi.fn(), openPinned: vi.fn() };
   const doc = { path: signal<string | null>(null), open: vi.fn() };
   let sidebar: SidebarComponent & Record<string, any>;
   let host: HTMLElement;
@@ -94,6 +94,8 @@ describe("SidebarComponent tree", () => {
     ops.move.mockResolvedValue([]);
     workspace.toggle.mockResolvedValue(undefined);
     doc.open.mockResolvedValue(undefined);
+    tabs.openPreview.mockResolvedValue(undefined);
+    tabs.openPinned.mockResolvedValue(undefined);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -156,14 +158,22 @@ describe("SidebarComponent tree", () => {
     expect(focusedPath()).toBe("/v/beta.md");
   });
 
+  it("a double click on a note keeps it in a tab of its own, a folder or a modifier does not", async () => {
+    await sidebar.pin(rows[1], new MouseEvent("dblclick"));
+    expect(tabs.openPinned).toHaveBeenCalledWith("/v/a.md");
+    await sidebar.pin(rows[1], new MouseEvent("dblclick", { shiftKey: true }));
+    await sidebar.pin(rows[3], new MouseEvent("dblclick"));
+    expect(tabs.openPinned).toHaveBeenCalledTimes(1);
+  });
+
   it("selects several rows with Ctrl and Shift and does not open them", async () => {
     await sidebar.select(rows[1], new MouseEvent("click"));
-    expect(doc.open).toHaveBeenCalledWith("/v/a.md");
+    expect(tabs.openPreview).toHaveBeenCalledWith("/v/a.md");
     await sidebar.select(rows[2], new MouseEvent("click", { ctrlKey: true }));
     expect([...sidebar.selection()]).toEqual(["/v/a.md", "/v/beta.md"]);
     await sidebar.select(rows[3], new MouseEvent("click", { shiftKey: true }));
     expect([...sidebar.selection()].sort()).toEqual(["/v/beta.md", "/v/box"]);
-    expect(doc.open).toHaveBeenCalledTimes(1);
+    expect(tabs.openPreview).toHaveBeenCalledTimes(1);
   });
 
   it("deletes the selection, but only the row when it is not selected", async () => {
