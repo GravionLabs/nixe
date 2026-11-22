@@ -31,6 +31,7 @@
         "font-src": "'self' data:",
         "connect-src": "ipc: http://ipc.localhost"
       },
+      "dangerousDisableAssetCspModification": ["style-src"],
       "devCsp": null,
       "assetProtocol": {
         "enable": true,
