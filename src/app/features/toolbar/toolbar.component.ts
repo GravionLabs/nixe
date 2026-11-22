@@ -38,10 +38,34 @@ export class ToolbarComponent {
 
   readonly failed = output<string>();
 
-  protected readonly modes: readonly { id: ViewMode; label: string }[] = [
-    { id: "live", label: "Live preview" },
-    { id: "source", label: "Source" },
-    { id: "reading", label: "Reading" },
+  /**
+   * The view modes as icon buttons: a pencil, angle brackets, an open book. The label names the
+   * button and its tooltip; the shortcut is the toggle that leads to the mode.
+   */
+  protected readonly modes: readonly {
+    id: ViewMode;
+    label: string;
+    icon: string;
+    shortcut: string;
+  }[] = [
+    {
+      id: "live",
+      label: "Live preview",
+      icon: "M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4",
+      shortcut: "toggle-editor",
+    },
+    {
+      id: "source",
+      label: "Source",
+      icon: "M8 7l-5 5 5 5M16 7l5 5-5 5",
+      shortcut: "toggle-editor",
+    },
+    {
+      id: "reading",
+      label: "Reading",
+      icon: "M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3zM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z",
+      shortcut: "toggle-reading",
+    },
   ];
 
   /** No note, or an external change that holds the editor open, leaves the mode as it is. */

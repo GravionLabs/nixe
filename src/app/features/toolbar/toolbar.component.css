@@ -4,9 +4,25 @@
   -webkit-user-select: none;
 }
 
+/*
+ * Three columns instead of the flex row of the library: the start and the end take an equal share
+ * of the rest, so the path sits in the middle of the window, not of the space between both groups.
+ * Neither side goes below its content; when the space runs short the path gives way first.
+ */
+hx-app-toolbar {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+  height: 32px;
+}
+
+:host ::ng-deep .hx-app-toolbar-end {
+  justify-content: flex-end;
+}
+
 .crumbs {
   display: flex;
   align-items: center;
+  justify-content: center;
   min-width: 0;
   max-width: 100%;
   font-size: 12px;
@@ -100,40 +116,9 @@ button.icon.active,
   border-color: var(--h-content-border-color);
 }
 
-.modes {
-  display: inline-flex;
-}
-
+/* The view modes as one segmented group of icons; small enough for every width. */
 .seg {
   display: inline-flex;
   gap: 2px;
-}
-
-.toggle {
-  white-space: nowrap;
-}
-
-select {
-  height: 24px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-}
-
-/* The segmented control gives way to a menu on small widths. */
-select.compact {
-  display: none;
-}
-
-@media (max-width: 720px) {
-  .seg {
-    display: none;
-  }
-
-  select.compact {
-    display: inline-block;
-    max-width: 120px;
-  }
+  margin-inline-end: 6px;
 }

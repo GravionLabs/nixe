@@ -3,6 +3,8 @@ import "@angular/compiler";
 import { readFileSync } from "node:fs";
 import { signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
+import { By } from "@angular/platform-browser";
+import { HxTooltip } from "@gravionlabs/helix-ui";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -87,7 +89,7 @@ function render(opts: {
   const el = fixture.nativeElement as HTMLElement;
   const modeButton = (label: string) =>
     [...el.querySelectorAll<HTMLButtonElement>(".seg button")].find(
-      (b) => b.textContent?.trim() === label,
+      (b) => b.getAttribute("aria-label") === label,
     )!;
   return {
     fixture,
@@ -110,6 +112,7 @@ const KEYS: Record<string, string[]> = {
   "new-note": ["Ctrl", "N"],
   "new-folder": ["Ctrl", "Shift", "N"],
   "toggle-editor": ["Ctrl", "E"],
+  "toggle-reading": ["Ctrl", "Alt", "E"],
 };
 
 describe("ToolbarComponent view mode", () => {
@@ -119,11 +122,15 @@ describe("ToolbarComponent view mode", () => {
 
   it("offers the three modes and shows the mode of the active tab", () => {
     const { el, modeButton, mode, fixture } = render({ path: "/n.md", editing: true });
-    expect([...el.querySelectorAll(".seg button")].map((b) => b.textContent?.trim())).toEqual([
+    const buttons = [...el.querySelectorAll(".seg button")];
+    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
       "Live preview",
       "Source",
       "Reading",
     ]);
+    // Icons only: no visible text, an svg in each button.
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["", "", ""]);
+    expect(buttons.every((b) => b.querySelector("svg path")?.getAttribute("d"))).toBe(true);
     expect(modeButton("Live preview").getAttribute("aria-pressed")).toBe("true");
     expect(modeButton("Source").getAttribute("aria-pressed")).toBe("false");
     mode.set("reading");
@@ -131,7 +138,7 @@ describe("ToolbarComponent view mode", () => {
     expect(modeButton("Reading").getAttribute("aria-pressed")).toBe("true");
     expect(modeButton("Reading").classList.contains("active")).toBe(true);
     expect(modeButton("Live preview").classList.contains("active")).toBe(false);
-    expect(el.querySelector<HTMLSelectElement>("select.compact")!.value).toBe("reading");
+    expect(el.querySelector("select")).toBeNull();
   });
 
   it("runs the command of the clicked mode", () => {
@@ -146,13 +153,17 @@ describe("ToolbarComponent view mode", () => {
     ]);
   });
 
-  it("switches the mode from the compact menu", () => {
-    const { el, execute, fixture } = render({ path: "/n.md", editing: true });
-    const select = el.querySelector<HTMLSelectElement>("select.compact")!;
-    select.value = "source";
-    select.dispatchEvent(new Event("change"));
-    fixture.detectChanges();
-    expect(execute).toHaveBeenCalledWith("view-source");
+  it("names each mode in its tooltip with the shortcut that toggles to it", () => {
+    const { fixture } = render({ path: "/n.md", editing: true });
+    const tips = fixture.debugElement
+      .queryAll(By.css(".seg button"))
+      .map((b) => b.injector.get(HxTooltip));
+    expect(tips.map((t) => t.text())).toEqual(["Live preview", "Source", "Reading"]);
+    expect(tips.map((t) => t.shortcut())).toEqual([
+      ["Ctrl", "E"],
+      ["Ctrl", "E"],
+      ["Ctrl", "Alt", "E"],
+    ]);
   });
 
   it("is disabled without a note and while an external change blocks closing", () => {
