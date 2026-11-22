@@ -105,7 +105,7 @@ pub fn index_start(
     let scan_lock = state.scan_lock.clone();
     match watch_vault(&app, &db, &root, scan_lock.clone()) {
         Ok(w) => *state.watcher.lock().unwrap() = Some(w),
-        Err(e) => eprintln!("vault watcher not started: {e}"),
+        Err(e) => log::warn!("vault watcher not started: {e}"),
     }
     let generation = {
         let mut tracked = shared.lock().unwrap();
