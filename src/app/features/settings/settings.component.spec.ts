@@ -87,13 +87,18 @@ describe("SettingsComponent token entry", () => {
 
   it("replaces and deletes a stored token without showing it", async () => {
     const { el, save, remove, fixture } = render({ stored: true });
-    expect(el.textContent).toContain("A token is stored");
+    expect(el.textContent).toContain("Token stored in the system keychain");
+    expect(el.querySelector("input[type=password]")).toBeNull();
+    button(el, "Replace")!.click();
+    fixture.detectChanges();
     const input = el.querySelector<HTMLInputElement>("input[type=password]")!;
     input.value = "ghp_secret";
     button(el, "Replace token")!.click();
     await fixture.whenStable();
     expect(save).toHaveBeenCalledWith("ghp_secret");
     expect(input.value).toBe("");
+    fixture.detectChanges();
+    expect(el.querySelector("input[type=password]")).toBeNull();
     button(el, "Delete token")!.click();
     expect(remove).toHaveBeenCalled();
   });
@@ -115,6 +120,32 @@ describe("SettingsComponent token entry", () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(el.textContent).toContain("keychain locked");
+  });
+});
+
+describe("SettingsComponent token layout", () => {
+  it("puts the state first, the sign-in button next and the token field last behind a fallback", () => {
+    const { el, fixture } = render({ gh: {} });
+    const text = el.querySelector(".token")!.textContent!;
+    expect(text.indexOf("No token stored")).toBeLessThan(text.indexOf("Sign in with GitHub (gh)"));
+    expect(button(el, "Sign in with GitHub (gh)")!.classList.contains("primary")).toBe(true);
+    expect(el.querySelector("input[type=password]")).toBeNull();
+    button(el, "Use a personal access token instead")!.click();
+    fixture.detectChanges();
+    expect(el.querySelector(".token-manual input[type=password]")).toBeTruthy();
+    expect(button(el, "Use a personal access token instead")).toBeUndefined();
+  });
+
+  it("keeps every part of the setting inside one column", () => {
+    const css = readFileSync("src/app/features/settings/settings.component.css", "utf8");
+    expect(css).toMatch(/\.token \{[^}]*max-width: 320px/);
+    expect(css).toMatch(/\.token > \* \{[^}]*max-width: 100%/);
+    expect(css).toMatch(/\.token-manual input \{[^}]*min-width: 0/);
+  });
+
+  it("keeps the search keywords of the token setting", async () => {
+    const { builtinSections } = await import("../../core/settings/builtin-sections");
+    expect(builtinSections.toString()).toContain('"keychain"');
   });
 });
 

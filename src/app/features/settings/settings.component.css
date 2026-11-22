@@ -79,6 +79,7 @@ h2 {
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  min-width: 0;
 }
 
 .control input[type="text"],
@@ -142,6 +143,70 @@ button.key {
 
 .readonly {
   text-align: right;
+}
+
+.token {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  min-width: 0;
+}
+
+.token > * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.token-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.token .readonly {
+  text-align: left;
+}
+
+.token-manual {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.token-manual input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+  background: var(--h-content-background);
+  color: inherit;
+  font: inherit;
+}
+
+.token button.primary {
+  padding: 5px 12px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+  background: var(--h-content-background);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.token .notice {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+input::placeholder {
+  color: var(--h-text-muted-color);
+  font-style: italic;
+  opacity: 0.6;
 }
 
 .source {
