@@ -13,6 +13,7 @@ import {
   viewChildren,
 } from "@angular/core";
 import { HxActivityBar, HxAppShell } from "@gravionlabs/helix-desktop";
+import { HxUpdateService } from "@gravionlabs/helix-desktop/tauri";
 import { HxMessageService, HxToast } from "@gravionlabs/helix-ui";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -50,8 +51,6 @@ import { PanelResizerComponent } from "./features/panel-resizer/panel-resizer.co
 import type { ViewMode } from "./core/settings/settings-core";
 import type { PanelTab } from "./core/settings/settings.service";
 import { SettingsService } from "./core/settings/settings.service";
-import { isPrerelease } from "./core/updater/update-logic";
-import { UpdateService } from "./core/updater/update.service";
 import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
@@ -144,7 +143,7 @@ export class AppComponent {
   protected readonly git = inject(GitService);
   protected readonly cloneVault = inject(CloneService);
   private readonly autoSync = inject(AutoSyncService);
-  protected readonly updater = inject(UpdateService);
+  protected readonly updater = inject(HxUpdateService);
   protected readonly switcher = inject(SwitcherService);
   protected readonly composer = inject(ComposerService);
   private readonly daily = inject(DailyService);
@@ -291,7 +290,6 @@ export class AppComponent {
       await listen(OPEN_FILE_EVENT, () => void this.openPending());
       await listen(EXPORT_EVENT, () => void this.runPendingExport());
       await listen<string>(FILE_CHANGED_EVENT, (e) => void this.tabs.onExternalChange(e.payload));
-      await this.updater.init();
       await listen<VaultChange[]>(
         VAULT_CHANGED_EVENT,
         (e) => void this.workspace.onVaultChanged(e.payload ?? []),
@@ -725,8 +723,7 @@ export class AppComponent {
         id: "check-updates",
         group: "File",
         title: "Check for updates…",
-        when: () => !isPrerelease(this.updater.version()),
-        run: () => this.updater.check(),
+        run: () => this.updater.check({ manual: true }),
       },
       {
         id: "add-folder-to-workspace",
