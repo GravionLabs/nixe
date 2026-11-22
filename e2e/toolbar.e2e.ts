@@ -11,16 +11,14 @@ const folded = (page: Page): Locator => page.locator(".cm-content .properties-su
 
 test.describe("layout of the toolbar end", () => {
   for (const width of [1800, 1280, 720]) {
-    test(`nothing overlaps and no label wraps at ${width} px`, async ({ page }) => {
+    test(`nothing overlaps and the path is centred at ${width} px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
       await ready(page);
       const modes = page.getByRole("group", { name: "View mode" });
       await expect(toggle(page)).toBeVisible();
 
-      // At 720 px and below the select takes the place of the segmented switch.
-      const compact = width <= 720;
       const items: Locator[] = [
-        compact ? modes.locator("select") : modes.locator(".seg"),
+        modes,
         toggle(page),
         page.getByRole("button", { name: "Toggle outline" }),
         page.getByRole("button", { name: "Toggle backlinks" }),
@@ -45,17 +43,15 @@ test.describe("layout of the toolbar end", () => {
         }
       }
 
-      if (!compact) {
-        // A label that wraps is taller than its line.
-        const label = modes.getByRole("button", { name: "Live preview" });
-        await expect(label).toBeVisible();
-        const wraps = await label.evaluate((el) => {
-          const range = document.createRange();
-          range.selectNodeContents(el);
-          return range.getClientRects().length > 1;
-        });
-        expect(wraps, "Live preview wraps").toBe(false);
-      }
+      // The path sits in the middle of the window.
+      const path = await page.getByRole("navigation", { name: "Path of the note" }).boundingBox();
+      expect(path).not.toBeNull();
+      const middle = path!.x + path!.width / 2;
+      expect(Math.abs(middle - width / 2), "path off centre").toBeLessThanOrEqual(2);
+
+      // The view mode is a group of three icon buttons.
+      await expect(modes.getByRole("button")).toHaveCount(3);
+      await expect(modes.locator("select")).toHaveCount(0);
     });
   }
 });

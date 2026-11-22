@@ -4,8 +4,30 @@
   -webkit-user-select: none;
 }
 
+/* The slots sit in a grid: start and end get the same share, so the path is centred in the window.
+   The path gives way first when space runs short. The bar has room above and below its controls. */
+hx-app-toolbar {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+  height: 34px;
+}
+
+hx-app-toolbar ::ng-deep .hx-app-toolbar-start {
+  justify-self: start;
+}
+
+hx-app-toolbar ::ng-deep .hx-app-toolbar-centre {
+  flex: none;
+  max-width: 100%;
+}
+
+hx-app-toolbar ::ng-deep .hx-app-toolbar-end {
+  justify-self: end;
+}
+
 .crumbs {
   display: flex;
+  justify-content: center;
   align-items: center;
   min-width: 0;
   max-width: 100%;
@@ -102,38 +124,5 @@ button.icon.active,
 
 .modes {
   display: inline-flex;
-}
-
-.seg {
-  display: inline-flex;
   gap: 2px;
-}
-
-.toggle {
-  white-space: nowrap;
-}
-
-select {
-  height: 24px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-}
-
-/* The segmented control gives way to a menu on small widths. */
-select.compact {
-  display: none;
-}
-
-@media (max-width: 720px) {
-  .seg {
-    display: none;
-  }
-
-  select.compact {
-    display: inline-block;
-    max-width: 120px;
-  }
 }

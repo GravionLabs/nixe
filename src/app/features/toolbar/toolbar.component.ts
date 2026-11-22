@@ -38,10 +38,30 @@ export class ToolbarComponent {
 
   readonly failed = output<string>();
 
-  protected readonly modes: readonly { id: ViewMode; label: string }[] = [
-    { id: "live", label: "Live preview" },
-    { id: "source", label: "Source" },
-    { id: "reading", label: "Reading" },
+  protected readonly modes: readonly {
+    id: ViewMode;
+    label: string;
+    shortcut: string;
+    icon: string;
+  }[] = [
+    {
+      id: "live",
+      label: "Live preview",
+      shortcut: "toggle-editor",
+      icon: "M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1zM14 7l3 3",
+    },
+    {
+      id: "source",
+      label: "Source",
+      shortcut: "toggle-editor",
+      icon: "M8 7l-5 5 5 5M16 7l5 5-5 5",
+    },
+    {
+      id: "reading",
+      label: "Reading",
+      shortcut: "toggle-reading",
+      icon: "M12 6.5C10 5 7 4.5 3 5v13c4-.5 7 0 9 1.5 2-1.5 5-2 9-1.5V5c-4-.5-7 0-9 1.5zM12 6.5v13",
+    },
   ];
 
   /** No note, or an external change that holds the editor open, leaves the mode as it is. */
