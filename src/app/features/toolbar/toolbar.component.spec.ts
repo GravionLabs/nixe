@@ -163,15 +163,21 @@ describe("ToolbarComponent view mode", () => {
     expect(render({ path: "/n.md", editing: true }).modeButton("Source").disabled).toBe(false);
   });
 
-  it("sets Properties in document without the settings", () => {
-    const { el, propertiesDisplay, fixture } = render({ path: "/n.md", editing: true });
-    const select = el.querySelector<HTMLSelectElement>("select.props")!;
-    expect([...select.options].map((o) => o.value)).toEqual(["visible", "folded", "hidden"]);
-    expect(select.value).toBe("folded");
-    select.value = "hidden";
-    select.dispatchEvent(new Event("change"));
+  it("toggles the properties in the document with a button, not a select", () => {
+    const { el, execute, propertiesDisplay, fixture } = render({ path: "/n.md", editing: true });
+    expect(el.querySelector("select.props")).toBeNull();
+    const button = el.querySelector<HTMLButtonElement>("button.props")!;
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    button.click();
+    expect(execute).toHaveBeenCalledWith("toggle-properties");
+    propertiesDisplay.set("hidden");
     fixture.detectChanges();
-    expect(propertiesDisplay()).toBe("hidden");
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("keeps the properties button disabled without a note", () => {
+    const { el } = render({ path: null, editing: false });
+    expect(el.querySelector<HTMLButtonElement>("button.props")!.disabled).toBe(true);
   });
 });
 
@@ -181,7 +187,7 @@ describe("ToolbarComponent content", () => {
       (b) => b.getAttribute("aria-label") ?? b.textContent?.trim(),
     );
 
-  it("keeps only back, forward, title, the modes, outline and backlinks", () => {
+  it("keeps only back, forward, title, the modes, properties, outline and backlinks", () => {
     const { el } = render({ path: "/n.md", editing: false });
     expect(labels(el)).toEqual([
       "Back",
@@ -190,6 +196,7 @@ describe("ToolbarComponent content", () => {
       "Live preview",
       "Source",
       "Reading",
+      "Toggle properties in document",
       "Toggle outline",
       "Toggle backlinks",
     ]);

@@ -102,12 +102,15 @@ button.icon.active,
 
 .modes {
   display: inline-flex;
-  container-type: inline-size;
 }
 
 .seg {
   display: inline-flex;
   gap: 2px;
+}
+
+.toggle {
+  white-space: nowrap;
 }
 
 select {
@@ -131,5 +134,6 @@ select.compact {
 
   select.compact {
     display: inline-block;
+    max-width: 120px;
   }
 }

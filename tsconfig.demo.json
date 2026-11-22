@@ -1,0 +1,20 @@
+/* The browser build (#400): every `@tauri-apps/*` module the app imports is replaced by a stand-in in `src/demo/tauri/`. */
+{
+  "extends": "./tsconfig.app.json",
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts", "src/testing/lint-probe/**"],
+  "compilerOptions": {
+    "paths": {
+      "@tauri-apps/api/core": ["./src/demo/tauri/core.ts"],
+      "@tauri-apps/api/event": ["./src/demo/tauri/event.ts"],
+      "@tauri-apps/api/app": ["./src/demo/tauri/app.ts"],
+      "@tauri-apps/api/window": ["./src/demo/tauri/window.ts"],
+      "@tauri-apps/api/webview": ["./src/demo/tauri/webview.ts"],
+      "@tauri-apps/plugin-dialog": ["./src/demo/tauri/dialog.ts"],
+      "@tauri-apps/plugin-opener": ["./src/demo/tauri/opener.ts"],
+      "@tauri-apps/plugin-process": ["./src/demo/tauri/process.ts"],
+      "@tauri-apps/plugin-updater": ["./src/demo/tauri/updater.ts"],
+      "@tauri-apps/plugin-clipboard-manager": ["./src/demo/tauri/clipboard-manager.ts"]
+    }
+  }
+}
