@@ -519,9 +519,9 @@ export const backend = {
   /** The fold state (`folds.json` in the app data directory, not in the vault); null before the first save. */
   readFolds: () => invoke<string | null>("read_folds"),
   writeFolds: (content: string) => invoke<void>("write_folds", { content }),
-  /** `.obsidian/bookmarks.json` of the vault; null when it has none. */
+  /** `.nixe/bookmarks.json` of the vault, else `.obsidian/bookmarks.json`; null when it has neither. */
   readVaultBookmarks: () => invoke<string | null>("read_vault_bookmarks"),
-  /** Replaces `.obsidian/bookmarks.json`; rejects for a vault without `.obsidian/`. */
+  /** Replaces `.nixe/bookmarks.json` (`.nixe/` is created when missing). */
   writeVaultBookmarks: (content: string) => invoke<void>("write_vault_bookmarks", { content }),
   /** The bookmarks of all vaults in the app data directory; null before the first save. */
   readAppBookmarks: () => invoke<string | null>("read_app_bookmarks"),
