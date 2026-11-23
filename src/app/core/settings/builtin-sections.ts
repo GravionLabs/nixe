@@ -390,8 +390,8 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
             "bookmarks-in-vault",
             "Write bookmarks into the vault",
             s.bookmarksInVault,
-            "Keep them in `.obsidian/bookmarks.json` (shared with Obsidian) instead of the app data. Needs a vault with an `.obsidian` folder.",
-            ["bookmarks", "obsidian"],
+            "Keep them in `.nixe/bookmarks.json` of the vault instead of the app data. An `.obsidian/bookmarks.json` is still read until it is replaced.",
+            ["bookmarks", "nixe", "obsidian"],
           ),
           toggle(
             "extract-embed",

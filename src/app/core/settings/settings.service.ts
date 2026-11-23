@@ -123,7 +123,7 @@ export class SettingsService {
   /** Branches with this prefix that are ahead of the working branch wait for review (#108). */
   readonly reviewBranchPrefix = signal<string>(this.stored.reviewBranchPrefix);
 
-  /** Bookmarks go into `.obsidian/bookmarks.json` of the vault instead of the app data (#111). */
+  /** Bookmarks go into `.nixe/bookmarks.json` of the vault instead of the app data (#111). */
   readonly bookmarksInVault = signal<boolean>(this.stored.bookmarksInVault);
 
   /** Extracting text leaves an embed instead of a link (#113). */

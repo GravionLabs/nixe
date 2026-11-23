@@ -40,9 +40,9 @@ export type BookmarkStore = "vault" | "app";
 
 /**
  * The bookmarks of the open vault: notes, headings and searches in groups. They are kept in
- * `.obsidian/bookmarks.json` when the setting allows it and the vault has an `.obsidian` folder, else in
- * the app data directory (one entry per vault). A vault file that exists is read either way, to start
- * the app data copy; a file that cannot be read is never overwritten.
+ * `.nixe/bookmarks.json` when the setting allows it, else in the app data directory (one entry per
+ * vault). The vault file (`.nixe/`, else the `.obsidian/` fallback) is read either way, to start the
+ * app data copy; a file that cannot be read is never overwritten.
  */
 @Injectable({ providedIn: "root" })
 export class BookmarksService {
@@ -107,7 +107,7 @@ export class BookmarksService {
         vaultUnreadable = true;
         return null;
       });
-      const useVault = inVault && (fromVault !== null || (await this.vaultHasFolder()));
+      const useVault = inVault;
       const stored = parseAppStore(await backend.readAppBookmarks());
       const fromApp = root in stored ? parseBookmarks(JSON.stringify(stored[root])) : null;
       // The vault file wins when it is the store; else the app copy, started from the vault file.
@@ -130,12 +130,6 @@ export class BookmarksService {
     } catch (err) {
       if (generation === this.generation) console.warn("bookmarks unavailable", err);
     }
-  }
-
-  /** Whether the vault has an `.obsidian` folder, so a file can be written into it. */
-  private async vaultHasFolder(): Promise<boolean> {
-    const root = this.workspace.vaultRoot();
-    return root ? backend.isDir(`${root}/.obsidian`).catch(() => false) : false;
   }
 
   private commit(items: Bookmark[]): void {

@@ -73,7 +73,7 @@ export interface StoredSettings {
   autoSyncOnQuit: boolean;
   /** Branches with this prefix that are ahead of the working branch wait for review (#108); empty turns it off. */
   reviewBranchPrefix: string;
-  /** Bookmarks are written into `.obsidian/bookmarks.json` of the vault (#111); off keeps them in the app data. */
+  /** Bookmarks are written into `.nixe/bookmarks.json` of the vault (#111); off keeps them in the app data. */
   bookmarksInVault: boolean;
   /** Extracting text leaves an embed (`![[note]]`) instead of a link (#113). */
   extractEmbed: boolean;

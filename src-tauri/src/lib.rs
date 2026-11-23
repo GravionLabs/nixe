@@ -949,13 +949,13 @@ fn write_folds(app: AppHandle, content: String) -> Result<(), String> {
     folds::write_folds(&dir, &content)
 }
 
-/// `.obsidian/bookmarks.json` of the open vault; `None` when it has none.
+/// `.nixe/bookmarks.json` of the open vault, else `.obsidian/bookmarks.json`; `None` when it has none.
 #[tauri::command]
 fn read_vault_bookmarks(state: State<'_, AppState>) -> Result<Option<String>, String> {
     bookmarks::read_vault(&vault_root_of(&state)?)
 }
 
-/// Replaces `.obsidian/bookmarks.json` of the open vault (it must have an `.obsidian` folder).
+/// Replaces `.nixe/bookmarks.json` of the open vault (`.nixe/` is created when missing).
 #[tauri::command]
 fn write_vault_bookmarks(state: State<'_, AppState>, content: String) -> Result<(), String> {
     bookmarks::write_vault(&vault_root_of(&state)?, &content)

@@ -38,7 +38,6 @@ describe("BookmarksService", () => {
   let service: BookmarksService;
   let appFile: string | null;
   let vaultFile: string | null;
-  let hasFolder: boolean;
   const tabs = {
     openPreview: vi.fn().mockResolvedValue(undefined),
     openPinned: vi.fn().mockResolvedValue(undefined),
@@ -71,11 +70,9 @@ describe("BookmarksService", () => {
     docPath.set("/v/dir/a.md");
     appFile = null;
     vaultFile = null;
-    hasFolder = true;
     doc.open = vi.fn().mockResolvedValue(undefined);
     vi.spyOn(backend, "readAppBookmarks").mockImplementation(async () => appFile);
     vi.spyOn(backend, "readVaultBookmarks").mockImplementation(async () => vaultFile);
-    vi.spyOn(backend, "isDir").mockImplementation(async () => hasFolder);
     writeApp.mockReset().mockImplementation(async (c) => void (appFile = c));
     writeVault.mockReset().mockImplementation(async (c) => void (vaultFile = c));
   });
@@ -109,7 +106,7 @@ describe("BookmarksService", () => {
     expect(JSON.parse(appFile!)["/v"].items).toHaveLength(2);
   });
 
-  it("reads and writes .obsidian/bookmarks.json when the setting is on, keeping unknown keys", async () => {
+  it("reads and writes .nixe/bookmarks.json when the setting is on, keeping unknown keys", async () => {
     inVault.set(true);
     vaultFile = JSON.stringify({
       items: [
@@ -143,11 +140,15 @@ describe("BookmarksService", () => {
     expect(writeVault).not.toHaveBeenCalled();
   });
 
-  it("falls back to the app data when the vault has no .obsidian folder", async () => {
+  it("writes the vault file without an .obsidian folder when the setting is on", async () => {
     inVault.set(true);
-    hasFolder = false;
+    vaultFile = null;
     await start();
-    expect(service.store()).toBe("app");
+    expect(service.store()).toBe("vault");
+    service.toggleNote();
+    await service.flush();
+    expect(writeApp).not.toHaveBeenCalled();
+    expect(JSON.parse(vaultFile!).items).toHaveLength(1);
   });
 
   it("bookmarks the heading at the top and the search, and ignores an empty search", async () => {
