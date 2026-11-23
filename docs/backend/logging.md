@@ -9,6 +9,12 @@ the version, the OS and the config, data and log directories.
 - **Rotation:** by size, at 2 MB, and the last 3 files are kept (`nixe_<timestamp>.log`).
 - **Levels:** `error`, `warn`, `info`, `debug`; the default is `info`. `NIXE_LOG=debug` raises it, or the
   `logLevel` key of `settings.json` in the app config directory. `NIXE_LOG` wins.
+- **In the app (#412):** the commands *Show log* (the log as a read-only text in a tab, newest lines at the end),
+  *Copy log* (the last 500 lines on the clipboard, for a bug report) and *Reveal log folder* are in the command
+  palette and the Help menu. Settings → General names the log folder and has *Log level* (the four levels);
+  a change applies at once through `log_set_level`, without a restart. `NIXE_LOG` still wins. The Rust side
+  is `log_path`, `log_read { lines }` and `log_set_level { level }` in `logging.rs`; the frontend side is
+  `LogActionsService` (`core/log/`) and the log tab (`features/log/`).
 - **Failed commands:** the frontend wraps the Tauri IPC once (`core/log/command-log.ts`) and sends the name
   and the error text of each rejected command to `log_command_error`. The arguments are not sent.
 - **Frontend lines:** `LogService` (`core/log/log.service.ts`) forwards `console.error`, `console.warn` (and so

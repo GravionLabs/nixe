@@ -11,6 +11,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ ask }));
 
 import { AppearanceService } from "../appearance/appearance.service";
 import { CommandRegistry } from "../commands/command-registry";
+import { LogActionsService } from "../log/log-actions.service";
 import { backend } from "../file/backend";
 import { provideHxAppInfo } from "@gravionlabs/helix-desktop/tauri";
 import { WorkspaceService } from "../workspace/workspace.service";
@@ -220,6 +221,34 @@ describe("settings page", () => {
       ["Open Copilot in the vault", "open-copilot-in-vault"],
       ["Toggle terminal", "toggle-terminal"],
     ]);
+  });
+
+  it("offers the four log levels in General and changes the setting", () => {
+    const item = TestBed.inject(SettingsRegistry)
+      .shown()
+      .flatMap((s) => s.items)
+      .find((i) => i.id === "log-level")!;
+    if (item.kind !== "select") throw new Error("select expected");
+    expect(item.options.map((o) => o.value)).toEqual(["error", "warn", "info", "debug"]);
+    expect(item.get()).toBe("info");
+    item.set("debug");
+    expect(settings.logLevel()).toBe("debug");
+    item.set("trace");
+    expect(settings.logLevel()).toBe("info");
+  });
+
+  it("names the log folder in General once it is known", async () => {
+    const find = () =>
+      TestBed.inject(SettingsRegistry)
+        .shown()
+        .flatMap((s) => s.items)
+        .find((i) => i.id === "log-folder");
+    expect(find()).toBeUndefined();
+    const logs = TestBed.inject(LogActionsService);
+    logs.folder.set("/home/me/.local/share/dev.nixe.app/logs");
+    const item = find()!;
+    if (item.kind !== "readonly") throw new Error("readonly expected");
+    expect(item.value()).toBe("/home/me/.local/share/dev.nixe.app/logs");
   });
 
   it("has the terminal off by default and asks before it turns on", async () => {

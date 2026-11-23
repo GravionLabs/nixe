@@ -1,0 +1,53 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
+  font-size: 13px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 34px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--h-content-border-color);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--h-text-muted-color);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.status {
+  margin: 12px;
+  color: var(--h-text-muted-color);
+}
+
+.text {
+  flex: 1;
+  margin: 0;
+  padding: 8px 12px;
+  overflow: auto;
+  font-family: var(--nixe-font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  user-select: text;
+}
