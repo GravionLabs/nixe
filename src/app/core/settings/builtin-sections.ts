@@ -6,6 +6,7 @@ import {
   sanitizeFont,
   sanitizeTextSize,
 } from "../appearance/appearance-core";
+import { LOG_LEVELS, sanitizeLogLevel } from "../log/log-level";
 import type { ObsidianSetting } from "../file/backend";
 import type { Command } from "../commands/command-registry";
 import { PAGE_SIZES, sanitizePageSize } from "../export/export-core";
@@ -25,6 +26,8 @@ export interface SectionSources {
   commands: () => readonly Command[];
   /** The running app version; empty until known. */
   version: () => string;
+  /** The folder of `nixe.log`; absent or empty where there is no log file. */
+  logFolder?: () => string;
   /** The access token of the Git sync; without it the Sync section has no token entry. */
   git?: {
     tokenStored: () => boolean;
@@ -189,6 +192,29 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
           description: "The running version of Nixe.",
           keywords: ["about", "release", "build"],
           value: () => src.version() || "Unknown",
+        },
+        ...(src.logFolder?.()
+          ? [
+              {
+                kind: "readonly" as const,
+                id: "log-folder",
+                label: "Log folder",
+                description: "Where nixe.log is. Help → Reveal Log Folder opens it.",
+                keywords: ["log", "about", "bug report", "debug"],
+                value: () => src.logFolder?.() ?? "",
+              },
+            ]
+          : []),
+        {
+          kind: "select" as const,
+          id: "log-level",
+          label: "Log level",
+          description:
+            "How much nixe.log records. It applies at once. The environment variable NIXE_LOG, when set, wins.",
+          keywords: ["log", "debug", "verbose", "errors", "warn", "info"],
+          options: LOG_LEVELS.map((v) => ({ value: v, label: v })),
+          get: () => s.logLevel(),
+          set: (v: string) => s.logLevel.set(sanitizeLogLevel(v)),
         },
         toggle("sidebar", "Show the sidebar", s.sidebarVisible, "The file tree of the vault.", [
           "files",

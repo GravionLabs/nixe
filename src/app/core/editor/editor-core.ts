@@ -280,6 +280,54 @@ export function tokenAt(line: string, at: number, kind?: InlineTokenKind): Inlin
   );
 }
 
+export type EditorLinkKind = "wikilink" | "markdown" | "url";
+
+export interface EditorLink {
+  kind: EditorLinkKind;
+  /** Offsets relative to the line. */
+  from: number;
+  to: number;
+  /** Wikilink: the text between the brackets; Markdown link: the href; URL: the URL. */
+  target: string;
+}
+
+const MARKDOWN_LINK = /(?<!!)\[([^\]\n]*)\]\(\s*(<[^>\n]*>|[^)\s\n]*)(?:\s+[^)\n]*)?\)/g;
+const BARE_URL = /\b(?:https?:\/\/|mailto:)[^\s<>"'`]+/g;
+
+/** `[[wikilinks]]`, `[text](href)` links and bare URLs of one line, in order. Code spans are skipped. */
+export function linkTokens(line: string): EditorLink[] {
+  const skip = codeSpans(line);
+  const inCode = (at: number): boolean => skip.some(([from, to]) => at >= from && at < to);
+  const out: EditorLink[] = [];
+  const taken = (at: number): boolean => out.some((l) => at >= l.from && at < l.to);
+
+  for (const t of inlineTokens(line)) {
+    if (t.kind === "wikilink")
+      out.push({ kind: "wikilink", from: t.from, to: t.to, target: t.value });
+  }
+  for (const m of line.matchAll(MARKDOWN_LINK)) {
+    if (inCode(m.index) || taken(m.index)) continue;
+    const href = m[2].replace(/^<|>$/g, "");
+    if (!href) continue;
+    out.push({ kind: "markdown", from: m.index, to: m.index + m[0].length, target: href });
+  }
+  for (const m of line.matchAll(BARE_URL)) {
+    if (inCode(m.index) || taken(m.index)) continue;
+    // Trailing punctuation belongs to the sentence; an unbalanced `)` closes a surrounding one.
+    let url = m[0].replace(/[.,;:!?'"*_~]+$/, "");
+    while (url.endsWith(")") && url.split("(").length < url.split(")").length)
+      url = url.slice(0, -1);
+    if (url.replace(/^[a-z]+:(\/\/)?/i, "") === "") continue;
+    out.push({ kind: "url", from: m.index, to: m.index + url.length, target: url });
+  }
+  return out.sort((a, b) => a.from - b.from);
+}
+
+/** The link under offset `at` of a line, or null. */
+export function linkAt(line: string, at: number): EditorLink | null {
+  return linkTokens(line).find((l) => at >= l.from && at <= l.to) ?? null;
+}
+
 /** CSS class of a Lezer Markdown node, or null when the node is not styled. */
 export function nodeClass(name: string): string | null {
   const heading = /^ATXHeading([1-6])$/.exec(name) ?? /^SetextHeading([12])$/.exec(name);

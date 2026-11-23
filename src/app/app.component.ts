@@ -30,6 +30,8 @@ import {
   type ExportRequest,
   type VaultChange,
 } from "./core/file/backend";
+import { LogActionsService } from "./core/log/log-actions.service";
+import { LogService } from "./core/log/log.service";
 import { EditorService } from "./core/editor/editor.service";
 import type { Command } from "./core/commands/command-registry";
 import { CommandRegistry } from "./core/commands/command-registry";
@@ -127,6 +129,8 @@ export class NavIconDirective {
 })
 export class AppComponent {
   private readonly exporter = inject(ExportService);
+  private readonly log = inject(LogService);
+  private readonly logActions = inject(LogActionsService);
   protected readonly doc = inject(DocumentService);
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
@@ -279,6 +283,13 @@ export class AppComponent {
       });
     });
 
+    // The level of the log applies at once, also the one read from the settings file.
+    effect(() => {
+      const level = this.settings.logLevel();
+      untracked(() => void this.logActions.setLevel(level));
+    });
+    void this.logActions.loadFolder();
+
     this.registerCommands();
     void this.initDesktopIntegration();
   }
@@ -388,6 +399,7 @@ export class AppComponent {
 
   /** An error stays until the user closes it. */
   protected showError(message: string): void {
+    this.log.write("error", message);
     this.messages.add({ severity: "error", summary: message, sticky: true });
   }
 
@@ -777,6 +789,24 @@ export class AppComponent {
         shortcut: "Mod+]",
         keys: ["Alt+ArrowRight"],
         run: () => this.run(() => this.doc.forward()),
+      },
+      {
+        id: "show-log",
+        group: "Other",
+        title: "Show log",
+        run: () => this.logActions.show(),
+      },
+      {
+        id: "copy-log",
+        group: "Other",
+        title: "Copy log",
+        run: () => this.logActions.copy(),
+      },
+      {
+        id: "reveal-log-folder",
+        group: "Other",
+        title: "Reveal log folder",
+        run: () => this.logActions.reveal(),
       },
       {
         id: "vault-health",

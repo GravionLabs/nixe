@@ -294,7 +294,7 @@ function blockDecorations(state: EditorState, hooks: LivePreviewHooks): Decorati
 }
 
 /** Lines (0-based) that show their source: the span of the selection, widened to whole blocks. */
-function sourceLines(state: EditorState): { start: number; end: number }[] {
+export function sourceLines(state: EditorState): { start: number; end: number }[] {
   const { doc } = state;
   const at = (n: number) => doc.line(n + 1).text;
   return state.selection.ranges.map((r) => {
@@ -302,6 +302,14 @@ function sourceLines(state: EditorState): { start: number; end: number }[] {
     const b = sourceSpan(at, doc.lines, doc.lineAt(r.to).number - 1);
     return { start: a.start, end: b.end };
   });
+}
+
+/** True when the line of `pos` is drawn (outside the cursor's block and not a widget or code block). */
+export function isRenderedLine(state: EditorState, pos: number): boolean {
+  const line = state.doc.lineAt(pos);
+  const n = line.number - 1;
+  if (state.field(blocksField, false)?.some((b) => b.start <= n && n <= b.end)) return false;
+  return !sourceLines(state).some((a) => n >= a.start && n <= a.end);
 }
 
 function inlineDecorations(view: EditorView): DecorationSet {

@@ -28,7 +28,10 @@ export class OutlineComponent {
 
   protected go(node: OutlineNode): void {
     const handle = this.editor.editing() ? this.editor.handle : null;
-    if (handle) handle.scrollToLine(node.line);
-    else this.doc.pendingLine.set(node.line);
+    this.doc.jump({ line: node.line }, () => {
+      if (handle) handle.scrollToLine(node.line);
+      else this.doc.pendingLine.set(node.line);
+      return true;
+    });
   }
 }

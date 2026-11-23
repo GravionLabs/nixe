@@ -10,6 +10,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { CompareComponent } from "../compare/compare.component";
 import { ReviewTabComponent } from "../review/review-tab.component";
 import { EditorComponent } from "../editor/editor.component";
+import { LogComponent } from "../log/log.component";
 import { HealthComponent } from "../health/health.component";
 import { StartComponent } from "../start/start.component";
 import { SettingsComponent } from "../settings/settings.component";
@@ -23,6 +24,7 @@ import { ViewerComponent } from "../viewer/viewer.component";
   selector: "app-pane",
   imports: [
     CompareComponent,
+    LogComponent,
     ReviewTabComponent,
     EditorComponent,
     HealthComponent,

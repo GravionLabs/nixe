@@ -6,6 +6,7 @@ import type { ObsidianSetting } from "../file/backend";
 import { backend } from "../file/backend";
 import { GitService } from "../git/git.service";
 import { WorkspaceService } from "../workspace/workspace.service";
+import { LogActionsService } from "../log/log-actions.service";
 import { TerminalService } from "../terminal/terminal.service";
 import { HxUpdateService } from "@gravionlabs/helix-desktop/tauri";
 import { builtinSections } from "./builtin-sections";
@@ -32,6 +33,7 @@ export class SettingsPageService {
     const appearance = inject(AppearanceService);
     const git = inject(GitService);
     const terminal = inject(TerminalService);
+    const logActions = inject(LogActionsService);
     const sections = builtinSections({
       appearance: {
         themes: () => appearance.themes(),
@@ -60,6 +62,7 @@ export class SettingsPageService {
       obsidian: () => this.obsidian(),
       commands: () => commands.all(),
       version: () => updater.version,
+      logFolder: () => logActions.folder(),
     });
     for (const section of sections) this.registry.register(section);
   }

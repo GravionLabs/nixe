@@ -17,6 +17,7 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { HxMessageService } from "@gravionlabs/helix-ui";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { countText } from "../../core/editor/text-stats";
 import {
@@ -34,6 +35,8 @@ import { targetOf } from "../../core/preview/preview-core";
 import { OutlineService } from "../../core/outline/outline.service";
 import { EditorService } from "../../core/editor/editor.service";
 import { backend } from "../../core/file/backend";
+import type { EditorLink } from "../../core/editor/editor-core";
+import { classifyHref, resolveLocalLink } from "../../core/markdown/link-resolver";
 import { DocumentService } from "../../core/file/document.service";
 import { embedFor, pastedImageName } from "../../core/editor/attachment-core";
 import { MarkdownService } from "../../core/markdown/markdown.service";
@@ -53,7 +56,7 @@ import { textChange } from "./text-change";
 import { PropertiesComponent } from "../properties/properties.component";
 import { ExternalCompareComponent } from "./external-compare.component";
 import type { LivePreviewHooks, PropertiesHandle } from "./live-preview";
-import { livePreview } from "./live-preview";
+import { isRenderedLine, livePreview } from "./live-preview";
 import type { FoldAction } from "./folding";
 import { foldAction, folding, restoreFolds } from "./folding";
 import { headingLineAt } from "../../core/composer/composer-core";
@@ -251,7 +254,8 @@ export class EditorComponent implements OnDestroy {
         editorBehavior({
           onSave: () => void this.flush(),
           onBlur: () => void this.flush(),
-          onWikilink: (value) => void this.openWikilink(value),
+          onLink: (link, newTab) => void this.openLink(link, newTab),
+          opensOnPlainClick: (state, pos) => !this.editor.source() && isRenderedLine(state, pos),
           onWikilinkHover: (hover) =>
             hover
               ? this.preview.hover(targetOf(hover.value), hover.anchor, hover.modifier)
@@ -683,7 +687,46 @@ export class EditorComponent implements OnDestroy {
     if (this.doc.path() === session.path) this.doc.content.set(text);
   }
 
-  private async openWikilink(value: string): Promise<void> {
+  /** The one resolver of the editor: wikilink, Markdown link to a vault file, external URL. */
+  private async openLink(link: EditorLink, newTab: boolean): Promise<void> {
+    try {
+      if (link.kind === "wikilink") {
+        await this.openWikilink(link.target, newTab);
+        return;
+      }
+      const href = classifyHref(link.target);
+      switch (href.kind) {
+        case "external":
+          await openUrl(href.url);
+          break;
+        case "local": {
+          const current = this.session?.path;
+          if (!current) return;
+          const resolved = await resolveLocalLink(href.path, {
+            currentFile: current,
+            wikiRoot: this.doc.wikiRoot() ?? current,
+            exists: backend.isFile,
+          });
+          if (!resolved) this.failed.emit(`File not found: ${href.path}`);
+          else if (isMarkdownPath(resolved)) await this.openAt(resolved, href.anchor, newTab);
+          else await openPath(resolved);
+          break;
+        }
+        default:
+          break;
+      }
+    } catch (err) {
+      this.failed.emit(String(err));
+    }
+  }
+
+  private async openAt(path: string, anchor: string | null, newTab: boolean): Promise<void> {
+    await this.settle();
+    if (newTab) await this.tabs.openInNewTab(path, { anchor });
+    else await this.tabs.openPreview(path, { anchor });
+  }
+
+  private async openWikilink(value: string, newTab: boolean): Promise<void> {
     const { note, heading } = parseWikilinkTarget(value);
     const root = this.workspace.vaultRoot();
     const files = this.workspace.vaultFiles();
@@ -696,10 +739,7 @@ export class EditorComponent implements OnDestroy {
     }
     const path = joinPath(root, resolved);
     if (!isMarkdownPath(path)) return;
-    await this.settle();
-    await this.tabs
-      .openPreview(path, { anchor: heading })
-      .catch((err) => this.failed.emit(String(err)));
+    await this.openAt(path, heading, newTab);
   }
 }
 
