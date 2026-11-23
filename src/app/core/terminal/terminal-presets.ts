@@ -21,3 +21,18 @@ export const TERMINAL_PRESETS: readonly TerminalPreset[] = [
     commandTitle: "Open Copilot in the vault",
   },
 ];
+
+/** Presets that no button or command lists; the Rust core knows them by `id`. */
+export const SKILLS_UPDATE_PRESET: TerminalPreset = {
+  id: "skills-update",
+  title: "Skills update",
+  commandId: "update-vault-skills",
+  commandTitle: "Update vault skills",
+};
+
+export const VAULT_SETUP_PRESET: TerminalPreset = {
+  id: "claude-vault-setup",
+  title: "Vault setup",
+  commandId: "vault-setup-update",
+  commandTitle: "Update the vault setup with Claude",
+};

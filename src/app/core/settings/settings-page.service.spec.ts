@@ -19,6 +19,7 @@ import { builtinSections, parseList } from "./builtin-sections";
 import { LocationsService } from "./locations.service";
 import { SettingsPageService } from "./settings-page.service";
 import { FolderRolesService } from "../workspace/folder-roles.service";
+import { VaultSkillsService } from "../workspace/vault-skills.service";
 import { SettingsRegistry } from "./settings-registry";
 import { SettingsService } from "./settings.service";
 
@@ -95,6 +96,21 @@ describe("settings page", () => {
     expect(value(items[1])).toBe("Ex (missing)");
     expect(items[1].description).toContain("all exams");
     expect(items[1].description).toContain("missing");
+  });
+
+  it('shows the button "Update vault skills" in the Vault section only with a skills-lock.json (#445)', () => {
+    const items = () =>
+      TestBed.inject(SettingsRegistry)
+        .shown()
+        .find((s) => s.id === "vault")!.items;
+    expect(items().some((i) => i.kind === "action")).toBe(false);
+    const skills = TestBed.inject(VaultSkillsService);
+    skills.available.set(true);
+    const update = vi.spyOn(skills, "update").mockResolvedValue();
+    const button = items().find((i) => i.kind === "action");
+    expect(button).toMatchObject({ id: "vault-skills-update", buttonLabel: "Update vault skills" });
+    if (button?.kind === "action") button.run();
+    expect(update).toHaveBeenCalledTimes(1);
   });
 
   it("finds the Locations section by its title, a variable name or a folder (#495)", async () => {
@@ -306,6 +322,7 @@ describe("settings page", () => {
       ["Open Claude in the vault", "open-claude-in-vault"],
       ["Open Copilot in the vault", "open-copilot-in-vault"],
       ["Toggle terminal", "toggle-terminal"],
+      ["Update vault skills", "update-vault-skills"],
     ]);
   });
 

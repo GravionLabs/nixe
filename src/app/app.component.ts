@@ -75,6 +75,7 @@ import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { CloneComponent } from "./features/clone/clone.component";
 import { FolderRoleComponent } from "./features/folder-role/folder-role.component";
 import { FolderRolesService } from "./core/workspace/folder-roles.service";
+import { VaultSkillsService } from "./core/workspace/vault-skills.service";
 import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
 import { GitComponent } from "./features/git/git.component";
 import { BookmarksComponent } from "./features/bookmarks/bookmarks.component";
@@ -215,6 +216,9 @@ export class AppComponent {
   );
 
   constructor() {
+    // Registers the command "Update vault skills".
+    inject(VaultSkillsService);
+
     effect(() => {
       const path = this.doc.path();
       if (path) untracked(() => this.switcher.noteOpened(path));

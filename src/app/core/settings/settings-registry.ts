@@ -56,6 +56,8 @@ export type SettingItem = SettingBase &
         /** The built-in names, which an own variable cannot take. */
         reserved: readonly string[];
       }
+    /** A button that runs `run` (#445); it is shown only while `available` is true. */
+    | { kind: "action"; buttonLabel: string; run: () => void }
     /** A value the app only shows: from `.obsidian/` (with its file as `source`) (or from the app). */
     | { kind: "readonly"; value: () => string; source?: () => string }
   );
