@@ -40,6 +40,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Fix mini-v4 docs related to min/max validation
 - Add conform to the ecosystem page
 - Fix typos in "Per-parse error customization"
+- Update CHANGELOG.md for v1.13.0 [skip ci]
 
 
 ### Features
