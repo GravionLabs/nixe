@@ -5,6 +5,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.12.0] — 2026-11-23
+
+### Bug Fixes
+- Links do not open from the editor, a click starts editing (#459) (#469)
+- Links do not open from the editor, a click starts editing (#459) (#469)
+
+
+### Features
+- **log**: Frontend errors and failed commands go to the log (#411) (#478)
+- **log**: Show log, Copy log and the log level setting (#412) (#481)
+- **navigation**: Back and forward return to the position of a link click (#480) (#482)
+
+
+## [1.11.1] — 2026-11-22
+
+### Documentation
+- Update CHANGELOG.md for v1.11.1 [skip ci]
+
+
 ## [1.11.0] — 2026-11-22
 
 ### Bug Fixes
