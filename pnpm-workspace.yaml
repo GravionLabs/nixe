@@ -30,3 +30,5 @@ minimumReleaseAgeExclude:
   - "@schematics/angular@22.3.0"
   # Renovate security update: dompurify@3.4.17
   - dompurify@3.4.17
+  # Renovate security update: markdown-it@15.0.3
+  - markdown-it@15.0.3
