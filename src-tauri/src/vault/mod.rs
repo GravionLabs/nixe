@@ -1,5 +1,5 @@
 //! Vault detection and the in-memory file list used to resolve `[[wikilinks]]`.
-//! Read-only: opening a vault never writes into it.
+//! Detection is read-only; the one write on open is the import of `.obsidian/` into `.nixe/` (`import`).
 
 use std::path::{Path, PathBuf};
 
@@ -7,6 +7,8 @@ use ignore::WalkBuilder;
 
 // Not called yet: the vault index (a later item of the same feature) is the first user.
 pub mod composer;
+pub mod config;
+pub mod import;
 #[allow(dead_code)]
 pub mod mentions;
 pub mod meta;

@@ -203,6 +203,7 @@ export class TerminalPanelComponent {
           this.releaseListeners(run);
           run.session = null;
           term.write("\r\n[process ended – press a key to start a new shell]\r\n");
+          this.terminal.ended(run.key);
         }),
       ];
       if (generation !== run.generation) {

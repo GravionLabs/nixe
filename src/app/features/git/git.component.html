@@ -33,6 +33,17 @@
     }
   </div>
 
+  @if (git.missingIgnores().length > 0) {
+    <div class="ignore-hint" role="note">
+      <p>
+        The .gitignore of this vault does not cover {{ git.missingIgnores().join(", ") }}. These
+        could end up in a save.
+      </p>
+      <button type="button" class="link" (click)="addIgnores()">Add to .gitignore</button>
+      <button type="button" class="link" (click)="dismissIgnoreHint()">Dismiss</button>
+    </div>
+  }
+
   <app-panel-section title="Changes" [count]="status.changes.length" storageKey="git-changes">
     @if (status.changes.length > 0) {
       <input

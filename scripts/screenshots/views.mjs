@@ -64,6 +64,16 @@ export const VIEWS = [
     },
   },
   {
+    name: "settings-locations",
+    run: async (page) => {
+      await ready(page);
+      await page.keyboard.press("ControlOrMeta+,");
+      await page.getByRole("region", { name: "Settings" }).waitFor();
+      await page.getByRole("button", { name: "Locations", exact: true }).click();
+      await page.getByRole("list", { name: "Location variables" }).waitFor();
+    },
+  },
+  {
     name: "search",
     run: async (page) => {
       await ready(page);

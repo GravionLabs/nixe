@@ -16,7 +16,10 @@ import { backend } from "../file/backend";
 import { provideHxAppInfo } from "@gravionlabs/helix-desktop/tauri";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { builtinSections, parseList } from "./builtin-sections";
+import { LocationsService } from "./locations.service";
 import { SettingsPageService } from "./settings-page.service";
+import { FolderRolesService } from "../workspace/folder-roles.service";
+import { VaultSkillsService } from "../workspace/vault-skills.service";
 import { SettingsRegistry } from "./settings-registry";
 import { SettingsService } from "./settings.service";
 
@@ -65,12 +68,82 @@ describe("settings page", () => {
       "Editor",
       "Export and print",
       "Files and links",
+      "Vault",
       "Capture",
       "Appearance",
+      "Locations",
       "Sync",
       "Terminal",
       "Shortcuts",
     ]);
+  });
+
+  it("lists the folder roles in the Vault section and marks a missing folder", () => {
+    const section = () =>
+      TestBed.inject(SettingsRegistry)
+        .shown()
+        .find((s) => s.id === "vault")!;
+    expect(section().items.map((i) => i.id)).toEqual(["folder-roles-none"]);
+    const roles = TestBed.inject(FolderRolesService);
+    vi.spyOn(roles, "roles").mockReturnValue([
+      { role: "inbox", path: "In", description: null, missing: false },
+      { role: "exams", path: "Ex", description: "all exams", missing: true },
+    ]);
+    const items = section().items;
+    expect(items.map((i) => i.label)).toEqual(["inbox", "exams"]);
+    const value = (i: (typeof items)[number]) => (i.kind === "readonly" ? i.value() : "");
+    expect(value(items[0])).toBe("In");
+    expect(value(items[1])).toBe("Ex (missing)");
+    expect(items[1].description).toContain("all exams");
+    expect(items[1].description).toContain("missing");
+  });
+
+  it('shows the button "Update vault skills" in the Vault section only with a skills-lock.json (#445)', () => {
+    const items = () =>
+      TestBed.inject(SettingsRegistry)
+        .shown()
+        .find((s) => s.id === "vault")!.items;
+    expect(items().some((i) => i.kind === "action")).toBe(false);
+    const skills = TestBed.inject(VaultSkillsService);
+    skills.available.set(true);
+    const update = vi.spyOn(skills, "update").mockResolvedValue();
+    const button = items().find((i) => i.kind === "action");
+    expect(button).toMatchObject({ id: "vault-skills-update", buttonLabel: "Update vault skills" });
+    if (button?.kind === "action") button.run();
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it("finds the Locations section by its title, a variable name or a folder (#495)", async () => {
+    const locations = TestBed.inject(LocationsService);
+    vi.spyOn(backend, "locationsSet").mockResolvedValue({
+      variables: { Books: "D:\\Cloud\\Bücher" },
+    });
+    await locations.save("Books", "D:\\Cloud\\Bücher");
+    for (const query of ["locations", "variable", "books", "Bücher", "onedrive"]) {
+      page.query.set(query);
+      const found = page.sections().find((s) => s.id === "locations");
+      expect(
+        found?.items.map((i) => i.id),
+        query,
+      ).toEqual(["location-variables"]);
+    }
+    page.query.set("zzz");
+    expect(page.sections().find((s) => s.id === "locations")).toBeUndefined();
+    page.select("locations");
+    expect(page.query()).toBe("");
+    expect(page.listed().map((s) => s.id)).toEqual(["locations"]);
+  });
+
+  it("hands the item the variables and the reserved names (#495)", async () => {
+    const item = TestBed.inject(SettingsRegistry)
+      .shown()
+      .flatMap((s) => s.items)
+      .find((i) => i.id === "location-variables")!;
+    if (item.kind !== "locations") throw new Error("locations expected");
+    expect(item.reserved).toEqual(["Home", "Documents", "OneDrive", "iCloud"]);
+    vi.spyOn(backend, "locationsList").mockResolvedValue({ variables: { Books: "/b" } });
+    await page.loadLocations();
+    expect(item.variables()).toEqual([{ name: "Books", path: "/b" }]);
   });
 
   it("shows the running version read-only in General", () => {
@@ -160,6 +233,35 @@ describe("settings page", () => {
     expect(daily.value()).toBe("Not set");
   });
 
+  it("shows `.nixe/config.json` as the source where it sets a value", async () => {
+    vaultRoot.set("/v");
+    obsidian.mockResolvedValue([
+      {
+        id: "template-folder",
+        label: "Template folder",
+        value: "Vorlagen",
+        source: ".nixe/config.json",
+      },
+      {
+        id: "daily-format",
+        label: "Daily notes date format",
+        value: "YYYY-MM-DD",
+        source: ".obsidian/daily-notes.json",
+      },
+    ]);
+    await page.open();
+    const items = page.sections().find((s) => s.id === "files")!.items;
+    const tpl = items.find((i) => i.id === "obsidian-template-folder")!;
+    const format = items.find((i) => i.id === "obsidian-daily-format")!;
+    if (tpl.kind !== "readonly" || format.kind !== "readonly") throw new Error("readonly expected");
+    expect(tpl.source?.()).toBe(".nixe/config.json");
+    expect(tpl.description).toContain(".nixe/config.json");
+    expect(format.source?.()).toBe(".obsidian/daily-notes.json");
+    expect(format.description).toContain(".obsidian/");
+    const own = items.find((i) => i.id === "template-folder")!;
+    expect(own.description).toContain(".nixe/config.json");
+  });
+
   it("says that a vault is needed when none is open", async () => {
     await page.open();
     expect(obsidian).not.toHaveBeenCalled();
@@ -220,6 +322,7 @@ describe("settings page", () => {
       ["Open Claude in the vault", "open-claude-in-vault"],
       ["Open Copilot in the vault", "open-copilot-in-vault"],
       ["Toggle terminal", "toggle-terminal"],
+      ["Update vault skills", "update-vault-skills"],
     ]);
   });
 

@@ -163,3 +163,16 @@ input.check {
   padding: 0;
   accent-color: var(--h-primary-color, currentColor);
 }
+
+.ignore-hint {
+  margin: 4px 12px;
+  color: var(--h-text-muted-color);
+}
+
+.ignore-hint p {
+  margin: 0 0 4px;
+}
+
+.ignore-hint button.link {
+  margin-right: 10px;
+}

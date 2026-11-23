@@ -56,7 +56,7 @@
 
   @switch (shell.shownView()) {
     @case ("files") {
-      <app-sidebar slot="sidebar" (failed)="showError($event)" />
+      <app-sidebar slot="sidebar" (failed)="showError($event)" (warned)="showToast($event)" />
     }
     @case ("search") {
       <app-search slot="sidebar" (failed)="showError($event)" />
@@ -187,6 +187,11 @@
 @if (cloneVault.visible()) {
   <app-clone />
 }
+@if (folderRoles.dialog()) {
+  <app-folder-role />
+}
+
+<app-root-choice (failed)="showError($event)" />
 
 @if (palette.visible()) {
   <app-palette (failed)="showError($event)" />

@@ -224,4 +224,46 @@ mod tests {
         assert_eq!(h[0].message, "rename: a.md -> b.md");
         assert_eq!(h[1].operation, None);
     }
+
+    #[test]
+    fn a_rename_moves_the_roles_in_the_same_commit_and_undo_restores_both() {
+        use crate::vault::config;
+        let root = repo("roles");
+        fs::create_dir_all(root.join("In")).unwrap();
+        fs::write(root.join("In/a.md"), "one").unwrap();
+        fs::create_dir_all(root.join(".nixe")).unwrap();
+        fs::write(
+            root.join(config::SOURCE),
+            "{\n  \"folders\": {\"inbox\": \"In\"}\n}",
+        )
+        .unwrap();
+        git::vault_commit(&root, Some("init"), None).unwrap();
+        commit_around(
+            &root,
+            "rename",
+            None,
+            || {
+                fs::rename(root.join("In"), root.join("Eingang")).map_err(|e| e.to_string())?;
+                config::rename_roles(&root, "In", "Eingang")
+            },
+            |_| ("rename", "rename: In -> Eingang".into()),
+        )
+        .unwrap();
+        assert_eq!(log(&root), ["rename: In -> Eingang", "init"]);
+        assert_eq!(
+            config::Config::load(&root).role_folder("inbox").as_deref(),
+            Some("Eingang")
+        );
+        assert!(git::vault_status(&root)
+            .unwrap()
+            .unwrap()
+            .changes
+            .is_empty());
+        git::undo_operation(&root, None).unwrap();
+        assert!(root.join("In/a.md").exists());
+        assert_eq!(
+            config::Config::load(&root).role_folder("inbox").as_deref(),
+            Some("In")
+        );
+    }
 }

@@ -73,7 +73,7 @@ describe("TemplateService", () => {
   it("has no folder when neither names one", async () => {
     vi.spyOn(backend, "templateFolder").mockRejectedValue("x");
     expect(await templates.folder()).toBeNull();
-    await expect(templates.list()).rejects.toThrow(/No template folder/);
+    await expect(templates.list()).rejects.toThrow(/No template folder.*\.nixe\/config\.json/);
   });
 
   it("lists the Markdown files of the folder, below it too", async () => {

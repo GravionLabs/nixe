@@ -13,7 +13,7 @@ works on the same plain `.md` files and folder layout as Obsidian, so both apps 
 
 ## Principles
 
-- **Same format as Obsidian.** Notes are plain `.md` files and `.obsidian/` is never touched.
+- **Same format as Obsidian.** Notes are plain `.md` files and `.obsidian/` is never written; the layout of the vault lives in `.nixe/` ([ADR 0007](adr/0007-vault-configuration-in-nixe.md)).
 - **One Rust core, thin frontends.** Vault scan, index, search and Git sync live in `src-tauri/`.
 - **Two parsers, one fixture vault.** The TypeScript Markdown core renders; the Rust core
   extracts metadata for the index. Both are tested against `fixtures/vault/`.
@@ -75,7 +75,7 @@ planner when their milestone comes up; the Features and their sub-issues are on 
 ## What Nixe writes
 
 - The notes the user edits, and the Git metadata (`.git/`) of the vault.
-- Never `.obsidian/`. The index and caches live in the app data directory, not in the vault.
+- The vault layout in `.nixe/` ([ADR 0007](adr/0007-vault-configuration-in-nixe.md)); never `.obsidian/`. The index and caches live in the app data directory, not in the vault.
   They can be deleted and are rebuilt on open.
 
 ## Risks

@@ -14,7 +14,7 @@ Settings page, section **Capture** (keys in `settings.json`):
 | `captureInbox` | Vault-relative inbox folder. Empty: the new-note folder of the vault, else `Inbox`. |
 | `captureTemplate` | Vault-relative template note of a new inbox note. `{{content}}` marks the text; without it the text follows the template. `{{title}}`, `{{date}}` and `{{time}}` work too. |
 
-The daily note is found like `nixe daily` does: `.obsidian/daily-notes.json` first, the daily
+The daily note is found like `nixe daily` does: `.nixe/config.json` (`daily`) first, else `.obsidian/daily-notes.json`, the daily
 notes keys of the app settings for what it leaves out. A missing daily note is created from its
 template. An inbox note is named `YYYY-MM-DD HHmmss.md` (` 2`, ` 3`… when it exists).
 

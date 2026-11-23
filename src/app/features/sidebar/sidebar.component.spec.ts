@@ -18,9 +18,11 @@ import { SettingsService } from "../../core/settings/settings.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { TREE_SORTS } from "../../core/workspace/tree-model";
+import { FolderRolesService } from "../../core/workspace/folder-roles.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import type { TreeNode } from "../../core/workspace/workspace.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { WorkspacesService } from "../../core/workspace/workspaces.service";
 import { SidebarComponent } from "./sidebar.component";
 
 function node(name: string, kind: "dir" | "file", depth = 0, expanded = false): TreeNode {
@@ -61,6 +63,8 @@ describe("SidebarComponent tree", () => {
     setTreeFilter: vi.fn(async (text: string) => workspace.treeFilter.set(text)),
     root: signal("/v"),
     vaultRoot: signal<string | null>("/v"),
+    rootName: signal<string | null>("v"),
+    extraRoots: signal<TreeNode[]>([]),
     toggle: vi.fn(),
     revealRequest: signal(0),
     sort: signal(TREE_SORTS[0]),
@@ -71,6 +75,22 @@ describe("SidebarComponent tree", () => {
   } | null>(null);
   const treeGitStatus = signal(true);
   const ops = { trash: vi.fn(), move: vi.fn() };
+  const roles = {
+    roleOf: vi.fn((path: string) =>
+      path === "/v/alpha"
+        ? { role: "inbox", path: "alpha", description: null, missing: false }
+        : null,
+    ),
+    tooltip: (r: { role: string }) => `Folder role: ${r.role}`,
+    relative: (path: string) => path.slice(3),
+    openDialog: vi.fn(),
+    remove: vi.fn(),
+  };
+  const workspaces = {
+    current: signal<object | null>(null),
+    rootName: vi.fn((path: string) => (path === "/v" ? "Own" : path.split("/").pop())),
+    renameRoot: vi.fn(async () => {}),
+  };
   const tabs = { openInNewTab: vi.fn(), openPreview: vi.fn(), openPinned: vi.fn() };
   const doc = { path: signal<string | null>(null), open: vi.fn() };
   let sidebar: SidebarComponent & Record<string, any>;
@@ -85,6 +105,9 @@ describe("SidebarComponent tree", () => {
     workspace.treeFilter.set("");
     gitStatus.set(null);
     treeGitStatus.set(true);
+    workspace.extraRoots.set([]);
+    workspaces.current.set(null);
+    workspaces.renameRoot.mockResolvedValue(undefined);
     host = document.createElement("div");
     host.innerHTML = rows
       .map((r) => `<div class="row" data-path="${r.dirPath ?? r.filePath}" tabindex="-1"></div>`)
@@ -100,9 +123,11 @@ describe("SidebarComponent tree", () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: WorkspaceService, useValue: workspace },
+        { provide: WorkspacesService, useValue: workspaces },
         { provide: DocumentService, useValue: doc },
         { provide: ChangesService, useValue: { unseenPaths: signal(new Set()) } },
         { provide: VaultOpsService, useValue: ops },
+        { provide: FolderRolesService, useValue: roles },
         { provide: TabsService, useValue: tabs },
         { provide: BookmarksService, useValue: { relative: () => null, items: () => [] } },
         { provide: GitService, useValue: { status: gitStatus } },
@@ -309,6 +334,49 @@ describe("SidebarComponent tree", () => {
       vi.useRealTimers();
     }
   });
+  describe("root names (#497)", () => {
+    const input = (value: string) => ({ value }) as HTMLInputElement;
+
+    it("offers Rename root on a further root of a workspace only", () => {
+      workspace.extraRoots.set([rows[3]]);
+      sidebar.menu.set({ node: rows[3] });
+      const labels = (sidebar.menuItems() as { label?: string }[]).map((i) => i.label);
+      expect(labels).toContain("Rename root");
+      sidebar.menu.set({ node: rows[0] });
+      expect((sidebar.menuItems() as { label?: string }[]).map((i) => i.label)).not.toContain(
+        "Rename root",
+      );
+    });
+
+    it("labels the first root with its own name", () => {
+      expect(sidebar.rootLabel()).toBe("Own");
+    });
+
+    it("renames the root through the workspace, and not when the name is unchanged", async () => {
+      workspaces.current.set({});
+      sidebar.beginRenameRoot("/v");
+      expect(sidebar.renamingRoot()).toBe("/v");
+      await sidebar.commitRenameRoot("/v", input(" Books "));
+      expect(workspaces.renameRoot).toHaveBeenCalledWith("/v", " Books ");
+      expect(sidebar.renamingRoot()).toBeNull();
+      sidebar.beginRenameRoot("/v");
+      await sidebar.commitRenameRoot("/v", input("Own"));
+      expect(workspaces.renameRoot).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not start outside a workspace, and reports a refused name", async () => {
+      sidebar.beginRenameRoot("/v");
+      expect(sidebar.renamingRoot()).toBeNull();
+      workspaces.current.set({});
+      const failed = vi.fn();
+      sidebar.failed.subscribe(failed);
+      workspaces.renameRoot.mockRejectedValue('another root is called "x" already');
+      sidebar.beginRenameRoot("/v");
+      await sidebar.commitRenameRoot("/v", input("x"));
+      expect(failed).toHaveBeenCalledWith('another root is called "x" already');
+    });
+  });
+
   describe("menus", () => {
     const labels = (items: { label?: string }[]) => items.map((i) => i.label);
 
@@ -333,10 +401,41 @@ describe("SidebarComponent tree", () => {
       expect(labels(sidebar.menuItems())).toEqual([
         "New note",
         "New folder",
+        "Set folder role…",
+        "Remove folder role",
         "Rename",
         "Delete",
         sidebar.revealLabel,
       ]);
+    });
+
+    it("offers no removal for a folder without a role and acts on the folder", () => {
+      sidebar.menu.set({ node: rows[3] });
+      const items = sidebar.menuItems();
+      expect(labels(items)).toContain("Set folder role…");
+      expect(labels(items)).not.toContain("Remove folder role");
+      items.find((i: { label?: string }) => i.label === "Set folder role…").command();
+      expect(roles.openDialog).toHaveBeenCalledWith("/v/box");
+      sidebar.menu.set({ node: rows[0] });
+      sidebar
+        .menuItems()
+        .find((i: { label?: string }) => i.label === "Remove folder role")
+        .command();
+      expect(roles.remove).toHaveBeenCalledWith("alpha");
+    });
+
+    it("titles the row of a folder with a role and no other row", () => {
+      expect(sidebar.roleTitle(rows[0])).toBe("Folder role: inbox");
+      expect(sidebar.roleTitle(rows[3])).toBeNull();
+      expect(sidebar.roleTitle(rows[1])).toBeNull();
+    });
+
+    it("emits the warning of a deletion that leaves a role behind", async () => {
+      const warned: string[] = [];
+      sidebar.warned.subscribe((w: string) => warned.push(w));
+      ops.trash.mockResolvedValueOnce("the role stays");
+      sidebar.onKeydown(rows[0], key("Delete"));
+      await vi.waitFor(() => expect(warned).toEqual(["the role stays"]));
     });
 
     it("offers only the creating and revealing entries on the empty area", () => {

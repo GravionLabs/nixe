@@ -23,6 +23,7 @@ export class SettingsComponent implements OnDestroy {
   constructor() {
     // A restored tab (or another vault) has no Obsidian settings loaded yet.
     void this.page.refreshObsidian();
+    void this.page.loadLocations();
     effect(() => this.input()?.nativeElement.focus());
     effect(() => this.recorder()?.nativeElement.focus());
   }
@@ -69,6 +70,48 @@ export class SettingsComponent implements OnDestroy {
       this.tokenError.set("");
     } catch (err) {
       this.tokenError.set(String(err));
+    }
+  }
+
+  protected readonly locName = signal("");
+  protected readonly locPath = signal("");
+  /** The name of the row being edited; null while a new variable is typed. */
+  protected readonly locPrevious = signal<string | null>(null);
+  protected readonly locError = signal("");
+
+  protected editLocation(v: { name: string; path: string }): void {
+    this.locName.set(v.name);
+    this.locPath.set(v.path);
+    this.locPrevious.set(v.name);
+    this.locError.set("");
+  }
+
+  protected cancelLocation(): void {
+    this.locName.set("");
+    this.locPath.set("");
+    this.locPrevious.set(null);
+    this.locError.set("");
+  }
+
+  protected async saveLocation(item: Extract<SettingItem, { kind: "locations" }>): Promise<void> {
+    try {
+      await item.save(this.locName(), this.locPath(), this.locPrevious());
+      this.cancelLocation();
+    } catch (err) {
+      this.locError.set(String(err));
+    }
+  }
+
+  protected async removeLocation(
+    item: Extract<SettingItem, { kind: "locations" }>,
+    name: string,
+  ): Promise<void> {
+    try {
+      await item.remove(name);
+      if (this.locPrevious() === name) this.cancelLocation();
+      else this.locError.set("");
+    } catch (err) {
+      this.locError.set(String(err));
     }
   }
 

@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { loggedInvoke as invoke } from "../log/logged-invoke";
 import type { CssFile } from "../appearance/appearance-core";
 
 export interface DirEntry {
@@ -140,6 +140,15 @@ export interface NewNoteLocation {
   folder: string;
 }
 
+/** A way to store a folder as `$Name/rest` in place of its absolute path. */
+export interface VariableChoice {
+  name: string;
+  /** What would be stored: `$Name/rest`. */
+  template: string;
+  /** The absolute path it resolves to on this device. */
+  resolved: string;
+}
+
 /** How a link to a note is written (`newLinkFormat` of `.obsidian/app.json`). */
 export interface LinkFormat {
   format: "shortest" | "relative" | "absolute";
@@ -152,7 +161,32 @@ export interface DailyNotesConfig {
   template: string | null;
 }
 
-/** A setting that Obsidian also has, read from the vault. */
+/** A `folders` or `files` entry of `.nixe/config.json`: the path, and what belongs into it. */
+export interface LayoutEntry {
+  path: string;
+  description: string | null;
+  /** The folder or file does not exist (the entry is kept and reported). */
+  missing: boolean;
+}
+
+/** `language`, `folders` and `files` of `.nixe/config.json`; empty without the file. */
+export interface VaultLayout {
+  language: string | null;
+  folders: Record<string, LayoutEntry>;
+  files: Record<string, LayoutEntry>;
+}
+
+/** What the import of `.obsidian/` into `.nixe/` did when the vault was opened (#441). */
+export interface ImportReport {
+  /** The files written into `.nixe/`. */
+  written: string[];
+  /** The `.obsidian/` files the values came from. */
+  sources: string[];
+  /** What went wrong; the app works on with the fallback. */
+  warnings: string[];
+}
+
+/** A setting that Obsidian also has, read from the vault (`.nixe/config.json` first). */
 export interface ObsidianSetting {
   id: string;
   label: string;
@@ -403,7 +437,10 @@ export interface RecentNote {
 export type RootKind = "obsidian" | "wiki" | "folder";
 
 export interface WorkspaceRoot {
+  /** Resolved path on this device. */
   path: string;
+  /** The path as written when it starts with `$` (`$Documents/Books`); saved instead of `path`. */
+  template?: string;
   name: string;
   kind: RootKind;
 }
@@ -411,6 +448,14 @@ export interface WorkspaceRoot {
 export interface Workspace {
   name: string;
   roots: WorkspaceRoot[];
+}
+
+/** The location variables of this device that the user defined (#495). */
+export interface OwnLocations {
+  /** Variable name to absolute folder. */
+  variables: Record<string, string>;
+  /** The OneDrive folder picked among several accounts. */
+  onedrive?: string;
 }
 
 export interface ResolvedLink {
@@ -506,9 +551,9 @@ export const backend = {
   /** The fold state (`folds.json` in the app data directory, not in the vault); null before the first save. */
   readFolds: () => invoke<string | null>("read_folds"),
   writeFolds: (content: string) => invoke<void>("write_folds", { content }),
-  /** `.obsidian/bookmarks.json` of the vault; null when it has none. */
+  /** `.nixe/bookmarks.json` of the vault, else `.obsidian/bookmarks.json`; null when it has neither. */
   readVaultBookmarks: () => invoke<string | null>("read_vault_bookmarks"),
-  /** Replaces `.obsidian/bookmarks.json`; rejects for a vault without `.obsidian/`. */
+  /** Replaces `.nixe/bookmarks.json` (`.nixe/` is created when missing). */
   writeVaultBookmarks: (content: string) => invoke<void>("write_vault_bookmarks", { content }),
   /** The bookmarks of all vaults in the app data directory; null before the first save. */
   readAppBookmarks: () => invoke<string | null>("read_app_bookmarks"),
@@ -518,6 +563,15 @@ export const backend = {
     invoke<number>("set_menu_shortcuts", { shortcuts }),
   /** The Obsidian settings of the open vault with the file each one comes from. */
   obsidianSettings: () => invoke<ObsidianSetting[]>("obsidian_settings"),
+  /** `language`, `folders` and `files` of `.nixe/config.json` of the open vault. */
+  vaultLayout: () => invoke<VaultLayout>("vault_layout"),
+  /** Sets the folder role `role` on the vault-relative folder `path`; returns the new layout. */
+  setFolderRole: (path: string, role: string, description: string | null, replace = false) =>
+    invoke<VaultLayout>("set_folder_role", { path, role, description, replace }),
+  /** Removes the role of the vault-relative folder `path`; returns the new layout. */
+  removeFolderRole: (path: string) => invoke<VaultLayout>("remove_folder_role", { path }),
+  /** Imports `.obsidian/` into `.nixe/` once, when the vault has no `.nixe/config.json`. */
+  importObsidianSettings: () => invoke<ImportReport>("import_obsidian_settings"),
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
   /** Saves pasted bytes into the attachment folder of `note`; returns the vault-relative path. */
   saveAttachment: (note: string, name: string, bytes: number[]) =>
@@ -544,6 +598,21 @@ export const backend = {
   /** `workspace` with the folder added as a root; the backend detects its kind. */
   workspaceAddRoot: (workspace: Workspace, path: string) =>
     invoke<Workspace>("workspace_add_root", { workspace, path }),
+  /** The variable forms for the folder at `path`, deepest first; empty for a folder elsewhere. */
+  workspaceVariableChoices: (path: string) =>
+    invoke<VariableChoice[]>("workspace_variable_choices", { path }),
+  /** `workspace` with the root at `path` renamed; refused for a clash or an invalid link prefix. */
+  workspaceRenameRoot: (workspace: Workspace, path: string, name: string) =>
+    invoke<Workspace>("workspace_rename_root", { workspace, path, name }),
+  /** The own location variables of this device (app data, never a workspace or the vault). */
+  locationsList: () => invoke<OwnLocations>("locations_list"),
+  /** Defines `name` as an existing absolute folder; `previous` is the name before a rename. */
+  locationsSet: (name: string, path: string, previous: string | null) =>
+    invoke<OwnLocations>("locations_set", { name, path, previous }),
+  locationsRemove: (name: string) => invoke<OwnLocations>("locations_remove", { name }),
+  /** Stores the OneDrive folder picked among several accounts; `null` forgets it. */
+  locationsChooseOnedrive: (path: string | null) =>
+    invoke<OwnLocations>("locations_choose_onedrive", { path }),
   /** Resolves link targets of a note in root `from`; `Root name:Note` reaches another root. */
   workspaceResolveLinks: (workspace: Workspace, from: string, targets: string[]) =>
     invoke<(ResolvedLink | null)[]>("workspace_resolve_links", { workspace, from, targets }),
@@ -580,6 +649,12 @@ export const backend = {
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Git state of the vault; null when the vault is not a Git repository. */
   gitVaultStatus: () => invoke<GitStatus | null>("git_vault_status"),
+  /** The standard `.gitignore` entries the vault lacks (empty once dismissed); null without Git. */
+  gitGitignoreMissing: () => invoke<string[] | null>("git_gitignore_missing"),
+  /** Appends the missing entries under `# Nixe`; resolves with the lines it added. */
+  gitGitignoreAdd: () => invoke<string[]>("git_gitignore_add"),
+  /** Hides the `.gitignore` hint for this vault (kept in `.nixe/local/`). */
+  gitGitignoreDismiss: () => invoke<void>("git_gitignore_dismiss"),
   /** Commits that touched a vault-relative note, newest first, following renames; `offset`/`limit` page. */
   gitNoteHistory: (path: string, offset: number, limit: number) =>
     invoke<HistoryEntry[]>("git_note_history", { path, offset, limit }),

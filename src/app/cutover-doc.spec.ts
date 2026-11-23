@@ -25,8 +25,19 @@ describe("docs/cutover.md", () => {
     expect(doc).toContain("no blocking gap is open");
   });
 
+  it("takes the daily notes and templates from .nixe/config.json and keeps .obsidian/ untouched", () => {
+    expect(doc).toContain("`.nixe/config.json` (`daily`)");
+    expect(doc).toContain("imported from `.obsidian/`");
+    expect(doc).toContain("Nixe never writes `.obsidian/`");
+    expect(doc).toContain("(adr/0007-vault-configuration-in-nixe.md)");
+    expect(doc).not.toContain("come from `.obsidian/daily-notes.json`");
+  });
+
   it("is linked from the docs map and links only to existing files", () => {
-    expect(readFileSync(resolve(root, "docs/README.md"), "utf8")).toContain("(cutover.md)");
+    const readme = readFileSync(resolve(root, "docs/README.md"), "utf8");
+    expect(readme).toContain("(cutover.md)");
+    expect(readme).toContain("(adr/0007-vault-configuration-in-nixe.md)");
+    expect(readme).toContain(".nixe/config.json");
     for (const [, target] of doc.matchAll(/\]\(([^)#:]+\.md)\)/g)) {
       expect(existsSync(resolve(root, "docs", target)), target).toBe(true);
     }

@@ -292,6 +292,33 @@ async fn git_vault_status(state: State<'_, AppState>) -> Result<Option<git::GitS
         .map_err(|e| e.to_string())?
 }
 
+/// The standard `.gitignore` entries the vault lacks; null without a repository (#443).
+#[tauri::command]
+async fn git_gitignore_missing(state: State<'_, AppState>) -> Result<Option<Vec<String>>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::gitignore_missing(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Appends the missing entries to the `.gitignore` of the vault (#443).
+#[tauri::command]
+async fn git_gitignore_add(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::gitignore_add(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Hides the `.gitignore` hint for this vault (#443).
+#[tauri::command]
+async fn git_gitignore_dismiss(state: State<'_, AppState>) -> Result<(), String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::gitignore_dismiss(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// The commits that touched a note, newest first, following renames (#105).
 #[tauri::command]
 async fn git_note_history(
@@ -602,9 +629,20 @@ fn rename_path(
         kind,
         fallback.as_ref(),
         || {
-            vault::relink::rename_with_links(&root, Path::new(&from), Path::new(&to), |targets| {
-                index.referrers(targets)
-            })
+            // The roles of `.nixe/config.json` follow in the same operation, so the commit (and
+            // its undo) holds both.
+            let changes = vault::relink::rename_with_links(
+                &root,
+                Path::new(&from),
+                Path::new(&to),
+                |targets| index.referrers(targets),
+            )?;
+            if let Err(e) = vault::config::rename_roles(&root, &rel_from, &rel_to) {
+                return Err(format!(
+                    "renamed, but the folder roles could not follow: {e}"
+                ));
+            }
+            Ok(changes)
         },
         |changes| {
             (
@@ -850,22 +888,68 @@ fn trash_path(
     )
 }
 
-/// Where a new note goes, from `.obsidian/app.json` of the vault.
+/// Where a new note goes, from `.nixe/config.json` or else `.obsidian/app.json` of the vault.
 #[tauri::command]
 fn new_note_location(state: State<'_, AppState>) -> Result<fileops::NewNoteLocation, String> {
     Ok(fileops::new_note_location(&vault_root_of(&state)?))
 }
 
-/// The template folder from `.obsidian/templates.json` of the vault; `None` when it names none.
+/// The template folder from `.nixe/config.json` or else `.obsidian/templates.json` of the vault; `None` when it names none.
 #[tauri::command]
 fn template_folder(state: State<'_, AppState>) -> Result<Option<String>, String> {
     Ok(fileops::template_folder(&vault_root_of(&state)?))
 }
 
-/// The Daily notes settings from `.obsidian/daily-notes.json` of the vault.
+/// The Daily notes settings from `.nixe/config.json`, each missing key from `.obsidian/daily-notes.json`.
 #[tauri::command]
 fn daily_notes_config(state: State<'_, AppState>) -> Result<fileops::DailyNotesConfig, String> {
     Ok(fileops::daily_notes_config(&vault_root_of(&state)?))
+}
+
+/// `language`, `folders` and `files` of `.nixe/config.json` of the vault; empty when it has none.
+#[tauri::command]
+fn vault_layout(state: State<'_, AppState>) -> Result<vault::config::Layout, String> {
+    Ok(vault::config::layout(&vault_root_of(&state)?))
+}
+
+/// Sets the folder role `role` on the folder `path` (vault-relative) in `.nixe/config.json` (#446).
+#[tauri::command]
+fn set_folder_role(
+    state: State<'_, AppState>,
+    path: String,
+    role: String,
+    description: Option<String>,
+    replace: Option<bool>,
+) -> Result<vault::config::Layout, String> {
+    let root = vault_root_of(&state)?;
+    vault::config::set_folder_role(
+        &root,
+        &path,
+        &role,
+        description.as_deref(),
+        replace.unwrap_or(false),
+    )?;
+    Ok(vault::config::layout(&root))
+}
+
+/// Removes the role of the folder `path` from `.nixe/config.json` (#446).
+#[tauri::command]
+fn remove_folder_role(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<vault::config::Layout, String> {
+    let root = vault_root_of(&state)?;
+    vault::config::remove_folder_role(&root, &path)?;
+    Ok(vault::config::layout(&root))
+}
+
+/// Imports the `.obsidian/` settings into `.nixe/` when the vault has no `.nixe/config.json`
+/// (#441); the report says what was written. Nothing is committed.
+#[tauri::command]
+fn import_obsidian_settings(
+    state: State<'_, AppState>,
+) -> Result<vault::import::ImportReport, String> {
+    Ok(vault::import::import_obsidian(&vault_root_of(&state)?))
 }
 
 /// Saves pasted bytes as `name` in the attachment folder of `note`; returns the vault-relative path.
@@ -943,13 +1027,13 @@ fn write_folds(app: AppHandle, content: String) -> Result<(), String> {
     folds::write_folds(&dir, &content)
 }
 
-/// `.obsidian/bookmarks.json` of the open vault; `None` when it has none.
+/// `.nixe/bookmarks.json` of the open vault, else `.obsidian/bookmarks.json`; `None` when it has none.
 #[tauri::command]
 fn read_vault_bookmarks(state: State<'_, AppState>) -> Result<Option<String>, String> {
     bookmarks::read_vault(&vault_root_of(&state)?)
 }
 
-/// Replaces `.obsidian/bookmarks.json` of the open vault (it must have an `.obsidian` folder).
+/// Replaces `.nixe/bookmarks.json` of the open vault (`.nixe/` is created when missing).
 #[tauri::command]
 fn write_vault_bookmarks(state: State<'_, AppState>, content: String) -> Result<(), String> {
     bookmarks::write_vault(&vault_root_of(&state)?, &content)
@@ -1070,7 +1154,7 @@ fn workspace_list(app: AppHandle) -> Result<Vec<String>, String> {
 #[tauri::command]
 fn workspace_load(app: AppHandle, name: String) -> Result<workspace::Workspace, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    workspace::load(&dir, &name)
+    workspace::load(&dir, &name, &workspace::Locations::from_app(&app))
 }
 
 /// Saves a workspace in the app data directory; nothing is written into its folders.
@@ -1090,11 +1174,79 @@ fn workspace_delete(app: AppHandle, name: String) -> Result<(), String> {
 /// `workspace` with the folder at `path` added as a root (kind detected); changes nothing on disk.
 #[tauri::command]
 fn workspace_add_root(
+    app: AppHandle,
     mut workspace: workspace::Workspace,
     path: String,
 ) -> Result<workspace::Workspace, String> {
-    workspace.add_root(Path::new(&path))?;
+    workspace.add_root(Path::new(&path), &workspace::Locations::from_app(&app))?;
     Ok(workspace)
+}
+
+/// The variable forms in which the folder at `path` could be stored as a root (#498): one per
+/// location variable whose folder contains it, the deepest first. Empty for a folder elsewhere.
+#[tauri::command]
+fn workspace_variable_choices(app: AppHandle, path: String) -> Vec<workspace::VariableChoice> {
+    // A folder inside a vault is added as the vault, so the choice is about the vault root.
+    let root = vault::find_vault_root(Path::new(&path));
+    workspace::Locations::from_app(&app).choices_for(&root)
+}
+
+/// `workspace` with the root at `path` renamed (#497): its link prefix, independent of the folder
+/// name. Refused when the name clashes with another root or is no valid link prefix.
+#[tauri::command]
+fn workspace_rename_root(
+    mut workspace: workspace::Workspace,
+    path: String,
+    name: String,
+) -> Result<workspace::Workspace, String> {
+    workspace.rename_root(&path, &name)?;
+    Ok(workspace)
+}
+
+/// The own location variables of this device (#495) and the picked OneDrive folder.
+#[tauri::command]
+fn locations_list(app: AppHandle) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(workspace::OwnLocations::load(&dir))
+}
+
+/// Defines the own variable `name` as an existing absolute folder; `previous` is the name it had
+/// before a rename. Stored in the app data directory of this device only.
+#[tauri::command]
+fn locations_set(
+    app: AppHandle,
+    name: String,
+    path: String,
+    previous: Option<String>,
+) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut own = workspace::OwnLocations::load(&dir);
+    own.set(&name, &path, previous.as_deref())?;
+    own.save(&dir)?;
+    Ok(own)
+}
+
+/// Forgets the own variable `name`.
+#[tauri::command]
+fn locations_remove(app: AppHandle, name: String) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut own = workspace::OwnLocations::load(&dir);
+    own.remove(&name);
+    own.save(&dir)?;
+    Ok(own)
+}
+
+/// Stores the OneDrive folder picked among several accounts (`None` forgets the choice).
+#[tauri::command]
+fn locations_choose_onedrive(
+    app: AppHandle,
+    path: Option<String>,
+) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut own = workspace::OwnLocations::load(&dir);
+    own.onedrive = path;
+    own.save(&dir)?;
+    Ok(own)
 }
 
 /// Resolves link targets of a note in the root `from`; a `Root name:` prefix reaches another root.
@@ -1360,6 +1512,12 @@ pub fn run() {
         workspace_save,
         workspace_delete,
         workspace_add_root,
+        workspace_variable_choices,
+        workspace_rename_root,
+        locations_list,
+        locations_set,
+        locations_remove,
+        locations_choose_onedrive,
         workspace_resolve_links,
         read_folds,
         write_folds,
@@ -1369,6 +1527,10 @@ pub fn run() {
         write_app_bookmarks,
         set_menu_shortcuts,
         obsidian_settings,
+        vault_layout,
+        set_folder_role,
+        remove_folder_role,
+        import_obsidian_settings,
         save_attachment,
         import_attachment,
         is_utf8_file,
@@ -1395,6 +1557,9 @@ pub fn run() {
         index::commands::vault_health,
         watch_file,
         git_vault_status,
+        git_gitignore_missing,
+        git_gitignore_add,
+        git_gitignore_dismiss,
         git_vault_commit,
         git_discard_note,
         git_restore_note,
@@ -1494,6 +1659,8 @@ pub fn run() {
         workspace_save,
         workspace_delete,
         workspace_add_root,
+        workspace_variable_choices,
+        workspace_rename_root,
         workspace_resolve_links,
         read_folds,
         write_folds,
@@ -1503,6 +1670,10 @@ pub fn run() {
         write_app_bookmarks,
         set_menu_shortcuts,
         obsidian_settings,
+        vault_layout,
+        set_folder_role,
+        remove_folder_role,
+        import_obsidian_settings,
         save_attachment,
         import_attachment,
         is_utf8_file,
@@ -1529,6 +1700,9 @@ pub fn run() {
         index::commands::vault_health,
         watch_file,
         git_vault_status,
+        git_gitignore_missing,
+        git_gitignore_add,
+        git_gitignore_dismiss,
         git_vault_commit,
         git_discard_note,
         git_restore_note,

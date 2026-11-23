@@ -56,7 +56,8 @@ import { SettingsService } from "./core/settings/settings.service";
 import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
-import { WorkspacesService } from "./core/workspace/workspaces.service";
+import { RootChoiceComponent } from "./features/workspace/root-choice.component";
+import { WorkspacesService, skippedMessage } from "./core/workspace/workspaces.service";
 import { VaultUndoService } from "./core/workspace/vault-undo.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
 import { TREE_SORTS, TREE_SORT_LABELS } from "./core/workspace/tree-model";
@@ -72,6 +73,9 @@ import { SearchComponent } from "./features/search/search.component";
 import { ComposerComponent } from "./features/composer/composer.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { CloneComponent } from "./features/clone/clone.component";
+import { FolderRoleComponent } from "./features/folder-role/folder-role.component";
+import { FolderRolesService } from "./core/workspace/folder-roles.service";
+import { VaultSkillsService } from "./core/workspace/vault-skills.service";
 import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
 import { GitComponent } from "./features/git/git.component";
 import { BookmarksComponent } from "./features/bookmarks/bookmarks.component";
@@ -109,6 +113,7 @@ export class NavIconDirective {
     BacklinksComponent,
     RelatedComponent,
     CloneComponent,
+    FolderRoleComponent,
     ConflictBarComponent,
     GitComponent,
     HistoryComponent,
@@ -122,6 +127,7 @@ export class NavIconDirective {
     SidebarComponent,
     StartComponent,
     WorkspaceComponent,
+    RootChoiceComponent,
   ],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
@@ -146,6 +152,7 @@ export class AppComponent {
   private readonly focus = inject(FocusService);
   protected readonly git = inject(GitService);
   protected readonly cloneVault = inject(CloneService);
+  protected readonly folderRoles = inject(FolderRolesService);
   private readonly autoSync = inject(AutoSyncService);
   protected readonly updater = inject(HxUpdateService);
   protected readonly switcher = inject(SwitcherService);
@@ -209,6 +216,9 @@ export class AppComponent {
   );
 
   constructor() {
+    // Registers the command "Update vault skills".
+    inject(VaultSkillsService);
+
     effect(() => {
       const path = this.doc.path();
       if (path) untracked(() => this.switcher.noteOpened(path));
@@ -263,6 +273,37 @@ export class AppComponent {
       untracked(() => {
         this.showToast(notice);
         this.recent.notice.set(null);
+      });
+    });
+
+    effect(() => {
+      const notice = this.workspace.notice();
+      if (notice === null) return;
+      untracked(() => {
+        this.showToast(notice);
+        this.workspace.notice.set(null);
+      });
+    });
+
+    effect(() => {
+      const skipped = this.workspaces.skipped();
+      if (skipped === null) return;
+      untracked(() => {
+        this.messages.add({
+          severity: "warn",
+          summary: skippedMessage(skipped),
+          sticky: true,
+          action: {
+            label: "Set variable",
+            run: () =>
+              void this.run(async () => {
+                this.tabs.openView("settings");
+                await this.settingsPage.open();
+                this.settingsPage.select("locations");
+              }),
+          },
+        });
+        this.workspaces.skipped.set(null);
       });
     });
 

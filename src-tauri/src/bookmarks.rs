@@ -1,18 +1,24 @@
-//! Bookmarks (#111): notes, headings and searches. They live in `.obsidian/bookmarks.json` of the
+//! Bookmarks (#111): notes, headings and searches. They live in `.nixe/bookmarks.json` of the
 //! vault (Obsidian's format) when the user lets Nixe write there, else in `bookmarks.json` of the
-//! app data directory, one entry per vault.
+//! app data directory, one entry per vault. `.obsidian/bookmarks.json` is only read, as a fallback
+//! until the expiry (ADR 0007); Nixe never writes into `.obsidian/`.
 
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-/// File name of the bookmarks inside `.obsidian/` and inside the app data directory.
+/// File name of the bookmarks inside `.nixe/`, `.obsidian/` and inside the app data directory.
 pub const BOOKMARKS_FILE: &str = "bookmarks.json";
 /// Upper bound for either file.
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 
-/// The bookmarks file of a vault; it is only written when `.obsidian/` exists.
+/// The bookmarks file Nixe writes: `.nixe/bookmarks.json`.
 fn vault_file(root: &Path) -> PathBuf {
+    root.join(".nixe").join(BOOKMARKS_FILE)
+}
+
+/// The bookmarks file of Obsidian, read as a fallback only.
+fn obsidian_file(root: &Path) -> PathBuf {
     root.join(".obsidian").join(BOOKMARKS_FILE)
 }
 
@@ -49,16 +55,16 @@ fn write(target: &Path, content: &str) -> Result<(), String> {
     })
 }
 
-/// `.obsidian/bookmarks.json` of the vault; `None` when the vault has none.
+/// `.nixe/bookmarks.json` of the vault, else `.obsidian/bookmarks.json`; `None` when it has neither.
 pub fn read_vault(root: &Path) -> Result<Option<String>, String> {
-    read(&vault_file(root))
+    match read(&vault_file(root))? {
+        Some(text) => Ok(Some(text)),
+        None => read(&obsidian_file(root)),
+    }
 }
 
-/// Replaces `.obsidian/bookmarks.json`; refuses a vault without `.obsidian/`.
+/// Replaces `.nixe/bookmarks.json` (`.nixe/` is created when missing); `.obsidian/` is not touched.
 pub fn write_vault(root: &Path, content: &str) -> Result<(), String> {
-    if !root.join(".obsidian").is_dir() {
-        return Err("the vault has no .obsidian folder".into());
-    }
     write(&vault_file(root), content)
 }
 
@@ -102,16 +108,42 @@ mod tests {
     }
 
     #[test]
-    fn vault_bookmarks_need_an_obsidian_folder() {
+    fn vault_bookmarks_are_written_into_nixe_and_create_it() {
         let root = tmp("vault");
         fs::create_dir_all(&root).unwrap();
-        assert!(write_vault(&root, "{}").is_err());
+        write_vault(
+            &root,
+            r#"{"items":[{"type":"file","path":"a.md"}],"extra":1}"#,
+        )
+        .unwrap();
+        assert!(root.join(".nixe").join(BOOKMARKS_FILE).is_file());
         assert!(!root.join(".obsidian").exists());
-        fs::create_dir_all(root.join(".obsidian")).unwrap();
-        write_vault(&root, r#"{"items":[{"type":"file","path":"a.md"}]}"#).unwrap();
         assert_eq!(
             read_vault(&root).unwrap().as_deref(),
-            Some(r#"{"items":[{"type":"file","path":"a.md"}]}"#)
+            Some(r#"{"items":[{"type":"file","path":"a.md"}],"extra":1}"#)
+        );
+        assert!(!root
+            .join(".nixe")
+            .join(format!(".{BOOKMARKS_FILE}.nixe-tmp"))
+            .exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn reads_obsidian_as_fallback_and_never_writes_it() {
+        let root = tmp("fallback");
+        fs::create_dir_all(root.join(".obsidian")).unwrap();
+        let old = r#"{"items":[{"type":"file","path":"old.md"}]}"#;
+        fs::write(root.join(".obsidian").join(BOOKMARKS_FILE), old).unwrap();
+        assert_eq!(read_vault(&root).unwrap().as_deref(), Some(old));
+        write_vault(&root, r#"{"items":[]}"#).unwrap();
+        assert_eq!(
+            read_vault(&root).unwrap().as_deref(),
+            Some(r#"{"items":[]}"#)
+        );
+        assert_eq!(
+            fs::read_to_string(root.join(".obsidian").join(BOOKMARKS_FILE)).unwrap(),
+            old
         );
         let _ = fs::remove_dir_all(&root);
     }

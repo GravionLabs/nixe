@@ -69,6 +69,35 @@ describe("GitService", () => {
     expect(git.available()).toBe(true);
   });
 
+  it("reads the missing .gitignore entries and clears them without a repository (#443)", async () => {
+    const missing = vi.spyOn(backend, "gitGitignoreMissing").mockResolvedValue([".trash/"]);
+    await git.refresh();
+    expect(git.missingIgnores()).toEqual([".trash/"]);
+    vi.spyOn(backend, "gitVaultStatus").mockResolvedValue(null);
+    await git.refresh();
+    expect(git.missingIgnores()).toEqual([]);
+    missing.mockRejectedValue(new Error("x"));
+    vi.spyOn(backend, "gitVaultStatus").mockResolvedValue(status);
+    await git.refresh();
+    expect(git.missingIgnores()).toEqual([]);
+  });
+
+  it("adds the entries and reads again; dismissing hides the hint (#443)", async () => {
+    vi.spyOn(backend, "gitGitignoreMissing").mockResolvedValue([".trash/"]);
+    await git.refresh();
+    const add = vi.spyOn(backend, "gitGitignoreAdd").mockResolvedValue([".trash/"]);
+    vi.spyOn(backend, "gitGitignoreMissing").mockResolvedValue([]);
+    await git.addMissingIgnores();
+    expect(add).toHaveBeenCalled();
+    expect(git.missingIgnores()).toEqual([]);
+    vi.spyOn(backend, "gitGitignoreMissing").mockResolvedValue([".trash/"]);
+    await git.refresh();
+    const dismiss = vi.spyOn(backend, "gitGitignoreDismiss").mockResolvedValue(undefined);
+    await git.dismissIgnoreHint();
+    expect(dismiss).toHaveBeenCalled();
+    expect(git.missingIgnores()).toEqual([]);
+  });
+
   it("keeps the status object when a refresh reads the same state (#289)", async () => {
     await git.refresh();
     const first = git.status();

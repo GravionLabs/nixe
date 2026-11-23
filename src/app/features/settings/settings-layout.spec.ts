@@ -9,4 +9,12 @@ describe("settings layout", () => {
     // With the default flex basis a long description squeezed the access token column to 66 px.
     expect(css).toMatch(/\.label\s*\{[^}]*flex: 1 1 0;[^}]*min-width: 0/);
   });
+
+  it("limits the search field and the sections to a readable width (#544)", () => {
+    expect(css).toMatch(/\.search,\s*section\s*\{[^}]*max-width: 760px/);
+  });
+
+  it("keeps the scrollbar at the page edge: .content has no maximum width (#544)", () => {
+    expect(css).not.toMatch(/\.content\s*\{[^}]*max-width/);
+  });
 });

@@ -1,0 +1,50 @@
+<hx-dialog
+  [visible]="true"
+  (hidden)="onHidden()"
+  header="Set folder role"
+  dismissableMask
+  position="top"
+  width="min(480px, 90vw)"
+>
+  @if (dialog(); as d) {
+    <form (submit)="submit($event)">
+      <p class="folder" [title]="d.rel">{{ basename(d.rel) }}</p>
+      <label>
+        Role
+        <input
+          type="text"
+          list="folder-role-names"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="inbox, or an own name"
+          [value]="name()"
+          (input)="name.set($any($event.target).value)"
+        />
+        <datalist id="folder-role-names">
+          @for (role of standard; track role) {
+            <option [value]="role"></option>
+          }
+        </datalist>
+      </label>
+      <label>
+        Description{{ needsDescription() ? " (required for an own role)" : "" }}
+        <input
+          type="text"
+          autocomplete="off"
+          placeholder="What belongs into this folder"
+          [value]="description()"
+          (input)="description.set($any($event.target).value)"
+        />
+      </label>
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
+      <div class="buttons">
+        <button type="submit">Save</button>
+        @if (d.current) {
+          <button type="button" class="remove" (click)="remove()">Remove folder role</button>
+        }
+      </div>
+    </form>
+  }
+</hx-dialog>

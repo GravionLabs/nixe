@@ -10,6 +10,7 @@ import { basename, joinPath, toSlashes } from "../markdown/paths";
 import { SettingsService } from "../settings/settings.service";
 import { layoutHasNote } from "../tabs/layout";
 import { TabsService } from "../tabs/tabs.service";
+import { importNotice } from "./import-notice";
 import { filterTree, matchesFilter } from "./tree-filter";
 import type { TreeItem, TreeSort } from "./tree-model";
 import { buildTreeItems, defaultPage, sortItems } from "./tree-model";
@@ -105,6 +106,18 @@ export class WorkspaceService {
     }
   }
 
+  /** Set to show a toast, e.g. what the import of `.obsidian/` did; the app clears it. */
+  readonly notice = signal<string | null>(null);
+
+  /** The import of `.obsidian/` into `.nixe/` (#441); a failure is a warning, the vault opens anyway. */
+  private async importObsidian(): Promise<string | null> {
+    try {
+      return importNotice(await backend.importObsidianSettings());
+    } catch (e) {
+      return importNotice({ written: [], sources: [], warnings: [String(e)] });
+    }
+  }
+
   /** True while a folder is being opened: the state stored for it must not be overwritten yet. */
   private opening = false;
 
@@ -126,10 +139,12 @@ export class WorkspaceService {
     const hasOrder = await backend.isFile(joinPath(path, ".order"));
     const nodes = await this.load(path, hasOrder, 0);
     const vaultRoot = toSlashes(await backend.findVaultRoot(path));
+    const imported = await this.importObsidian();
     const vaultFiles = await backend.listVaultFiles(vaultRoot);
     this.rootHasOrder = hasOrder;
     this.vaultRoot.set(vaultRoot);
     this.vaultFiles.set(vaultFiles);
+    if (imported) this.notice.set(imported);
     this.root.set(path);
     this.rootNodes.set(nodes);
     this.settings.lastFolder.set(path);
@@ -294,6 +309,11 @@ export class WorkspaceService {
       children: signal<TreeNode[] | null>(null),
     };
     this.extraRoots.update((nodes) => [...nodes, node]);
+  }
+
+  /** Shows the further root at `path` under `name`; it keeps its place and its open state. */
+  renameExtraRoot(path: string, name: string): void {
+    this.extraRoots.update((nodes) => nodes.map((n) => (n.dirPath === path ? { ...n, name } : n)));
   }
 
   /** Drops the further roots, keeping the first. */

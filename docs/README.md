@@ -18,8 +18,11 @@ links and Mermaid rendering all at once.
 - [export.md](export.md) — a note as standalone HTML, PDF or print
 - [mcp.md](mcp.md) — the read-only MCP server for agents
 - [updater.md](updater.md) — auto update, signing and key handling
+- [Vault configuration](adr/0007-vault-configuration-in-nixe.md) — `.nixe/config.json`, `.nixe/bookmarks.json`, `.nixe/local/`, the import from `.obsidian/`
+- [vault-git.md](vault-git.md) — what a vault commits and what not, the `.gitignore` block
 - [cutover.md](cutover.md) — the checklist for replacing Obsidian
 - [roadmap.md](roadmap.md) — milestones M000 to M009 of the vault app
+- [Portable workspaces](adr/0008-location-variables-and-own-root-names-for-portable-workspaces.md) — location variables in root paths, own root names
 - [adr/](adr/) — architecture decisions
 - [backend/README.md](backend/README.md) — the Rust core (`src-tauri/`)
   - [backend/tauri-commands.md](backend/tauri-commands.md) — the command surface
@@ -79,4 +82,4 @@ The full description, with how to add the answer for a new command and a test, i
 
 ### Screenshots
 
-`pnpm screenshots [name...] [--out <dir>]` writes `<name>-light.png` and `<name>-dark.png` for the docs and the site (default folder `site/public/screenshots`). `scripts/browser/playwright.mjs` installs Chromium when it is missing, starts the demo server on port 1422 (or reuses the one that runs) and opens a page per theme with a fixed clock, no animation and a 1280×800 window, so two runs give the same images. `scripts/screenshots/views.mjs` lists the views (`editor`, `backlinks`, `search`) and the step helpers (`ready`, `openNote`, `searchFor`, …) that the e2e tests reuse. An unknown view name is an error (exit 2). A command the demo backend does not answer fails the run with its name; a view that fails leaves `tmp/shots/failed-<name>-<theme>.png` (git-ignored).
+`pnpm screenshots [name...] [--out <dir>]` writes `<name>-light.png` and `<name>-dark.png` for the docs and the site (default folder `site/public/screenshots`). `scripts/browser/playwright.mjs` installs Chromium when it is missing, starts the demo server on port 1422 (or reuses the one that runs) and opens a page per theme with a fixed clock, no animation and a 1280×800 window, so two runs give the same images. `scripts/screenshots/views.mjs` lists the views (`editor`, `backlinks`, `settings-locations`, `search`) and the step helpers (`ready`, `openNote`, `searchFor`, …) that the e2e tests reuse. An unknown view name is an error (exit 2). A command the demo backend does not answer fails the run with its name; a view that fails leaves `tmp/shots/failed-<name>-<theme>.png` (git-ignored).

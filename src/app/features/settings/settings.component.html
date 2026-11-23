@@ -205,6 +205,58 @@
                     }
                   </div>
                 }
+                @case ("locations") {
+                  <div class="locations">
+                    <ul aria-label="Location variables">
+                      @for (v of item.variables(); track v.name) {
+                        <li>
+                          <span class="loc-name">${{ v.name }}</span>
+                          <span class="loc-path">{{ v.path }}</span>
+                          <span class="actions">
+                            <button type="button" (click)="editLocation(v)">Edit</button>
+                            <button type="button" (click)="removeLocation(item, v.name)">
+                              Remove
+                            </button>
+                          </span>
+                        </li>
+                      } @empty {
+                        <li class="empty">No variable defined</li>
+                      }
+                    </ul>
+                    <div class="loc-form">
+                      <input
+                        type="text"
+                        [id]="'setting-' + item.id"
+                        aria-label="Variable name"
+                        placeholder="Books"
+                        [value]="locName()"
+                        (input)="locName.set(value($event))"
+                      />
+                      <input
+                        type="text"
+                        aria-label="Folder"
+                        placeholder="Absolute folder, like D:\Cloud\Books"
+                        [value]="locPath()"
+                        (input)="locPath.set(value($event))"
+                        (keydown.enter)="saveLocation(item)"
+                      />
+                      <button type="button" class="primary" (click)="saveLocation(item)">
+                        {{ locPrevious() === null ? "Add" : "Save" }}
+                      </button>
+                      @if (locPrevious() !== null) {
+                        <button type="button" (click)="cancelLocation()">Cancel</button>
+                      }
+                    </div>
+                    @if (locError(); as error) {
+                      <p class="notice" role="alert">{{ error }}</p>
+                    }
+                  </div>
+                }
+                @case ("action") {
+                  <button type="button" [id]="'setting-' + item.id" (click)="item.run()">
+                    {{ item.buttonLabel }}
+                  </button>
+                }
                 @case ("readonly") {
                   <span class="readonly" [id]="'setting-' + item.id">{{ item.value() }}</span>
                   @if (item.source) {

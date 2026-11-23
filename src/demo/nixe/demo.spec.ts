@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
+import { LOG_COMMAND } from "../../app/core/log/command-log";
 import { HOME_NOTE, NOTES, TIME, VAULT } from "./data";
 import { createNixeDemo } from "./demo";
 import { EXCLUDED } from "./excluded";
@@ -121,6 +122,10 @@ describe("the commands of the app", () => {
     expect(app).toContain("git_vault_status");
     expect(app).toContain("terminal_open");
     expect(app).toContain("workspace_add_root");
+  });
+
+  it("answers the command that loggedInvoke sends for a failed command (#542)", () => {
+    expect(answered.has(LOG_COMMAND)).toBe(true);
   });
 
   it("answers every command or lists it as excluded with a reason", () => {

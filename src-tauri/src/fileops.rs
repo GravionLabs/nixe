@@ -6,7 +6,10 @@ use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 
-/// Where Obsidian puts a new note, from `.obsidian/app.json`.
+use crate::vault::config::{self, Config};
+
+/// Where a new note goes: `newNotes.folder` or the role `inbox` of `.nixe/config.json`, else
+/// `.obsidian/app.json`, else the vault root.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewNoteLocation {
@@ -16,8 +19,32 @@ pub struct NewNoteLocation {
     pub folder: String,
 }
 
-/// The new-note folder setting; the vault root when the file or the keys are missing or invalid.
+/// A value and the vault-relative file it was read from.
+pub type Sourced = (String, &'static str);
+
+const APP_JSON: &str = ".obsidian/app.json";
+const TEMPLATES_JSON: &str = ".obsidian/templates.json";
+const DAILY_JSON: &str = ".obsidian/daily-notes.json";
+
+/// The new-note folder setting and its source; the vault root when nothing sets it.
+pub fn new_note_location_sourced(root: &Path) -> (NewNoteLocation, &'static str) {
+    if let Some(folder) = Config::load(root).new_note_folder() {
+        return (
+            NewNoteLocation {
+                location: "folder".into(),
+                folder,
+            },
+            config::SOURCE,
+        );
+    }
+    (new_note_location_obsidian(root), APP_JSON)
+}
+
 pub fn new_note_location(root: &Path) -> NewNoteLocation {
+    new_note_location_sourced(root).0
+}
+
+fn new_note_location_obsidian(root: &Path) -> NewNoteLocation {
     let default = NewNoteLocation {
         location: "root".into(),
         folder: String::new(),
@@ -48,9 +75,13 @@ pub fn new_note_location(root: &Path) -> NewNoteLocation {
     }
 }
 
-/// The template folder of the Templates plugin, from `.obsidian/templates.json` (`folder`);
-/// vault-relative with forward slashes. `None` when the file or the key is missing, invalid or empty.
-pub fn template_folder(root: &Path) -> Option<String> {
+/// The template folder (`templates.folder` or the role `templates` of `.nixe/config.json`, else
+/// `.obsidian/templates.json`) with its source; vault-relative with forward slashes. `None` when
+/// nothing sets it.
+pub fn template_folder_sourced(root: &Path) -> Option<Sourced> {
+    if let Some(folder) = Config::load(root).template_folder() {
+        return Some((folder, config::SOURCE));
+    }
     let text = fs::read_to_string(root.join(".obsidian").join("templates.json")).ok()?;
     let json = serde_json::from_str::<serde_json::Value>(&text).ok()?;
     let folder = json
@@ -59,11 +90,16 @@ pub fn template_folder(root: &Path) -> Option<String> {
         .replace('\\', "/")
         .trim_matches('/')
         .to_string();
-    (!folder.is_empty()).then_some(folder)
+    (!folder.is_empty()).then_some((folder, TEMPLATES_JSON))
 }
 
-/// The Daily notes plugin settings from `.obsidian/daily-notes.json`; a key that is missing, empty
-/// or not a string is `None`. Folder and template are vault-relative with forward slashes.
+pub fn template_folder(root: &Path) -> Option<String> {
+    template_folder_sourced(root).map(|(folder, _)| folder)
+}
+
+/// The Daily notes settings, each key from `.nixe/config.json` and else from
+/// `.obsidian/daily-notes.json`; a key that is missing, empty or not a string is `None`. Folder
+/// and template are vault-relative with forward slashes.
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct DailyNotesConfig {
     pub folder: Option<String>,
@@ -71,23 +107,46 @@ pub struct DailyNotesConfig {
     pub template: Option<String>,
 }
 
-pub fn daily_notes_config(root: &Path) -> DailyNotesConfig {
-    let Some(json) = fs::read_to_string(root.join(".obsidian").join("daily-notes.json"))
+/// The Daily notes settings with the source of each key.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct DailyNotesSourced {
+    pub folder: Option<Sourced>,
+    pub format: Option<Sourced>,
+    pub template: Option<Sourced>,
+}
+
+pub fn daily_notes_sourced(root: &Path) -> DailyNotesSourced {
+    let config = Config::load(root);
+    let json = fs::read_to_string(root.join(".obsidian").join("daily-notes.json"))
         .ok()
-        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
-    else {
-        return DailyNotesConfig::default();
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
+    let text = |key: &str| {
+        json.as_ref()
+            .and_then(|j| j.get(key))
+            .and_then(|v| v.as_str())
+            .map(str::trim)
     };
-    let text = |key: &str| json.get(key).and_then(|v| v.as_str()).map(str::trim);
     let path = |key: &str| {
         text(key)
             .map(|v| v.replace('\\', "/").trim_matches('/').to_string())
             .filter(|v| !v.is_empty())
     };
+    let obsidian = |value: Option<String>| value.map(|v| (v, DAILY_JSON));
+    let nixe = |value: Option<String>| value.map(|v| (v, config::SOURCE));
+    DailyNotesSourced {
+        folder: nixe(config.daily_folder()).or_else(|| obsidian(path("folder"))),
+        format: nixe(config.daily_format())
+            .or_else(|| obsidian(text("format").filter(|v| !v.is_empty()).map(str::to_string))),
+        template: nixe(config.daily_template()).or_else(|| obsidian(path("template"))),
+    }
+}
+
+pub fn daily_notes_config(root: &Path) -> DailyNotesConfig {
+    let sourced = daily_notes_sourced(root);
     DailyNotesConfig {
-        folder: path("folder"),
-        format: text("format").filter(|v| !v.is_empty()).map(str::to_string),
-        template: path("template"),
+        folder: sourced.folder.map(|s| s.0),
+        format: sourced.format.map(|s| s.0),
+        template: sourced.template.map(|s| s.0),
     }
 }
 

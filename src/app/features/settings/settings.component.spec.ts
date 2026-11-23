@@ -51,6 +51,7 @@ function render(
     selectedId: signal("sync"),
     select: vi.fn(),
     refreshObsidian: vi.fn().mockResolvedValue(undefined),
+    loadLocations: vi.fn().mockResolvedValue(undefined),
   };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
@@ -161,5 +162,115 @@ describe("SettingsComponent gh sign-in result", () => {
 
   it("shows the busy notice while the sign-in runs", () => {
     expect(render({ gh: { busy: true } }).el.textContent).toContain("Waiting for the GitHub CLI");
+  });
+});
+
+/** Lets the promises of a click settle. */
+const settle = () => new Promise<void>((resolve) => setTimeout(resolve));
+
+describe("SettingsComponent locations (#495)", () => {
+  function renderLocations(variables: { name: string; path: string }[]) {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const item: SettingItem = {
+      kind: "locations",
+      id: "location-variables",
+      label: "Location variables of this device",
+      variables: () => variables,
+      save,
+      remove,
+      reserved: ["Home"],
+    };
+    const section = { id: "locations", title: "Locations", items: [item] };
+    const page = {
+      sections: signal([section]),
+      listed: signal([section]),
+      query: signal(""),
+      selectedId: signal("locations"),
+      select: vi.fn(),
+      refreshObsidian: vi.fn().mockResolvedValue(undefined),
+      loadLocations: vi.fn().mockResolvedValue(undefined),
+    };
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: SettingsPageService, useValue: page },
+        { provide: ShortcutService, useValue: { cancel: vi.fn() } },
+        { provide: CommandRegistry, useValue: { get: vi.fn() } },
+      ],
+    });
+    TestBed.overrideComponent(SettingsComponent, {
+      set: {
+        templateUrl: undefined,
+        styleUrl: undefined,
+        template: readFileSync("src/app/features/settings/settings.component.html", "utf8"),
+      },
+    });
+    const fixture = TestBed.createComponent(SettingsComponent);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const fill = (label: string, text: string) => {
+      const input = el.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+      input.value = text;
+      input.dispatchEvent(new Event("input"));
+      // The app checks for changes after each key; the fixture does not.
+      fixture.detectChanges();
+    };
+    return { fixture, el, save, remove, page, fill };
+  }
+
+  it("lists the variables with their folders and loads them when it opens", () => {
+    const { el, page } = renderLocations([{ name: "Books", path: "D:\\Cloud\\Bücher" }]);
+    expect(el.querySelector(".loc-name")!.textContent).toBe("$Books");
+    expect(el.querySelector(".loc-path")!.textContent).toBe("D:\\Cloud\\Bücher");
+    expect(page.loadLocations).toHaveBeenCalled();
+    expect(renderLocations([]).el.textContent).toContain("No variable defined");
+  });
+
+  it("adds a variable and clears the form", async () => {
+    const { el, fixture, save, fill } = renderLocations([]);
+    fill("Variable name", "Books");
+    fill("Folder", "/data/books");
+    button(el, "Add")!.click();
+    await settle();
+    expect(save).toHaveBeenCalledWith("Books", "/data/books", null);
+    fixture.detectChanges();
+    expect(el.querySelector<HTMLInputElement>('input[aria-label="Folder"]')!.value).toBe("");
+  });
+
+  it("edits a row under its previous name and cancels an edit", async () => {
+    const { el, fixture, save, fill } = renderLocations([{ name: "Books", path: "/b" }]);
+    button(el, "Edit")!.click();
+    fixture.detectChanges();
+    expect(el.querySelector<HTMLInputElement>('input[aria-label="Variable name"]')!.value).toBe(
+      "Books",
+    );
+    fill("Variable name", "Library");
+    button(el, "Save")!.click();
+    await settle();
+    expect(save).toHaveBeenCalledWith("Library", "/b", "Books");
+    button(el, "Edit")!.click();
+    fixture.detectChanges();
+    button(el, "Cancel")!.click();
+    fixture.detectChanges();
+    expect(button(el, "Add")).toBeTruthy();
+  });
+
+  it("removes a variable", () => {
+    const { el, remove } = renderLocations([{ name: "Books", path: "/b" }]);
+    button(el, "Remove")!.click();
+    expect(remove).toHaveBeenCalledWith("Books");
+  });
+
+  it("shows why a variable is refused and keeps the form", async () => {
+    const { el, fixture, save, fill } = renderLocations([]);
+    save.mockRejectedValue("$Home is a built-in variable and cannot be redefined");
+    fill("Variable name", "Home");
+    fill("Folder", "/h");
+    button(el, "Add")!.click();
+    await settle();
+    fixture.detectChanges();
+    expect(el.querySelector("[role=alert]")!.textContent).toContain("built-in");
+    expect(el.querySelector<HTMLInputElement>('input[aria-label="Folder"]')!.value).toBe("/h");
   });
 });

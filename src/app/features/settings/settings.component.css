@@ -43,6 +43,16 @@ nav button.active {
   overflow-y: auto;
 }
 
+/*
+ * The search field and the sections keep a readable width, left-aligned next to the navigation, so a
+ * label and its control stay close on a wide window (#544). The limit sits on the children, not on
+ * `.content`: the scrollbar stays at the right edge of the page.
+ */
+.search,
+section {
+  max-width: 760px;
+}
+
 .search {
   width: 100%;
   box-sizing: border-box;
@@ -227,4 +237,55 @@ input::placeholder {
 .empty {
   padding: 12px 0;
   color: var(--h-text-muted-color);
+}
+
+.locations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
+}
+
+.locations ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.locations li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 2px 0;
+}
+
+.loc-name {
+  font-weight: 600;
+}
+
+.loc-path {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  opacity: 0.8;
+}
+
+.loc-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.loc-form input {
+  flex: 1 1 120px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+  background: var(--h-content-background);
+  color: inherit;
+  font: inherit;
 }

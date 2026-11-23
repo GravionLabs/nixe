@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    uses: GravionLabs/ci/.github/workflows/node-package.yml@v1
+    uses: GravionLabs/ci/.github/workflows/node-package.yml@a4dc7df4dca51c5402b2e440451f59cb13ea5259 # v1
     permissions:
       contents: write
       checks: write
@@ -18,7 +18,7 @@ jobs:
     with:
       node-version: '26'
       package-manager: npm
-      # The template has no lint script; set true after setup-biome-husky.
+      # The template has no lint script; set true after setup-oxc-husky.
       run-lint: false
     secrets:
       npm-token: ${{ secrets.NPM_TOKEN }}

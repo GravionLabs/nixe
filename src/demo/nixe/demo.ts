@@ -2,7 +2,7 @@
 // vault, shows a note and edits it, and those of the Git views, the workspaces and the terminal. A command that is not answered here fails the run with its name
 // (`kit/backend.ts`), so a new feature shows up as a red e2e test, not as a silent empty panel.
 import { DemoBackend } from "../kit/backend";
-import type { Workspace } from "../../app/core/file/backend";
+import type { OwnLocations, Workspace } from "../../app/core/file/backend";
 import { NOTES, TIME, VAULT } from "./data";
 import { DemoGit } from "./git";
 import { DemoVault } from "./vault";
@@ -45,6 +45,8 @@ export function createNixeDemo(): NixeDemo {
   const vault = new DemoVault(VAULT, NOTES, Date.parse(TIME));
   const git = new DemoGit(vault, Date.parse(TIME));
   const workspaces = new Map<string, Workspace>();
+  // The own location variables of the device (#495), in memory like the workspaces.
+  let locations: OwnLocations = { variables: { Books: "/demo/Books" } };
   const tokens = new Set<string>();
   const sessions = new Map<number, string>();
   let nextSession = 1;
@@ -52,6 +54,15 @@ export function createNixeDemo(): NixeDemo {
   let settings: string | null = JSON.stringify({ lastFolder: VAULT, recentVaults: [VAULT] });
   let bookmarks: string | null = null;
   let folds: string | null = null;
+  // The folder roles of `.nixe/config.json`, in memory (#446).
+  const roles = new Map<string, { path: string; description: string | null }>();
+  const layout = () => ({
+    language: null,
+    folders: Object.fromEntries(
+      [...roles].map(([role, e]) => [role, { ...e, missing: !vault.exists(`${VAULT}/${e.path}`) }]),
+    ),
+    files: {},
+  });
 
   backend.fixed({
     take_pending_file: null,
@@ -65,6 +76,7 @@ export function createNixeDemo(): NixeDemo {
     find_vault_root: VAULT,
     find_wiki_root: VAULT,
     obsidian_settings: [],
+    import_obsidian_settings: { written: [], sources: [], warnings: [] },
     link_format: "shortest",
     new_note_location: { location: "root", folder: "" },
     template_folder: null,
@@ -87,6 +99,7 @@ export function createNixeDemo(): NixeDemo {
     log_path: () => "/demo/logs/nixe.log",
     log_read: () => "INFO nixe demo build, no log file\n",
     log_set_level: (a) => str(a, "level"),
+    log_command_error: () => null,
     log_write: (a) => console.info(`[nixe ${str(a, "level")}] ${str(a, "message")}`),
     read_app_settings: () => settings,
     write_app_settings: (a) => void (settings = str(a, "content")),
@@ -94,6 +107,18 @@ export function createNixeDemo(): NixeDemo {
     write_app_bookmarks: (a) => void (bookmarks = str(a, "content")),
     read_folds: () => folds,
     write_folds: (a) => void (folds = str(a, "content")),
+    vault_layout: () => layout(),
+    set_folder_role: (a) => {
+      const [path, role] = [str(a, "path"), str(a, "role")];
+      const taken = [...roles].find(([name, e]) => name === role && e.path !== path);
+      if (taken) throw `The role ${role} is already set on ${taken[1].path}.`;
+      roles.set(role, { path, description: strOrNull(a, "description") });
+      return layout();
+    },
+    remove_folder_role: (a) => {
+      for (const [role, e] of roles) if (e.path === str(a, "path")) roles.delete(role);
+      return layout();
+    },
     is_dir: (a) => vault.isDir(str(a, "path")),
     is_file: (a) => vault.isFile(str(a, "path")),
     path_exists: (a) => vault.exists(str(a, "path")),
@@ -131,6 +156,9 @@ export function createNixeDemo(): NixeDemo {
 
     // Git: a seeded history (`git.ts`), the open changes and a branch to review.
     git_vault_status: () => git.status(),
+    git_gitignore_missing: () => [],
+    git_gitignore_add: () => [],
+    git_gitignore_dismiss: () => null,
     git_vault_log: (a) => git.log(num(a, "offset"), num(a, "limit")),
     git_note_history: (a) => git.noteHistory(str(a, "path"), num(a, "offset"), num(a, "limit")),
     git_note_version: (a) => git.noteVersion(str(a, "path"), strOrNull(a, "rev")),
@@ -176,6 +204,50 @@ export function createNixeDemo(): NixeDemo {
       const path = str(a, "path");
       workspace.roots.push({ path, name: path.slice(path.lastIndexOf("/") + 1), kind: "folder" });
       return workspace;
+    },
+    workspace_variable_choices: () => [],
+    workspace_rename_root: (a) => {
+      const workspace = structuredClone(a?.["workspace"] as Workspace);
+      const path = str(a, "path");
+      const name = str(a, "name").trim();
+      if (!name || /[:[\]|#^]/.test(name)) throw `"${name}" is not a valid root name`;
+      if (
+        workspace.roots.some((r) => r.path !== path && r.name.toLowerCase() === name.toLowerCase())
+      )
+        throw `another root is called "${name}" already`;
+      const root = workspace.roots.find((r) => r.path === path);
+      if (!root) throw `${path}: not a root of this workspace`;
+      root.name = name;
+      return workspace;
+    },
+    locations_list: () => structuredClone(locations),
+    locations_set: (a) => {
+      const name = str(a, "name").trim();
+      const path = str(a, "path").trim();
+      const previous = strOrNull(a, "previous");
+      if (!/^[\p{L}\p{N}_]+$/u.test(name)) throw `"${name}" is no variable name`;
+      if (["home", "documents", "onedrive", "icloud"].includes(name.toLowerCase())) {
+        throw `$${name} is a built-in variable and cannot be redefined`;
+      }
+      if (previous !== name && name in locations.variables) throw `$${name} exists already`;
+      if (!path.startsWith("/")) throw `"${path}" is not an absolute path`;
+      const variables = Object.fromEntries(
+        Object.entries(locations.variables).filter(([n]) => n !== previous),
+      );
+      locations = { ...locations, variables: { ...variables, [name]: path } };
+      return structuredClone(locations);
+    },
+    locations_remove: (a) => {
+      const variables = Object.fromEntries(
+        Object.entries(locations.variables).filter(([n]) => n !== str(a, "name")),
+      );
+      locations = { ...locations, variables };
+      return structuredClone(locations);
+    },
+    locations_choose_onedrive: (a) => {
+      const path = strOrNull(a, "path");
+      locations = path ? { ...locations, onedrive: path } : { variables: locations.variables };
+      return structuredClone(locations);
     },
     workspace_resolve_links: (a) =>
       strings(a, "targets").map((target) => {

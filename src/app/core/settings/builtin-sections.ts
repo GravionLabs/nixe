@@ -11,6 +11,7 @@ import type { ObsidianSetting } from "../file/backend";
 import type { Command } from "../commands/command-registry";
 import { PAGE_SIZES, sanitizePageSize } from "../export/export-core";
 import { clampMinutes } from "../git/auto-sync";
+import { BUILTIN_LOCATIONS } from "./locations.service";
 import { sanitizeMode } from "../preview/preview-core";
 import type { SettingItem, SettingsSection } from "./settings-registry";
 import type { SettingsService } from "./settings.service";
@@ -36,6 +37,21 @@ export interface SectionSources {
     deleteToken: () => Promise<void>;
     cancelTokenPrompt: () => void;
     gh?: NonNullable<Extract<SettingItem, { kind: "token" }>["gh"]>;
+  };
+  /** The folder roles of the open vault (#446); without them the Vault section only says so. */
+  roles?: () => readonly {
+    role: string;
+    path: string;
+    description: string | null;
+    missing: boolean;
+  }[];
+  /** The skills of the vault (#445); without them, or while the vault has no `skills-lock.json`, no button is shown. */
+  skills?: { available: () => boolean; update: () => void };
+  /** The own location variables of this device (#495); without it the Locations section is absent. */
+  locations?: {
+    variables: () => readonly { name: string; path: string }[];
+    save: (name: string, path: string, previous: string | null) => Promise<void>;
+    remove: (name: string) => Promise<void>;
   };
   /** The terminal (#360); absent where there is none (iOS), so the setting is not shown. */
   terminal?: { setEnabled: (value: boolean) => Promise<boolean> };
@@ -330,8 +346,10 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
               kind: "readonly" as const,
               id: `obsidian-${o.id}`,
               label: o.label,
-              description: "Set in Obsidian; change it there.",
-              keywords: ["obsidian", o.source],
+              description: o.source.startsWith(".nixe/")
+                ? "Set in `.nixe/config.json`; change it there."
+                : "Read from `.obsidian/` until Nixe imports it into `.nixe/config.json`; set it in `.nixe/config.json`, which wins.",
+              keywords: ["nixe", "obsidian", o.source],
               value: () => o.value ?? NOT_SET,
               source: () => o.source,
             }))
@@ -339,10 +357,10 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
               {
                 kind: "readonly" as const,
                 id: "obsidian-none",
-                label: "Obsidian settings",
+                label: "Vault settings",
                 description:
-                  "Open a vault to see its new-note folder, attachment folder, link format, templates and daily notes.",
-                keywords: ["obsidian", "attachment", "link format", "new note", "daily"],
+                  "Open a vault to see its new-note folder, attachment folder, link format, templates and daily notes (`.nixe/config.json`, else `.obsidian/`).",
+                keywords: ["nixe", "obsidian", "attachment", "link format", "new note", "daily"],
                 value: () => "No vault open",
               },
             ];
@@ -352,27 +370,27 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
             "template-folder",
             "Template folder",
             s.templateFolder,
-            "Used when `.obsidian/templates.json` names none.",
+            "Used when neither `.nixe/config.json` nor `.obsidian/templates.json` names one.",
             "Templates",
           ),
           text(
             "daily-folder",
             "Daily notes folder",
             s.dailyFolder,
-            "Used when `.obsidian/daily-notes.json` sets none.",
+            "Used when neither `.nixe/config.json` nor `.obsidian/daily-notes.json` sets it.",
           ),
           text(
             "daily-format",
             "Daily notes date format",
             s.dailyFormat,
-            "Used when `.obsidian/daily-notes.json` sets none.",
+            "Used when neither `.nixe/config.json` nor `.obsidian/daily-notes.json` sets it.",
             "YYYY-MM-DD",
           ),
           text(
             "daily-template",
             "Daily notes template",
             s.dailyTemplate,
-            "Used when `.obsidian/daily-notes.json` sets none.",
+            "Used when neither `.nixe/config.json` nor `.obsidian/daily-notes.json` sets it.",
           ),
           {
             kind: "text",
@@ -388,8 +406,8 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
             "bookmarks-in-vault",
             "Write bookmarks into the vault",
             s.bookmarksInVault,
-            "Keep them in `.obsidian/bookmarks.json` (shared with Obsidian) instead of the app data. Needs a vault with an `.obsidian` folder.",
-            ["bookmarks", "obsidian"],
+            "Keep them in `.nixe/bookmarks.json` of the vault instead of the app data. An `.obsidian/bookmarks.json` is still read until it is replaced.",
+            ["bookmarks", "nixe", "obsidian"],
           ),
           toggle(
             "extract-embed",
@@ -398,6 +416,61 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
             "Extract selection and Extract heading leave `![[note]]` instead of `[[note]]`.",
             ["extract", "composer", "embed"],
           ),
+        ];
+      },
+    },
+    {
+      id: "vault",
+      title: "Vault",
+      order: 32,
+      items: () => {
+        const roles = src.roles?.() ?? [];
+        const update: SettingItem[] = src.skills?.available()
+          ? [
+              {
+                kind: "action",
+                id: "vault-skills-update",
+                label: "Skills",
+                description:
+                  "Updates the skills of the vault from GravionLabs/skills with `npx skills update -y` in a terminal tab. The changed files are ordinary changes in the Git view; nothing is committed. Needs the terminal and Node.js.",
+                keywords: ["nixe", "skills", "update", "npx", "vault-setup"],
+                buttonLabel: "Update vault skills",
+                run: () => src.skills?.update(),
+              },
+            ]
+          : [];
+        if (roles.length === 0) {
+          return [
+            {
+              kind: "readonly" as const,
+              id: "folder-roles-none",
+              label: "Folder roles",
+              description:
+                "A folder role tells skills and agents where to file notes. Set one with “Set folder role…” in the context menu of a folder; it is stored in `.nixe/config.json`.",
+              keywords: ["nixe", "folder", "role", "inbox", "journal"],
+              value: () => "No folder roles",
+            },
+            ...update,
+          ];
+        }
+        return [
+          ...roles.map((r) => ({
+            kind: "readonly" as const,
+            id: `folder-role-${r.role}`,
+            label: r.role,
+            description: [
+              r.description,
+              r.missing
+                ? "The folder is missing. The role is kept; set it again or restore the folder."
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" "),
+            keywords: ["nixe", "folder", "role", r.path],
+            value: () => (r.missing ? `${r.path} (missing)` : r.path),
+            source: () => ".nixe/config.json",
+          })),
+          ...update,
         ];
       },
     },
@@ -513,6 +586,44 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
         ...appearanceItems(),
       ],
     },
+    ...(src.locations
+      ? [
+          {
+            id: "locations",
+            title: "Locations",
+            order: 45,
+            items: (): SettingItem[] => {
+              const l = src.locations!;
+              const variables = l.variables();
+              return [
+                {
+                  kind: "locations",
+                  id: "location-variables",
+                  label: "Location variables of this device",
+                  description:
+                    "A name for a folder on this device, like Books = D:\\Cloud\\Books. A workspace root written as $Books/notes finds its folder here on every device. They stay on this device, not in a workspace or the vault. Home, Documents, OneDrive and iCloud are built in.",
+                  keywords: [
+                    "variable",
+                    "folder",
+                    "path",
+                    "root",
+                    "workspace",
+                    "device",
+                    "onedrive",
+                    "icloud",
+                    "$",
+                    ...variables.flatMap((v) => [v.name, v.path]),
+                  ],
+                  variables: () => l.variables(),
+                  save: l.save,
+                  remove: l.remove,
+                  reserved: BUILTIN_LOCATIONS,
+                },
+              ];
+            },
+          },
+        ]
+      : []),
     {
       id: "sync",
       title: "Sync",
