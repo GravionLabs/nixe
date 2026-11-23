@@ -45,6 +45,24 @@ describe("Settings of the demo", () => {
     await expect(app.backend.workspaceLoad("Work")).rejects.toContain("No such workspace");
   });
 
+  it("keeps the own location variables of the device (#495)", async () => {
+    expect((await app.backend.locationsList()).variables).toEqual({ Books: "/demo/Books" });
+    const added = await app.backend.locationsSet("Papers", "/demo/Papers", null);
+    expect(added.variables).toEqual({ Books: "/demo/Books", Papers: "/demo/Papers" });
+    const renamed = await app.backend.locationsSet("Library", "/demo/Lib", "Books");
+    expect(renamed.variables).toEqual({ Library: "/demo/Lib", Papers: "/demo/Papers" });
+    await expect(app.backend.locationsSet("Home", "/x", null)).rejects.toContain("built-in");
+    await expect(app.backend.locationsSet("Papers", "/x", null)).rejects.toContain("exists");
+    await expect(app.backend.locationsSet("A", "rel", null)).rejects.toContain("absolute");
+    expect((await app.backend.locationsRemove("Papers")).variables).toEqual({
+      Library: "/demo/Lib",
+    });
+    expect((await app.backend.locationsChooseOnedrive("/demo/OneDrive-Work")).onedrive).toBe(
+      "/demo/OneDrive-Work",
+    );
+    expect((await app.backend.locationsChooseOnedrive(null)).onedrive).toBeUndefined();
+  });
+
   it("searches and resolves links over a workspace", async () => {
     const roots = [{ path: "/demo/Notes", name: "Notes" }];
     expect((await app.backend.searchWorkspace(roots, "backlinks"))[0]).toMatchObject({

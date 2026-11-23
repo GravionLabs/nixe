@@ -16,6 +16,7 @@ import { backend } from "../file/backend";
 import { provideHxAppInfo } from "@gravionlabs/helix-desktop/tauri";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { builtinSections, parseList } from "./builtin-sections";
+import { LocationsService } from "./locations.service";
 import { SettingsPageService } from "./settings-page.service";
 import { SettingsRegistry } from "./settings-registry";
 import { SettingsService } from "./settings.service";
@@ -67,10 +68,44 @@ describe("settings page", () => {
       "Files and links",
       "Capture",
       "Appearance",
+      "Locations",
       "Sync",
       "Terminal",
       "Shortcuts",
     ]);
+  });
+
+  it("finds the Locations section by its title, a variable name or a folder (#495)", async () => {
+    const locations = TestBed.inject(LocationsService);
+    vi.spyOn(backend, "locationsSet").mockResolvedValue({
+      variables: { Books: "D:\\Cloud\\Bücher" },
+    });
+    await locations.save("Books", "D:\\Cloud\\Bücher");
+    for (const query of ["locations", "variable", "books", "Bücher", "onedrive"]) {
+      page.query.set(query);
+      const found = page.sections().find((s) => s.id === "locations");
+      expect(
+        found?.items.map((i) => i.id),
+        query,
+      ).toEqual(["location-variables"]);
+    }
+    page.query.set("zzz");
+    expect(page.sections().find((s) => s.id === "locations")).toBeUndefined();
+    page.select("locations");
+    expect(page.query()).toBe("");
+    expect(page.listed().map((s) => s.id)).toEqual(["locations"]);
+  });
+
+  it("hands the item the variables and the reserved names (#495)", async () => {
+    const item = TestBed.inject(SettingsRegistry)
+      .shown()
+      .flatMap((s) => s.items)
+      .find((i) => i.id === "location-variables")!;
+    if (item.kind !== "locations") throw new Error("locations expected");
+    expect(item.reserved).toEqual(["Home", "Documents", "OneDrive", "iCloud"]);
+    vi.spyOn(backend, "locationsList").mockResolvedValue({ variables: { Books: "/b" } });
+    await page.loadLocations();
+    expect(item.variables()).toEqual([{ name: "Books", path: "/b" }]);
   });
 
   it("shows the running version read-only in General", () => {

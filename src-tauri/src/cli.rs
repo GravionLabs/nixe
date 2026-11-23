@@ -316,8 +316,12 @@ pub(crate) fn select_roots(
                 "--workspace and --vault cannot be combined".into(),
             ));
         }
-        let ws = crate::workspace::load(app_data, name, &crate::workspace::Locations::from_env())
-            .map_err(CliError::Failed)?;
+        let ws = crate::workspace::load(
+            app_data,
+            name,
+            &crate::workspace::Locations::from_env().with_own(app_data),
+        )
+        .map_err(CliError::Failed)?;
         let present: Vec<WorkspaceRoot> = ws
             .roots
             .into_iter()

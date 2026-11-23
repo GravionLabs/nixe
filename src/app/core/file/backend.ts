@@ -439,6 +439,14 @@ export interface Workspace {
   roots: WorkspaceRoot[];
 }
 
+/** The location variables of this device that the user defined (#495). */
+export interface OwnLocations {
+  /** Variable name to absolute folder. */
+  variables: Record<string, string>;
+  /** The OneDrive folder picked among several accounts. */
+  onedrive?: string;
+}
+
 export interface ResolvedLink {
   root: string;
   path: string;
@@ -574,6 +582,15 @@ export const backend = {
   /** `workspace` with the folder added as a root; the backend detects its kind. */
   workspaceAddRoot: (workspace: Workspace, path: string) =>
     invoke<Workspace>("workspace_add_root", { workspace, path }),
+  /** The own location variables of this device (app data, never a workspace or the vault). */
+  locationsList: () => invoke<OwnLocations>("locations_list"),
+  /** Defines `name` as an existing absolute folder; `previous` is the name before a rename. */
+  locationsSet: (name: string, path: string, previous: string | null) =>
+    invoke<OwnLocations>("locations_set", { name, path, previous }),
+  locationsRemove: (name: string) => invoke<OwnLocations>("locations_remove", { name }),
+  /** Stores the OneDrive folder picked among several accounts; `null` forgets it. */
+  locationsChooseOnedrive: (path: string | null) =>
+    invoke<OwnLocations>("locations_choose_onedrive", { path }),
   /** Resolves link targets of a note in root `from`; `Root name:Note` reaches another root. */
   workspaceResolveLinks: (workspace: Workspace, from: string, targets: string[]) =>
     invoke<(ResolvedLink | null)[]>("workspace_resolve_links", { workspace, from, targets }),

@@ -6,6 +6,7 @@
 //! A wikilink resolves inside the root of the note that holds it. A link to a note of another root
 //! names that root with a prefix: `[[Root name:Note]]`, `[[Root name:folder/Note#Heading]]`.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -124,9 +125,117 @@ pub struct Locations {
     /// Several OneDrive folders and no choice yet: the candidates.
     pub onedrive_candidates: Vec<PathBuf>,
     pub icloud: Option<PathBuf>,
+    /// The variables the user defined on this device (#495), by name.
+    pub own: BTreeMap<String, PathBuf>,
+}
+
+/// Names of the built-in variables; an own variable cannot take one of them.
+pub const BUILTIN_VARIABLES: [&str; 4] = ["Home", "Documents", "OneDrive", "iCloud"];
+
+/// File of the own variables of this device inside the app data directory, next to `settings.json`.
+/// It is never part of a workspace or a vault.
+pub const LOCATIONS_FILE: &str = "locations.json";
+
+/// What `locations.json` holds.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OwnLocations {
+    /// Own variable names and their absolute folders.
+    #[serde(default)]
+    pub variables: BTreeMap<String, String>,
+    /// The OneDrive folder picked among several accounts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub onedrive: Option<String>,
+}
+
+impl OwnLocations {
+    /// The file of `dir`; missing or damaged text gives no variables.
+    pub fn load(dir: &Path) -> OwnLocations {
+        fs::read_to_string(dir.join(LOCATIONS_FILE))
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_default()
+    }
+
+    /// Atomically writes the file into `dir`.
+    pub fn save(&self, dir: &Path) -> Result<(), String> {
+        fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        let target = dir.join(LOCATIONS_FILE);
+        let tmp = dir.join(format!(".{LOCATIONS_FILE}.nixe-tmp"));
+        let json = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
+        let result = (|| {
+            let mut file = fs::File::create(&tmp)?;
+            file.write_all(json.as_bytes())?;
+            file.sync_all()?;
+            fs::rename(&tmp, &target)
+        })();
+        result.map_err(|e| {
+            let _ = fs::remove_file(&tmp);
+            format!("{}: {e}", target.display())
+        })
+    }
+
+    /// Defines or changes the variable `name` as the folder `path`, and drops `previous` (a
+    /// rename). The name is letters, digits and `_` and no built-in name (any case); the folder is
+    /// an existing absolute one. Nothing changes on an error.
+    pub fn set(&mut self, name: &str, path: &str, previous: Option<&str>) -> Result<(), String> {
+        let name = name.trim();
+        let path = path.trim();
+        if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return Err(format!(
+                "\"{name}\" is no variable name: use letters, digits and _"
+            ));
+        }
+        if BUILTIN_VARIABLES
+            .iter()
+            .any(|b| b.eq_ignore_ascii_case(name))
+        {
+            return Err(format!(
+                "${name} is a built-in variable and cannot be redefined"
+            ));
+        }
+        if previous != Some(name) && self.variables.contains_key(name) {
+            return Err(format!("${name} exists already"));
+        }
+        let folder = Path::new(path);
+        if !folder.is_absolute() {
+            return Err(format!("\"{path}\" is not an absolute path"));
+        }
+        if !folder.is_dir() {
+            return Err(format!("\"{path}\" is not an existing folder"));
+        }
+        if let Some(previous) = previous {
+            self.variables.remove(previous);
+        }
+        self.variables.insert(name.to_string(), path.to_string());
+        Ok(())
+    }
+
+    /// Forgets the variable `name`; whether there was one.
+    pub fn remove(&mut self, name: &str) -> bool {
+        self.variables.remove(name).is_some()
+    }
 }
 
 impl Locations {
+    /// Adds the own variables and the OneDrive choice stored in the app data directory `dir`.
+    pub fn with_own(mut self, dir: &Path) -> Locations {
+        let own = OwnLocations::load(dir);
+        self.own = own
+            .variables
+            .into_iter()
+            .filter(|(name, _)| {
+                !BUILTIN_VARIABLES
+                    .iter()
+                    .any(|b| b.eq_ignore_ascii_case(name))
+            })
+            .map(|(name, path)| (name, PathBuf::from(path)))
+            .collect();
+        if let Some(choice) = own.onedrive {
+            self.choose_onedrive(Path::new(&choice));
+        }
+        self
+    }
+
     /// Without a running app (command line, MCP): the home folder from the environment, the
     /// documents folder below it.
     pub fn from_env() -> Locations {
@@ -151,7 +260,7 @@ impl Locations {
         let onedrive_env = std::env::var_os("OneDrive")
             .filter(|v| !v.is_empty())
             .map(PathBuf::from);
-        Locations {
+        let loc = Locations {
             documents: paths.document_dir().ok(),
             ..Locations::with_cloud(
                 Platform::CURRENT,
@@ -159,6 +268,10 @@ impl Locations {
                 onedrive_env,
                 &list_dirs,
             )
+        };
+        match paths.app_data_dir() {
+            Ok(dir) => loc.with_own(&dir),
+            Err(_) => loc,
         }
     }
 
@@ -225,7 +338,7 @@ impl Locations {
                 }),
                 None => Err(none()),
             },
-            _ => Err(none()),
+            _ => self.own.get(name).map(PathBuf::as_path).ok_or_else(none),
         }
     }
 
@@ -579,6 +692,7 @@ mod tests {
         onedrive: None,
         onedrive_candidates: Vec::new(),
         icloud: None,
+        own: BTreeMap::new(),
     };
 
     fn device(base: &Path) -> Locations {
@@ -868,6 +982,97 @@ mod tests {
             err.contains("needs a choice") && err.contains("OneDrive-A"),
             "{err}"
         );
+    }
+
+    #[test]
+    fn an_own_variable_resolves_and_a_built_in_name_is_reserved() {
+        let dir = temp_dir("own");
+        let books = dir.join("Books");
+        fs::create_dir_all(&books).unwrap();
+        let mut own = OwnLocations::default();
+        own.set("Books", books.to_str().unwrap(), None).unwrap();
+        for reserved in ["Home", "home", "OneDrive", "iCloud", "Documents"] {
+            let err = own
+                .set(reserved, books.to_str().unwrap(), None)
+                .unwrap_err();
+            assert!(err.contains("built-in"), "{err}");
+        }
+        own.save(&dir).unwrap();
+        let loc = device(&dir).with_own(&dir);
+        assert_eq!(
+            loc.resolve("$Books/x").unwrap(),
+            format!("{}/x", slashes(&books))
+        );
+        assert_eq!(
+            device(&dir).resolve("$Books").unwrap_err(),
+            Unresolved::NoValue("Books".into())
+        );
+    }
+
+    #[test]
+    fn an_own_variable_needs_an_existing_absolute_folder_and_a_plain_name() {
+        let dir = temp_dir("own-bad");
+        let mut own = OwnLocations::default();
+        let ok = dir.to_str().unwrap();
+        assert!(own
+            .set("Books", "relative/dir", None)
+            .unwrap_err()
+            .contains("absolute"));
+        let missing = dir.join("missing");
+        assert!(own
+            .set("Books", missing.to_str().unwrap(), None)
+            .unwrap_err()
+            .contains("existing folder"));
+        assert!(own.set("my books", ok, None).is_err());
+        assert!(own.set("", ok, None).is_err());
+        assert!(own.set("a/b", ok, None).is_err());
+        assert!(own.variables.is_empty());
+    }
+
+    #[test]
+    fn an_own_variable_is_added_edited_renamed_and_removed() {
+        let dir = temp_dir("own-edit");
+        let a = dir.join("a");
+        let b = dir.join("b");
+        fs::create_dir_all(&a).unwrap();
+        fs::create_dir_all(&b).unwrap();
+        let (a, b) = (a.to_str().unwrap(), b.to_str().unwrap());
+        let mut own = OwnLocations::default();
+        own.set("Books", a, None).unwrap();
+        assert!(own.set("Books", b, None).unwrap_err().contains("exists"));
+        own.set("Books", b, Some("Books")).unwrap();
+        assert_eq!(own.variables["Books"], b);
+        own.set("Library", b, Some("Books")).unwrap();
+        assert_eq!(own.variables.keys().collect::<Vec<_>>(), ["Library"]);
+        own.save(&dir).unwrap();
+        assert_eq!(OwnLocations::load(&dir), own);
+        assert!(own.remove("Library"));
+        assert!(!own.remove("Library"));
+        own.save(&dir).unwrap();
+        assert!(OwnLocations::load(&dir).variables.is_empty());
+    }
+
+    #[test]
+    fn the_stored_onedrive_choice_settles_the_candidates_and_a_damaged_file_is_ignored() {
+        let dir = temp_dir("own-choice");
+        let work = "/u/Library/CloudStorage/OneDrive-Work";
+        let own = OwnLocations {
+            onedrive: Some(work.into()),
+            ..OwnLocations::default()
+        };
+        own.save(&dir).unwrap();
+        let loc = cloud(
+            Platform::MacOs,
+            None,
+            &[
+                "/u/Library/CloudStorage/OneDrive-Work",
+                "/u/Library/CloudStorage/OneDrive-Home",
+            ],
+        )
+        .with_own(&dir);
+        assert_eq!(loc.resolve("$OneDrive/x").unwrap(), format!("{work}/x"));
+        fs::write(dir.join(LOCATIONS_FILE), "{ damaged").unwrap();
+        assert_eq!(OwnLocations::load(&dir), OwnLocations::default());
     }
 
     #[test]
