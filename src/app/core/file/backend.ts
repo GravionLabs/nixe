@@ -607,6 +607,12 @@ export const backend = {
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Git state of the vault; null when the vault is not a Git repository. */
   gitVaultStatus: () => invoke<GitStatus | null>("git_vault_status"),
+  /** The standard `.gitignore` entries the vault lacks (empty once dismissed); null without Git. */
+  gitGitignoreMissing: () => invoke<string[] | null>("git_gitignore_missing"),
+  /** Appends the missing entries under `# Nixe`; resolves with the lines it added. */
+  gitGitignoreAdd: () => invoke<string[]>("git_gitignore_add"),
+  /** Hides the `.gitignore` hint for this vault (kept in `.nixe/local/`). */
+  gitGitignoreDismiss: () => invoke<void>("git_gitignore_dismiss"),
   /** Commits that touched a vault-relative note, newest first, following renames; `offset`/`limit` page. */
   gitNoteHistory: (path: string, offset: number, limit: number) =>
     invoke<HistoryEntry[]>("git_note_history", { path, offset, limit }),

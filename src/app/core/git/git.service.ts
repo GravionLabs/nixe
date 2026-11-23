@@ -66,6 +66,8 @@ export class GitService {
 
   readonly status = signal<GitStatus | null>(null);
   readonly committing = signal(false);
+  /** The standard `.gitignore` entries the vault lacks; empty when covered or dismissed (#443). */
+  readonly missingIgnores = signal<string[]>([]);
   /** Whether a token is stored for `GIT_HOST`. The token itself is never read into the frontend. */
   readonly tokenStored = signal(false);
   /** Whether the GitHub CLI (`gh`) is installed; the sign-in button shows only then. */
@@ -256,6 +258,7 @@ export class GitService {
     const request = ++this.request;
     if (this.workspace.vaultRoot() === null) {
       this.status.set(null);
+      this.missingIgnores.set([]);
       return;
     }
     let status: GitStatus | null;
@@ -268,6 +271,32 @@ export class GitService {
     // An unchanged status keeps its object, so nothing downstream reloads (#289).
     if (JSON.stringify(status) !== JSON.stringify(this.status())) this.status.set(status);
     this.forgetGone();
+    await this.refreshIgnores(request, status !== null);
+  }
+
+  private async refreshIgnores(request: number, isRepo: boolean): Promise<void> {
+    let missing: string[] = [];
+    if (isRepo) {
+      try {
+        missing = (await backend.gitGitignoreMissing()) ?? [];
+      } catch {
+        missing = [];
+      }
+    }
+    if (request !== this.request) return;
+    if (missing.join("\n") !== this.missingIgnores().join("\n")) this.missingIgnores.set(missing);
+  }
+
+  /** Adds the missing entries to the `.gitignore` and reads the state again. */
+  async addMissingIgnores(): Promise<void> {
+    await backend.gitGitignoreAdd();
+    await this.refresh();
+  }
+
+  /** Hides the `.gitignore` hint for this vault. */
+  async dismissIgnoreHint(): Promise<void> {
+    await backend.gitGitignoreDismiss();
+    this.missingIgnores.set([]);
   }
 
   /** Whether a change is part of the next save. */

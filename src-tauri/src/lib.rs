@@ -292,6 +292,33 @@ async fn git_vault_status(state: State<'_, AppState>) -> Result<Option<git::GitS
         .map_err(|e| e.to_string())?
 }
 
+/// The standard `.gitignore` entries the vault lacks; null without a repository (#443).
+#[tauri::command]
+async fn git_gitignore_missing(state: State<'_, AppState>) -> Result<Option<Vec<String>>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::gitignore_missing(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Appends the missing entries to the `.gitignore` of the vault (#443).
+#[tauri::command]
+async fn git_gitignore_add(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::gitignore_add(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Hides the `.gitignore` hint for this vault (#443).
+#[tauri::command]
+async fn git_gitignore_dismiss(state: State<'_, AppState>) -> Result<(), String> {
+    let root = vault_root_of(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::gitignore_dismiss(&root))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// The commits that touched a note, newest first, following renames (#105).
 #[tauri::command]
 async fn git_note_history(
@@ -1412,6 +1439,9 @@ pub fn run() {
         index::commands::vault_health,
         watch_file,
         git_vault_status,
+        git_gitignore_missing,
+        git_gitignore_add,
+        git_gitignore_dismiss,
         git_vault_commit,
         git_discard_note,
         git_restore_note,
@@ -1548,6 +1578,9 @@ pub fn run() {
         index::commands::vault_health,
         watch_file,
         git_vault_status,
+        git_gitignore_missing,
+        git_gitignore_add,
+        git_gitignore_dismiss,
         git_vault_commit,
         git_discard_note,
         git_restore_note,

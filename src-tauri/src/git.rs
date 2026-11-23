@@ -323,6 +323,86 @@ pub fn vault_status(root: &Path) -> Result<Option<GitStatus>, String> {
     Git2Backend::open(root).map(|b| b.status()).transpose()
 }
 
+/// The `.gitignore` entries the vault needs, each with a path that must be ignored (#443).
+const GITIGNORE_ENTRIES: [(&str, &str); 3] = [
+    (".nixe/local/", ".nixe/local/x"),
+    (".*.nixe-tmp", ".x.md.nixe-tmp"),
+    (".trash/", ".trash/x"),
+];
+
+/// The file in `.nixe/local/` that marks the hint as dismissed for this vault.
+const GITIGNORE_DISMISSED: &str = ".nixe/local/gitignore-hint-dismissed";
+
+/// The standard entries the vault's Git ignore rules do not cover; `None` when the vault is no
+/// Git repository. Asks Git itself (like `git check-ignore`), so a pattern in any form counts.
+/// Empty when the hint was dismissed.
+pub fn gitignore_missing(root: &Path) -> Result<Option<Vec<String>>, String> {
+    let Some(backend) = Git2Backend::open(root) else {
+        return Ok(None);
+    };
+    if root.join(GITIGNORE_DISMISSED).is_file() {
+        return Ok(Some(Vec::new()));
+    }
+    let mut missing = Vec::new();
+    for (entry, probe) in GITIGNORE_ENTRIES {
+        if !backend.repo.is_path_ignored(probe).map_err(e)? {
+            missing.push(entry.to_string());
+        }
+    }
+    Ok(Some(missing))
+}
+
+/// Appends the missing entries under a `# Nixe` comment to `.gitignore`; existing lines stay as
+/// they are. Returns the entries that were added.
+pub fn gitignore_add(root: &Path) -> Result<Vec<String>, String> {
+    use std::io::Write;
+    let missing = {
+        let Some(backend) = Git2Backend::open(root) else {
+            return Err("the vault is not a Git repository".to_string());
+        };
+        let mut missing = Vec::new();
+        for (entry, probe) in GITIGNORE_ENTRIES {
+            if !backend.repo.is_path_ignored(probe).map_err(e)? {
+                missing.push(entry.to_string());
+            }
+        }
+        missing
+    };
+    if missing.is_empty() {
+        return Ok(missing);
+    }
+    let path = root.join(".gitignore");
+    let existing = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut block = String::new();
+    if !existing.is_empty() {
+        if !existing.ends_with('\n') {
+            block.push('\n');
+        }
+        block.push('\n');
+    }
+    block.push_str("# Nixe\n");
+    for entry in &missing {
+        block.push_str(entry);
+        block.push('\n');
+    }
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .and_then(|mut f| f.write_all(block.as_bytes()))
+        .map_err(|err| format!(".gitignore: {err}"))?;
+    Ok(missing)
+}
+
+/// Hides the `.gitignore` hint for this vault; the choice lives in `.nixe/local/`.
+pub fn gitignore_dismiss(root: &Path) -> Result<(), String> {
+    let path = root.join(GITIGNORE_DISMISSED);
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|err| err.to_string())?;
+    }
+    std::fs::write(&path, "").map_err(|err| err.to_string())
+}
+
 pub fn vault_commit(
     root: &Path,
     message: Option<&str>,
@@ -1613,6 +1693,66 @@ mod tests {
         let status = backend.status().unwrap();
         assert!(status.branch.is_some());
         assert_eq!(status.changes.len(), 1);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn gitignore_missing_lists_all_entries_without_a_gitignore() {
+        let (dir, _b) = repo_with_commit("gi-none");
+        assert_eq!(
+            gitignore_missing(&dir).unwrap().unwrap(),
+            vec![".nixe/local/", ".*.nixe-tmp", ".trash/"]
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn gitignore_missing_counts_other_patterns_as_covered() {
+        let (dir, _b) = repo_with_commit("gi-covered");
+        fs::write(dir.join(".gitignore"), ".nixe/*\n*.nixe-tmp\n").unwrap();
+        assert_eq!(gitignore_missing(&dir).unwrap().unwrap(), vec![".trash/"]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn gitignore_missing_is_none_without_a_repository() {
+        let dir = temp("gi-norepo");
+        assert_eq!(gitignore_missing(&dir).unwrap(), None);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn gitignore_add_appends_only_the_missing_lines() {
+        let (dir, _b) = repo_with_commit("gi-add");
+        fs::write(dir.join(".gitignore"), "z.log\n.trash/\nbuild").unwrap();
+        let added = gitignore_add(&dir).unwrap();
+        assert_eq!(added, vec![".nixe/local/", ".*.nixe-tmp"]);
+        assert_eq!(
+            fs::read_to_string(dir.join(".gitignore")).unwrap(),
+            "z.log\n.trash/\nbuild\n\n# Nixe\n.nixe/local/\n.*.nixe-tmp\n"
+        );
+        assert!(gitignore_missing(&dir).unwrap().unwrap().is_empty());
+        assert!(gitignore_add(&dir).unwrap().is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn gitignore_add_creates_the_file() {
+        let (dir, _b) = repo_with_commit("gi-create");
+        gitignore_add(&dir).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.join(".gitignore")).unwrap(),
+            "# Nixe\n.nixe/local/\n.*.nixe-tmp\n.trash/\n"
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn gitignore_dismiss_hides_the_hint() {
+        let (dir, _b) = repo_with_commit("gi-dismiss");
+        gitignore_dismiss(&dir).unwrap();
+        assert!(dir.join(".nixe/local").is_dir());
+        assert!(gitignore_missing(&dir).unwrap().unwrap().is_empty());
         let _ = fs::remove_dir_all(dir);
     }
 
