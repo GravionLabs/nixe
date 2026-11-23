@@ -1,3 +1,5 @@
+import type { HistoryEntry } from "../file/document.service";
+
 /** The views that open as a tab instead of a note and are restored with the layout. */
 export const TAB_VIEWS = ["settings", "health"] as const;
 export type StoredView = (typeof TAB_VIEWS)[number];
@@ -11,7 +13,7 @@ export interface TabState {
   /** The shown note; null for an empty tab or a view. */
   path: string | null;
   /** Back/forward list of the tab and the position in it. */
-  history: string[];
+  history: HistoryEntry[];
   index: number;
   /** True when the tab shows the editor, false for the viewer. */
   editing: boolean;
@@ -46,6 +48,20 @@ export function clampRatio(ratio: number): number {
   return Math.min(Math.max(ratio, MIN_RATIO), MAX_RATIO);
 }
 
+/** An entry of the current format, or a bare path of the older one (no position). */
+function sanitizeEntry(raw: unknown): HistoryEntry | null {
+  if (typeof raw === "string") return raw === "" ? null : { path: raw, line: null, anchor: null };
+  if (typeof raw !== "object" || raw === null) return null;
+  const e = raw as Record<string, unknown>;
+  if (typeof e["path"] !== "string" || e["path"] === "") return null;
+  const line =
+    typeof e["line"] === "number" && Number.isFinite(e["line"]) && e["line"] >= 1
+      ? Math.floor(e["line"])
+      : null;
+  const anchor = typeof e["anchor"] === "string" && e["anchor"] !== "" ? e["anchor"] : null;
+  return { path: e["path"], line, anchor };
+}
+
 function sanitizeTab(raw: unknown): TabState | null {
   if (typeof raw !== "object" || raw === null) return null;
   const t = raw as Record<string, unknown>;
@@ -54,7 +70,10 @@ function sanitizeTab(raw: unknown): TabState | null {
     return { view, path: null, history: [], index: -1, editing: false, line: null, preview: false };
   const path = typeof t["path"] === "string" && t["path"] !== "" ? t["path"] : null;
   const history = Array.isArray(t["history"])
-    ? t["history"].filter((p): p is string => typeof p === "string" && p !== "").slice(-MAX_HISTORY)
+    ? t["history"]
+        .map(sanitizeEntry)
+        .filter((e): e is HistoryEntry => e !== null)
+        .slice(-MAX_HISTORY)
     : [];
   const index =
     typeof t["index"] === "number" && Number.isInteger(t["index"])

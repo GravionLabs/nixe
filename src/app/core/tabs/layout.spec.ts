@@ -5,7 +5,7 @@ import { clampRatio, layoutHasNote, sanitizeLayout } from "./layout";
 const tab = {
   view: null,
   path: "/v/a.md",
-  history: ["/v/a.md"],
+  history: [{ path: "/v/a.md", line: null, anchor: null }],
   index: 0,
   editing: false,
   line: 3,
@@ -78,7 +78,7 @@ describe("sanitizeLayout", () => {
       {
         view: null,
         path: "/v/b.md",
-        history: ["/v/b.md"],
+        history: [{ path: "/v/b.md", line: null, anchor: null }],
         index: 0,
         editing: false,
         line: null,
@@ -159,5 +159,28 @@ describe("layout helpers", () => {
     expect(clampRatio(0.5)).toBe(0.5);
     expect(clampRatio(0)).toBe(0.15);
     expect(clampRatio(Number.POSITIVE_INFINITY)).toBe(0.5);
+  });
+});
+
+describe("sanitizeLayout history entries", () => {
+  it("reads a list of paths as entries without a position and keeps positions of the new format", () => {
+    const layout = sanitizeLayout({
+      panes: [
+        {
+          tabs: [
+            {
+              path: "/v/b.md",
+              history: ["/v/a.md", { path: "/v/b.md", line: 7.9, anchor: "H" }, { path: 3 }],
+              index: 1,
+            },
+          ],
+          active: 0,
+        },
+      ],
+    })!;
+    expect(layout.panes[0].tabs[0].history).toEqual([
+      { path: "/v/a.md", line: null, anchor: null },
+      { path: "/v/b.md", line: 7, anchor: "H" },
+    ]);
   });
 });

@@ -321,7 +321,10 @@ describe("TabsService", () => {
       expect(layout.panes.length).toBe(2);
       expect(layout.panes[0].tabs.map((t) => t.path)).toEqual(["/v/b.md", "/v/c.md"]);
       expect(layout.panes[0].tabs[0]).toMatchObject({
-        history: ["/v/a.md", "/v/b.md"],
+        history: [
+          { path: "/v/a.md", line: null, anchor: null },
+          { path: "/v/b.md", line: null, anchor: null },
+        ],
         index: 1,
         editing: false,
       });
@@ -450,7 +453,7 @@ describe("TabsService", () => {
       tabs.openView("health");
       const layout = tabs.snapshot();
       expect(layout.panes[0].tabs.map((t) => [t.view, t.path, t.history])).toEqual([
-        [null, "/v/a.md", ["/v/a.md"]],
+        [null, "/v/a.md", [{ path: "/v/a.md", line: null, anchor: null }]],
         ["health", null, []],
       ]);
 
@@ -509,7 +512,12 @@ describe("TabsService", () => {
       expect(tabs.isPreview(tabs.activeTab())).toBe(true);
       await tabs.openPreview("/v/b.md");
       expect(paths()).toEqual(["/v/b.md"]);
-      expect(tabs.activeTab().doc.historyState().history).toEqual(["/v/a.md", "/v/b.md"]);
+      expect(
+        tabs
+          .activeTab()
+          .doc.historyState()
+          .history.map((e) => e.path),
+      ).toEqual(["/v/a.md", "/v/b.md"]);
     });
 
     it("adds the preview tab beside pinned tabs and keeps at most one", async () => {

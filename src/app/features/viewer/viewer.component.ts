@@ -176,6 +176,16 @@ export class ViewerComponent {
       });
     });
 
+    // Back to a heading of the note that is already shown renders nothing new, so scroll here.
+    effect(() => {
+      const anchor = this.doc.pendingAnchor();
+      if (anchor === null) return;
+      untracked(() => {
+        if (this.renderedPath === this.doc.path() && this.scrollToAnchor(anchor))
+          this.doc.pendingAnchor.set(null);
+      });
+    });
+
     // Opening a line of the note that is already shown renders nothing new, so scroll here.
     effect(() => {
       const line = this.doc.pendingLine();
@@ -626,7 +636,7 @@ export class ViewerComponent {
     const href = classifyHref(link.getAttribute("href"));
     switch (href.kind) {
       case "anchor":
-        this.scrollToAnchor(href.anchor);
+        this.jumpToAnchor(href.anchor);
         break;
       case "external":
         await openUrl(href.url);
@@ -718,7 +728,7 @@ export class ViewerComponent {
   private async openWikilink(target: string, newTab = false): Promise<void> {
     const { note, heading } = parseWikilinkTarget(target);
     if (!note) {
-      if (heading) this.scrollToAnchor(heading);
+      if (heading) this.jumpToAnchor(heading);
       return;
     }
     const other = await this.workspaces.resolveLink(target, this.doc.path());
@@ -769,6 +779,11 @@ export class ViewerComponent {
     if (!best) return false;
     best.scrollIntoView({ block: "start" });
     return true;
+  }
+
+  /** A link to a heading of this note: the jump becomes a history entry. */
+  private jumpToAnchor(anchor: string): void {
+    this.doc.jump({ anchor }, () => this.scrollToAnchor(anchor));
   }
 
   /** Accepts exact ids as well as un-slugified heading text (ADO: "#My-Heading"). */

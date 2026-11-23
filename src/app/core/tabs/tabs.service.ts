@@ -590,8 +590,11 @@ export class TabsService {
       return null;
     }
     const path = tab.doc.path()!;
-    const usable = state.history.length > 0 && state.history[state.index] === path;
-    tab.doc.restoreHistory(usable ? state.history : [path], usable ? state.index : 0);
+    const usable = state.history.length > 0 && state.history[state.index]?.path === path;
+    tab.doc.restoreHistory(
+      usable ? state.history : [{ path, line: null, anchor: null }],
+      usable ? state.index : 0,
+    );
     tab.scrollLine = state.line;
     if (state.editing && (await backend.isUtf8File(path).catch(() => false))) {
       tab.editor.startLine.set(state.line);
@@ -688,6 +691,13 @@ export class TabsService {
       scrollLine: null,
     };
     holder.tab = tab;
+    doc.positionHook = () => tab.viewer?.topLine() ?? tab.editor.handle?.topLine() ?? null;
+    doc.revealHook = (line) => {
+      const handle = tab.editor.editing() ? tab.editor.handle : null;
+      if (!handle) return false;
+      handle.scrollToLine(line);
+      return true;
+    };
     return tab;
   }
 }
