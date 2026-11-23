@@ -5,11 +5,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.12.1] — 2026-11-23
+
+### Bug Fixes
+- The app starts although Tauri's invoke is read-only (#520)
+
+
 ## [1.12.0] — 2026-11-23
 
 ### Bug Fixes
 - Links do not open from the editor, a click starts editing (#459) (#469)
 - Links do not open from the editor, a click starts editing (#459) (#469)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.12.0 [skip ci]
 
 
 ### Features
