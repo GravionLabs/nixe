@@ -15,11 +15,13 @@ the version, the OS and the config, data and log directories.
   a change applies at once through `log_set_level`, without a restart. `NIXE_LOG` still wins. The Rust side
   is `log_path`, `log_read { lines }` and `log_set_level { level }` in `logging.rs`; the frontend side is
   `LogActionsService` (`core/log/`) and the log tab (`features/log/`).
-- **Failed commands:** the frontend tries to wrap the Tauri IPC once (`core/log/command-log.ts`) and to send the
-  name and the error text of each rejected command to `log_command_error`; the arguments are not sent. Tauri 2
-  defines `__TAURI_INTERNALS__.invoke` as read-only, so the wrapper cannot be installed there:
-  `installCommandLog` returns `false` and no command failure is logged this way (#520). The app starts as before;
-  logging failed commands needs another route.
+- **Failed commands (#522):** the modules that call the commands (`core/file/backend.ts`,
+  `core/terminal/terminal-backend.ts`) import `loggedInvoke` (`core/log/logged-invoke.ts`) instead of `invoke` of
+  `@tauri-apps/api/core`. It has the same signature; when a command rejects it sends the name and the error text
+  to `log_command_error` and rethrows the original error. The arguments are not sent. Tauri's own `invoke` is
+  not replaced (`__TAURI_INTERNALS__.invoke` is read-only in Tauri 2, #520; a spec fails when a module assigns to
+  it). `log_command_error` itself is never reported, and `LogService` keeps the plain `invoke`, so a failing log
+  does not log again. Calls of the spike views (`git-spike`, `editor-spike`) use the plain `invoke` and are not logged.
 - **Frontend lines:** `LogService` (`core/log/log.service.ts`) forwards `console.error`, `console.warn` (and so
   the uncaught errors that `provideBrowserGlobalErrorListeners` hands to Angular) and the toast of an error
   (`showError`) to `log_write { level, message }`; they appear as `frontend: …`. Without Tauri nothing is
