@@ -76,6 +76,8 @@ values are free. Note titles are never translated. The UI language of Nixe is se
 
 ### What a vault commits
 
+The full list and the `.gitignore` block are in [vault-git.md](../vault-git.md).
+
 | Path | Committed | Why |
 |---|---|---|
 | notes, attachments | yes | the content |

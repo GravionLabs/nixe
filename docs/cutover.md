@@ -15,7 +15,7 @@ every shortcut can be changed in **Settings → Shortcuts**.
 | Rename | Select the note in the sidebar and press `F2`, or use **Rename** in its context menu. Open a few notes that link to it afterwards and run **Vault health** (or `nixe check`) to confirm no link broke. | [ ] |
 | Search | `Mod+Shift+F` searches the vault (the ⇄ button adds find and replace across the vault: a diff per match, notes and matches can be unchecked, one batch after a confirmation, a Git commit first); `Mod+O` is the quick switcher; `Mod+F` finds in the open note (find and replace in the editor). | [ ] |
 | Attach an image | Paste or drop the image into the editor. It is stored in the attachment folder of the vault (**Settings → Files and links**) and linked. | [ ] |
-| Sync | `Mod+Shift+S` pulls with rebase and pushes. Auto-commit and auto-sync run on an interval and on focus (**Settings → Git**). A conflict keeps both versions and marks the note. **Git changes** shows what is uncommitted. | [ ] |
+| Sync | `Mod+Shift+S` pulls with rebase and pushes. Auto-commit and auto-sync run on an interval and on focus (**Settings → Git**). A conflict keeps both versions and marks the note. **Git changes** shows what is uncommitted. What the vault commits and the `.gitignore` block: [vault-git.md](vault-git.md). | [ ] |
 
 Also in daily use: properties panel (edit frontmatter; fold it with `Mod+Alt+P`, or set *Properties in document* to Visible, Folded (default) or Hidden), outline panel (`Mod+Shift+L`), task
 checkboxes in the reading view, tabs and split view (`Mod+T`, `Mod+W`, **Split tab to the right**).
