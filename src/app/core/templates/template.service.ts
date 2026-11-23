@@ -37,7 +37,8 @@ export class TemplateService {
   async list(): Promise<TemplateEntry[]> {
     if (!this.editor.handle) throw new Error("Open the editor to insert a template.");
     const folder = await this.folder();
-    if (!folder) throw new Error("No template folder: set `folder` in .obsidian/templates.json.");
+    if (!folder)
+      throw new Error("No template folder: set `templates.folder` in .nixe/config.json.");
     const prefix = `${folder}/`;
     const entries = (this.workspace.vaultFiles() ?? [])
       .filter((p) => p.startsWith(prefix) && /\.md$/iu.test(p))

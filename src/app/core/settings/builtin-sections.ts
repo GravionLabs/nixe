@@ -332,7 +332,7 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
               label: o.label,
               description: o.source.startsWith(".nixe/")
                 ? "Set in `.nixe/config.json`; change it there."
-                : "Set in Obsidian; change it there. `.nixe/config.json` wins when it sets it.",
+                : "Read from `.obsidian/` until Nixe imports it into `.nixe/config.json`; set it in `.nixe/config.json`, which wins.",
               keywords: ["nixe", "obsidian", o.source],
               value: () => o.value ?? NOT_SET,
               source: () => o.source,

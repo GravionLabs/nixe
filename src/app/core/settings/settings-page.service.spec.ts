@@ -184,7 +184,7 @@ describe("settings page", () => {
     expect(tpl.source?.()).toBe(".nixe/config.json");
     expect(tpl.description).toContain(".nixe/config.json");
     expect(format.source?.()).toBe(".obsidian/daily-notes.json");
-    expect(format.description).toContain("Obsidian");
+    expect(format.description).toContain(".obsidian/");
     const own = items.find((i) => i.id === "template-folder")!;
     expect(own.description).toContain(".nixe/config.json");
   });

@@ -99,7 +99,7 @@ CodeMirror completion for links and tags; nothing is offered in code.
 
 The command `Insert template` (open in the editor) lists the Markdown files in the template folder and inserts the chosen one at the cursor.
 
-- **Folder:** `folder` of `.obsidian/templates.json` (`template_folder`), else the setting `templateFolder`.
+- **Folder:** `templates.folder` of `.nixe/config.json`, else `folder` of `.obsidian/templates.json` (fallback, ADR 0007), else the setting `templateFolder`.
 - **Variables** (`core/templates/template-core.ts`): `{{title}}` (note name), `{{date}}`, `{{time}}`, `{{date:FORMAT}}` and `{{time:FORMAT}}`. `FORMAT` uses Moment tokens in English (`YYYY MM DD Do dddd HH hh mm ss A Q W Z X …`, text in `[brackets]` stays). Without a format: `YYYY-MM-DD` and `HH:mm`; `dateFormat` and `timeFormat` of `templates.json` are not read. Other `{{…}}` text stays.
 - **Frontmatter:** the template's frontmatter is merged into the note's, not inserted in the body. The note keeps its own values; empty ones and missing properties come from the template; lists are joined without duplicates. A note with invalid frontmatter is refused.
 
