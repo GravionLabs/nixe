@@ -82,6 +82,9 @@ export function createNixeDemo(): NixeDemo {
   });
 
   backend.answer({
+    // The browser has no log file; the line goes to the console (`info`, so the forward of
+    // console.error and console.warn does not see it again).
+    log_write: (a) => console.info(`[nixe ${str(a, "level")}] ${str(a, "message")}`),
     read_app_settings: () => settings,
     write_app_settings: (a) => void (settings = str(a, "content")),
     read_app_bookmarks: () => bookmarks,

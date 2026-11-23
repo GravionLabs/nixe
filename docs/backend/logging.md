@@ -11,6 +11,10 @@ the version, the OS and the config, data and log directories.
   `logLevel` key of `settings.json` in the app config directory. `NIXE_LOG` wins.
 - **Failed commands:** the frontend wraps the Tauri IPC once (`core/log/command-log.ts`) and sends the name
   and the error text of each rejected command to `log_command_error`. The arguments are not sent.
+- **Frontend lines:** `LogService` (`core/log/log.service.ts`) forwards `console.error`, `console.warn` (and so
+  the uncaught errors that `provideBrowserGlobalErrorListeners` hands to Angular) and the toast of an error
+  (`showError`) to `log_write { level, message }`; they appear as `frontend: …`. Without Tauri nothing is
+  written; the demo build prints the line with `console.info`.
 - **Sign-in through `gh`:** each step is logged (`gh` found, token taken over, web login started,
   cancelled, stored) and the failure reason.
 - **Never in the log:** a token, a password, the one-time code, the text of a note. Tests in `credentials.rs`,
