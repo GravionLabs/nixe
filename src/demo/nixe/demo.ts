@@ -2,7 +2,7 @@
 // vault, shows a note and edits it, and those of the Git views, the workspaces and the terminal. A command that is not answered here fails the run with its name
 // (`kit/backend.ts`), so a new feature shows up as a red e2e test, not as a silent empty panel.
 import { DemoBackend } from "../kit/backend";
-import type { Workspace } from "../../app/core/file/backend";
+import type { OwnLocations, Workspace } from "../../app/core/file/backend";
 import { NOTES, TIME, VAULT } from "./data";
 import { DemoGit } from "./git";
 import { DemoVault } from "./vault";
@@ -45,6 +45,8 @@ export function createNixeDemo(): NixeDemo {
   const vault = new DemoVault(VAULT, NOTES, Date.parse(TIME));
   const git = new DemoGit(vault, Date.parse(TIME));
   const workspaces = new Map<string, Workspace>();
+  // The own location variables of the device (#495), in memory like the workspaces.
+  let locations: OwnLocations = { variables: { Books: "/demo/Books" } };
   const tokens = new Set<string>();
   const sessions = new Map<number, string>();
   let nextSession = 1;
@@ -181,6 +183,35 @@ export function createNixeDemo(): NixeDemo {
       const path = str(a, "path");
       workspace.roots.push({ path, name: path.slice(path.lastIndexOf("/") + 1), kind: "folder" });
       return workspace;
+    },
+    locations_list: () => structuredClone(locations),
+    locations_set: (a) => {
+      const name = str(a, "name").trim();
+      const path = str(a, "path").trim();
+      const previous = strOrNull(a, "previous");
+      if (!/^[\p{L}\p{N}_]+$/u.test(name)) throw `"${name}" is no variable name`;
+      if (["home", "documents", "onedrive", "icloud"].includes(name.toLowerCase())) {
+        throw `$${name} is a built-in variable and cannot be redefined`;
+      }
+      if (previous !== name && name in locations.variables) throw `$${name} exists already`;
+      if (!path.startsWith("/")) throw `"${path}" is not an absolute path`;
+      const variables = Object.fromEntries(
+        Object.entries(locations.variables).filter(([n]) => n !== previous),
+      );
+      locations = { ...locations, variables: { ...variables, [name]: path } };
+      return structuredClone(locations);
+    },
+    locations_remove: (a) => {
+      const variables = Object.fromEntries(
+        Object.entries(locations.variables).filter(([n]) => n !== str(a, "name")),
+      );
+      locations = { ...locations, variables };
+      return structuredClone(locations);
+    },
+    locations_choose_onedrive: (a) => {
+      const path = strOrNull(a, "path");
+      locations = path ? { ...locations, onedrive: path } : { variables: locations.variables };
+      return structuredClone(locations);
     },
     workspace_resolve_links: (a) =>
       strings(a, "targets").map((target) => {

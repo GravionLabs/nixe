@@ -27,9 +27,25 @@ unchanged. A root whose variable has no value on the device keeps the template a
 which is no folder, so it is skipped like a missing folder; saving writes the template back.
 `$OneDrive` is the `OneDrive` environment variable on Windows and the folder
 `~/Library/CloudStorage/OneDrive-*` on macOS; with several such folders (several accounts) it stays
-unresolved and names the candidates until the user picks one (stored per device, #495). `$iCloud` is
-`~/Library/Mobile Documents/com~apple~CloudDocs` on macOS. Linux has neither. Own variables and the
-messages for an unresolved variable follow in later issues (#462).
+unresolved and names the candidates until the user picks one. `$iCloud` is
+`~/Library/Mobile Documents/com~apple~CloudDocs` on macOS. Linux has neither. The messages for an
+unresolved variable follow in a later issue (#462).
+
+### Own variables
+
+The section **Locations** of the settings page lists the own variables of the device
+(`Books = D:\Cloud\Bücher`) and adds, edits, renames and removes them; the section is found by the
+settings search by its title, the name or the folder of a variable. A variable needs a name of
+letters, digits and `_`, which is none of the built-in names (`Home`, `Documents`, `OneDrive`,
+`iCloud`; any case), and an existing absolute folder; otherwise the page shows why it is refused and
+changes nothing. The resolver reads them like the built-ins (`$Books/notes`), so a workspace root
+written that way finds its folder on every device that defines `Books`.
+
+They are stored per device in `locations.json` next to `settings.json` in the app data directory
+(`{"variables": {"Books": "D:\\Cloud\\Bücher"}, "onedrive": "<picked folder>"}`), never in a workspace
+or in the vault. The command line reads the same file. The OneDrive account picked among several
+(`$OneDrive`) is stored in it as `onedrive` (Tauri command `locations_choose_onedrive`); a stored
+folder that is no candidate any more is ignored. A damaged file counts as empty.
 
 ## Links between roots
 

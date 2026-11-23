@@ -1140,6 +1140,52 @@ fn workspace_add_root(
     Ok(workspace)
 }
 
+/// The own location variables of this device (#495) and the picked OneDrive folder.
+#[tauri::command]
+fn locations_list(app: AppHandle) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(workspace::OwnLocations::load(&dir))
+}
+
+/// Defines the own variable `name` as an existing absolute folder; `previous` is the name it had
+/// before a rename. Stored in the app data directory of this device only.
+#[tauri::command]
+fn locations_set(
+    app: AppHandle,
+    name: String,
+    path: String,
+    previous: Option<String>,
+) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut own = workspace::OwnLocations::load(&dir);
+    own.set(&name, &path, previous.as_deref())?;
+    own.save(&dir)?;
+    Ok(own)
+}
+
+/// Forgets the own variable `name`.
+#[tauri::command]
+fn locations_remove(app: AppHandle, name: String) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut own = workspace::OwnLocations::load(&dir);
+    own.remove(&name);
+    own.save(&dir)?;
+    Ok(own)
+}
+
+/// Stores the OneDrive folder picked among several accounts (`None` forgets the choice).
+#[tauri::command]
+fn locations_choose_onedrive(
+    app: AppHandle,
+    path: Option<String>,
+) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut own = workspace::OwnLocations::load(&dir);
+    own.onedrive = path;
+    own.save(&dir)?;
+    Ok(own)
+}
+
 /// Resolves link targets of a note in the root `from`; a `Root name:` prefix reaches another root.
 /// One entry per target, `None` for a missing or ambiguous note.
 #[tauri::command]
@@ -1403,6 +1449,10 @@ pub fn run() {
         workspace_save,
         workspace_delete,
         workspace_add_root,
+        locations_list,
+        locations_set,
+        locations_remove,
+        locations_choose_onedrive,
         workspace_resolve_links,
         read_folds,
         write_folds,
