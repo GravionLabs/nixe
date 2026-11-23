@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
-import { LogService, LOG_WRITE } from "./log.service";
+import { LogService, LOG_WRITE, scrub } from "./log.service";
 
 function fakeConsole() {
   return { error: vi.fn(), warn: vi.fn() };
@@ -72,5 +72,16 @@ describe("LogService", () => {
     });
     target.error("outer");
     expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides paths of notes and tokens", () => {
+    expect(scrub("No such file: /vault/Notes/a.md here")).toBe("No such file: <path> here");
+    expect(scrub("open C:\\Users\\me\\n.md failed")).toBe("open <path> failed");
+    expect(scrub("token ghp_abc123 used")).toBe("token <token> used");
+    new LogService().write("error", "cannot read /vault/secret.md");
+    expect(invoke).toHaveBeenCalledWith(LOG_WRITE, {
+      level: "error",
+      message: "cannot read <path>",
+    });
   });
 });

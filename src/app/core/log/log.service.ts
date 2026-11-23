@@ -10,6 +10,15 @@ export const LOG_WRITE = "log_write";
 /** Longest message handed to the log; the Rust core cuts it again. */
 const MAX_MESSAGE = 2000;
 
+/** A path (`/a/b.md`, `C:\\a\\b.md`) or a token-like secret in a message; neither belongs in the log. */
+const PATH = /(?:[A-Za-z]:[\\/]|\/)[^\s"'`<>|]*[\\/][^\s"'`<>|]*/g;
+const SECRET = /\b(?:gh[pousr]_|github_pat_|glpat-)[A-Za-z0-9_-]+/g;
+
+/** Hides paths of notes and tokens in a message. */
+export function scrub(text: string): string {
+  return text.replace(SECRET, "<token>").replace(PATH, "<path>");
+}
+
 /** One console argument as plain text: strings and errors as they are, anything else as JSON. */
 function argText(arg: unknown): string {
   if (arg instanceof Error) return arg.stack ? `${arg.message}\n${arg.stack}` : arg.message;
@@ -35,7 +44,8 @@ export class LogService {
     if (this.writing) return;
     this.writing = true;
     try {
-      const text = message.length > MAX_MESSAGE ? `${message.slice(0, MAX_MESSAGE)}…` : message;
+      const clean = scrub(message);
+      const text = clean.length > MAX_MESSAGE ? `${clean.slice(0, MAX_MESSAGE)}…` : clean;
       invoke(LOG_WRITE, { level, message: text }).catch(() => undefined);
     } catch {
       // No Tauri, no log file.
