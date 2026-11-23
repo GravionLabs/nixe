@@ -13,6 +13,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Documentation
 - Update CHANGELOG.md for v1.12.1 [skip ci]
+- Update CHANGELOG.md for v1.12.1 [skip ci]
 
 
 ## [1.12.0] — 2026-11-23
