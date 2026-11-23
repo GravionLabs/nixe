@@ -11,6 +11,18 @@ describe("installCommandLog", () => {
     expect(installCommandLog({})).toBe(false);
   });
 
+  it("does not throw when `invoke` is read-only, as Tauri defines it (#520)", () => {
+    // Tauri: Object.defineProperty(window.__TAURI_INTERNALS__, "invoke", { value }): not writable.
+    const internals = {};
+    const original = vi.fn(() => Promise.resolve());
+    Object.defineProperty(internals, "invoke", { value: original });
+    const target = { __TAURI_INTERNALS__: internals as { invoke: typeof original } };
+    // Modules are strict: assigning to the read-only property throws a TypeError.
+    expect(() => installCommandLog(target)).not.toThrow();
+    expect(installCommandLog(target)).toBe(false);
+    expect(target.__TAURI_INTERNALS__.invoke).toBe(original);
+  });
+
   it("reports a failed command with its name and error text, and still rejects", async () => {
     const { target, spy } = fake((command) =>
       command === "read_text_file" ? Promise.reject("no such file") : Promise.resolve(),
