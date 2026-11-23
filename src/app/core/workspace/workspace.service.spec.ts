@@ -50,11 +50,39 @@ describe("recent vaults in WorkspaceService", () => {
     );
     vi.spyOn(backend, "findVaultRoot").mockImplementation(async (p) => p);
     vi.spyOn(backend, "listVaultFiles").mockResolvedValue([]);
+    vi.spyOn(backend, "importObsidianSettings").mockResolvedValue({
+      written: [],
+      sources: [],
+      warnings: [],
+    });
     vi.spyOn(backend, "indexStart").mockResolvedValue(undefined as never);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [{ provide: DocumentService, useValue: doc }] });
     settings = TestBed.inject(SettingsService);
     workspace = TestBed.inject(WorkspaceService);
+  });
+
+  it("raises a notice with what the import of .obsidian wrote", async () => {
+    vi.spyOn(backend, "importObsidianSettings").mockResolvedValue({
+      written: [".nixe/config.json"],
+      sources: [".obsidian/app.json"],
+      warnings: [],
+    });
+    await workspace.openFolder("/a", { openDefaultPage: false });
+    expect(workspace.notice()).toContain(".obsidian/app.json");
+    expect(workspace.notice()).toContain(".nixe/config.json");
+  });
+
+  it("opens the vault with a warning when the import fails", async () => {
+    vi.spyOn(backend, "importObsidianSettings").mockRejectedValue("denied");
+    await workspace.openFolder("/a", { openDefaultPage: false });
+    expect(workspace.root()).toBe("/a");
+    expect(workspace.notice()).toContain("Warning");
+  });
+
+  it("raises no notice when the import did nothing", async () => {
+    await workspace.openFolder("/a", { openDefaultPage: false });
+    expect(workspace.notice()).toBeNull();
   });
 
   it("remembers the last five vaults, newest first", async () => {
