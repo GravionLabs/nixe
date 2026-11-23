@@ -122,9 +122,9 @@ export class FolderRolesService {
     if (current && current.role !== name) {
       const taken = this.roles().find((r) => r.role === name);
       if (taken) throw new Error(`The role ${name} is already set on ${taken.path}.`);
-      await backend.removeFolderRole(rel);
     }
-    this.layout.set(await backend.setFolderRole(rel, name, text || null));
+    // One write: the backend drops the old role only once the new one is valid.
+    this.layout.set(await backend.setFolderRole(rel, name, text || null, current !== undefined));
   }
 
   async remove(rel: string): Promise<void> {

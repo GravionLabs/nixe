@@ -919,9 +919,16 @@ fn set_folder_role(
     path: String,
     role: String,
     description: Option<String>,
+    replace: Option<bool>,
 ) -> Result<vault::config::Layout, String> {
     let root = vault_root_of(&state)?;
-    vault::config::set_folder_role(&root, &path, &role, description.as_deref())?;
+    vault::config::set_folder_role(
+        &root,
+        &path,
+        &role,
+        description.as_deref(),
+        replace.unwrap_or(false),
+    )?;
     Ok(vault::config::layout(&root))
 }
 

@@ -305,13 +305,15 @@ fn valid_role_name(role: &str) -> bool {
 }
 
 /// Sets the folder role `role` on the folder `path` (vault-relative). A folder has at most one
-/// role: another one is refused (remove it first); the same role again changes its description. A role name is unique, a path outside the vault is refused, and
+/// role: another one is refused, or with `replace` dropped in the same write once the new one
+/// is valid; the same role again changes its description. A role name is unique, a path outside the vault is refused, and
 /// an own role (not a standard one) needs a description. Every other key stays, in its order.
 pub fn set_folder_role(
     root: &Path,
     path: &str,
     role: &str,
     description: Option<&str>,
+    replace: bool,
 ) -> Result<(), String> {
     let role = role.trim();
     if !valid_role_name(role) {
@@ -332,6 +334,7 @@ pub fn set_folder_role(
         Some(_) => return Err(format!("{SOURCE}: folders is not an object; not changed")),
         None => Map::new(),
     };
+    let mut replaced = Vec::new();
     for (name, value) in &folders {
         let Some(entry) = Entry::from_value(value) else {
             continue;
@@ -341,10 +344,16 @@ pub fn set_folder_role(
             return Err(format!("The role {role} is already set on {}.", entry.path));
         }
         if same_path && name != role {
-            return Err(format!(
-                "{path} has the role {name} already; remove it first."
-            ));
+            if !replace {
+                return Err(format!(
+                    "{path} has the role {name} already; remove it first."
+                ));
+            }
+            replaced.push(name.clone());
         }
+    }
+    for name in replaced {
+        folders.shift_remove(&name);
     }
     // The same role again keeps the unknown keys of its entry.
     let mut entry = folders
@@ -578,8 +587,8 @@ mod tests {
             "set-order",
             Some(r#"{"language":"de","folders":{"inbox":"In"},"daily":{"folder":"D"},"zeta":1}"#),
         );
-        set_folder_role(&root, "Prüfungen/", "exams", None).unwrap();
-        set_folder_role(&root, "Wissen", "vault-notes", Some("loose notes")).unwrap();
+        set_folder_role(&root, "Prüfungen/", "exams", None, false).unwrap();
+        set_folder_role(&root, "Wissen", "vault-notes", Some("loose notes"), false).unwrap();
         let json = read_json(&root);
         assert_eq!(
             keys(&json),
@@ -598,7 +607,7 @@ mod tests {
     fn a_role_is_created_in_a_vault_without_a_config() {
         let root = vault("set-new", None);
         let _ = fs::remove_dir_all(root.join(".nixe"));
-        set_folder_role(&root, "Inbox", "inbox", None).unwrap();
+        set_folder_role(&root, "Inbox", "inbox", None, false).unwrap();
         assert_eq!(
             read_json(&root),
             serde_json::json!({"folders":{"inbox":"Inbox"},"schemaVersion":1})
@@ -609,9 +618,9 @@ mod tests {
     fn a_folder_has_one_role_and_a_name_is_unique() {
         let root = vault("unique", Some(r#"{"folders":{"inbox":"In","exams":"Ex"}}"#));
         // The name is taken by another folder.
-        assert!(set_folder_role(&root, "Other", "inbox", None).is_err());
+        assert!(set_folder_role(&root, "Other", "inbox", None, false).is_err());
         // The folder has a role: a second one is refused.
-        assert!(set_folder_role(&root, "In", "archive", None).is_err());
+        assert!(set_folder_role(&root, "In", "archive", None, false).is_err());
         assert_eq!(keys(&read_json(&root)["folders"]), ["inbox", "exams"]);
         // The same role again updates its description and keeps unknown keys.
         fs::write(
@@ -619,7 +628,7 @@ mod tests {
             r#"{"folders":{"mine":{"path":"M","description":"a","color":"red"}}}"#,
         )
         .unwrap();
-        set_folder_role(&root, "M", "mine", Some("b")).unwrap();
+        set_folder_role(&root, "M", "mine", Some("b"), false).unwrap();
         assert_eq!(
             read_json(&root)["folders"]["mine"],
             serde_json::json!({"path":"M","description":"b","color":"red"})
@@ -640,7 +649,7 @@ mod tests {
             ("Own", "a b", Some("x")),
         ] {
             assert!(
-                set_folder_role(&root, path, role, desc).is_err(),
+                set_folder_role(&root, path, role, desc, false).is_err(),
                 "{path} {role}"
             );
         }
@@ -652,7 +661,7 @@ mod tests {
         for text in ["{ not json", "[1]", r#"{"schemaVersion":2,"folders":{}}"#] {
             let root = vault("keep", Some(text));
             assert!(
-                set_folder_role(&root, "A", "inbox", None).is_err(),
+                set_folder_role(&root, "A", "inbox", None, false).is_err(),
                 "{text}"
             );
             assert!(remove_folder_role(&root, "A").is_err(), "{text}");
@@ -728,12 +737,25 @@ mod tests {
         );
         fs::create_dir_all(root.join("In")).unwrap();
         // A hand-written file with two roles on one folder: a third one is refused.
-        assert!(set_folder_role(&root, "In", "projects", None).is_err());
+        assert!(set_folder_role(&root, "In", "projects", None, false).is_err());
         assert!(remove_folder_role(&root, "In").unwrap());
         let layout = layout(&root);
         assert_eq!(layout.folders.len(), 1);
         assert!(layout.folders["exams"].missing);
         fs::create_dir_all(root.join("Gone")).unwrap();
         assert!(!super::layout(&root).folders["exams"].missing);
+    }
+
+    #[test]
+    fn replacing_a_role_is_one_write_that_a_bad_name_cannot_half_do() {
+        let text = r#"{"folders":{"inbox":"In","exams":"Ex"}}"#;
+        let root = vault("replace", Some(text));
+        assert!(set_folder_role(&root, "In", "my role", Some("x"), true).is_err());
+        assert!(set_folder_role(&root, "In", "exams", None, true).is_err());
+        assert_eq!(fs::read_to_string(root.join(SOURCE)).unwrap(), text);
+        set_folder_role(&root, "In", "archive", None, true).unwrap();
+        let json = read_json(&root);
+        assert_eq!(keys(&json["folders"]), ["exams", "archive"]);
+        assert_eq!(json["folders"]["archive"], "In");
     }
 }

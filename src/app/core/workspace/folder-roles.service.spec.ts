@@ -80,7 +80,7 @@ describe("FolderRolesService", () => {
       .spyOn(backend, "setFolderRole")
       .mockResolvedValue(layout({ inbox: entry("In"), archive: entry("Old") }));
     await roles.set("Old", "archive", " ");
-    expect(set).toHaveBeenCalledWith("Old", "archive", null);
+    expect(set).toHaveBeenCalledWith("Old", "archive", null, false);
     expect(roles.roles().map((r) => r.role)).toEqual(["inbox", "archive"]);
   });
 
@@ -92,23 +92,19 @@ describe("FolderRolesService", () => {
   });
 
   it("replaces the role of a folder, but not with a name that another folder has", async () => {
-    const remove = vi.spyOn(backend, "removeFolderRole").mockResolvedValue(layout({}));
     const set = vi
       .spyOn(backend, "setFolderRole")
       .mockResolvedValue(layout({ areas: entry("In") }));
     await expect(roles.set("In", "exams", "x")).rejects.toThrow("already set on Work/Ex");
-    expect(remove).not.toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
     await roles.set("In", "areas", "");
-    expect(remove).toHaveBeenCalledWith("In");
-    expect(set).toHaveBeenCalledWith("In", "areas", null);
+    expect(set).toHaveBeenCalledWith("In", "areas", null, true);
   });
 
   it("keeps the role of the folder when only the description changes", async () => {
-    const remove = vi.spyOn(backend, "removeFolderRole");
     const set = vi.spyOn(backend, "setFolderRole").mockResolvedValue(layout({}));
     await roles.set("Work/Ex", "exams", "new");
-    expect(remove).not.toHaveBeenCalled();
-    expect(set).toHaveBeenCalledWith("Work/Ex", "exams", "new");
+    expect(set).toHaveBeenCalledWith("Work/Ex", "exams", "new", true);
   });
 
   it("passes the error of the backend on and keeps the roles", async () => {

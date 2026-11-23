@@ -546,8 +546,8 @@ export const backend = {
   /** `language`, `folders` and `files` of `.nixe/config.json` of the open vault. */
   vaultLayout: () => invoke<VaultLayout>("vault_layout"),
   /** Sets the folder role `role` on the vault-relative folder `path`; returns the new layout. */
-  setFolderRole: (path: string, role: string, description: string | null) =>
-    invoke<VaultLayout>("set_folder_role", { path, role, description }),
+  setFolderRole: (path: string, role: string, description: string | null, replace = false) =>
+    invoke<VaultLayout>("set_folder_role", { path, role, description, replace }),
   /** Removes the role of the vault-relative folder `path`; returns the new layout. */
   removeFolderRole: (path: string) => invoke<VaultLayout>("remove_folder_role", { path }),
   /** Imports `.obsidian/` into `.nixe/` once, when the vault has no `.nixe/config.json`. */
