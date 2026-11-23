@@ -28,3 +28,5 @@ minimumReleaseAgeExclude:
   - "@angular/platform-browser@22.3.0"
   - "@angular/router@22.3.0"
   - "@schematics/angular@22.3.0"
+  # Renovate security update: dompurify@3.4.17
+  - dompurify@3.4.17
