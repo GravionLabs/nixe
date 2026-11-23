@@ -30,6 +30,7 @@ import {
   type ExportRequest,
   type VaultChange,
 } from "./core/file/backend";
+import { LogService } from "./core/log/log.service";
 import { EditorService } from "./core/editor/editor.service";
 import type { Command } from "./core/commands/command-registry";
 import { CommandRegistry } from "./core/commands/command-registry";
@@ -127,6 +128,7 @@ export class NavIconDirective {
 })
 export class AppComponent {
   private readonly exporter = inject(ExportService);
+  private readonly log = inject(LogService);
   protected readonly doc = inject(DocumentService);
   protected readonly workspace = inject(WorkspaceService);
   protected readonly settings = inject(SettingsService);
@@ -388,6 +390,7 @@ export class AppComponent {
 
   /** An error stays until the user closes it. */
   protected showError(message: string): void {
+    this.log.write("error", message);
     this.messages.add({ severity: "error", summary: message, sticky: true });
   }
 

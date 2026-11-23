@@ -63,6 +63,24 @@ pub fn log_command_error(command: String, error: String) {
     command_failed(&command, &error);
 }
 
+/// Logs one line from the frontend (#411): `console.error`, `console.warn`, uncaught errors and
+/// the toast of an error. The level is one of the four; any other counts as `info`.
+pub fn frontend_line(level: &str, message: &str) {
+    let level = match level.trim().to_ascii_lowercase().as_str() {
+        "error" => log::Level::Error,
+        "warn" | "warning" => log::Level::Warn,
+        "debug" => log::Level::Debug,
+        _ => log::Level::Info,
+    };
+    log::log!(level, "frontend: {}", one_line(message));
+}
+
+/// The frontend writes a line into the log.
+#[tauri::command]
+pub fn log_write(level: String, message: String) {
+    frontend_line(&level, &message);
+}
+
 #[cfg(test)]
 pub(crate) mod capture {
     //! A logger for tests: it keeps every record in memory.
@@ -160,5 +178,22 @@ mod tests {
         command_failed("write_app_settings", &err);
         assert!(capture::contains("command write_app_settings failed"));
         assert!(!capture::contains("launch code"));
+    }
+
+    #[test]
+    fn a_frontend_line_keeps_its_level_and_is_one_bounded_line() {
+        capture::install();
+        frontend_line("warn", "careful t411\nsecond");
+        frontend_line("ERROR", "broke t411b");
+        frontend_line("nonsense", "odd t411c");
+        assert!(capture::contains("WARN frontend: careful t411 second"));
+        assert!(capture::contains("ERROR frontend: broke t411b"));
+        assert!(capture::contains("INFO frontend: odd t411c"));
+        frontend_line("error", &"y".repeat(MAX_REPORT * 2));
+        let line = capture::lines()
+            .into_iter()
+            .find(|l| l.contains("yyyy"))
+            .unwrap();
+        assert!(line.chars().count() < MAX_REPORT + 60);
     }
 }

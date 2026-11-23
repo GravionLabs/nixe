@@ -5,6 +5,7 @@ import { HX_UPDATE_BEFORE_INSTALL } from "@gravionlabs/helix-desktop/tauri";
 import { provideHxTheme } from "@gravionlabs/helix-ui";
 
 import { AppearanceService } from "./core/appearance/appearance.service";
+import { LogService } from "./core/log/log.service";
 import { SettingsService } from "./core/settings/settings.service";
 import { ACTIVE_TAB_PROVIDERS } from "./core/tabs/tabs.service";
 import { saveBeforeInstall } from "./core/updater/save-before-install";
@@ -12,6 +13,8 @@ import { saveBeforeInstall } from "./core/updater/save-before-install";
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    // console.error, console.warn and the uncaught errors that Angular reports go to the log file (#411).
+    provideAppInitializer(() => inject(LogService).start()),
     // The settings file is read before the app starts, so the first screen already has them.
     provideAppInitializer(() => inject(SettingsService).load()),
     // Themes and snippets are applied from the first screen on and read again when their files change.
