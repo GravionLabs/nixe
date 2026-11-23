@@ -39,6 +39,11 @@ describe("WorkspacesService", () => {
     vi.spyOn(backend, "isDir").mockResolvedValue(true);
     vi.spyOn(backend, "listDir").mockResolvedValue([]);
     vi.spyOn(backend, "findVaultRoot").mockImplementation(async (p) => p);
+    vi.spyOn(backend, "importObsidianSettings").mockResolvedValue({
+      written: [],
+      sources: [],
+      warnings: [],
+    });
     vi.spyOn(backend, "listVaultFiles").mockResolvedValue([]);
     vi.spyOn(backend, "indexStart").mockResolvedValue(undefined);
     vi.spyOn(backend, "workspaceIndex").mockResolvedValue(undefined);

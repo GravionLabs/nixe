@@ -46,6 +46,11 @@ describe("file tree actions of WorkspaceService", () => {
         (tree[d] ?? []).map((e) => ({ ...e, path: `${d}/${e.name}`, hasOrder: false })) as never,
     );
     vi.spyOn(backend, "findVaultRoot").mockImplementation(async (p) => p);
+    vi.spyOn(backend, "importObsidianSettings").mockResolvedValue({
+      written: [],
+      sources: [],
+      warnings: [],
+    });
     vi.spyOn(backend, "listVaultFiles").mockResolvedValue([]);
     vi.spyOn(backend, "indexStart").mockResolvedValue(undefined as never);
     TestBed.resetTestingModule();

@@ -874,6 +874,15 @@ fn vault_layout(state: State<'_, AppState>) -> Result<vault::config::Layout, Str
     Ok(vault::config::layout(&vault_root_of(&state)?))
 }
 
+/// Imports the `.obsidian/` settings into `.nixe/` when the vault has no `.nixe/config.json`
+/// (#441); the report says what was written. Nothing is committed.
+#[tauri::command]
+fn import_obsidian_settings(
+    state: State<'_, AppState>,
+) -> Result<vault::import::ImportReport, String> {
+    Ok(vault::import::import_obsidian(&vault_root_of(&state)?))
+}
+
 /// Saves pasted bytes as `name` in the attachment folder of `note`; returns the vault-relative path.
 #[tauri::command]
 fn save_attachment(
@@ -1376,6 +1385,7 @@ pub fn run() {
         set_menu_shortcuts,
         obsidian_settings,
         vault_layout,
+        import_obsidian_settings,
         save_attachment,
         import_attachment,
         is_utf8_file,
@@ -1511,6 +1521,7 @@ pub fn run() {
         set_menu_shortcuts,
         obsidian_settings,
         vault_layout,
+        import_obsidian_settings,
         save_attachment,
         import_attachment,
         is_utf8_file,

@@ -39,6 +39,7 @@ export const FAKE_VAULT: Record<string, unknown> = {
   find_vault_root: VAULT,
   find_wiki_root: VAULT,
   obsidian_settings: [],
+  import_obsidian_settings: { written: [], sources: [], warnings: [] },
   link_format: "shortest",
   new_note_location: { location: "root", folder: "" },
   template_folder: null,

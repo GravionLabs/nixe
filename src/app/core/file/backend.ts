@@ -165,6 +165,16 @@ export interface VaultLayout {
   files: Record<string, LayoutEntry>;
 }
 
+/** What the import of `.obsidian/` into `.nixe/` did when the vault was opened (#441). */
+export interface ImportReport {
+  /** The files written into `.nixe/`. */
+  written: string[];
+  /** The `.obsidian/` files the values came from. */
+  sources: string[];
+  /** What went wrong; the app works on with the fallback. */
+  warnings: string[];
+}
+
 /** A setting that Obsidian also has, read from the vault (`.nixe/config.json` first). */
 export interface ObsidianSetting {
   id: string;
@@ -533,6 +543,8 @@ export const backend = {
   obsidianSettings: () => invoke<ObsidianSetting[]>("obsidian_settings"),
   /** `language`, `folders` and `files` of `.nixe/config.json` of the open vault. */
   vaultLayout: () => invoke<VaultLayout>("vault_layout"),
+  /** Imports `.obsidian/` into `.nixe/` once, when the vault has no `.nixe/config.json`. */
+  importObsidianSettings: () => invoke<ImportReport>("import_obsidian_settings"),
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
   /** Saves pasted bytes into the attachment folder of `note`; returns the vault-relative path. */
   saveAttachment: (note: string, name: string, bytes: number[]) =>

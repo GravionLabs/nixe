@@ -267,6 +267,15 @@ export class AppComponent {
     });
 
     effect(() => {
+      const notice = this.workspace.notice();
+      if (notice === null) return;
+      untracked(() => {
+        this.showToast(notice);
+        this.workspace.notice.set(null);
+      });
+    });
+
+    effect(() => {
       const notice = this.vaultUndo.notice();
       if (notice === null) return;
       untracked(() => {

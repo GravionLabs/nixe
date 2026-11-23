@@ -65,6 +65,7 @@ export function createNixeDemo(): NixeDemo {
     find_vault_root: VAULT,
     find_wiki_root: VAULT,
     obsidian_settings: [],
+    import_obsidian_settings: { written: [], sources: [], warnings: [] },
     vault_layout: { language: null, folders: {}, files: {} },
     link_format: "shortest",
     new_note_location: { location: "root", folder: "" },
