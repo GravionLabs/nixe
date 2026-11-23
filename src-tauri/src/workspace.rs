@@ -69,11 +69,61 @@ fn slashes(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
+/// The platform a [`Locations`] is detected for; injected so every branch is testable anywhere.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Platform {
+    Windows,
+    MacOs,
+    Other,
+}
+
+impl Platform {
+    pub const CURRENT: Platform = if cfg!(windows) {
+        Platform::Windows
+    } else if cfg!(target_os = "macos") {
+        Platform::MacOs
+    } else {
+        Platform::Other
+    };
+}
+
+/// Why a leading `$Name` has no folder on this device.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Unresolved {
+    /// The variable is unknown, or has no folder here (Linux has no `$OneDrive`).
+    NoValue(String),
+    /// Several folders fit (several OneDrive accounts): the user picks one of `candidates`.
+    NeedsChoice {
+        name: String,
+        candidates: Vec<String>,
+    },
+}
+
+impl std::fmt::Display for Unresolved {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Unresolved::NoValue(name) => {
+                write!(f, "the variable ${name} has no value on this device")
+            }
+            Unresolved::NeedsChoice { name, candidates } => write!(
+                f,
+                "the variable ${name} needs a choice on this device: {}",
+                candidates.join(", ")
+            ),
+        }
+    }
+}
+
 /// The folders the built-in location variables stand for on this device.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Locations {
     pub home: Option<PathBuf>,
     pub documents: Option<PathBuf>,
+    /// The OneDrive folder when there is exactly one (or the user chose one).
+    pub onedrive: Option<PathBuf>,
+    /// Several OneDrive folders and no choice yet: the candidates.
+    pub onedrive_candidates: Vec<PathBuf>,
+    pub icloud: Option<PathBuf>,
 }
 
 impl Locations {
@@ -85,34 +135,105 @@ impl Locations {
             .filter_map(std::env::var_os)
             .find(|v| !v.is_empty())
             .map(PathBuf::from);
+        let onedrive_env = std::env::var_os("OneDrive")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from);
+        let documents = home.as_ref().map(|h| h.join("Documents"));
         Locations {
-            documents: home.as_ref().map(|h| h.join("Documents")),
-            home,
+            documents,
+            ..Locations::with_cloud(Platform::CURRENT, home, onedrive_env, &list_dirs)
         }
     }
 
     /// From the Tauri path API.
     pub fn from_app<R: tauri::Runtime>(app: &impl tauri::Manager<R>) -> Locations {
         let paths = app.path();
+        let onedrive_env = std::env::var_os("OneDrive")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from);
         Locations {
-            home: paths.home_dir().ok(),
             documents: paths.document_dir().ok(),
+            ..Locations::with_cloud(
+                Platform::CURRENT,
+                paths.home_dir().ok(),
+                onedrive_env,
+                &list_dirs,
+            )
         }
     }
 
-    fn get(&self, name: &str) -> Option<&Path> {
+    /// `home`, `$OneDrive` and `$iCloud` for `platform` from an injected environment: the value of
+    /// the `OneDrive` variable (Windows) and a directory listing (macOS), so a test reads nothing
+    /// of the real device. `documents` stays unset.
+    pub fn with_cloud(
+        platform: Platform,
+        home: Option<PathBuf>,
+        onedrive_env: Option<PathBuf>,
+        list: &dyn Fn(&Path) -> Vec<PathBuf>,
+    ) -> Locations {
+        let mut loc = Locations {
+            home: home.clone(),
+            ..Locations::default()
+        };
+        match (platform, &home) {
+            (Platform::Windows, _) => loc.onedrive = onedrive_env,
+            (Platform::MacOs, Some(home)) => {
+                let mut found: Vec<PathBuf> = list(&home.join("Library/CloudStorage"))
+                    .into_iter()
+                    .filter(|p| {
+                        p.file_name()
+                            .is_some_and(|n| n.to_string_lossy().starts_with("OneDrive-"))
+                    })
+                    .collect();
+                found.sort();
+                if found.len() == 1 {
+                    loc.onedrive = found.pop();
+                } else {
+                    loc.onedrive_candidates = found;
+                }
+                loc.icloud = Some(home.join("Library/Mobile Documents/com~apple~CloudDocs"));
+            }
+            _ => {}
+        }
+        loc
+    }
+
+    /// Settles `$OneDrive` with the folder the user picked among the candidates (stored per
+    /// device, #495). A folder that is no candidate is ignored.
+    pub fn choose_onedrive(&mut self, choice: &Path) {
+        if self.onedrive_candidates.iter().any(|c| c == choice) {
+            self.onedrive = Some(choice.to_path_buf());
+            self.onedrive_candidates.clear();
+        }
+    }
+
+    fn get(&self, name: &str) -> Result<&Path, Unresolved> {
+        let none = || Unresolved::NoValue(name.to_string());
         match name {
-            "Home" => self.home.as_deref(),
-            "Documents" => self.documents.as_deref(),
-            _ => None,
+            "Home" => self.home.as_deref().ok_or_else(none),
+            "Documents" => self.documents.as_deref().ok_or_else(none),
+            "iCloud" => self.icloud.as_deref().ok_or_else(none),
+            "OneDrive" => match self.onedrive.as_deref() {
+                Some(p) => Ok(p),
+                None if self.onedrive_candidates.len() > 1 => Err(Unresolved::NeedsChoice {
+                    name: name.to_string(),
+                    candidates: self
+                        .onedrive_candidates
+                        .iter()
+                        .map(|c| slashes(c))
+                        .collect(),
+                }),
+                None => Err(none()),
+            },
+            _ => Err(none()),
         }
     }
 
     /// Resolves a path written with a leading `$Name`: `$Home/x` becomes the home folder of this
     /// device plus `x`; `$$name` is the literal `$name`. A `$` anywhere else, or a `$` that no
     /// name follows, is literal. A path that does not start with `$` is returned as it is. The
-    /// error names the variable that has no value here.
-    pub fn resolve(&self, template: &str) -> Result<String, String> {
+    /// error says whether the variable has no value here or needs a choice among candidates.
+    pub fn resolve(&self, template: &str) -> Result<String, Unresolved> {
         let Some(rest) = template.strip_prefix('$') else {
             return Ok(template.to_string());
         };
@@ -124,7 +245,7 @@ impl Locations {
         if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
             return Ok(template.to_string());
         }
-        let base = self.get(name).ok_or_else(|| name.to_string())?;
+        let base = self.get(name)?;
         let tail = tail.trim_start_matches(['/', '\\']);
         Ok(if tail.is_empty() {
             slashes(base)
@@ -132,6 +253,18 @@ impl Locations {
             slashes(&base.join(tail))
         })
     }
+}
+
+/// The sub-directories of `dir`; empty when it cannot be read.
+fn list_dirs(dir: &Path) -> Vec<PathBuf> {
+    fs::read_dir(dir)
+        .map(|rd| {
+            rd.filter_map(Result::ok)
+                .map(|e| e.path())
+                .filter(|p| p.is_dir())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// A root as it is stored in the file: the template, else the path.
@@ -200,11 +333,7 @@ impl Workspace {
         let written = slashes(path);
         let template = written.starts_with('$').then_some(written);
         let path = match &template {
-            Some(t) => PathBuf::from(
-                locations
-                    .resolve(t)
-                    .map_err(|v| format!("{t}: the variable ${v} has no value on this device"))?,
-            ),
+            Some(t) => PathBuf::from(locations.resolve(t).map_err(|e| format!("{t}: {e}"))?),
             None => path.to_path_buf(),
         };
         let path = path.as_path();
@@ -447,12 +576,16 @@ mod tests {
     const NONE: Locations = Locations {
         home: None,
         documents: None,
+        onedrive: None,
+        onedrive_candidates: Vec::new(),
+        icloud: None,
     };
 
     fn device(base: &Path) -> Locations {
         Locations {
             home: Some(base.join("home")),
             documents: Some(base.join("home/Documents")),
+            ..Locations::default()
         }
     }
 
@@ -625,6 +758,118 @@ mod tests {
         assert_eq!(loc.resolve("/abs/path").unwrap(), "/abs/path");
     }
 
+    fn listing(entries: &'static [&'static str]) -> impl Fn(&Path) -> Vec<PathBuf> {
+        move |dir| {
+            assert_eq!(dir, Path::new("/u/Library/CloudStorage"));
+            entries.iter().map(|e| dir.join(e)).collect()
+        }
+    }
+
+    fn cloud(platform: Platform, env: Option<&str>, entries: &'static [&'static str]) -> Locations {
+        Locations::with_cloud(
+            platform,
+            Some(PathBuf::from("/u")),
+            env.map(PathBuf::from),
+            &listing(entries),
+        )
+    }
+
+    #[test]
+    fn onedrive_on_windows_is_the_environment_variable() {
+        let loc = cloud(Platform::Windows, Some("C:/Users/u/OneDrive"), &[]);
+        assert_eq!(
+            loc.resolve("$OneDrive/Books").unwrap(),
+            "C:/Users/u/OneDrive/Books"
+        );
+        assert_eq!(loc.icloud, None);
+        let none = cloud(Platform::Windows, None, &[]);
+        assert_eq!(
+            none.resolve("$OneDrive"),
+            Err(Unresolved::NoValue("OneDrive".into()))
+        );
+    }
+
+    #[test]
+    fn onedrive_on_macos_is_the_one_cloud_storage_folder() {
+        let loc = cloud(
+            Platform::MacOs,
+            None,
+            &["OneDrive-Personal", "Dropbox", "GoogleDrive-a"],
+        );
+        assert_eq!(
+            loc.resolve("$OneDrive/x").unwrap(),
+            "/u/Library/CloudStorage/OneDrive-Personal/x"
+        );
+        assert_eq!(
+            cloud(Platform::MacOs, None, &["Dropbox"]).resolve("$OneDrive"),
+            Err(Unresolved::NoValue("OneDrive".into()))
+        );
+    }
+
+    #[test]
+    fn several_onedrive_folders_need_a_choice_that_names_them() {
+        let mut loc = cloud(
+            Platform::MacOs,
+            None,
+            &["OneDrive-Work", "OneDrive-Personal"],
+        );
+        let err = loc.resolve("$OneDrive/x").unwrap_err();
+        assert_eq!(
+            err,
+            Unresolved::NeedsChoice {
+                name: "OneDrive".into(),
+                candidates: vec![
+                    "/u/Library/CloudStorage/OneDrive-Personal".into(),
+                    "/u/Library/CloudStorage/OneDrive-Work".into(),
+                ],
+            }
+        );
+        assert!(err.to_string().contains("OneDrive-Work"));
+        loc.choose_onedrive(Path::new("/elsewhere"));
+        assert!(loc.resolve("$OneDrive").is_err());
+        loc.choose_onedrive(Path::new("/u/Library/CloudStorage/OneDrive-Work"));
+        assert_eq!(
+            loc.resolve("$OneDrive/x").unwrap(),
+            "/u/Library/CloudStorage/OneDrive-Work/x"
+        );
+    }
+
+    #[test]
+    fn icloud_is_the_cloud_docs_folder_on_macos_only() {
+        let mac = cloud(Platform::MacOs, None, &[]);
+        assert_eq!(
+            mac.resolve("$iCloud/n").unwrap(),
+            "/u/Library/Mobile Documents/com~apple~CloudDocs/n"
+        );
+        for p in [Platform::Windows, Platform::Other] {
+            assert_eq!(
+                cloud(p, None, &[]).resolve("$iCloud"),
+                Err(Unresolved::NoValue("iCloud".into()))
+            );
+        }
+    }
+
+    #[test]
+    fn linux_has_neither_cloud_variable() {
+        let loc = cloud(Platform::Other, Some("/ignored"), &["OneDrive-X"]);
+        assert!(loc.resolve("$OneDrive").is_err());
+        assert!(loc.resolve("$iCloud").is_err());
+        assert_eq!(loc.resolve("$Home/x").unwrap(), "/u/x");
+    }
+
+    #[test]
+    fn a_choice_is_named_when_a_root_is_added() {
+        let loc = cloud(Platform::MacOs, None, &["OneDrive-A", "OneDrive-B"]);
+        let err = Workspace::new("c")
+            .unwrap()
+            .add_root(Path::new("$OneDrive/x"), &loc)
+            .unwrap_err();
+        assert!(
+            err.contains("needs a choice") && err.contains("OneDrive-A"),
+            "{err}"
+        );
+    }
+
     #[test]
     fn a_double_dollar_and_a_dollar_inside_a_path_are_literal() {
         let loc = device(Path::new("/dev"));
@@ -638,9 +883,12 @@ mod tests {
     fn an_unknown_variable_or_a_missing_folder_is_named() {
         assert_eq!(
             device(Path::new("/dev")).resolve("$Nope/x"),
-            Err("Nope".into())
+            Err(Unresolved::NoValue("Nope".into()))
         );
-        assert_eq!(NONE.resolve("$Home/x"), Err("Home".into()));
+        assert_eq!(
+            NONE.resolve("$Home/x"),
+            Err(Unresolved::NoValue("Home".into()))
+        );
     }
 
     #[test]
