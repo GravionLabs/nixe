@@ -43,6 +43,16 @@ nav button.active {
   overflow-y: auto;
 }
 
+/*
+ * The search field and the sections keep a readable width, left-aligned next to the navigation, so a
+ * label and its control stay close on a wide window (#544). The limit sits on the children, not on
+ * `.content`: the scrollbar stays at the right edge of the page.
+ */
+.search,
+section {
+  max-width: 760px;
+}
+
 .search {
   width: 100%;
   box-sizing: border-box;
