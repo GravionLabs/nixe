@@ -28,8 +28,11 @@ which is no folder, so it is skipped like a missing folder; saving writes the te
 `$OneDrive` is the `OneDrive` environment variable on Windows and the folder
 `~/Library/CloudStorage/OneDrive-*` on macOS; with several such folders (several accounts) it stays
 unresolved and names the candidates until the user picks one. `$iCloud` is
-`~/Library/Mobile Documents/com~apple~CloudDocs` on macOS. Linux has neither. The messages for an
-unresolved variable follow in a later issue (#462).
+`~/Library/Mobile Documents/com~apple~CloudDocs` on macOS. Linux has neither. Opening the workspace
+shows one message that names the variable (`$Books has no value on this device`) with the action
+**Set variable**, which opens the **Locations** section of the settings; the other roots open as
+before. The skipped root stays in the workspace and in `workspaces/<name>.json`, and reopening the
+workspace after the variable is set brings it back.
 
 ### Own variables
 

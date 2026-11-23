@@ -56,7 +56,7 @@ import { SettingsService } from "./core/settings/settings.service";
 import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
-import { WorkspacesService } from "./core/workspace/workspaces.service";
+import { WorkspacesService, skippedMessage } from "./core/workspace/workspaces.service";
 import { VaultUndoService } from "./core/workspace/vault-undo.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
 import { TREE_SORTS, TREE_SORT_LABELS } from "./core/workspace/tree-model";
@@ -272,6 +272,28 @@ export class AppComponent {
       untracked(() => {
         this.showToast(notice);
         this.workspace.notice.set(null);
+      });
+    });
+
+    effect(() => {
+      const skipped = this.workspaces.skipped();
+      if (skipped === null) return;
+      untracked(() => {
+        this.messages.add({
+          severity: "warn",
+          summary: skippedMessage(skipped),
+          sticky: true,
+          action: {
+            label: "Set variable",
+            run: () =>
+              void this.run(async () => {
+                this.tabs.openView("settings");
+                await this.settingsPage.open();
+                this.settingsPage.select("locations");
+              }),
+          },
+        });
+        this.workspaces.skipped.set(null);
       });
     });
 

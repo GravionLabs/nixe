@@ -1,7 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import type { RootArg, Workspace } from "../file/backend";
+import type { RootArg, Workspace, WorkspaceRoot } from "../file/backend";
 import { backend } from "../file/backend";
 import { CommandRegistry } from "../commands/command-registry";
 import { basename } from "../markdown/paths";
@@ -9,6 +9,27 @@ import { WorkspaceService } from "./workspace.service";
 
 /** Command id of "open the saved workspace `name`". */
 export const OPEN_WORKSPACE_PREFIX = "open-workspace:";
+
+/** The roots a workspace opened without, because their location variable has no value here (#496). */
+export interface SkippedRoots {
+  workspace: string;
+  /** The names of the variables, without `$`; each once. */
+  variables: string[];
+}
+
+/** The one message that names the variables a workspace opened without. */
+export function skippedMessage(skipped: SkippedRoots): string {
+  const names = skipped.variables.map((v) => `$${v}`).join(", ");
+  const verb = skipped.variables.length === 1 ? "has" : "have";
+  return `${names} ${verb} no value on this device. The folders that use it are skipped.`;
+}
+
+/** The variable of a root whose template did not resolve on this device; null for any other root. */
+export function unresolvedVariable(root: WorkspaceRoot): string | null {
+  // The core keeps the template as `path` when its variable has no value; `$$x` resolves to `$x`.
+  if (!root.template || root.path !== root.template) return null;
+  return /^\$([^/\\]+)/.exec(root.template)?.[1] ?? null;
+}
 
 /** A name for a workspace that was not named: the names of its roots. */
 export function defaultWorkspaceName(workspace: Workspace): string {
@@ -41,6 +62,8 @@ export class WorkspacesService {
   });
   /** Counts the finished index passes over the further roots, so searches run again. */
   readonly indexRevision = signal(0);
+  /** Set when a workspace opened without some roots; the shell shows one message and clears it. */
+  readonly skipped = signal<SkippedRoots | null>(null);
   private unregister: (() => void)[] = [];
 
   constructor() {
@@ -108,8 +131,13 @@ export class WorkspacesService {
     const present = (
       await Promise.all(ws.roots.map(async (r) => ((await backend.isDir(r.path)) ? r : null)))
     ).filter((r) => r !== null);
+    const variables = [
+      ...new Set(ws.roots.map(unresolvedVariable).filter((v): v is string => v !== null)),
+    ];
+    if (variables.length > 0) this.skipped.set({ workspace: name, variables });
     if (present.length === 0) throw new Error(`No folder of the workspace "${name}" exists.`);
     await this.workspace.openFolder(present[0].path);
+    // The skipped roots stay in `current`, so a save writes them back untouched.
     this.current.set(ws);
     this.show({ ...ws, roots: present });
   }
