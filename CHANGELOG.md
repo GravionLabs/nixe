@@ -11,6 +11,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - The app starts although Tauri's invoke is read-only (#520)
 
 
+### Documentation
+- Update CHANGELOG.md for v1.12.1 [skip ci]
+
+
 ## [1.12.0] — 2026-11-23
 
 ### Bug Fixes
