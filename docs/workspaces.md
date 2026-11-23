@@ -12,6 +12,22 @@ workspace is a palette command **Open workspace: _name_**.
   folders, and forgetting a workspace leaves them. A saved root whose folder is gone is skipped on
   opening.
 
+## Location variables
+
+A root path may start with `$Name/…`, which is resolved on the device that opens the workspace
+([ADR 0008](adr/0008-location-variables-and-own-root-names-for-portable-workspaces.md)). The built-ins
+are `$Home` and `$Documents` (the home and documents folder of the Tauri path API; the command line
+reads `HOME`/`USERPROFILE` and uses `Documents` below it). `$$` at the start is a literal `$`
+(`$$Archive/notes` is the folder `$Archive/notes`); a `$` anywhere else in a path is literal.
+
+A root keeps both: `path` is the resolved absolute path that the rest of the core works with,
+`template` the path as written. The file `workspaces/<name>.json` stores the template in place of
+`path`, so it holds no path of one device, and a file without templates (older versions) loads
+unchanged. A root whose variable has no value on the device keeps the template as its `path`,
+which is no folder, so it is skipped like a missing folder; saving writes the template back.
+`$OneDrive`, `$iCloud`, own variables and the messages for an unresolved variable follow in later
+issues (#462).
+
 ## Links between roots
 
 A link resolves inside the root of the note that holds it. To reach a note of another root, prefix
