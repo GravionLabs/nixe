@@ -311,6 +311,11 @@ export class WorkspaceService {
     this.extraRoots.update((nodes) => [...nodes, node]);
   }
 
+  /** Shows the further root at `path` under `name`; it keeps its place and its open state. */
+  renameExtraRoot(path: string, name: string): void {
+    this.extraRoots.update((nodes) => nodes.map((n) => (n.dirPath === path ? { ...n, name } : n)));
+  }
+
   /** Drops the further roots, keeping the first. */
   clearExtraRoots(): void {
     this.extraRoots.set([]);

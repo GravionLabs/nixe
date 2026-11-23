@@ -1140,6 +1140,18 @@ fn workspace_add_root(
     Ok(workspace)
 }
 
+/// `workspace` with the root at `path` renamed (#497): its link prefix, independent of the folder
+/// name. Refused when the name clashes with another root or is no valid link prefix.
+#[tauri::command]
+fn workspace_rename_root(
+    mut workspace: workspace::Workspace,
+    path: String,
+    name: String,
+) -> Result<workspace::Workspace, String> {
+    workspace.rename_root(&path, &name)?;
+    Ok(workspace)
+}
+
 /// The own location variables of this device (#495) and the picked OneDrive folder.
 #[tauri::command]
 fn locations_list(app: AppHandle) -> Result<workspace::OwnLocations, String> {
@@ -1449,6 +1461,7 @@ pub fn run() {
         workspace_save,
         workspace_delete,
         workspace_add_root,
+        workspace_rename_root,
         locations_list,
         locations_set,
         locations_remove,
@@ -1592,6 +1605,7 @@ pub fn run() {
         workspace_save,
         workspace_delete,
         workspace_add_root,
+        workspace_rename_root,
         workspace_resolve_links,
         read_folds,
         write_folds,

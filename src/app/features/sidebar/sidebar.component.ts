@@ -35,6 +35,7 @@ import { NO_DECORATION, decorate, highlightParts } from "../../core/workspace/tr
 import type { TreeNode } from "../../core/workspace/workspace.service";
 import { ShortcutService } from "../../core/commands/shortcut.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { WorkspacesService } from "../../core/workspace/workspaces.service";
 
 /** How long the row of a revealed note flashes. */
 export const FLASH_MS = 2000;
@@ -58,6 +59,7 @@ export class SidebarComponent {
   private readonly git = inject(GitService);
   private readonly settings = inject(SettingsService);
   private readonly ops = inject(VaultOpsService);
+  private readonly workspaces = inject(WorkspacesService);
   private readonly tabs = inject(TabsService);
   private readonly bookmarks = inject(BookmarksService);
   private readonly injector = inject(Injector);
@@ -116,6 +118,9 @@ export class SidebarComponent {
       ...(node?.filePath
         ? [{ label: this.bookmarkLabel(node), command: () => this.bookmark(node) }]
         : []),
+      ...(node && this.isExtraRoot(node)
+        ? [{ label: "Rename root", command: () => this.beginRenameRoot(node.dirPath) }]
+        : []),
       ...(node
         ? [
             { label: "Rename", command: () => this.beginRename(node) },
@@ -131,6 +136,7 @@ export class SidebarComponent {
   private focusFilterOnShow = false;
   /** Path of the entry whose name is being edited. */
   protected readonly renaming = signal<string | null>(null);
+  private readonly rootInput = viewChild<ElementRef<HTMLInputElement>>("rootInput");
   private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>("renameInput");
   private renameDone = false;
   /** Paths of the selected rows; the click, Ctrl/Cmd, Shift and Space keys change it. */
@@ -178,6 +184,11 @@ export class SidebarComponent {
       if (!input || !this.focusFilterOnShow) return;
       this.focusFilterOnShow = false;
       input.focus();
+    });
+    effect(() => {
+      const input = this.rootInput()?.nativeElement;
+      input?.focus();
+      input?.select();
     });
     effect(() => {
       const input = this.renameInput()?.nativeElement;
@@ -495,6 +506,40 @@ export class SidebarComponent {
       if (node?.dirPath) await this.workspace.toggle(node, true);
       this.startRenaming(await this.ops.createFolder(dir));
     });
+  }
+
+  /** Whether `node` is a further root of the workspace (#497): its name is the link prefix. */
+  protected isExtraRoot(node: TreeNode): boolean {
+    return node.depth === 0 && node.dirPath !== null && this.workspace.extraRoots().includes(node);
+  }
+
+  /** The label of the first root: its name in the workspace, else the folder name. */
+  protected readonly rootLabel = computed(() => {
+    const root = this.workspace.vaultRoot();
+    return root ? this.workspaces.rootName(root) : this.workspace.rootName();
+  });
+  /** Path of the root whose link name is being edited (#497); null when none. */
+  protected readonly renamingRoot = signal<string | null>(null);
+
+  /** Starts editing the link name of the root at `path`; only inside a workspace. */
+  protected beginRenameRoot(path: string | null): void {
+    if (path && this.workspaces.current()) {
+      this.renameDone = false;
+      this.renamingRoot.set(path);
+    }
+  }
+
+  protected async commitRenameRoot(path: string, input: HTMLInputElement): Promise<void> {
+    if (this.renameDone) return;
+    this.renameDone = true;
+    this.renamingRoot.set(null);
+    if (input.value.trim() === this.workspaces.rootName(path)) return;
+    await this.attempt(() => this.workspaces.renameRoot(path, input.value));
+  }
+
+  protected cancelRenameRoot(): void {
+    this.renameDone = true;
+    this.renamingRoot.set(null);
   }
 
   protected beginRename(node: TreeNode): void {

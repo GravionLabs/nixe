@@ -582,6 +582,9 @@ export const backend = {
   /** `workspace` with the folder added as a root; the backend detects its kind. */
   workspaceAddRoot: (workspace: Workspace, path: string) =>
     invoke<Workspace>("workspace_add_root", { workspace, path }),
+  /** `workspace` with the root at `path` renamed; refused for a clash or an invalid link prefix. */
+  workspaceRenameRoot: (workspace: Workspace, path: string, name: string) =>
+    invoke<Workspace>("workspace_rename_root", { workspace, path, name }),
   /** The own location variables of this device (app data, never a workspace or the vault). */
   locationsList: () => invoke<OwnLocations>("locations_list"),
   /** Defines `name` as an existing absolute folder; `previous` is the name before a rename. */

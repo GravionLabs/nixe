@@ -105,6 +105,36 @@ describe("WorkspacesService", () => {
     expect(workspace.extraRoots()).toEqual([]);
   });
 
+  it("renames a root: the name is kept in the workspace, in the tree and in a save (#497)", async () => {
+    vi.spyOn(backend, "workspaceRenameRoot").mockImplementation(async (ws, path, name) => ({
+      ...ws,
+      roots: ws.roots.map((r) => (r.path === path ? { ...r, name } : r)),
+    }));
+    await workspace.openFolder("/vault", { openDefaultPage: false });
+    await service.addFolder("/other/Wiki");
+    await service.renameRoot("/other/Wiki", "Books");
+    expect(service.current()?.roots.map((r) => r.name)).toEqual(["vault", "Books"]);
+    expect(service.rootName("/other/Wiki")).toBe("Books");
+    expect(workspace.extraRoots().map((n) => n.name)).toEqual(["Books"]);
+    expect(service.searchRoots()?.map((r) => r.name)).toEqual(["vault", "Books"]);
+    await service.save("Mine");
+    expect(stored.get("Mine")?.roots[1].name).toBe("Books");
+  });
+
+  it("needs a workspace to rename a root", async () => {
+    await expect(service.renameRoot("/x", "y")).rejects.toThrow("Add a folder");
+  });
+
+  it("keeps the name when the backend refuses a rename", async () => {
+    vi.spyOn(backend, "workspaceRenameRoot").mockRejectedValue("another root is called x already");
+    await workspace.openFolder("/vault", { openDefaultPage: false });
+    await service.addFolder("/other/Wiki");
+    await expect(service.renameRoot("/other/Wiki", "vault")).rejects.toBe(
+      "another root is called x already",
+    );
+    expect(service.rootName("/other/Wiki")).toBe("Wiki");
+  });
+
   it("saves under a name, lists it as a command and reopens it", async () => {
     await workspace.openFolder("/a", { openDefaultPage: false });
     await service.addFolder("/b");
