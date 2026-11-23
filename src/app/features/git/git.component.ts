@@ -94,6 +94,22 @@ export class GitComponent {
     this.commands.execute("open-settings");
   }
 
+  protected async addIgnores(): Promise<void> {
+    try {
+      await this.git.addMissingIgnores();
+    } catch (err) {
+      this.failed.emit(String(err));
+    }
+  }
+
+  protected async dismissIgnoreHint(): Promise<void> {
+    try {
+      await this.git.dismissIgnoreHint();
+    } catch (err) {
+      this.failed.emit(String(err));
+    }
+  }
+
   protected async syncNow(): Promise<void> {
     await this.git.sync();
   }

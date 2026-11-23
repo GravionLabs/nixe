@@ -133,6 +133,9 @@ export function createNixeDemo(): NixeDemo {
 
     // Git: a seeded history (`git.ts`), the open changes and a branch to review.
     git_vault_status: () => git.status(),
+    git_gitignore_missing: () => [],
+    git_gitignore_add: () => [],
+    git_gitignore_dismiss: () => null,
     git_vault_log: (a) => git.log(num(a, "offset"), num(a, "limit")),
     git_note_history: (a) => git.noteHistory(str(a, "path"), num(a, "offset"), num(a, "limit")),
     git_note_version: (a) => git.noteVersion(str(a, "path"), strOrNull(a, "rev")),

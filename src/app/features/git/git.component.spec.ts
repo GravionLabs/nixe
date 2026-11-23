@@ -45,6 +45,7 @@ function render(
     sync?: { phase: string; message: string; detail?: string };
     reviewCount?: number;
     status?: GitStatus | null;
+    ignores?: string[];
   } = {},
 ) {
   const sync = vi.fn().mockResolvedValue(undefined);
@@ -66,6 +67,8 @@ function render(
     checkedPaths.set(next);
   });
   const setAll = vi.fn();
+  const addMissingIgnores = vi.fn().mockResolvedValue(undefined);
+  const dismissIgnoreHint = vi.fn().mockResolvedValue(undefined);
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -84,6 +87,9 @@ function render(
           lastSynced: signal<number | null>(null),
           syncState: signal(extra.sync ?? { phase: "idle", message: "" }),
           close,
+          missingIgnores: signal(extra.ignores ?? []),
+          addMissingIgnores,
+          dismissIgnoreHint,
           tokenStored: signal(token.stored ?? false),
           tokenPrompt: signal(token.prompt ?? null),
         },
@@ -125,6 +131,8 @@ function render(
     toggle,
     setAll,
     checkedPaths,
+    addMissingIgnores,
+    dismissIgnoreHint,
   };
 }
 
@@ -144,6 +152,46 @@ describe("GitComponent", () => {
     expect(kinds).toEqual(["Changed", "New", "Deleted"]);
     expect(el.querySelector(".count")?.textContent).toBe("3");
     expect(el.textContent).not.toMatch(/commit|push|pull/i);
+  });
+
+  it("hints at missing .gitignore entries and adds or dismisses them (#443)", async () => {
+    const { el, addMissingIgnores, dismissIgnoreHint, fixture } = render(
+      status,
+      undefined,
+      {},
+      {
+        ignores: [".nixe/local/", ".trash/"],
+      },
+    );
+    const hint = el.querySelector(".ignore-hint")!;
+    expect(hint.textContent).toContain(".nixe/local/, .trash/");
+    const [add, dismiss] = Array.from(hint.querySelectorAll("button"));
+    expect(add.textContent).toContain("Add to .gitignore");
+    add.click();
+    dismiss.click();
+    await fixture.whenStable();
+    expect(addMissingIgnores).toHaveBeenCalledOnce();
+    expect(dismissIgnoreHint).toHaveBeenCalledOnce();
+  });
+
+  it("shows no .gitignore hint when nothing is missing", () => {
+    const { el } = render(status);
+    expect(el.querySelector(".ignore-hint")).toBeNull();
+  });
+
+  it("reports a failed .gitignore action", async () => {
+    const { el, addMissingIgnores, errors, fixture } = render(
+      status,
+      undefined,
+      {},
+      {
+        ignores: [".trash/"],
+      },
+    );
+    addMissingIgnores.mockRejectedValue("denied");
+    (el.querySelector(".ignore-hint button") as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(errors).toEqual(["denied"]);
   });
 
   it("syncs from the header button, which waits while a sync runs or without a remote", () => {
