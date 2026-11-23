@@ -2,7 +2,8 @@ import { Injectable } from "@angular/core";
 import { invoke } from "@tauri-apps/api/core";
 import { errorText } from "./command-log";
 
-export type LogLevel = "error" | "warn" | "info" | "debug";
+import type { LogLevel } from "./log-level";
+export type { LogLevel } from "./log-level";
 
 /** The Tauri command that writes one line into `nixe.log` (#411). */
 export const LOG_WRITE = "log_write";

@@ -427,6 +427,12 @@ describe("TabsService", () => {
       expect(tabs.panes()[0].tabs.map((t) => t.view())).toEqual([null, null]);
     });
 
+    it("does not store the log view, and a second open focuses the first", async () => {
+      const first = tabs.openView("log");
+      expect(tabs.openView("log")).toBe(first);
+      expect(tabs.snapshot().panes[0].tabs.every((t) => t.view === null)).toBe(true);
+    });
+
     it("closes, and the last tab of all becomes an empty tab", () => {
       const view = tabs.openView("settings");
       expect(tabs.closeTab(tabs.focusedPane().id, view.id)).toBe(true);

@@ -130,12 +130,17 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         menu = menu.item(&app_menu);
     }
     menu = menu.item(&file.build()?).item(&edit).item(&view);
+    let mut help = SubmenuBuilder::new(app, "Help");
     if !cfg!(target_os = "macos") {
-        let help = SubmenuBuilder::new(app, "Help")
-            .item(&item(CHECK_UPDATES_ID, "Check for Updates…", None)?)
-            .build()?;
-        menu = menu.item(&help);
+        help = help.item(&item(CHECK_UPDATES_ID, "Check for Updates…", None)?);
     }
+    // The log is for a bug report: show it, copy its end, or open its folder.
+    let help = help
+        .item(&item("show-log", "Show Log", None)?)
+        .item(&item("copy-log", "Copy Log", None)?)
+        .item(&item("reveal-log-folder", "Reveal Log Folder", None)?)
+        .build()?;
+    menu = menu.item(&help);
     if cfg!(target_os = "macos") {
         let window = SubmenuBuilder::new(app, "Window")
             .minimize()

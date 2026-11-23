@@ -38,6 +38,66 @@ pub fn resolve_level(env: Option<&str>, settings: Option<&str>) -> LevelFilter {
         .unwrap_or(LevelFilter::Info)
 }
 
+/// The level that a change of the setting puts in effect: `NIXE_LOG` still wins, as at the start.
+pub fn effective_level(env: Option<&str>, chosen: &str) -> Result<LevelFilter, String> {
+    let chosen = parse_level(chosen).ok_or_else(|| format!("unknown log level: {chosen}"))?;
+    Ok(env.and_then(parse_level).unwrap_or(chosen))
+}
+
+/// The last `count` lines of `text` (all of it when it has fewer), without a trailing newline.
+pub fn tail_lines(text: &str, count: usize) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    lines[lines.len().saturating_sub(count)..].join("\n")
+}
+
+/// The path of the current log file inside the log directory.
+pub fn log_file(dir: &std::path::Path) -> std::path::PathBuf {
+    dir.join(format!("{LOG_FILE}.log"))
+}
+
+/// The log file as text (empty while nothing is written yet); only its last `max_lines` lines.
+pub fn read_log(dir: &std::path::Path, max_lines: Option<usize>) -> Result<String, String> {
+    let path = log_file(dir);
+    let text = match std::fs::read(&path) {
+        Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(format!("{}: {e}", path.display())),
+    };
+    Ok(match max_lines {
+        Some(n) => tail_lines(&text, n),
+        None => text,
+    })
+}
+
+/// The path of `nixe.log`; the frontend reveals it and names its folder.
+#[tauri::command]
+pub fn log_path(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri::Manager;
+    let dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+    Ok(crate::path_to_string(&log_file(&dir)))
+}
+
+/// The text of `nixe.log`, newest lines last; `lines` keeps only the last ones.
+#[tauri::command]
+pub fn log_read(app: tauri::AppHandle, lines: Option<usize>) -> Result<String, String> {
+    use tauri::Manager;
+    let dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+    read_log(&dir, lines)
+}
+
+/// Applies the level of the setting at once, without a restart; returns the level in effect.
+#[tauri::command]
+pub fn log_set_level(level: String) -> Result<String, String> {
+    let env = std::env::var(LEVEL_ENV).ok();
+    let effective = effective_level(env.as_deref(), &level)?;
+    // The page sets the level again at every start; only a change is worth a line.
+    if log::max_level() != effective {
+        log::set_max_level(effective);
+        log::info!("log level {effective}");
+    }
+    Ok(effective.to_string().to_ascii_lowercase())
+}
+
 /// The text of a failed command for the log: one line, bounded.
 fn one_line(text: &str) -> String {
     let flat: String = text
@@ -195,5 +255,40 @@ mod tests {
             .find(|l| l.contains("yyyy"))
             .unwrap();
         assert!(line.chars().count() < MAX_REPORT + 60);
+    }
+
+    #[test]
+    fn a_level_change_applies_but_the_environment_still_wins() {
+        assert_eq!(effective_level(None, "debug"), Ok(LevelFilter::Debug));
+        assert_eq!(
+            effective_level(Some("error"), "debug"),
+            Ok(LevelFilter::Error)
+        );
+        assert_eq!(
+            effective_level(Some("nonsense"), "warn"),
+            Ok(LevelFilter::Warn)
+        );
+        assert!(effective_level(None, "trace").is_err());
+    }
+
+    #[test]
+    fn the_tail_keeps_the_last_lines() {
+        assert_eq!(tail_lines("a\nb\nc\nd\n", 2), "c\nd");
+        assert_eq!(tail_lines("a\nb", 500), "a\nb");
+        assert_eq!(tail_lines("", 3), "");
+        assert_eq!(tail_lines("a\nb", 0), "");
+    }
+
+    #[test]
+    fn the_log_file_is_read_whole_or_by_its_tail() {
+        let dir = std::env::temp_dir().join(format!("nixe-log-t412-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // No file yet is an empty log, not an error.
+        assert_eq!(read_log(&dir, None).unwrap(), "");
+        std::fs::write(log_file(&dir), "one\ntwo\nthree\n").unwrap();
+        assert_eq!(read_log(&dir, None).unwrap(), "one\ntwo\nthree\n");
+        assert_eq!(read_log(&dir, Some(2)).unwrap(), "two\nthree");
+        assert!(log_file(&dir).ends_with("nixe.log"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
