@@ -13,7 +13,7 @@ import { backend } from "../file/backend";
 import { CommandRegistry } from "../commands/command-registry";
 import { DocumentService } from "../file/document.service";
 import { WorkspaceService } from "./workspace.service";
-import { WorkspacesService, defaultWorkspaceName } from "./workspaces.service";
+import { WorkspacesService, defaultWorkspaceName, skippedMessage } from "./workspaces.service";
 
 const root = (path: string, name: string, kind: "folder" | "obsidian" = "folder") => ({
   path,
@@ -215,5 +215,14 @@ describe("WorkspacesService", () => {
       "a + b-c",
     );
     expect(defaultWorkspaceName({ name: "", roots: [] })).toBe("Workspace");
+  });
+});
+
+describe("skippedMessage", () => {
+  it("names each variable", () => {
+    expect(skippedMessage({ workspace: "w", variables: ["Books"] })).toBe(
+      "$Books has no value on this device. The folders that use it are skipped.",
+    );
+    expect(skippedMessage({ workspace: "w", variables: ["A", "B"] })).toContain("$A, $B have");
   });
 });

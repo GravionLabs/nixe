@@ -56,7 +56,7 @@ import { SettingsService } from "./core/settings/settings.service";
 import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
-import { WorkspacesService } from "./core/workspace/workspaces.service";
+import { WorkspacesService, skippedMessage } from "./core/workspace/workspaces.service";
 import { VaultUndoService } from "./core/workspace/vault-undo.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
 import { TREE_SORTS, TREE_SORT_LABELS } from "./core/workspace/tree-model";
@@ -279,11 +279,9 @@ export class AppComponent {
       const skipped = this.workspaces.skipped();
       if (skipped === null) return;
       untracked(() => {
-        const names = skipped.variables.map((v) => `$${v}`).join(", ");
-        const verb = skipped.variables.length === 1 ? "has" : "have";
         this.messages.add({
           severity: "warn",
-          summary: `${names} ${verb} no value on this device. The folders that use it are skipped.`,
+          summary: skippedMessage(skipped),
           sticky: true,
           action: {
             label: "Set variable",

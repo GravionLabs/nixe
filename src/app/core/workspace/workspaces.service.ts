@@ -17,6 +17,13 @@ export interface SkippedRoots {
   variables: string[];
 }
 
+/** The one message that names the variables a workspace opened without. */
+export function skippedMessage(skipped: SkippedRoots): string {
+  const names = skipped.variables.map((v) => `$${v}`).join(", ");
+  const verb = skipped.variables.length === 1 ? "has" : "have";
+  return `${names} ${verb} no value on this device. The folders that use it are skipped.`;
+}
+
 /** The variable of a root whose template did not resolve on this device; null for any other root. */
 export function unresolvedVariable(root: WorkspaceRoot): string | null {
   // The core keeps the template as `path` when its variable has no value; `$$x` resolves to `$x`.
