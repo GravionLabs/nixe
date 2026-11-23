@@ -57,6 +57,7 @@ mod gitclone;
 mod gitprovider;
 mod gitsync;
 mod index;
+mod logging;
 #[cfg(desktop)]
 pub mod mcp;
 #[cfg(desktop)]
@@ -177,6 +178,8 @@ fn finish_export(state: State<'_, AppState>, code: i32, message: String) {
     if code == 0 {
         println!("{message}");
     } else {
+        // The headless export reports on stderr as before; the log keeps a copy.
+        log::error!("export failed (code {code}): {message}");
         eprintln!("nixe: {message}");
     }
     std::process::exit(code);
@@ -1148,6 +1151,51 @@ fn watch_file(app: AppHandle, state: State<'_, AppState>, path: String) -> Resul
     Ok(())
 }
 
+/// The log plugin: `nixe.log` in the app log directory, rotated by size.
+#[cfg(desktop)]
+fn log_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
+    // Stderr only in a debug build: the headless `nixe export` keeps its stderr as it is.
+    let mut targets = vec![Target::new(TargetKind::LogDir {
+        file_name: Some(logging::LOG_FILE.into()),
+    })];
+    if cfg!(debug_assertions) {
+        targets.push(Target::new(TargetKind::Stderr));
+    }
+    tauri_plugin_log::Builder::new()
+        .clear_targets()
+        .targets(targets)
+        .rotation_strategy(RotationStrategy::KeepSome(logging::KEEP_FILES))
+        .max_file_size(logging::MAX_FILE_BYTES)
+        // Everything passes the plugin; `log_start` lowers the level to the one in effect.
+        .level(log::LevelFilter::Debug)
+        .build()
+}
+
+/// Sets the level (`NIXE_LOG`, the `logLevel` setting, else info) and logs the start.
+fn log_start(app: &AppHandle) {
+    let dir = app.path().app_config_dir().ok();
+    let settings = dir
+        .as_deref()
+        .and_then(|d| settings::read_settings(d).ok().flatten());
+    let env = std::env::var(logging::LEVEL_ENV).ok();
+    let level = logging::resolve_level(env.as_deref(), settings.as_deref());
+    log::set_max_level(level);
+    let path = |p: Option<PathBuf>| p.map_or_else(|| "?".into(), |p| path_to_string(&p));
+    log::info!(
+        "nixe {} on {} {}, log level {level}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
+    log::info!(
+        "config directory {}, data directory {}, log directory {}",
+        path(dir),
+        path(app.path().app_data_dir().ok()),
+        path(app.path().app_log_dir().ok())
+    );
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // `nixe search …` and friends answer on the terminal and never start the window.
@@ -1170,7 +1218,7 @@ pub fn run() {
                 // A running window does the export; the new process ends at once.
                 let request = cli::data_dir().and_then(|data| {
                     cli::parse_export(&argv[2..], Path::new(&cwd), &data, false)
-                        .map_err(|e| eprintln!("nixe: export: {e:?}"))
+                        .map_err(|e| log::warn!("export from a second launch refused: {e:?}"))
                         .ok()
                 });
                 if let Some(request) = request {
@@ -1223,7 +1271,11 @@ pub fn run() {
         });
     }
 
+    #[cfg(desktop)]
+    let builder = builder.plugin(log_plugin());
+
     let builder = builder.setup(|app| {
+        log_start(app.handle());
         let cwd = std::env::current_dir().unwrap_or_default();
         let args: Vec<String> = std::env::args().collect();
         #[cfg(desktop)]
@@ -1248,7 +1300,7 @@ pub fn run() {
         // A shortcut that cannot be registered leaves capture off; the settings page shows why.
         #[cfg(desktop)]
         if let Err(e) = capture_app::apply(app.handle()) {
-            eprintln!("capture: {e}");
+            log::warn!("capture shortcut not registered: {e}");
         }
         #[cfg(mobile)]
         if app
@@ -1360,6 +1412,11 @@ pub fn run() {
         git_review_state_load,
         git_review_state_save,
         git_vault_sync,
+        logging::log_command_error,
+        logging::log_write,
+        logging::log_path,
+        logging::log_read,
+        logging::log_set_level,
         credentials::git_token_status,
         credentials::git_token_set,
         credentials::git_token_delete,
@@ -1489,6 +1546,11 @@ pub fn run() {
         git_review_state_load,
         git_review_state_save,
         git_vault_sync,
+        logging::log_command_error,
+        logging::log_write,
+        logging::log_path,
+        logging::log_read,
+        logging::log_set_level,
         credentials::git_token_status,
         credentials::git_token_set,
         credentials::git_token_delete,

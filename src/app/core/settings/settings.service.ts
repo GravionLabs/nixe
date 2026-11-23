@@ -2,6 +2,7 @@ import { Injectable, computed, effect, inject, signal } from "@angular/core";
 import { HxTheme } from "@gravionlabs/helix-ui";
 
 import { backend } from "../file/backend";
+import type { LogLevel } from "../log/log-level";
 import type { TreeSort } from "../workspace/tree-model";
 import type { LinkPreviewMode } from "../preview/preview-core";
 import type { VaultState, VaultStates } from "../workspace/recent-vaults";
@@ -170,6 +171,7 @@ export class SettingsService {
 
   /** The terminal (#360): off by default; the first time it is turned on the user confirms. */
   readonly terminalEnabled = signal<boolean>(this.stored.terminalEnabled);
+  readonly logLevel = signal<LogLevel>(this.stored.logLevel);
   readonly terminalConfirmed = signal<boolean>(this.stored.terminalConfirmed);
   readonly terminalVisible = signal<boolean>(this.stored.terminalVisible);
   readonly terminalHeight = signal<number>(this.stored.terminalHeight);
@@ -242,6 +244,7 @@ export class SettingsService {
       captureInbox: this.captureInbox(),
       captureTemplate: this.captureTemplate(),
       terminalEnabled: this.terminalEnabled(),
+      logLevel: this.logLevel(),
       terminalConfirmed: this.terminalConfirmed(),
       terminalVisible: this.terminalVisible(),
       terminalHeight: this.terminalHeight(),
@@ -300,6 +303,7 @@ export class SettingsService {
     this.captureInbox.set(s.captureInbox);
     this.captureTemplate.set(s.captureTemplate);
     this.terminalEnabled.set(s.terminalEnabled);
+    this.logLevel.set(s.logLevel);
     this.terminalConfirmed.set(s.terminalConfirmed);
     this.terminalVisible.set(s.terminalVisible);
     this.terminalHeight.set(s.terminalHeight);

@@ -49,7 +49,7 @@ pub fn commit_around<T>(
         let (kind, summary) = describe(&done);
         // The operation is done: a failing commit must not hide it from the UI.
         if let Err(e) = git::commit_operation(root, kind, &summary, fallback) {
-            eprintln!("the commit of the {kind} failed: {e}");
+            log::warn!("the commit of the {kind} failed: {e}");
         }
     }
     Ok(done)

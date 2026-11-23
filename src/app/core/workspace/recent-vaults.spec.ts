@@ -44,7 +44,7 @@ describe("sanitizeStates layout", () => {
   const tab = {
     view: null,
     path: "/a/x.md",
-    history: ["/a/x.md"],
+    history: [{ path: "/a/x.md", line: 5, anchor: null }],
     index: 0,
     editing: true,
     line: 2,

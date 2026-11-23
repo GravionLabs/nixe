@@ -14,7 +14,9 @@ import { Decoration, EditorView, ViewPlugin, drawSelection, keymap } from "@code
 
 import type { CompletionData } from "./completion";
 import { completionExtension } from "./completion";
-import { inlineTokens, nodeClass, tokenAt } from "../../core/editor/editor-core";
+import type { EditorLink } from "../../core/editor/editor-core";
+import { classifyHref } from "../../core/markdown/link-resolver";
+import { inlineTokens, linkAt, nodeClass, tokenAt } from "../../core/editor/editor-core";
 
 const CODE_NODES = new Set(["FencedCode", "CodeBlock", "InlineCode", "CommentBlock", "HTMLBlock"]);
 
@@ -287,8 +289,13 @@ const matchCounter = ViewPlugin.fromClass(
 export interface EditorHooks {
   onSave(): void;
   onBlur(): void;
-  /** ⌘/Ctrl+click on a `[[wikilink]]`; `value` is the text between the brackets. */
-  onWikilink(value: string): void;
+  /** A click opens a link; `newTab` when ⌘/Ctrl is held. */
+  onLink(link: EditorLink, newTab: boolean): void;
+  /**
+   * Whether a click without ⌘/Ctrl at `pos` opens the link there (live preview, line not being
+   * edited). Absent: only ⌘/Ctrl+click opens.
+   */
+  opensOnPlainClick?(state: EditorState, pos: number): boolean;
   /** The pointer is on a `[[wikilink]]` (`value` as above, `anchor` its place on screen) or left it (null). */
   onWikilinkHover?(
     hover: {
@@ -299,6 +306,26 @@ export interface EditorHooks {
   ): void;
   /** Vault data for the `[[` and `#` completion; without it the editor does not complete. */
   completion?: CompletionData;
+}
+
+/** The link under the pointer that this click or hover opens, or null. */
+function clickableLink(
+  state: EditorState,
+  line: { from: number; text: string },
+  pos: number,
+  hooks: EditorHooks,
+  event: MouseEvent,
+): EditorLink | null {
+  const modifier = event.metaKey || event.ctrlKey;
+  if (!modifier && !hooks.opensOnPlainClick?.(state, pos)) return null;
+  if (inCode(state, pos)) return null;
+  const link = linkAt(line.text, pos - line.from);
+  if (link && link.kind !== "wikilink") {
+    // Same-note anchors and unsafe schemes open nothing: the click stays an edit.
+    const kind = classifyHref(link.target).kind;
+    if (kind === "anchor" || kind === "none") return null;
+  }
+  return link;
 }
 
 /** Extensions that do not depend on the theme. */
@@ -332,9 +359,13 @@ export function editorBehavior(hooks: EditorHooks): Extension[] {
         hooks.onBlur();
       },
       mousemove(event, view) {
-        if (!hooks.onWikilinkHover) return false;
         const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
         const line = pos === null ? null : view.state.doc.lineAt(pos);
+        const link =
+          line && pos !== null ? clickableLink(view.state, line, pos, hooks, event) : null;
+        // The pointer shows a link only where a click opens it.
+        view.contentDOM.style.cursor = link ? "pointer" : "";
+        if (!hooks.onWikilinkHover) return false;
         const token = line && pos !== null ? tokenAt(line.text, pos - line.from, "wikilink") : null;
         const start = line && token ? view.coordsAtPos(line.from + token.from) : null;
         hooks.onWikilinkHover(
@@ -349,14 +380,14 @@ export function editorBehavior(hooks: EditorHooks): Extension[] {
         return false;
       },
       mousedown(event, view) {
-        if (!(event.metaKey || event.ctrlKey) || event.button !== 0) return false;
+        if (event.button !== 0 || event.shiftKey || event.altKey) return false;
         const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
         if (pos === null) return false;
         const line = view.state.doc.lineAt(pos);
-        const token = tokenAt(line.text, pos - line.from, "wikilink");
-        if (!token) return false;
+        const link = clickableLink(view.state, line, pos, hooks, event);
+        if (!link) return false;
         event.preventDefault();
-        hooks.onWikilink(token.value);
+        hooks.onLink(link, event.metaKey || event.ctrlKey);
         return true;
       },
     }),

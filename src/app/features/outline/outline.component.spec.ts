@@ -26,7 +26,15 @@ function render(text: string, editing = false) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
-      { provide: DocumentService, useValue: { content, pendingLine, path: signal("/v/n.md") } },
+      {
+        provide: DocumentService,
+        useValue: {
+          content,
+          pendingLine,
+          path: signal("/v/n.md"),
+          jump: (_t: unknown, scroll: () => boolean) => scroll(),
+        },
+      },
       { provide: BookmarksService, useValue: bookmarks },
       { provide: EditorService, useValue: { editing: signal(editing), handle: { scrollToLine } } },
     ],

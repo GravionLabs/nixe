@@ -8,6 +8,9 @@ export const FAKE_TEXT = "# Home\n\nA note of the fake vault.\n";
 export const FAKE_VAULT: Record<string, unknown> = {
   read_app_settings: JSON.stringify({ lastFolder: VAULT, recentVaults: [VAULT] }),
   write_app_settings: null,
+  log_path: "/fake/config/nixe.log",
+  log_write: null,
+  log_set_level: null,
   write_text_file: null,
   read_app_bookmarks: null,
   read_folds: null,
