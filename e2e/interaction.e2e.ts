@@ -57,3 +57,59 @@ test("editing a note saves it with write_text_file", async ({ page }) => {
     .poll(async () => (await takeCalls(page, "write_text_file")).at(-1)?.args)
     .toEqual({ path: FAKE_NOTE, content: expect.stringContaining("Added by the test.") });
 });
+
+test.describe("links in the editor (#459)", () => {
+  test.beforeEach(async ({ page }) => {
+    await ready(page);
+  });
+
+  test("a click on a wikilink of a drawn line opens the note", async ({ page }) => {
+    await openNote(page, "Home.md");
+    const editor = page.locator(".cm-content");
+    await expect(editor).toContainText("Welcome to the demo vault");
+    await editor.getByText("Ideas", { exact: true }).click();
+    await expect(editor).toContainText("A graph of the notes");
+  });
+
+  test("a click on the link of the line being edited edits it", async ({ page }) => {
+    await openNote(page, "Ideas.md");
+    const editor = page.locator(".cm-content");
+    await editor.getByText("See ").click();
+    await page.keyboard.press("End");
+    await editor.getByText("Projects/Nixe").click();
+    await expect(editor).toContainText("A graph of the notes");
+    await expect(editor).toContainText("[[Projects/Nixe]]");
+  });
+
+  test("Ctrl+click on a URL and a Markdown link of the edited block calls the opener", async ({
+    page,
+  }) => {
+    await openNote(page, "Ideas.md");
+    const editor = page.locator(".cm-content");
+    await editor.click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type("\nhttps://example.com/a\n[Fly](https://example.com/b)\n\nend");
+    const opened = () =>
+      page.evaluate(() => (window as unknown as { __demoOpened?: string[] }).__demoOpened ?? []);
+    await editor.getByText("https://example.com/a").click({ modifiers: ["ControlOrMeta"] });
+    await expect.poll(opened).toEqual(["https://example.com/a"]);
+    await editor.getByText("Fly").click({ modifiers: ["ControlOrMeta"] });
+    await expect.poll(opened).toEqual(["https://example.com/a", "https://example.com/b"]);
+  });
+
+  test("a plain click on a URL of a drawn line opens it in the system browser", async ({
+    page,
+  }) => {
+    await openNote(page, "Ideas.md");
+    const editor = page.locator(".cm-content");
+    await editor.click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type("\nhttps://example.com/a\n\nend");
+    await editor.getByText("https://example.com/a").click();
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as unknown as { __demoOpened?: string[] }).__demoOpened ?? []),
+      )
+      .toEqual(["https://example.com/a"]);
+  });
+});

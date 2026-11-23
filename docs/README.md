@@ -23,6 +23,7 @@ links and Mermaid rendering all at once.
 - [adr/](adr/) — architecture decisions
 - [backend/README.md](backend/README.md) — the Rust core (`src-tauri/`)
   - [backend/tauri-commands.md](backend/tauri-commands.md) — the command surface
+  - [backend/logging.md](backend/logging.md) — the log file `nixe.log`
   - [backend/file-watching.md](backend/file-watching.md) — live reload
 - [frontend/README.md](frontend/README.md) — the Angular app (`src/`)
   - [frontend/markdown-pipeline.md](frontend/markdown-pipeline.md) — Markdown → HTML

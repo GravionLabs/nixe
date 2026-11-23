@@ -65,6 +65,10 @@ describe("sanitizeSettings", () => {
       300,
     ]);
     expect(sanitizeSettings({ terminalEnabled: "yes" }).terminalEnabled).toBe(false);
+    expect(s.logLevel).toBe("info");
+    expect(sanitizeSettings({ logLevel: "debug" }).logLevel).toBe("debug");
+    expect(sanitizeSettings({ logLevel: "trace" }).logLevel).toBe("info");
+    expect(sanitizeSettings({ logLevel: 3 }).logLevel).toBe("info");
     expect(s.captureShortcut).toBe("");
     expect(s.captureTarget).toBe("daily");
     expect(

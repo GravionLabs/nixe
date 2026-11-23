@@ -6,6 +6,8 @@ import {
   sanitizeNames,
   sanitizeTextSize,
 } from "../appearance/appearance-core";
+import type { LogLevel } from "../log/log-level";
+import { DEFAULT_LOG_LEVEL, sanitizeLogLevel } from "../log/log-level";
 import { sanitizePageSize } from "../export/export-core";
 import { sanitizeShortcuts } from "../commands/shortcuts-core";
 import { clampMinutes } from "../git/auto-sync";
@@ -116,6 +118,8 @@ export interface StoredSettings {
   captureTemplate: string;
   /** The terminal may be used (#360); off by default, because it runs commands with the rights of the user. */
   terminalEnabled: boolean;
+  /** Level of the log file (#412): error, warn, info or debug. */
+  logLevel: LogLevel;
   /** The user has confirmed once that the terminal runs arbitrary code. */
   terminalConfirmed: boolean;
   /** The bottom panel with the terminal is shown. */
@@ -178,6 +182,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   captureInbox: "",
   captureTemplate: "",
   terminalEnabled: false,
+  logLevel: DEFAULT_LOG_LEVEL,
   terminalConfirmed: false,
   terminalVisible: false,
   terminalHeight: DEFAULT_TERMINAL_HEIGHT,
@@ -255,6 +260,7 @@ export function sanitizeSettings(raw: unknown): StoredSettings {
     captureInbox: text(o["captureInbox"], d.captureInbox),
     captureTemplate: text(o["captureTemplate"], d.captureTemplate),
     terminalEnabled: o["terminalEnabled"] === true,
+    logLevel: sanitizeLogLevel(o["logLevel"]),
     terminalConfirmed: o["terminalConfirmed"] === true,
     terminalVisible: o["terminalVisible"] === true,
     terminalHeight: sanitizeTerminalHeight(o["terminalHeight"]),

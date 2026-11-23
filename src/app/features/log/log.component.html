@@ -1,0 +1,21 @@
+<header>
+  <span>Log</span>
+  <span class="actions">
+    <button type="button" (click)="reload()">Refresh</button>
+    <button type="button" (click)="copy()">Copy last 500 lines</button>
+    <button type="button" (click)="reveal()">Reveal folder</button>
+  </span>
+</header>
+
+@switch (state()) {
+  @case ("error") {
+    <p class="status" role="alert">The log is not available.</p>
+  }
+  @default {
+    @if (state() === "ready" && text() === "") {
+      <p class="status" role="status">The log is empty.</p>
+    } @else {
+      <pre #body class="text" tabindex="0" aria-label="nixe.log">{{ text() }}</pre>
+    }
+  }
+}

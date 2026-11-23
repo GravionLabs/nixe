@@ -592,6 +592,12 @@ export const backend = {
     invoke<GitChange[]>("git_changes_between", { from, to }),
   /** The newest commit at or before `time` (seconds since the epoch); null when the history starts later. */
   gitRevAt: (time: number) => invoke<string | null>("git_rev_at", { time }),
+  /** The path of `nixe.log` (#412). */
+  logPath: () => invoke<string>("log_path"),
+  /** The text of `nixe.log`, newest lines last; `lines` keeps only the last ones. */
+  logRead: (lines?: number) => invoke<string>("log_read", { lines: lines ?? null }),
+  /** Puts a log level in effect without a restart; resolves to the level in effect. */
+  logSetLevel: (level: string) => invoke<string>("log_set_level", { level }),
   /** The commits of the vault, newest first; `offset`/`limit` page. */
   gitVaultLog: (offset: number, limit: number) =>
     invoke<VaultCommit[]>("git_vault_log", { offset, limit }),

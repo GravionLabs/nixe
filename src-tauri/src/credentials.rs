@@ -116,11 +116,24 @@ fn replace(store: &dyn TokenStore, host: &str, token: &str) -> Result<(), String
     if token.is_empty() {
         return Err("the token is empty".into());
     }
-    store.set(&valid_host(host)?, token)
+    let host = valid_host(host)?;
+    match store.set(&host, token) {
+        Ok(()) => {
+            log::info!("token stored for {host}");
+            Ok(())
+        }
+        Err(e) => {
+            log::warn!("token not stored for {host}: {e}");
+            Err(e)
+        }
+    }
 }
 
 fn remove(store: &dyn TokenStore, host: &str) -> Result<(), String> {
-    store.delete(&valid_host(host)?)
+    let host = valid_host(host)?;
+    store.delete(&host)?;
+    log::info!("token removed for {host}");
+    Ok(())
 }
 
 /// Whether a token is stored for `host`. The token itself never leaves the backend.
@@ -191,6 +204,47 @@ mod tests {
         assert!(replace(&store, "", "t").is_err());
         assert!(replace(&store, "a/b", "t").is_err());
         assert!(status(&store, "x y").is_err());
+    }
+
+    #[test]
+    fn a_token_and_a_password_never_reach_the_log() {
+        use crate::logging::capture;
+        capture::install();
+        struct Locked;
+        impl TokenStore for Locked {
+            fn get(&self, _: &str) -> Result<Option<String>, String> {
+                Ok(None)
+            }
+            fn set(&self, _: &str, _: &str) -> Result<(), String> {
+                Err("keychain locked".into())
+            }
+            fn delete(&self, _: &str) -> Result<(), String> {
+                Ok(())
+            }
+        }
+        let store = MemoryStore::default();
+        replace(&store, "tok.example.com", "ghp_t410token").unwrap();
+        remove(&store, "tok.example.com").unwrap();
+        replace(&Locked, "locked.example.com", "ghp_t410password").unwrap_err();
+        // A bad host is refused with a fixed text, so a pasted secret in its place stays out.
+        replace(&store, "hunter2-t410/secret", "ghp_t410other").unwrap_err();
+        crate::logging::command_failed(
+            "git_token_set",
+            &replace(&store, "hunter2-t410/secret", "t").unwrap_err(),
+        );
+        assert!(capture::contains("token stored for tok.example.com"));
+        assert!(capture::contains("token removed for tok.example.com"));
+        assert!(capture::contains(
+            "token not stored for locked.example.com: keychain locked"
+        ));
+        for secret in [
+            "ghp_t410token",
+            "ghp_t410password",
+            "ghp_t410other",
+            "hunter2-t410",
+        ] {
+            assert!(!capture::contains(secret), "{secret} was logged");
+        }
     }
 
     #[test]

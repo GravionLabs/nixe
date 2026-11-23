@@ -291,15 +291,38 @@ pub fn sign_in(
     on_code: &mut dyn FnMut(&str),
     cancel: &AtomicBool,
 ) -> Result<SignInOutcome, String> {
-    if !host_allowed(provider.host()) {
+    let host = provider.host();
+    log::info!("sign-in: started for {host}");
+    let result = sign_in_steps(provider, store, on_code, cancel);
+    match &result {
+        Ok(outcome) => log::info!("sign-in: token stored for {host} ({outcome:?})"),
+        Err(e) if e == CANCELLED => log::info!("sign-in: cancelled for {host}"),
+        Err(e) => log::warn!("sign-in: failed for {host}: {e}"),
+    }
+    result
+}
+
+fn sign_in_steps(
+    provider: &dyn GitProvider,
+    store: &dyn TokenStore,
+    on_code: &mut dyn FnMut(&str),
+    cancel: &AtomicBool,
+) -> Result<SignInOutcome, String> {
+    let host = provider.host();
+    if !host_allowed(host) {
         return Err("this host is not configured".into());
     }
     if !provider.is_available() {
         return Err(MISSING.into());
     }
+    log::info!("sign-in: gh found");
     let (token, outcome) = match provider.token()? {
-        Some(t) => (t, SignInOutcome::TakenOver),
+        Some(t) => {
+            log::info!("sign-in: token of gh taken over for {host}");
+            (t, SignInOutcome::TakenOver)
+        }
         None => {
+            log::info!("sign-in: gh is signed out, web login started for {host}");
             provider.login(on_code, cancel)?;
             if cancel.load(Ordering::SeqCst) {
                 return Err(CANCELLED.into());
@@ -310,7 +333,7 @@ pub fn sign_in(
             (token, SignInOutcome::LoggedIn)
         }
     };
-    store.set(provider.host(), &token)?;
+    store.set(host, &token)?;
     Ok(outcome)
 }
 
@@ -491,6 +514,50 @@ mod tests {
         assert!(message.contains("https://cli.github.com"));
         assert_eq!(fake.logins.get(), 0);
         assert_eq!(store.get("github.com").unwrap(), None);
+    }
+
+    #[test]
+    fn the_sign_in_logs_its_steps_and_never_the_token() {
+        crate::logging::capture::install();
+        let fake = Fake::new(true, Some("tok-t410-taken"), Err("unused"));
+        let store = MemoryStore::default();
+        run(&fake, &store).0.unwrap();
+        assert!(crate::logging::capture::contains("sign-in: gh found"));
+        assert!(crate::logging::capture::contains("token of gh taken over"));
+        assert!(crate::logging::capture::contains(
+            "token stored for github.com"
+        ));
+
+        let fake = Fake::new(true, None, Ok("tok-t410-login"));
+        run(&fake, &MemoryStore::default()).0.unwrap();
+        assert!(crate::logging::capture::contains("web login started"));
+
+        let fake = Fake::new(true, None, Err("the GitHub CLI sign-in failed"));
+        run(&fake, &MemoryStore::default()).0.unwrap_err();
+        assert!(crate::logging::capture::contains(
+            "sign-in: failed for github.com: the GitHub CLI sign-in failed"
+        ));
+
+        let cancel = AtomicBool::new(true);
+        let fake = Fake::new(true, None, Ok("tok-t410-x"));
+        let provider = GitHubCli::new("github.com", &fake);
+        sign_in(&provider, &MemoryStore::default(), &mut |_| {}, &cancel).unwrap_err();
+        assert!(crate::logging::capture::contains("sign-in: cancelled"));
+
+        run(
+            &Fake::new(false, None, Err("unused")),
+            &MemoryStore::default(),
+        )
+        .0
+        .unwrap_err();
+        assert!(crate::logging::capture::contains("sign-in: failed"));
+
+        for secret in ["tok-t410-taken", "tok-t410-login", "tok-t410-x"] {
+            assert!(
+                !crate::logging::capture::contains(secret),
+                "{secret} was logged"
+            );
+        }
     }
 
     #[test]

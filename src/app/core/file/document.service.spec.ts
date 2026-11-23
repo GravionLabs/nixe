@@ -4,7 +4,7 @@ const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import { DocumentService } from "./document.service";
+import { DocumentService, MAX_HISTORY } from "./document.service";
 
 describe("DocumentService writing", () => {
   beforeEach(() => invoke.mockReset());
@@ -97,5 +97,124 @@ describe("DocumentService writing", () => {
       doc.close();
       expect(doc.missing()).toBe(false);
     });
+  });
+});
+
+describe("DocumentService history", () => {
+  let line: number | null;
+  async function doc(): Promise<DocumentService> {
+    invoke.mockReset();
+    invoke.mockImplementation(async (cmd: string) => (cmd === "read_text_file" ? "text" : "/v"));
+    line = 1;
+    const d = new DocumentService();
+    d.positionHook = () => line;
+    await d.open("/v/a.md");
+    return d;
+  }
+  const paths = (d: DocumentService) => d.historyState().history.map((e) => e.path);
+
+  it("stores the position of the note that is left and returns to it", async () => {
+    const d = await doc();
+    line = 12;
+    await d.open("/v/b.md", { anchor: "Intro" });
+    line = null;
+    expect(d.historyState().history).toEqual([
+      { path: "/v/a.md", line: 12, anchor: null },
+      { path: "/v/b.md", line: null, anchor: "Intro" },
+    ]);
+    line = 3;
+    await d.back();
+    expect(d.path()).toBe("/v/a.md");
+    expect(d.pendingLine()).toBe(12);
+    expect(d.canGoForward()).toBe(true);
+    await d.forward();
+    expect(d.path()).toBe("/v/b.md");
+    expect(d.pendingLine()).toBe(3);
+  });
+
+  it("a jump within the note is an entry; back scrolls without reading the note again", async () => {
+    const d = await doc();
+    line = 40;
+    expect(
+      d.jump({ anchor: "Unit A" }, () => {
+        line = 90;
+        return true;
+      }),
+    ).toBe(true);
+    expect(d.canGoBack()).toBe(true);
+    invoke.mockClear();
+    line = 95;
+    await d.back();
+    expect(invoke).not.toHaveBeenCalled();
+    expect(d.pendingLine()).toBe(40);
+    expect(d.canGoBack()).toBe(false);
+    expect(d.canGoForward()).toBe(true);
+    await d.forward();
+    expect(d.pendingLine()).toBe(95);
+  });
+
+  it("a jump that does not scroll adds no entry", async () => {
+    const d = await doc();
+    expect(d.jump({ anchor: "Missing" }, () => false)).toBe(false);
+    expect(d.canGoBack()).toBe(false);
+  });
+
+  it("adds no entry for the position the reader stands at", async () => {
+    const d = await doc();
+    await d.open("/v/a.md");
+    line = 7;
+    d.jump({ line: 7 }, () => true);
+    expect(d.canGoBack()).toBe(false);
+    d.jump({ anchor: "X" }, () => {
+      line = 20;
+      return true;
+    });
+    d.jump({ anchor: "X" }, () => true);
+    expect(paths(d)).toEqual(["/v/a.md", "/v/a.md"]);
+  });
+
+  it("a second click on the same heading link adds an entry once the reader has scrolled away", async () => {
+    const d = await doc();
+    line = 40;
+    d.jump({ anchor: "X" }, () => {
+      line = 60; // landed on the heading
+      return true;
+    });
+    expect(d.historyState().history).toHaveLength(2);
+    d.jump({ anchor: "X" }, () => true);
+    expect(d.historyState().history).toHaveLength(2);
+    line = 90;
+    d.jump({ anchor: "X" }, () => true);
+    expect(d.historyState().history).toHaveLength(3);
+  });
+
+  it("drops the forward entries on a new jump", async () => {
+    const d = await doc();
+    await d.open("/v/b.md");
+    await d.open("/v/c.md");
+    await d.back();
+    await d.back();
+    await d.open("/v/d.md");
+    expect(paths(d)).toEqual(["/v/a.md", "/v/d.md"]);
+    expect(d.canGoForward()).toBe(false);
+  });
+
+  it("reads a list of paths (old format) as entries without a position", async () => {
+    const d = await doc();
+    d.restoreHistory(["/v/a.md", "/v/b.md"], 1);
+    expect(d.historyState().history[0]).toEqual({ path: "/v/a.md", line: null, anchor: null });
+    expect(d.canGoBack()).toBe(true);
+  });
+
+  it("bounds the list", async () => {
+    const d = await doc();
+    d.restoreHistory(
+      Array.from({ length: 250 }, (_, i) => ({ path: `/v/${i}.md`, line: null, anchor: null })),
+      249,
+    );
+    expect(d.historyState().history).toHaveLength(MAX_HISTORY);
+    expect(d.historyState().index).toBe(MAX_HISTORY - 1);
+    await d.open("/v/new.md");
+    expect(d.historyState().history).toHaveLength(MAX_HISTORY);
   });
 });
