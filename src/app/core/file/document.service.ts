@@ -9,6 +9,18 @@ export const MARKDOWN_FILTER = {
   extensions: ["md", "markdown", "mdown", "mkd", "txt"],
 };
 
+/** Longest back/forward list of a tab; the oldest entries drop out. */
+export const MAX_HISTORY = 200;
+
+/** A stop of the back/forward list: a note and where the reader stood or was sent to in it. */
+export interface HistoryEntry {
+  path: string;
+  /** 1-based source line (the top of the view when the entry was left). */
+  line: number | null;
+  /** Heading the jump went to; used while `line` is not known (the entry was never left). */
+  anchor: string | null;
+}
+
 /** The displayed document: path, content and navigation history. */
 @Injectable({ providedIn: "root" })
 export class DocumentService {
@@ -27,10 +39,16 @@ export class DocumentService {
     return p ? basename(p) : null;
   });
 
-  private readonly history = signal<string[]>([]);
+  private readonly history = signal<HistoryEntry[]>([]);
   private readonly historyIndex = signal(-1);
   readonly canGoBack = computed(() => this.historyIndex() > 0);
   readonly canGoForward = computed(() => this.historyIndex() < this.history().length - 1);
+
+  /** Set by the tab: the 1-based line at the top of the view; null when it is not known. */
+  positionHook: (() => number | null) | null = null;
+
+  /** Set by the tab: scrolls an open editor to the line; false when no editor is shown. */
+  revealHook: ((line: number) => boolean) | null = null;
 
   async open(
     path: string,
@@ -43,6 +61,8 @@ export class DocumentService {
   ): Promise<void> {
     const { anchor = null, line = null, addToHistory = true, watch = true } = options;
     path = toSlashes(path);
+    // The position of the note that is left is read before the new one replaces it.
+    const left = addToHistory ? this.currentLine() : null;
 
     const [text, wikiRoot] = await Promise.all([
       backend.readTextFile(path),
@@ -56,11 +76,41 @@ export class DocumentService {
     this.pendingLine.set(line);
     if (watch) await backend.watchFile(path);
 
-    if (addToHistory && this.history()[this.historyIndex()] !== path) {
-      const next = [...this.history().slice(0, this.historyIndex() + 1), path];
-      this.history.set(next);
-      this.historyIndex.set(next.length - 1);
+    if (addToHistory) this.record({ path, line, anchor }, left);
+  }
+
+  /**
+   * A jump within the open note (heading link, outline click): `scroll` moves the view and says
+   * whether it did; then the jump becomes a history entry and the position left is stored.
+   */
+  jump(target: { anchor?: string | null; line?: number | null }, scroll: () => boolean): boolean {
+    const path = this.path();
+    const left = this.currentLine();
+    if (!scroll()) return false;
+    if (path) this.record({ path, line: target.line ?? null, anchor: target.anchor ?? null }, left);
+    return true;
+  }
+
+  private currentLine(): number | null {
+    return this.positionHook?.() ?? null;
+  }
+
+  /** Adds `entry` after the current one (dropping the forward entries); `left` is where the reader was. */
+  private record(entry: HistoryEntry, left: number | null): void {
+    const list = this.history();
+    const at = this.historyIndex();
+    const current = list[at];
+    if (current && current.path === entry.path) {
+      // The same note without a target, or the target the reader already stands at: no entry.
+      if (entry.anchor === null && entry.line === null) return;
+      if (entry.anchor !== null && current.anchor === entry.anchor) return;
+      if (entry.line !== null && (left ?? current.line) === entry.line) return;
     }
+    const kept = list.slice(0, at + 1);
+    if (current && left !== null) kept[at] = { ...current, line: left };
+    const next = [...kept, entry].slice(-MAX_HISTORY);
+    this.history.set(next);
+    this.historyIndex.set(next.length - 1);
   }
 
   /** Shows no note (the open one was deleted). */
@@ -113,14 +163,31 @@ export class DocumentService {
   }
 
   /** The back/forward list, for restoring the tab after a restart. */
-  historyState(): { history: string[]; index: number } {
-    return { history: [...this.history()], index: this.historyIndex() };
+  historyState(): { history: HistoryEntry[]; index: number } {
+    return this.snapshot();
   }
 
-  /** Puts a stored back/forward list back; the shown note is not loaded. */
-  restoreHistory(history: readonly string[], index: number): void {
-    this.history.set([...history]);
-    this.historyIndex.set(Math.min(Math.max(index, -1), history.length - 1));
+  /**
+   * Puts a stored back/forward list back; the shown note is not loaded. A path alone (the format
+   * before positions) is an entry without a position.
+   */
+  restoreHistory(history: readonly (HistoryEntry | string)[], index: number): void {
+    const entries = history
+      .map((e) => (typeof e === "string" ? { path: e, line: null, anchor: null } : { ...e }))
+      .slice(-MAX_HISTORY);
+    const dropped = history.length - entries.length;
+    this.history.set(entries);
+    this.historyIndex.set(Math.min(Math.max(index - dropped, -1), entries.length - 1));
+  }
+
+  private snapshot(): { history: HistoryEntry[]; index: number } {
+    const history = this.history().map((e) => ({ ...e }));
+    const at = this.historyIndex();
+    // The entry that is shown stores where the reader stands now, so a restart returns there.
+    const line = this.currentLine();
+    if (history[at] && line !== null && history[at].path === this.path())
+      history[at] = { ...history[at], line };
+    return { history, index: at };
   }
 
   async reload(): Promise<void> {
@@ -161,9 +228,26 @@ export class DocumentService {
   }
 
   private async goTo(index: number): Promise<void> {
-    const path = this.history()[index];
-    if (!path) return;
-    await this.open(path, { addToHistory: false });
+    const entry = this.history()[index];
+    if (!entry) return;
+    const at = this.historyIndex();
+    const left = this.currentLine();
+    if (left !== null && this.history()[at]?.path === this.path()) {
+      this.history.update((list) => list.map((e, i) => (i === at ? { ...e, line: left } : e)));
+    }
+    if (entry.path === this.path() && !this.missing()) {
+      // Only the position differs: the view scrolls, the note is not read again.
+      this.historyIndex.set(index);
+      if (entry.line !== null) {
+        if (!this.revealHook?.(entry.line)) this.pendingLine.set(entry.line);
+      } else if (entry.anchor !== null) this.pendingAnchor.set(entry.anchor);
+      return;
+    }
+    await this.open(entry.path, {
+      addToHistory: false,
+      anchor: entry.line === null ? entry.anchor : null,
+      line: entry.line,
+    });
     this.historyIndex.set(index);
   }
 }
