@@ -152,7 +152,20 @@ export interface DailyNotesConfig {
   template: string | null;
 }
 
-/** A setting that Obsidian also has, read from the vault. */
+/** A `folders` or `files` entry of `.nixe/config.json`: the path, and what belongs into it. */
+export interface LayoutEntry {
+  path: string;
+  description: string | null;
+}
+
+/** `language`, `folders` and `files` of `.nixe/config.json`; empty without the file. */
+export interface VaultLayout {
+  language: string | null;
+  folders: Record<string, LayoutEntry>;
+  files: Record<string, LayoutEntry>;
+}
+
+/** A setting that Obsidian also has, read from the vault (`.nixe/config.json` first). */
 export interface ObsidianSetting {
   id: string;
   label: string;
@@ -518,6 +531,8 @@ export const backend = {
     invoke<number>("set_menu_shortcuts", { shortcuts }),
   /** The Obsidian settings of the open vault with the file each one comes from. */
   obsidianSettings: () => invoke<ObsidianSetting[]>("obsidian_settings"),
+  /** `language`, `folders` and `files` of `.nixe/config.json` of the open vault. */
+  vaultLayout: () => invoke<VaultLayout>("vault_layout"),
   linkFormat: () => invoke<LinkFormat["format"]>("link_format"),
   /** Saves pasted bytes into the attachment folder of `note`; returns the vault-relative path. */
   saveAttachment: (note: string, name: string, bytes: number[]) =>

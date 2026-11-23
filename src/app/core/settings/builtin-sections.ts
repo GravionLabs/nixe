@@ -330,8 +330,10 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
               kind: "readonly" as const,
               id: `obsidian-${o.id}`,
               label: o.label,
-              description: "Set in Obsidian; change it there.",
-              keywords: ["obsidian", o.source],
+              description: o.source.startsWith(".nixe/")
+                ? "Set in `.nixe/config.json`; change it there."
+                : "Set in Obsidian; change it there. `.nixe/config.json` wins when it sets it.",
+              keywords: ["nixe", "obsidian", o.source],
               value: () => o.value ?? NOT_SET,
               source: () => o.source,
             }))
@@ -339,10 +341,10 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
               {
                 kind: "readonly" as const,
                 id: "obsidian-none",
-                label: "Obsidian settings",
+                label: "Vault settings",
                 description:
-                  "Open a vault to see its new-note folder, attachment folder, link format, templates and daily notes.",
-                keywords: ["obsidian", "attachment", "link format", "new note", "daily"],
+                  "Open a vault to see its new-note folder, attachment folder, link format, templates and daily notes (`.nixe/config.json`, else `.obsidian/`).",
+                keywords: ["nixe", "obsidian", "attachment", "link format", "new note", "daily"],
                 value: () => "No vault open",
               },
             ];
@@ -352,27 +354,27 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
             "template-folder",
             "Template folder",
             s.templateFolder,
-            "Used when `.obsidian/templates.json` names none.",
+            "Used when neither `.nixe/config.json` nor `.obsidian/templates.json` names one.",
             "Templates",
           ),
           text(
             "daily-folder",
             "Daily notes folder",
             s.dailyFolder,
-            "Used when `.obsidian/daily-notes.json` sets none.",
+            "Used when neither `.nixe/config.json` nor `.obsidian/daily-notes.json` sets it.",
           ),
           text(
             "daily-format",
             "Daily notes date format",
             s.dailyFormat,
-            "Used when `.obsidian/daily-notes.json` sets none.",
+            "Used when neither `.nixe/config.json` nor `.obsidian/daily-notes.json` sets it.",
             "YYYY-MM-DD",
           ),
           text(
             "daily-template",
             "Daily notes template",
             s.dailyTemplate,
-            "Used when `.obsidian/daily-notes.json` sets none.",
+            "Used when neither `.nixe/config.json` nor `.obsidian/daily-notes.json` sets it.",
           ),
           {
             kind: "text",

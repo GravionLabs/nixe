@@ -85,7 +85,7 @@ export class SettingsPageService {
     this.selectedId.set(id);
   }
 
-  /** Reads `.obsidian/` of the open vault again; no vault open shows nothing. */
+  /** Reads `.nixe/config.json` and `.obsidian/` of the open vault again; no vault open shows nothing. */
   async refreshObsidian(): Promise<void> {
     if (this.workspace.vaultRoot() === null) {
       this.obsidian.set(null);
