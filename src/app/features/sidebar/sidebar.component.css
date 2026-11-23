@@ -130,6 +130,13 @@ svg {
   color: var(--h-text-muted-color);
 }
 
+.role {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  color: var(--h-primary-color);
+}
+
 .row.active .kind {
   color: var(--h-primary-color);
 }

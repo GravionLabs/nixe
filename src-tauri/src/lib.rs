@@ -629,9 +629,20 @@ fn rename_path(
         kind,
         fallback.as_ref(),
         || {
-            vault::relink::rename_with_links(&root, Path::new(&from), Path::new(&to), |targets| {
-                index.referrers(targets)
-            })
+            // The roles of `.nixe/config.json` follow in the same operation, so the commit (and
+            // its undo) holds both.
+            let changes = vault::relink::rename_with_links(
+                &root,
+                Path::new(&from),
+                Path::new(&to),
+                |targets| index.referrers(targets),
+            )?;
+            if let Err(e) = vault::config::rename_roles(&root, &rel_from, &rel_to) {
+                return Err(format!(
+                    "renamed, but the folder roles could not follow: {e}"
+                ));
+            }
+            Ok(changes)
         },
         |changes| {
             (
@@ -899,6 +910,37 @@ fn daily_notes_config(state: State<'_, AppState>) -> Result<fileops::DailyNotesC
 #[tauri::command]
 fn vault_layout(state: State<'_, AppState>) -> Result<vault::config::Layout, String> {
     Ok(vault::config::layout(&vault_root_of(&state)?))
+}
+
+/// Sets the folder role `role` on the folder `path` (vault-relative) in `.nixe/config.json` (#446).
+#[tauri::command]
+fn set_folder_role(
+    state: State<'_, AppState>,
+    path: String,
+    role: String,
+    description: Option<String>,
+    replace: Option<bool>,
+) -> Result<vault::config::Layout, String> {
+    let root = vault_root_of(&state)?;
+    vault::config::set_folder_role(
+        &root,
+        &path,
+        &role,
+        description.as_deref(),
+        replace.unwrap_or(false),
+    )?;
+    Ok(vault::config::layout(&root))
+}
+
+/// Removes the role of the folder `path` from `.nixe/config.json` (#446).
+#[tauri::command]
+fn remove_folder_role(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<vault::config::Layout, String> {
+    let root = vault_root_of(&state)?;
+    vault::config::remove_folder_role(&root, &path)?;
+    Ok(vault::config::layout(&root))
 }
 
 /// Imports the `.obsidian/` settings into `.nixe/` when the vault has no `.nixe/config.json`
@@ -1486,6 +1528,8 @@ pub fn run() {
         set_menu_shortcuts,
         obsidian_settings,
         vault_layout,
+        set_folder_role,
+        remove_folder_role,
         import_obsidian_settings,
         save_attachment,
         import_attachment,
@@ -1627,6 +1671,8 @@ pub fn run() {
         set_menu_shortcuts,
         obsidian_settings,
         vault_layout,
+        set_folder_role,
+        remove_folder_role,
         import_obsidian_settings,
         save_attachment,
         import_attachment,

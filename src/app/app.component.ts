@@ -73,6 +73,8 @@ import { SearchComponent } from "./features/search/search.component";
 import { ComposerComponent } from "./features/composer/composer.component";
 import { SidebarComponent } from "./features/sidebar/sidebar.component";
 import { CloneComponent } from "./features/clone/clone.component";
+import { FolderRoleComponent } from "./features/folder-role/folder-role.component";
+import { FolderRolesService } from "./core/workspace/folder-roles.service";
 import { ConflictBarComponent } from "./features/conflict-bar/conflict-bar.component";
 import { GitComponent } from "./features/git/git.component";
 import { BookmarksComponent } from "./features/bookmarks/bookmarks.component";
@@ -110,6 +112,7 @@ export class NavIconDirective {
     BacklinksComponent,
     RelatedComponent,
     CloneComponent,
+    FolderRoleComponent,
     ConflictBarComponent,
     GitComponent,
     HistoryComponent,
@@ -148,6 +151,7 @@ export class AppComponent {
   private readonly focus = inject(FocusService);
   protected readonly git = inject(GitService);
   protected readonly cloneVault = inject(CloneService);
+  protected readonly folderRoles = inject(FolderRolesService);
   private readonly autoSync = inject(AutoSyncService);
   protected readonly updater = inject(HxUpdateService);
   protected readonly switcher = inject(SwitcherService);

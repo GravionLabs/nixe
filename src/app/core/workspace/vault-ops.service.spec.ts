@@ -15,6 +15,7 @@ import { BookmarksService } from "../bookmarks/bookmarks.service";
 import { EditorService } from "../editor/editor.service";
 import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
+import { FolderRolesService } from "./folder-roles.service";
 import { VaultOpsService } from "./vault-ops.service";
 import { VaultUndoService } from "./vault-undo.service";
 import { WorkspaceService } from "./workspace.service";
@@ -31,6 +32,10 @@ describe("VaultOpsService", () => {
   const undo = {
     author: () => ({ name: "A", email: "a@x" }),
     offer: vi.fn(),
+  };
+  const roles = {
+    reload: vi.fn(),
+    deleteWarning: vi.fn((p: string) => (p === "/v/In" ? "a role stays" : null)),
   };
   let ops: VaultOpsService;
 
@@ -66,6 +71,7 @@ describe("VaultOpsService", () => {
         { provide: EditorService, useValue: editor },
         { provide: BookmarksService, useValue: bookmarks },
         { provide: VaultUndoService, useValue: undo },
+        { provide: FolderRolesService, useValue: roles },
       ],
     });
     ops = TestBed.inject(VaultOpsService);
@@ -205,6 +211,19 @@ describe("VaultOpsService", () => {
     expect(backend.trashPath).toHaveBeenCalledWith("/v/a.md", undo.author());
     expect(doc.close).toHaveBeenCalled();
     expect(editor.editing()).toBe(false);
+  });
+
+  it("returns the warning of a folder with a role and reads the roles again", async () => {
+    roles.reload.mockClear();
+    expect(await ops.trash("/v/In")).toBe("a role stays");
+    expect(roles.reload).toHaveBeenCalled();
+    expect(await ops.trash("/v/b.md")).toBeNull();
+  });
+
+  it("reads the roles again after a rename, so their paths are the new ones", async () => {
+    roles.reload.mockClear();
+    await ops.rename("/v/In", "Eingang");
+    expect(roles.reload).toHaveBeenCalled();
   });
 
   it("keeps the open note when another one is trashed", async () => {

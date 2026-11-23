@@ -18,6 +18,7 @@ import { SettingsService } from "../../core/settings/settings.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { TREE_SORTS } from "../../core/workspace/tree-model";
+import { FolderRolesService } from "../../core/workspace/folder-roles.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
 import type { TreeNode } from "../../core/workspace/workspace.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -74,6 +75,17 @@ describe("SidebarComponent tree", () => {
   } | null>(null);
   const treeGitStatus = signal(true);
   const ops = { trash: vi.fn(), move: vi.fn() };
+  const roles = {
+    roleOf: vi.fn((path: string) =>
+      path === "/v/alpha"
+        ? { role: "inbox", path: "alpha", description: null, missing: false }
+        : null,
+    ),
+    tooltip: (r: { role: string }) => `Folder role: ${r.role}`,
+    relative: (path: string) => path.slice(3),
+    openDialog: vi.fn(),
+    remove: vi.fn(),
+  };
   const workspaces = {
     current: signal<object | null>(null),
     rootName: vi.fn((path: string) => (path === "/v" ? "Own" : path.split("/").pop())),
@@ -115,6 +127,7 @@ describe("SidebarComponent tree", () => {
         { provide: DocumentService, useValue: doc },
         { provide: ChangesService, useValue: { unseenPaths: signal(new Set()) } },
         { provide: VaultOpsService, useValue: ops },
+        { provide: FolderRolesService, useValue: roles },
         { provide: TabsService, useValue: tabs },
         { provide: BookmarksService, useValue: { relative: () => null, items: () => [] } },
         { provide: GitService, useValue: { status: gitStatus } },
@@ -388,10 +401,41 @@ describe("SidebarComponent tree", () => {
       expect(labels(sidebar.menuItems())).toEqual([
         "New note",
         "New folder",
+        "Set folder role…",
+        "Remove folder role",
         "Rename",
         "Delete",
         sidebar.revealLabel,
       ]);
+    });
+
+    it("offers no removal for a folder without a role and acts on the folder", () => {
+      sidebar.menu.set({ node: rows[3] });
+      const items = sidebar.menuItems();
+      expect(labels(items)).toContain("Set folder role…");
+      expect(labels(items)).not.toContain("Remove folder role");
+      items.find((i: { label?: string }) => i.label === "Set folder role…").command();
+      expect(roles.openDialog).toHaveBeenCalledWith("/v/box");
+      sidebar.menu.set({ node: rows[0] });
+      sidebar
+        .menuItems()
+        .find((i: { label?: string }) => i.label === "Remove folder role")
+        .command();
+      expect(roles.remove).toHaveBeenCalledWith("alpha");
+    });
+
+    it("titles the row of a folder with a role and no other row", () => {
+      expect(sidebar.roleTitle(rows[0])).toBe("Folder role: inbox");
+      expect(sidebar.roleTitle(rows[3])).toBeNull();
+      expect(sidebar.roleTitle(rows[1])).toBeNull();
+    });
+
+    it("emits the warning of a deletion that leaves a role behind", async () => {
+      const warned: string[] = [];
+      sidebar.warned.subscribe((w: string) => warned.push(w));
+      ops.trash.mockResolvedValueOnce("the role stays");
+      sidebar.onKeydown(rows[0], key("Delete"));
+      await vi.waitFor(() => expect(warned).toEqual(["the role stays"]));
     });
 
     it("offers only the creating and revealing entries on the empty area", () => {
