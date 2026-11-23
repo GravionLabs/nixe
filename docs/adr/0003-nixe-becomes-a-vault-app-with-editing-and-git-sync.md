@@ -31,9 +31,9 @@ Technical findings from the planning discussion:
 
 Nixe grows into an Obsidian-compatible vault app with editing and Git sync.
 
-1. **Same format as Obsidian.** Notes are plain `.md` files. `.obsidian/` stays untouched, so
-   both apps can work on one vault. Nixe writes only the notes the user edits and the Git
-   metadata; its index and caches live in the app data directory, not in the vault.
+1. **Same format as Obsidian.** Notes are plain `.md` files. `.obsidian/` is never written, so
+   both apps can work on one vault. Nixe writes the notes the user edits, the Git
+   metadata and, since [ADR 0007](0007-vault-configuration-in-nixe.md), `.nixe/`; its index and caches live in the app data directory, not in the vault.
 2. **One Rust core.** Vault scan, wikilink and backlink index, full-text search and Git sync
    (`git2`, HTTPS + token) live in the Rust core. The frontends stay thin. The metadata for the
    index (links, embeds, tags, headings, frontmatter) is extracted in Rust too, so a SwiftUI
