@@ -99,7 +99,8 @@ intended grammar change with `NIXE_UPDATE_FIXTURES=1 cargo test vault::meta` and
 | Git metadata and conflict copies | the vault (`.git/`, next to the note) |
 | Index, search data and other caches | app data directory, rebuilt on open, never in the vault |
 | Git token | OS keychain, never on disk |
-| `.obsidian/` | never written |
+| `.nixe/` | the vault layout (`config.json`, `bookmarks.json`) in the vault; `.nixe/local/` is never committed ([ADR 0007](adr/0007-vault-configuration-in-nixe.md)) |
+| `.obsidian/` | read only until the expiry of the fallback, never written |
 
 ## Startup sequence
 

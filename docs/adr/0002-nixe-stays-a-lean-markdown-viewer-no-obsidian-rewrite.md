@@ -32,7 +32,7 @@ its existing strengths: Azure DevOps wikis, KaTeX, zoomable Mermaid, fast CLI st
 As an optional extension, Nixe displays Obsidian vaults **read-only** (#11: wikilinks, embeds,
 callouts, highlights, comments, properties, tags):
 
-- Nixe never writes into a vault: no `.nixe/` directory, no settings migration, no cache.
+- Nixe never writes into a vault (replaced by [ADR 0007](0007-vault-configuration-in-nixe.md): the layout lives in `.nixe/`): no `.nixe/` directory, no settings migration, no cache.
 - `.obsidian/` only marks the vault root.
 - Wikilinks resolve against an in-memory file list; there is no persistent index.
 
