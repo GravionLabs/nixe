@@ -35,8 +35,14 @@ pub enum RootKind {
 /// One folder of a workspace.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceRoot {
-    /// Absolute path, forward slashes.
+    /// Absolute path on this device, forward slashes. For a root with a `template` the resolved
+    /// path; the rest of the core only reads this. A root whose variable is unresolved keeps the
+    /// template here, which is no existing folder.
     pub path: String,
+    /// The path as written (`$Documents/Books`, `$$Archive/notes`) when it starts with `$`; saved
+    /// instead of the resolved path so the file holds no device-specific path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub template: Option<String>,
     /// The name that a link prefix uses; unique in the workspace.
     pub name: String,
     pub kind: RootKind,
@@ -63,6 +69,115 @@ fn slashes(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
+/// The folders the built-in location variables stand for on this device.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Locations {
+    pub home: Option<PathBuf>,
+    pub documents: Option<PathBuf>,
+}
+
+impl Locations {
+    /// Without a running app (command line, MCP): the home folder from the environment, the
+    /// documents folder below it.
+    pub fn from_env() -> Locations {
+        let home = ["HOME", "USERPROFILE"]
+            .iter()
+            .filter_map(std::env::var_os)
+            .find(|v| !v.is_empty())
+            .map(PathBuf::from);
+        Locations {
+            documents: home.as_ref().map(|h| h.join("Documents")),
+            home,
+        }
+    }
+
+    /// From the Tauri path API.
+    pub fn from_app<R: tauri::Runtime>(app: &impl tauri::Manager<R>) -> Locations {
+        let paths = app.path();
+        Locations {
+            home: paths.home_dir().ok(),
+            documents: paths.document_dir().ok(),
+        }
+    }
+
+    fn get(&self, name: &str) -> Option<&Path> {
+        match name {
+            "Home" => self.home.as_deref(),
+            "Documents" => self.documents.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// Resolves a path written with a leading `$Name`: `$Home/x` becomes the home folder of this
+    /// device plus `x`; `$$name` is the literal `$name`. A `$` anywhere else, or a `$` that no
+    /// name follows, is literal. A path that does not start with `$` is returned as it is. The
+    /// error names the variable that has no value here.
+    pub fn resolve(&self, template: &str) -> Result<String, String> {
+        let Some(rest) = template.strip_prefix('$') else {
+            return Ok(template.to_string());
+        };
+        if rest.starts_with('$') {
+            return Ok(rest.to_string());
+        }
+        let end = rest.find(['/', '\\']).unwrap_or(rest.len());
+        let (name, tail) = rest.split_at(end);
+        if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return Ok(template.to_string());
+        }
+        let base = self.get(name).ok_or_else(|| name.to_string())?;
+        let tail = tail.trim_start_matches(['/', '\\']);
+        Ok(if tail.is_empty() {
+            slashes(base)
+        } else {
+            slashes(&base.join(tail))
+        })
+    }
+}
+
+/// A root as it is stored in the file: the template, else the path.
+#[derive(Serialize, Deserialize)]
+struct StoredRoot {
+    path: String,
+    name: String,
+    kind: RootKind,
+}
+
+#[derive(Serialize, Deserialize)]
+struct StoredWorkspace {
+    name: String,
+    roots: Vec<StoredRoot>,
+}
+
+impl StoredRoot {
+    fn of(root: &WorkspaceRoot) -> StoredRoot {
+        StoredRoot {
+            path: root.template.clone().unwrap_or_else(|| root.path.clone()),
+            name: root.name.clone(),
+            kind: root.kind,
+        }
+    }
+
+    fn resolve(self, locations: &Locations) -> WorkspaceRoot {
+        if !self.path.starts_with('$') {
+            return WorkspaceRoot {
+                path: self.path,
+                template: None,
+                name: self.name,
+                kind: self.kind,
+            };
+        }
+        WorkspaceRoot {
+            // An unresolved variable keeps the template as path: no folder, so it is skipped.
+            path: locations
+                .resolve(&self.path)
+                .unwrap_or_else(|_| self.path.clone()),
+            template: Some(self.path),
+            name: self.name,
+            kind: self.kind,
+        }
+    }
+}
+
 impl Workspace {
     pub fn new(name: &str) -> Result<Workspace, String> {
         Ok(Workspace {
@@ -73,12 +188,32 @@ impl Workspace {
 
     /// Adds the folder at `path` (an Obsidian vault is added as its vault root). A folder that is
     /// already a root is not added twice. Returns the new or the existing root.
-    pub fn add_root(&mut self, path: &Path) -> Result<WorkspaceRoot, String> {
+    ///
+    /// A path that starts with `$` (`$Documents/Books`) is a template: it is resolved for this
+    /// device and kept next to the resolved path, unless the folder is inside a vault and the
+    /// vault root is added instead.
+    pub fn add_root(
+        &mut self,
+        path: &Path,
+        locations: &Locations,
+    ) -> Result<WorkspaceRoot, String> {
+        let written = slashes(path);
+        let template = written.starts_with('$').then_some(written);
+        let path = match &template {
+            Some(t) => PathBuf::from(
+                locations
+                    .resolve(t)
+                    .map_err(|v| format!("{t}: the variable ${v} has no value on this device"))?,
+            ),
+            None => path.to_path_buf(),
+        };
+        let path = path.as_path();
         if !path.is_dir() {
             return Err(format!("{}: not a folder", path.display()));
         }
         let root = dunce::canonicalize(find_vault_root(path))
             .map_err(|e| format!("{}: {e}", path.display()))?;
+        let template = template.filter(|_| dunce::canonicalize(path).is_ok_and(|p| p == root));
         let key = slashes(&root);
         if let Some(existing) = self.roots.iter().find(|r| r.path == key) {
             return Ok(existing.clone());
@@ -90,6 +225,7 @@ impl Workspace {
             name: self.free_name(&base),
             kind: detect_kind(&root),
             path: key,
+            template,
         };
         self.roots.push(entry.clone());
         Ok(entry)
@@ -134,6 +270,7 @@ pub fn name_roots(paths: &[PathBuf]) -> Vec<WorkspaceRoot> {
             name: ws.free_name(&base),
             kind: detect_kind(path),
             path: key,
+            template: None,
         };
         ws.roots.push(root);
     }
@@ -177,11 +314,16 @@ fn file_of(dir: &Path, name: &str) -> Result<PathBuf, String> {
 }
 
 /// Atomically saves `workspace` below the app data directory `dir`, replacing one of that name.
+/// A root with a template is saved with the template, not the resolved path.
 pub fn save(dir: &Path, workspace: &Workspace) -> Result<(), String> {
     let target = file_of(dir, &workspace.name)?;
     let folder = target.parent().expect("a file below the folder");
     fs::create_dir_all(folder).map_err(|e| format!("{}: {e}", folder.display()))?;
-    let json = serde_json::to_string_pretty(workspace).map_err(|e| e.to_string())?;
+    let stored = StoredWorkspace {
+        name: workspace.name.clone(),
+        roots: workspace.roots.iter().map(StoredRoot::of).collect(),
+    };
+    let json = serde_json::to_string_pretty(&stored).map_err(|e| e.to_string())?;
     let tmp = folder.join(format!(".{}.nixe-tmp", workspace.name));
     let result = (|| {
         let mut file = fs::File::create(&tmp)?;
@@ -195,8 +337,10 @@ pub fn save(dir: &Path, workspace: &Workspace) -> Result<(), String> {
     })
 }
 
-/// The saved workspace `name`; roots whose folder is gone stay in it (the UI marks them).
-pub fn load(dir: &Path, name: &str) -> Result<Workspace, String> {
+/// The saved workspace `name`; roots whose folder is gone stay in it (the UI marks them). A root
+/// saved with a template (`$Home/x`) gets the path it resolves to on this device; one whose
+/// variable has no value here keeps the template as its path, which is no folder.
+pub fn load(dir: &Path, name: &str, locations: &Locations) -> Result<Workspace, String> {
     let file = file_of(dir, name)?;
     let len = fs::metadata(&file)
         .map_err(|e| format!("workspace \"{name}\": {e}"))?
@@ -205,10 +349,16 @@ pub fn load(dir: &Path, name: &str) -> Result<Workspace, String> {
         return Err("workspace file too large".into());
     }
     let text = fs::read_to_string(&file).map_err(|e| format!("workspace \"{name}\": {e}"))?;
-    let mut ws: Workspace =
+    let stored: StoredWorkspace =
         serde_json::from_str(&text).map_err(|e| format!("workspace \"{name}\": {e}"))?;
-    ws.name = valid_name(name)?;
-    Ok(ws)
+    Ok(Workspace {
+        name: valid_name(name)?,
+        roots: stored
+            .roots
+            .into_iter()
+            .map(|r| r.resolve(locations))
+            .collect(),
+    })
 }
 
 /// The names of the saved workspaces, sorted.
@@ -294,6 +444,18 @@ impl WorkspaceLinks {
 mod tests {
     use super::*;
 
+    const NONE: Locations = Locations {
+        home: None,
+        documents: None,
+    };
+
+    fn device(base: &Path) -> Locations {
+        Locations {
+            home: Some(base.join("home")),
+            documents: Some(base.join("home/Documents")),
+        }
+    }
+
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("nixe-ws-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -319,8 +481,8 @@ mod tests {
         write(&b, "Ideas.md", "beta ideas");
         write(&b, "OnlyB.md", "x");
         let mut ws = Workspace::new("both").unwrap();
-        ws.add_root(&a).unwrap();
-        ws.add_root(&b).unwrap();
+        ws.add_root(&a, &NONE).unwrap();
+        ws.add_root(&b, &NONE).unwrap();
         (a, b, ws)
     }
 
@@ -343,8 +505,8 @@ mod tests {
         write(&base.join("x/notes"), "a.md", "x");
         write(&base.join("y/notes/.obsidian"), "app.json", "{}");
         let mut ws = Workspace::new("w").unwrap();
-        let first = ws.add_root(&base.join("x/notes")).unwrap();
-        let second = ws.add_root(&base.join("y/notes")).unwrap();
+        let first = ws.add_root(&base.join("x/notes"), &NONE).unwrap();
+        let second = ws.add_root(&base.join("y/notes"), &NONE).unwrap();
         assert_eq!(
             (first.name.as_str(), first.kind),
             ("notes", RootKind::Folder)
@@ -354,9 +516,9 @@ mod tests {
             ("notes (2)", RootKind::Obsidian)
         );
         // The same folder twice is one root.
-        assert_eq!(ws.add_root(&base.join("x/notes")).unwrap(), first);
+        assert_eq!(ws.add_root(&base.join("x/notes"), &NONE).unwrap(), first);
         assert_eq!(ws.roots.len(), 2);
-        assert!(ws.add_root(&base.join("missing")).is_err());
+        assert!(ws.add_root(&base.join("missing"), &NONE).is_err());
         assert!(ws.remove_root(&first.path));
         assert!(!ws.remove_root(&first.path));
     }
@@ -367,7 +529,7 @@ mod tests {
         write(&base.join("v"), ".obsidian/app.json", "{}");
         write(&base.join("v/inner"), "a.md", "x");
         let mut ws = Workspace::new("w").unwrap();
-        let root = ws.add_root(&base.join("v/inner")).unwrap();
+        let root = ws.add_root(&base.join("v/inner"), &NONE).unwrap();
         assert_eq!(root.path, slashes(&base.join("v")));
         assert_eq!(root.kind, RootKind::Obsidian);
     }
@@ -382,13 +544,13 @@ mod tests {
         save(&app, &ws).unwrap();
         save(&app, &Workspace::new("Another").unwrap()).unwrap();
         assert_eq!(list(&app), vec!["Another", "both"]);
-        assert_eq!(load(&app, "both").unwrap(), ws);
+        assert_eq!(load(&app, "both", &NONE).unwrap(), ws);
         assert!(app.join("workspaces/both.json").is_file());
         assert_eq!((snapshot(&a), snapshot(&b)), (before_a, before_b));
         delete(&app, "both").unwrap();
         delete(&app, "both").unwrap();
         assert_eq!(list(&app), vec!["Another"]);
-        assert!(load(&app, "both").is_err());
+        assert!(load(&app, "both", &NONE).is_err());
     }
 
     #[test]
@@ -399,7 +561,7 @@ mod tests {
             assert!(Workspace::new(name).is_err(), "{name}");
         }
         let app = temp_dir("names");
-        assert!(load(&app, "../settings").is_err());
+        assert!(load(&app, "../settings", &NONE).is_err());
         assert!(delete(&app, "../settings").is_err());
     }
 
@@ -448,5 +610,109 @@ mod tests {
         write(&a, "Re: plan.md", "x");
         let links = WorkspaceLinks::new(&ws);
         assert_eq!(links.resolve(&pa, "Re: plan"), at(&pa, "Re: plan.md"));
+    }
+
+    #[test]
+    fn the_resolver_turns_a_leading_variable_into_the_folder_of_the_device() {
+        let loc = device(Path::new("/dev"));
+        assert_eq!(loc.resolve("$Home/x/y").unwrap(), "/dev/home/x/y");
+        assert_eq!(
+            loc.resolve("$Documents/Books").unwrap(),
+            "/dev/home/Documents/Books"
+        );
+        assert_eq!(loc.resolve("$Home").unwrap(), "/dev/home");
+        assert_eq!(loc.resolve("$Home\\x").unwrap(), "/dev/home/x");
+        assert_eq!(loc.resolve("/abs/path").unwrap(), "/abs/path");
+    }
+
+    #[test]
+    fn a_double_dollar_and_a_dollar_inside_a_path_are_literal() {
+        let loc = device(Path::new("/dev"));
+        assert_eq!(loc.resolve("$$name").unwrap(), "$name");
+        assert_eq!(loc.resolve("$$Home/x").unwrap(), "$Home/x");
+        assert_eq!(loc.resolve("/a/$Home/b").unwrap(), "/a/$Home/b");
+        assert_eq!(loc.resolve("$/x").unwrap(), "$/x");
+    }
+
+    #[test]
+    fn an_unknown_variable_or_a_missing_folder_is_named() {
+        assert_eq!(
+            device(Path::new("/dev")).resolve("$Nope/x"),
+            Err("Nope".into())
+        );
+        assert_eq!(NONE.resolve("$Home/x"), Err("Home".into()));
+    }
+
+    #[test]
+    fn a_template_root_loads_resolved_and_saves_the_template_again() {
+        let base = temp_dir("template");
+        let loc = device(&base);
+        write(&base.join("home"), "x/Note.md", "hi");
+        let app = temp_dir("template-app");
+        let mut ws = Workspace::new("t").unwrap();
+        let added = ws.add_root(Path::new("$Home/x"), &loc).unwrap();
+        assert_eq!(added.template.as_deref(), Some("$Home/x"));
+        assert_eq!(added.path, slashes(&base.join("home/x")));
+        save(&app, &ws).unwrap();
+        let file = fs::read_to_string(app.join("workspaces/t.json")).unwrap();
+        assert!(file.contains("\"$Home/x\""));
+        assert!(!file.contains("template"));
+        assert!(!file.contains(base.to_str().unwrap()));
+        let loaded = load(&app, "t", &loc).unwrap();
+        assert_eq!(loaded, ws);
+        // Another device: same file, other home.
+        let other = temp_dir("template-other");
+        let there = load(&app, "t", &device(&other)).unwrap();
+        assert_eq!(there.roots[0].path, slashes(&other.join("home/x")));
+        save(&app, &there).unwrap();
+        assert_eq!(
+            fs::read_to_string(app.join("workspaces/t.json")).unwrap(),
+            file
+        );
+    }
+
+    #[test]
+    fn a_root_with_an_unresolved_variable_is_kept_and_saved_unchanged() {
+        let app = temp_dir("unresolved");
+        let dir = app.join("workspaces");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("u.json"),
+            r#"{"name":"u","roots":[{"path":"$Nope/x","name":"x","kind":"folder"}]}"#,
+        )
+        .unwrap();
+        let ws = load(&app, "u", &NONE).unwrap();
+        assert_eq!(ws.roots[0].path, "$Nope/x");
+        save(&app, &ws).unwrap();
+        let file = fs::read_to_string(dir.join("u.json")).unwrap();
+        assert!(file.contains("\"$Nope/x\""));
+    }
+
+    #[test]
+    fn a_variable_without_a_value_on_the_device_is_refused_when_added() {
+        let err = Workspace::new("e")
+            .unwrap()
+            .add_root(Path::new("$Home/x"), &NONE)
+            .unwrap_err();
+        assert!(err.contains("$Home"), "{err}");
+    }
+
+    #[test]
+    fn old_workspace_files_without_a_template_load_unchanged() {
+        let base = temp_dir("old");
+        let app = temp_dir("old-app");
+        let dir = app.join("workspaces");
+        fs::create_dir_all(&dir).unwrap();
+        let path = slashes(&base);
+        fs::write(
+            dir.join("o.json"),
+            format!(
+                r#"{{"name":"o","roots":[{{"path":"{path}","name":"base","kind":"folder"}}]}}"#
+            ),
+        )
+        .unwrap();
+        let ws = load(&app, "o", &device(&base)).unwrap();
+        assert_eq!(ws.roots[0].path, path);
+        assert_eq!(ws.roots[0].template, None);
     }
 }

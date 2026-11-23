@@ -426,7 +426,10 @@ export interface RecentNote {
 export type RootKind = "obsidian" | "wiki" | "folder";
 
 export interface WorkspaceRoot {
+  /** Resolved path on this device. */
   path: string;
+  /** The path as written when it starts with `$` (`$Documents/Books`); saved instead of `path`. */
+  template?: string;
   name: string;
   kind: RootKind;
 }

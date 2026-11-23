@@ -1112,7 +1112,7 @@ fn workspace_list(app: AppHandle) -> Result<Vec<String>, String> {
 #[tauri::command]
 fn workspace_load(app: AppHandle, name: String) -> Result<workspace::Workspace, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    workspace::load(&dir, &name)
+    workspace::load(&dir, &name, &workspace::Locations::from_app(&app))
 }
 
 /// Saves a workspace in the app data directory; nothing is written into its folders.
@@ -1132,10 +1132,11 @@ fn workspace_delete(app: AppHandle, name: String) -> Result<(), String> {
 /// `workspace` with the folder at `path` added as a root (kind detected); changes nothing on disk.
 #[tauri::command]
 fn workspace_add_root(
+    app: AppHandle,
     mut workspace: workspace::Workspace,
     path: String,
 ) -> Result<workspace::Workspace, String> {
-    workspace.add_root(Path::new(&path))?;
+    workspace.add_root(Path::new(&path), &workspace::Locations::from_app(&app))?;
     Ok(workspace)
 }
 
