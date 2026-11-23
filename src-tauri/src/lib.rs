@@ -850,22 +850,28 @@ fn trash_path(
     )
 }
 
-/// Where a new note goes, from `.obsidian/app.json` of the vault.
+/// Where a new note goes, from `.nixe/config.json` or else `.obsidian/app.json` of the vault.
 #[tauri::command]
 fn new_note_location(state: State<'_, AppState>) -> Result<fileops::NewNoteLocation, String> {
     Ok(fileops::new_note_location(&vault_root_of(&state)?))
 }
 
-/// The template folder from `.obsidian/templates.json` of the vault; `None` when it names none.
+/// The template folder from `.nixe/config.json` or else `.obsidian/templates.json` of the vault; `None` when it names none.
 #[tauri::command]
 fn template_folder(state: State<'_, AppState>) -> Result<Option<String>, String> {
     Ok(fileops::template_folder(&vault_root_of(&state)?))
 }
 
-/// The Daily notes settings from `.obsidian/daily-notes.json` of the vault.
+/// The Daily notes settings from `.nixe/config.json`, each missing key from `.obsidian/daily-notes.json`.
 #[tauri::command]
 fn daily_notes_config(state: State<'_, AppState>) -> Result<fileops::DailyNotesConfig, String> {
     Ok(fileops::daily_notes_config(&vault_root_of(&state)?))
+}
+
+/// `language`, `folders` and `files` of `.nixe/config.json` of the vault; empty when it has none.
+#[tauri::command]
+fn vault_layout(state: State<'_, AppState>) -> Result<vault::config::Layout, String> {
+    Ok(vault::config::layout(&vault_root_of(&state)?))
 }
 
 /// Saves pasted bytes as `name` in the attachment folder of `note`; returns the vault-relative path.
@@ -1369,6 +1375,7 @@ pub fn run() {
         write_app_bookmarks,
         set_menu_shortcuts,
         obsidian_settings,
+        vault_layout,
         save_attachment,
         import_attachment,
         is_utf8_file,
@@ -1503,6 +1510,7 @@ pub fn run() {
         write_app_bookmarks,
         set_menu_shortcuts,
         obsidian_settings,
+        vault_layout,
         save_attachment,
         import_attachment,
         is_utf8_file,

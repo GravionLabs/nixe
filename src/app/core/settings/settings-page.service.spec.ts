@@ -160,6 +160,35 @@ describe("settings page", () => {
     expect(daily.value()).toBe("Not set");
   });
 
+  it("shows `.nixe/config.json` as the source where it sets a value", async () => {
+    vaultRoot.set("/v");
+    obsidian.mockResolvedValue([
+      {
+        id: "template-folder",
+        label: "Template folder",
+        value: "Vorlagen",
+        source: ".nixe/config.json",
+      },
+      {
+        id: "daily-format",
+        label: "Daily notes date format",
+        value: "YYYY-MM-DD",
+        source: ".obsidian/daily-notes.json",
+      },
+    ]);
+    await page.open();
+    const items = page.sections().find((s) => s.id === "files")!.items;
+    const tpl = items.find((i) => i.id === "obsidian-template-folder")!;
+    const format = items.find((i) => i.id === "obsidian-daily-format")!;
+    if (tpl.kind !== "readonly" || format.kind !== "readonly") throw new Error("readonly expected");
+    expect(tpl.source?.()).toBe(".nixe/config.json");
+    expect(tpl.description).toContain(".nixe/config.json");
+    expect(format.source?.()).toBe(".obsidian/daily-notes.json");
+    expect(format.description).toContain("Obsidian");
+    const own = items.find((i) => i.id === "template-folder")!;
+    expect(own.description).toContain(".nixe/config.json");
+  });
+
   it("says that a vault is needed when none is open", async () => {
     await page.open();
     expect(obsidian).not.toHaveBeenCalled();

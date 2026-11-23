@@ -1,5 +1,5 @@
 //! Settings page (#99): the app settings file in the app config directory, and the Obsidian
-//! settings of a vault that the page shows read-only with their source.
+//! settings of a vault (`.nixe/config.json`, else `.obsidian/`) that the page shows read-only with their source.
 
 use std::fs;
 use std::io::Write;
@@ -7,6 +7,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use crate::attachments;
 use crate::fileops;
 use crate::vault::relink::{self, LinkFormat};
 
@@ -60,6 +61,13 @@ pub struct ObsidianSetting {
     pub source: String,
 }
 
+fn sourced(value: Option<fileops::Sourced>, fallback: &str) -> (Option<String>, String) {
+    match value {
+        Some((v, source)) => (Some(v), source.to_string()),
+        None => (None, fallback.to_string()),
+    }
+}
+
 fn entry(id: &str, label: &str, value: Option<String>, source: &str) -> ObsidianSetting {
     ObsidianSetting {
         id: id.into(),
@@ -69,19 +77,11 @@ fn entry(id: &str, label: &str, value: Option<String>, source: &str) -> Obsidian
     }
 }
 
-/// The raw string value of `key` in `.obsidian/<file>`, trimmed; `None` when missing or empty.
-fn raw(root: &Path, file: &str, key: &str) -> Option<String> {
-    let text = fs::read_to_string(root.join(".obsidian").join(file)).ok()?;
-    let json = serde_json::from_str::<serde_json::Value>(&text).ok()?;
-    let value = json.get(key)?.as_str()?.trim().to_string();
-    (!value.is_empty()).then_some(value)
-}
-
 /// The settings of the vault that Obsidian also has: new-note folder, attachment folder, link
-/// format, templates and daily notes.
+/// format, templates and daily notes. Each comes with the file it is read from: `.nixe/config.json`
+/// when that sets it, else `.obsidian/`.
 pub fn obsidian_settings(root: &Path) -> Vec<ObsidianSetting> {
-    let app = ".obsidian/app.json";
-    let location = fileops::new_note_location(root);
+    let (location, new_note_source) = fileops::new_note_location_sourced(root);
     let new_note = match location.location.as_str() {
         "folder" => format!("Folder: {}", location.folder),
         "current" => "Same folder as the current note".to_string(),
@@ -92,50 +92,59 @@ pub fn obsidian_settings(root: &Path) -> Vec<ObsidianSetting> {
         LinkFormat::Relative => "Relative path to the note",
         LinkFormat::Absolute => "Absolute path in the vault",
     };
-    let daily = fileops::daily_notes_config(root);
-    let daily_source = ".obsidian/daily-notes.json";
+    let daily = fileops::daily_notes_sourced(root);
+    let (attachment, attachment_source) =
+        sourced(attachments::attachment_setting(root), ".obsidian/app.json");
+    let (template, template_source) = sourced(
+        fileops::template_folder_sourced(root),
+        ".obsidian/templates.json",
+    );
+    let daily_default = ".obsidian/daily-notes.json";
+    let (daily_folder, daily_folder_source) = sourced(daily.folder, daily_default);
+    let (daily_format, daily_format_source) = sourced(daily.format, daily_default);
+    let (daily_template, daily_template_source) = sourced(daily.template, daily_default);
     vec![
         entry(
             "new-note-location",
             "Default location for new notes",
             Some(new_note),
-            app,
+            new_note_source,
         ),
         entry(
             "attachment-folder",
             "Attachment folder",
-            raw(root, "app.json", "attachmentFolderPath"),
-            app,
+            attachment,
+            &attachment_source,
         ),
         entry(
             "link-format",
             "New link format",
             Some(link_format.to_string()),
-            app,
+            ".obsidian/app.json",
         ),
         entry(
             "template-folder",
             "Template folder",
-            fileops::template_folder(root),
-            ".obsidian/templates.json",
+            template,
+            &template_source,
         ),
         entry(
             "daily-folder",
             "Daily notes folder",
-            daily.folder,
-            daily_source,
+            daily_folder,
+            &daily_folder_source,
         ),
         entry(
             "daily-format",
             "Daily notes date format",
-            daily.format,
-            daily_source,
+            daily_format,
+            &daily_format_source,
         ),
         entry(
             "daily-template",
             "Daily notes template",
-            daily.template,
-            daily_source,
+            daily_template,
+            &daily_template_source,
         ),
     ]
 }
@@ -256,5 +265,88 @@ mod tests {
             value(&list, "daily-template").source,
             ".obsidian/daily-notes.json"
         );
+    }
+
+    #[test]
+    fn nixe_wins_per_key_and_obsidian_fills_the_rest() {
+        let root = tmp("both");
+        let obsidian = root.join(".obsidian");
+        fs::create_dir_all(&obsidian).unwrap();
+        fs::create_dir_all(root.join(".nixe")).unwrap();
+        fs::write(
+            obsidian.join("templates.json"),
+            r#"{"folder":"OldTemplates"}"#,
+        )
+        .unwrap();
+        fs::write(
+            obsidian.join("daily-notes.json"),
+            r#"{"folder":"OldDaily","format":"YYYY-MM-DD"}"#,
+        )
+        .unwrap();
+        fs::write(
+            obsidian.join("app.json"),
+            r#"{"attachmentFolderPath":"Assets","newFileLocation":"folder","newFileFolderPath":"Old"}"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join(".nixe/config.json"),
+            r#"{"folders":{"templates":"Templates","inbox":"Inbox"},"daily":{"folder":"Journal"}}"#,
+        )
+        .unwrap();
+        let list = obsidian_settings(&root);
+        let tpl = value(&list, "template-folder");
+        assert_eq!(tpl.value.as_deref(), Some("Templates"));
+        assert_eq!(tpl.source, ".nixe/config.json");
+        let folder = value(&list, "daily-folder");
+        assert_eq!(folder.value.as_deref(), Some("Journal"));
+        assert_eq!(folder.source, ".nixe/config.json");
+        let format = value(&list, "daily-format");
+        assert_eq!(format.value.as_deref(), Some("YYYY-MM-DD"));
+        assert_eq!(format.source, ".obsidian/daily-notes.json");
+        let new_note = value(&list, "new-note-location");
+        assert_eq!(new_note.value.as_deref(), Some("Folder: Inbox"));
+        assert_eq!(new_note.source, ".nixe/config.json");
+        let attachments = value(&list, "attachment-folder");
+        assert_eq!(attachments.value.as_deref(), Some("Assets"));
+        assert_eq!(attachments.source, ".obsidian/app.json");
+    }
+
+    #[test]
+    fn only_nixe_is_read_without_obsidian() {
+        let root = tmp("only-nixe");
+        fs::create_dir_all(root.join(".nixe")).unwrap();
+        fs::write(
+            root.join(".nixe/config.json"),
+            r#"{"folders":{"attachments":"Files"},"templates":{"folder":"T"}}"#,
+        )
+        .unwrap();
+        let list = obsidian_settings(&root);
+        assert_eq!(
+            value(&list, "attachment-folder").value.as_deref(),
+            Some("Files")
+        );
+        assert_eq!(
+            value(&list, "attachment-folder").source,
+            ".nixe/config.json"
+        );
+        assert_eq!(value(&list, "template-folder").source, ".nixe/config.json");
+        assert_eq!(value(&list, "daily-folder").value, None);
+    }
+
+    #[test]
+    fn an_invalid_nixe_config_falls_back_to_obsidian() {
+        let root = tmp("invalid-nixe");
+        fs::create_dir_all(root.join(".nixe")).unwrap();
+        fs::create_dir_all(root.join(".obsidian")).unwrap();
+        fs::write(root.join(".nixe/config.json"), "{ nope").unwrap();
+        fs::write(
+            root.join(".obsidian/templates.json"),
+            r#"{"folder":"Templates"}"#,
+        )
+        .unwrap();
+        let list = obsidian_settings(&root);
+        let tpl = value(&list, "template-folder");
+        assert_eq!(tpl.value.as_deref(), Some("Templates"));
+        assert_eq!(tpl.source, ".obsidian/templates.json");
     }
 }

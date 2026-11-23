@@ -1,11 +1,30 @@
 //! Attachments of the editor (#81): pasted images and dropped files are copied into the attachment
-//! folder of `.obsidian/app.json` (`attachmentFolderPath`), all confined to the vault root.
+//! folder of `.nixe/config.json` (the role `attachments`) or `.obsidian/app.json` (`attachmentFolderPath`), all confined to the vault root.
 
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::fileops::{canonical_root, confined_or_root};
+use crate::vault::config::{self, Config};
+
+/// `attachmentFolderPath` of `.obsidian/app.json`, with forward slashes.
+fn obsidian_setting(root: &Path) -> Option<String> {
+    let text = fs::read_to_string(root.join(".obsidian").join("app.json")).ok()?;
+    let json = serde_json::from_str::<serde_json::Value>(&text).ok()?;
+    let value = json.get("attachmentFolderPath")?.as_str()?;
+    Some(value.replace('\\', "/"))
+}
+
+/// The attachment folder with its source: the role `attachments` of `.nixe/config.json`, else
+/// `attachmentFolderPath` of `.obsidian/app.json` as written there.
+pub fn attachment_setting(root: &Path) -> Option<(String, &'static str)> {
+    if let Some(folder) = Config::load(root).attachment_folder() {
+        return Some((folder, config::SOURCE));
+    }
+    let value = obsidian_setting(root)?.trim().to_string();
+    (!value.is_empty()).then_some((value, ".obsidian/app.json"))
+}
 
 /// The vault-relative folder (forward slashes, empty for the vault root) that holds the attachments
 /// of a note in `note_dir` (vault-relative, empty for the root).
@@ -13,15 +32,10 @@ use crate::fileops::{canonical_root, confined_or_root};
 /// `attachmentFolderPath` is `/` or missing for the vault root, `./` for the folder of the note,
 /// `./sub` for a subfolder of it, and any other value for a fixed folder.
 pub fn attachment_folder(root: &Path, note_dir: &str) -> String {
-    let setting = fs::read_to_string(root.join(".obsidian").join("app.json"))
-        .ok()
-        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-        .and_then(|json| {
-            json.get("attachmentFolderPath")
-                .and_then(|v| v.as_str().map(str::to_string))
-        })
-        .unwrap_or_default()
-        .replace('\\', "/");
+    if let Some(folder) = Config::load(root).attachment_folder() {
+        return folder;
+    }
+    let setting = obsidian_setting(root).unwrap_or_default();
     let relative = setting == "." || setting.starts_with("./");
     let tail = setting.trim_start_matches('.').trim_matches('/');
     let tail = if relative {
