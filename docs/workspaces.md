@@ -12,11 +12,59 @@ workspace is a palette command **Open workspace: _name_**.
   folders, and forgetting a workspace leaves them. A saved root whose folder is gone is skipped on
   opening.
 
+## Location variables
+
+A root path may start with `$Name/…`, which is resolved on the device that opens the workspace
+([ADR 0008](adr/0008-location-variables-and-own-root-names-for-portable-workspaces.md)). The built-ins
+are `$Home` and `$Documents` (the home and documents folder of the Tauri path API; the command line
+reads `HOME`/`USERPROFILE` and uses `Documents` below it). `$$` at the start is a literal `$`
+(`$$Archive/notes` is the folder `$Archive/notes`); a `$` anywhere else in a path is literal.
+
+A root keeps both: `path` is the resolved absolute path that the rest of the core works with,
+`template` the path as written. The file `workspaces/<name>.json` stores the template in place of
+`path`, so it holds no path of one device, and a file without templates (older versions) loads
+unchanged. A root whose variable has no value on the device keeps the template as its `path`,
+which is no folder, so it is skipped like a missing folder; saving writes the template back.
+`$OneDrive` is the `OneDrive` environment variable on Windows and the folder
+`~/Library/CloudStorage/OneDrive-*` on macOS; with several such folders (several accounts) it stays
+unresolved and names the candidates until the user picks one. `$iCloud` is
+`~/Library/Mobile Documents/com~apple~CloudDocs` on macOS. Linux has neither. Opening the workspace
+shows one message that names the variable (`$Books has no value on this device`) with the action
+**Set variable**, which opens the **Locations** section of the settings; the other roots open as
+before. The skipped root stays in the workspace and in `workspaces/<name>.json`, and reopening the
+workspace after the variable is set brings it back.
+
+### Choosing a variable when adding a root
+
+**Add folder to workspace…** checks the picked folder against the variables that have a value on
+the device (`$Home`, `$Documents`, `$OneDrive`, `$iCloud`, the own ones). For a folder below one or
+more of them, a dialog lists the absolute path (the default, first) and each `$Name/rest` form, the
+deepest variable first, every row with the path it resolves to. The choice decides what the
+workspace stores; the sidebar shows the resolved path as before. A folder below no variable is
+added at once as an absolute path. A folder inside a vault is offered as the vault root, which is
+what gets added (Tauri command `workspace_variable_choices`).
+
+### Own variables
+
+The section **Locations** of the settings page lists the own variables of the device
+(`Books = D:\Cloud\Bücher`) and adds, edits, renames and removes them; the section is found by the
+settings search by its title, the name or the folder of a variable. A variable needs a name of
+letters, digits and `_`, which is none of the built-in names (`Home`, `Documents`, `OneDrive`,
+`iCloud`; any case), and an existing absolute folder; otherwise the page shows why it is refused and
+changes nothing. The resolver reads them like the built-ins (`$Books/notes`), so a workspace root
+written that way finds its folder on every device that defines `Books`.
+
+They are stored per device in `locations.json` next to `settings.json` in the app data directory
+(`{"variables": {"Books": "D:\\Cloud\\Bücher"}, "onedrive": "<picked folder>"}`), never in a workspace
+or in the vault. The command line reads the same file. The OneDrive account picked among several
+(`$OneDrive`) is stored in it as `onedrive` (Tauri command `locations_choose_onedrive`); a stored
+folder that is no candidate any more is ignored. A damaged file counts as empty.
+
 ## Links between roots
 
 A link resolves inside the root of the note that holds it. To reach a note of another root, prefix
-the target with the name of that root and a colon (the name is the folder name, shown in the
-sidebar; case-insensitive):
+the target with the name of that root and a colon (the name is the folder name until you rename
+the root; shown in the sidebar; case-insensitive):
 
 ```md
 [[Wiki:Onboarding]]
@@ -26,6 +74,18 @@ sidebar; case-insensitive):
 The prefix is only used when it names a root; otherwise the colon belongs to the note name
 (`[[Re: plan]]`). Root names are unique in a workspace (`notes`, `notes (2)`). The rule is
 implemented by `WorkspaceLinks` in `src-tauri/src/workspace.rs`.
+
+### Own root names
+
+The name of a root is stored with the root in `workspaces/<name>.json` and does not depend on the
+folder name, so `[[Books:…]]` works on every device whatever the folder is called there. To rename
+a root, double-click the root header at the top of the sidebar (the first root), or choose **Rename
+root** in the context menu of a further root; Enter saves, Escape cancels. **Save workspace** stores
+the new name. A name is refused when another root has it (case-insensitive) or when it is no valid
+link prefix: empty, longer than 100 characters, or containing one of `:` `[` `]` `|` `#` `^`. The
+renamed root resolves `[[NewName:note]]` and no longer `[[OldName:note]]`; links under the old name
+are not rewritten. The rule is `Workspace::rename_root` in `src-tauri/src/workspace.rs` (Tauri
+command `workspace_rename_root`).
 
 ## Search and quick switcher
 

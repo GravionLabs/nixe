@@ -11,6 +11,7 @@ import type { ObsidianSetting } from "../file/backend";
 import type { Command } from "../commands/command-registry";
 import { PAGE_SIZES, sanitizePageSize } from "../export/export-core";
 import { clampMinutes } from "../git/auto-sync";
+import { BUILTIN_LOCATIONS } from "./locations.service";
 import { sanitizeMode } from "../preview/preview-core";
 import type { SettingItem, SettingsSection } from "./settings-registry";
 import type { SettingsService } from "./settings.service";
@@ -44,6 +45,12 @@ export interface SectionSources {
     description: string | null;
     missing: boolean;
   }[];
+  /** The own location variables of this device (#495); without it the Locations section is absent. */
+  locations?: {
+    variables: () => readonly { name: string; path: string }[];
+    save: (name: string, path: string, previous: string | null) => Promise<void>;
+    remove: (name: string) => Promise<void>;
+  };
   /** The terminal (#360); absent where there is none (iOS), so the setting is not shown. */
   terminal?: { setEnabled: (value: boolean) => Promise<boolean> };
   /** The theme and snippet files and the folder they live in (#114); none without the appearance service. */
@@ -559,6 +566,44 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
         ...appearanceItems(),
       ],
     },
+    ...(src.locations
+      ? [
+          {
+            id: "locations",
+            title: "Locations",
+            order: 45,
+            items: (): SettingItem[] => {
+              const l = src.locations!;
+              const variables = l.variables();
+              return [
+                {
+                  kind: "locations",
+                  id: "location-variables",
+                  label: "Location variables of this device",
+                  description:
+                    "A name for a folder on this device, like Books = D:\\Cloud\\Books. A workspace root written as $Books/notes finds its folder here on every device. They stay on this device, not in a workspace or the vault. Home, Documents, OneDrive and iCloud are built in.",
+                  keywords: [
+                    "variable",
+                    "folder",
+                    "path",
+                    "root",
+                    "workspace",
+                    "device",
+                    "onedrive",
+                    "icloud",
+                    "$",
+                    ...variables.flatMap((v) => [v.name, v.path]),
+                  ],
+                  variables: () => l.variables(),
+                  save: l.save,
+                  remove: l.remove,
+                  reserved: BUILTIN_LOCATIONS,
+                },
+              ];
+            },
+          },
+        ]
+      : []),
     {
       id: "sync",
       title: "Sync",

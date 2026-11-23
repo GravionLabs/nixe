@@ -1,7 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import type { RootArg, Workspace } from "../file/backend";
+import type { RootArg, VariableChoice, Workspace, WorkspaceRoot } from "../file/backend";
 import { backend } from "../file/backend";
 import { CommandRegistry } from "../commands/command-registry";
 import { basename } from "../markdown/paths";
@@ -9,6 +9,34 @@ import { WorkspaceService } from "./workspace.service";
 
 /** Command id of "open the saved workspace `name`". */
 export const OPEN_WORKSPACE_PREFIX = "open-workspace:";
+
+/** The roots a workspace opened without, because their location variable has no value here (#496). */
+export interface SkippedRoots {
+  workspace: string;
+  /** The names of the variables, without `$`; each once. */
+  variables: string[];
+}
+
+/** The one message that names the variables a workspace opened without. */
+export function skippedMessage(skipped: SkippedRoots): string {
+  const names = skipped.variables.map((v) => `$${v}`).join(", ");
+  const verb = skipped.variables.length === 1 ? "has" : "have";
+  return `${names} ${verb} no value on this device. The folders that use it are skipped.`;
+}
+
+/** The variable of a root whose template did not resolve on this device; null for any other root. */
+export function unresolvedVariable(root: WorkspaceRoot): string | null {
+  // The core keeps the template as `path` when its variable has no value; `$$x` resolves to `$x`.
+  if (!root.template || root.path !== root.template) return null;
+  return /^\$([^/\\]+)/.exec(root.template)?.[1] ?? null;
+}
+
+/** A folder picked for the workspace that lies below a location variable: the user chooses its form. */
+export interface RootChoice {
+  /** The absolute path of the picked folder. */
+  path: string;
+  choices: VariableChoice[];
+}
 
 /** A name for a workspace that was not named: the names of its roots. */
 export function defaultWorkspaceName(workspace: Workspace): string {
@@ -41,6 +69,10 @@ export class WorkspacesService {
   });
   /** Counts the finished index passes over the further roots, so searches run again. */
   readonly indexRevision = signal(0);
+  /** Set when a workspace opened without some roots; the shell shows one message and clears it. */
+  readonly skipped = signal<SkippedRoots | null>(null);
+  /** Set while the user picks between the absolute path and a `$Variable` form of a folder. */
+  readonly rootChoice = signal<RootChoice | null>(null);
   private unregister: (() => void)[] = [];
 
   constructor() {
@@ -57,7 +89,24 @@ export class WorkspacesService {
   /** Asks for a folder and adds it as a root. */
   async addFolderWithDialog(): Promise<void> {
     const selected = await open({ directory: true, multiple: false });
-    if (typeof selected === "string") await this.addFolder(selected);
+    if (typeof selected !== "string") return;
+    // A folder below a variable offers the variable form; the absolute path stays the default.
+    const choices = await backend.workspaceVariableChoices(selected);
+    if (choices.length === 0) await this.addFolder(selected);
+    else this.rootChoice.set({ path: selected, choices });
+  }
+
+  /** Ends the choice: `template` is the `$Name/rest` form, null the absolute path. */
+  async chooseRootForm(template: string | null): Promise<void> {
+    const pending = this.rootChoice();
+    if (!pending) return;
+    this.rootChoice.set(null);
+    await this.addFolder(template ?? pending.path);
+  }
+
+  /** Closes the choice without adding a folder. */
+  cancelRootChoice(): void {
+    this.rootChoice.set(null);
   }
 
   /** Adds `path` as a root; the open folder becomes the first root when there is no workspace yet. */
@@ -71,6 +120,24 @@ export class WorkspacesService {
     ws = await backend.workspaceAddRoot(ws, path);
     this.current.set(ws);
     this.show(ws);
+  }
+
+  /** The name of the root at `path` as links use it; the folder name outside a workspace. */
+  rootName(path: string): string {
+    return this.current()?.roots.find((r) => r.path === path)?.name || basename(path);
+  }
+
+  /**
+   * Gives the root at `path` its own name (#497), the prefix of `[[Name:Note]]` links. The backend
+   * refuses a name of another root and one that is no link prefix (`:`); the error is thrown.
+   * Links under the old name are not rewritten.
+   */
+  async renameRoot(path: string, name: string): Promise<void> {
+    const ws = this.current();
+    if (!ws) throw new Error("Add a folder to the workspace first.");
+    const renamed = await backend.workspaceRenameRoot(ws, path, name);
+    this.current.set(renamed);
+    this.workspace.renameExtraRoot(path, this.rootName(path));
   }
 
   /**
@@ -108,8 +175,13 @@ export class WorkspacesService {
     const present = (
       await Promise.all(ws.roots.map(async (r) => ((await backend.isDir(r.path)) ? r : null)))
     ).filter((r) => r !== null);
+    const variables = [
+      ...new Set(ws.roots.map(unresolvedVariable).filter((v): v is string => v !== null)),
+    ];
+    if (variables.length > 0) this.skipped.set({ workspace: name, variables });
     if (present.length === 0) throw new Error(`No folder of the workspace "${name}" exists.`);
     await this.workspace.openFolder(present[0].path);
+    // The skipped roots stay in `current`, so a save writes them back untouched.
     this.current.set(ws);
     this.show({ ...ws, roots: present });
   }

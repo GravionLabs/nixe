@@ -191,6 +191,8 @@
   <app-folder-role />
 }
 
+<app-root-choice (failed)="showError($event)" />
+
 @if (palette.visible()) {
   <app-palette (failed)="showError($event)" />
 }

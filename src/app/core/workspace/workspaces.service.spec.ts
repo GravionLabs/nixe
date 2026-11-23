@@ -9,11 +9,13 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import type { Workspace } from "../file/backend";
+import { open } from "@tauri-apps/plugin-dialog";
+
 import { backend } from "../file/backend";
 import { CommandRegistry } from "../commands/command-registry";
 import { DocumentService } from "../file/document.service";
 import { WorkspaceService } from "./workspace.service";
-import { WorkspacesService, defaultWorkspaceName } from "./workspaces.service";
+import { WorkspacesService, defaultWorkspaceName, skippedMessage } from "./workspaces.service";
 
 const root = (path: string, name: string, kind: "folder" | "obsidian" = "folder") => ({
   path,
@@ -93,6 +95,63 @@ describe("WorkspacesService", () => {
     await vi.waitFor(() => expect(service.indexRevision()).toBe(2));
   });
 
+  describe("choosing a variable (#498)", () => {
+    const choice = {
+      name: "Documents",
+      template: "$Documents/Books",
+      resolved: "/home/u/Documents/Books",
+    };
+
+    beforeEach(async () => {
+      await workspace.openFolder("/a", { openDefaultPage: false });
+      vi.mocked(open).mockResolvedValue("/home/u/Documents/Books");
+    });
+
+    it("adds a folder elsewhere at once, with its absolute path", async () => {
+      vi.spyOn(backend, "workspaceVariableChoices").mockResolvedValue([]);
+      await service.addFolderWithDialog();
+      expect(service.rootChoice()).toBeNull();
+      expect(service.current()?.roots.map((r) => r.path)).toEqual([
+        "/a",
+        "/home/u/Documents/Books",
+      ]);
+    });
+
+    it("offers the variable forms for a folder below a variable and adds nothing yet", async () => {
+      vi.spyOn(backend, "workspaceVariableChoices").mockResolvedValue([choice]);
+      await service.addFolderWithDialog();
+      expect(service.rootChoice()).toEqual({ path: "/home/u/Documents/Books", choices: [choice] });
+      expect(service.current()).toBeNull();
+    });
+
+    it("stores the template when the variable form is chosen", async () => {
+      vi.spyOn(backend, "workspaceVariableChoices").mockResolvedValue([choice]);
+      await service.addFolderWithDialog();
+      await service.chooseRootForm("$Documents/Books");
+      expect(service.rootChoice()).toBeNull();
+      expect(backend.workspaceAddRoot).toHaveBeenLastCalledWith(
+        expect.anything(),
+        "$Documents/Books",
+      );
+    });
+
+    it("keeps the absolute path when it is chosen, and adds nothing on cancel", async () => {
+      vi.spyOn(backend, "workspaceVariableChoices").mockResolvedValue([choice]);
+      await service.addFolderWithDialog();
+      await service.chooseRootForm(null);
+      expect(backend.workspaceAddRoot).toHaveBeenLastCalledWith(
+        expect.anything(),
+        "/home/u/Documents/Books",
+      );
+      vi.mocked(backend.workspaceAddRoot).mockClear();
+      await service.addFolderWithDialog();
+      service.cancelRootChoice();
+      await service.chooseRootForm(null);
+      expect(service.rootChoice()).toBeNull();
+      expect(backend.workspaceAddRoot).not.toHaveBeenCalled();
+    });
+  });
+
   it("needs an open folder before the first root", async () => {
     await expect(service.addFolder("/b")).rejects.toThrow("Open a folder first.");
   });
@@ -103,6 +162,36 @@ describe("WorkspacesService", () => {
     expect(workspace.visible().map((n) => n.dirPath)).toEqual(["/b"]);
     await workspace.openFolder("/z", { openDefaultPage: false });
     expect(workspace.extraRoots()).toEqual([]);
+  });
+
+  it("renames a root: the name is kept in the workspace, in the tree and in a save (#497)", async () => {
+    vi.spyOn(backend, "workspaceRenameRoot").mockImplementation(async (ws, path, name) => ({
+      ...ws,
+      roots: ws.roots.map((r) => (r.path === path ? { ...r, name } : r)),
+    }));
+    await workspace.openFolder("/vault", { openDefaultPage: false });
+    await service.addFolder("/other/Wiki");
+    await service.renameRoot("/other/Wiki", "Books");
+    expect(service.current()?.roots.map((r) => r.name)).toEqual(["vault", "Books"]);
+    expect(service.rootName("/other/Wiki")).toBe("Books");
+    expect(workspace.extraRoots().map((n) => n.name)).toEqual(["Books"]);
+    expect(service.searchRoots()?.map((r) => r.name)).toEqual(["vault", "Books"]);
+    await service.save("Mine");
+    expect(stored.get("Mine")?.roots[1].name).toBe("Books");
+  });
+
+  it("needs a workspace to rename a root", async () => {
+    await expect(service.renameRoot("/x", "y")).rejects.toThrow("Add a folder");
+  });
+
+  it("keeps the name when the backend refuses a rename", async () => {
+    vi.spyOn(backend, "workspaceRenameRoot").mockRejectedValue("another root is called x already");
+    await workspace.openFolder("/vault", { openDefaultPage: false });
+    await service.addFolder("/other/Wiki");
+    await expect(service.renameRoot("/other/Wiki", "vault")).rejects.toBe(
+      "another root is called x already",
+    );
+    expect(service.rootName("/other/Wiki")).toBe("Wiki");
   });
 
   it("saves under a name, lists it as a command and reopens it", async () => {
@@ -127,6 +216,53 @@ describe("WorkspacesService", () => {
     await service.openSaved("w");
     expect(workspace.root()).toBe("/b");
     expect(workspace.extraRoots().map((n) => n.dirPath)).toEqual(["/c"]);
+  });
+
+  it("skips a root with an unresolved variable, reports it once and keeps it for a save", async () => {
+    const unresolved = {
+      path: "$Books/n",
+      template: "$Books/n",
+      name: "n",
+      kind: "folder" as const,
+    };
+    stored.set("w", {
+      name: "w",
+      roots: [root("/a", "a"), unresolved, { ...root("/b", "b"), template: "$Home/b" }],
+    });
+    vi.spyOn(backend, "isDir").mockImplementation(async (p) => !p.startsWith("$"));
+    const save = vi.spyOn(backend, "workspaceSave").mockResolvedValue(undefined);
+    await service.openSaved("w");
+    expect(service.skipped()).toEqual({ workspace: "w", variables: ["Books"] });
+    expect(workspace.root()).toBe("/a");
+    expect(workspace.extraRoots().map((n) => n.dirPath)).toEqual(["/b"]);
+    await service.save();
+    expect(save.mock.lastCall![0].roots).toContainEqual(unresolved);
+  });
+
+  it("reports nothing when every variable resolves, and still names them when no root is left", async () => {
+    stored.set("ok", { name: "ok", roots: [{ ...root("/h/x", "x"), template: "$Home/x" }] });
+    await service.openSaved("ok");
+    expect(service.skipped()).toBeNull();
+    stored.set("none", {
+      name: "none",
+      roots: [{ path: "$A/x", template: "$A/x", name: "x", kind: "folder" }],
+    });
+    vi.spyOn(backend, "isDir").mockResolvedValue(false);
+    await expect(service.openSaved("none")).rejects.toThrow("No folder");
+    expect(service.skipped()).toEqual({ workspace: "none", variables: ["A"] });
+  });
+
+  it("brings the root back when the variable is set and the workspace is reopened", async () => {
+    const first = { path: "$Books/n", template: "$Books/n", name: "n", kind: "folder" as const };
+    stored.set("w", { name: "w", roots: [root("/a", "a"), first] });
+    vi.spyOn(backend, "isDir").mockImplementation(async (p) => !p.startsWith("$"));
+    await service.openSaved("w");
+    expect(workspace.extraRoots()).toEqual([]);
+    stored.set("w", { name: "w", roots: [root("/a", "a"), { ...first, path: "/books/n" }] });
+    service.skipped.set(null);
+    await service.openSaved("w");
+    expect(service.skipped()).toBeNull();
+    expect(workspace.extraRoots().map((n) => n.dirPath)).toEqual(["/books/n"]);
   });
 
   it("ends the workspace when another folder opens", async () => {
@@ -168,5 +304,14 @@ describe("WorkspacesService", () => {
       "a + b-c",
     );
     expect(defaultWorkspaceName({ name: "", roots: [] })).toBe("Workspace");
+  });
+});
+
+describe("skippedMessage", () => {
+  it("names each variable", () => {
+    expect(skippedMessage({ workspace: "w", variables: ["Books"] })).toBe(
+      "$Books has no value on this device. The folders that use it are skipped.",
+    );
+    expect(skippedMessage({ workspace: "w", variables: ["A", "B"] })).toContain("$A, $B have");
   });
 });

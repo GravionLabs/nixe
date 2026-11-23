@@ -1154,7 +1154,7 @@ fn workspace_list(app: AppHandle) -> Result<Vec<String>, String> {
 #[tauri::command]
 fn workspace_load(app: AppHandle, name: String) -> Result<workspace::Workspace, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    workspace::load(&dir, &name)
+    workspace::load(&dir, &name, &workspace::Locations::from_app(&app))
 }
 
 /// Saves a workspace in the app data directory; nothing is written into its folders.
@@ -1174,11 +1174,79 @@ fn workspace_delete(app: AppHandle, name: String) -> Result<(), String> {
 /// `workspace` with the folder at `path` added as a root (kind detected); changes nothing on disk.
 #[tauri::command]
 fn workspace_add_root(
+    app: AppHandle,
     mut workspace: workspace::Workspace,
     path: String,
 ) -> Result<workspace::Workspace, String> {
-    workspace.add_root(Path::new(&path))?;
+    workspace.add_root(Path::new(&path), &workspace::Locations::from_app(&app))?;
     Ok(workspace)
+}
+
+/// The variable forms in which the folder at `path` could be stored as a root (#498): one per
+/// location variable whose folder contains it, the deepest first. Empty for a folder elsewhere.
+#[tauri::command]
+fn workspace_variable_choices(app: AppHandle, path: String) -> Vec<workspace::VariableChoice> {
+    // A folder inside a vault is added as the vault, so the choice is about the vault root.
+    let root = vault::find_vault_root(Path::new(&path));
+    workspace::Locations::from_app(&app).choices_for(&root)
+}
+
+/// `workspace` with the root at `path` renamed (#497): its link prefix, independent of the folder
+/// name. Refused when the name clashes with another root or is no valid link prefix.
+#[tauri::command]
+fn workspace_rename_root(
+    mut workspace: workspace::Workspace,
+    path: String,
+    name: String,
+) -> Result<workspace::Workspace, String> {
+    workspace.rename_root(&path, &name)?;
+    Ok(workspace)
+}
+
+/// The own location variables of this device (#495) and the picked OneDrive folder.
+#[tauri::command]
+fn locations_list(app: AppHandle) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(workspace::OwnLocations::load(&dir))
+}
+
+/// Defines the own variable `name` as an existing absolute folder; `previous` is the name it had
+/// before a rename. Stored in the app data directory of this device only.
+#[tauri::command]
+fn locations_set(
+    app: AppHandle,
+    name: String,
+    path: String,
+    previous: Option<String>,
+) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut own = workspace::OwnLocations::load(&dir);
+    own.set(&name, &path, previous.as_deref())?;
+    own.save(&dir)?;
+    Ok(own)
+}
+
+/// Forgets the own variable `name`.
+#[tauri::command]
+fn locations_remove(app: AppHandle, name: String) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut own = workspace::OwnLocations::load(&dir);
+    own.remove(&name);
+    own.save(&dir)?;
+    Ok(own)
+}
+
+/// Stores the OneDrive folder picked among several accounts (`None` forgets the choice).
+#[tauri::command]
+fn locations_choose_onedrive(
+    app: AppHandle,
+    path: Option<String>,
+) -> Result<workspace::OwnLocations, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut own = workspace::OwnLocations::load(&dir);
+    own.onedrive = path;
+    own.save(&dir)?;
+    Ok(own)
 }
 
 /// Resolves link targets of a note in the root `from`; a `Root name:` prefix reaches another root.
@@ -1444,6 +1512,12 @@ pub fn run() {
         workspace_save,
         workspace_delete,
         workspace_add_root,
+        workspace_variable_choices,
+        workspace_rename_root,
+        locations_list,
+        locations_set,
+        locations_remove,
+        locations_choose_onedrive,
         workspace_resolve_links,
         read_folds,
         write_folds,
@@ -1585,6 +1659,8 @@ pub fn run() {
         workspace_save,
         workspace_delete,
         workspace_add_root,
+        workspace_variable_choices,
+        workspace_rename_root,
         workspace_resolve_links,
         read_folds,
         write_folds,

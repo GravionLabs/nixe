@@ -46,6 +46,16 @@ export type SettingItem = SettingBase &
           cancel: () => Promise<void>;
         };
       }
+    /** The own location variables of the device (#495): listed, added, edited and removed. */
+    | {
+        kind: "locations";
+        variables: () => readonly { name: string; path: string }[];
+        /** Saves `name` as `path`; `previous` is the name of an edited row. Rejects with the reason. */
+        save: (name: string, path: string, previous: string | null) => Promise<void>;
+        remove: (name: string) => Promise<void>;
+        /** The built-in names, which an own variable cannot take. */
+        reserved: readonly string[];
+      }
     /** A value the app only shows: from `.obsidian/` (with its file as `source`) (or from the app). */
     | { kind: "readonly"; value: () => string; source?: () => string }
   );

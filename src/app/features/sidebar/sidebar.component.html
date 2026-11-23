@@ -1,7 +1,25 @@
 <header>
-  <span class="root" [hx-tooltip]="workspace.root() ?? ''" hxTooltipWhenTruncated>{{
-    workspace.rootName()
-  }}</span>
+  @if (workspace.vaultRoot() !== null && renamingRoot() === workspace.vaultRoot()) {
+    <input
+      #rootInput
+      class="rename root-rename"
+      type="text"
+      aria-label="Root name"
+      [value]="rootLabel()"
+      (keydown)="$event.stopPropagation()"
+      (keydown.enter)="commitRenameRoot(workspace.vaultRoot()!, rootInput)"
+      (keydown.escape)="cancelRenameRoot()"
+      (blur)="commitRenameRoot(workspace.vaultRoot()!, rootInput)"
+    />
+  } @else {
+    <span
+      class="root"
+      [hx-tooltip]="workspace.root() ?? ''"
+      hxTooltipWhenTruncated
+      (dblclick)="beginRenameRoot(workspace.vaultRoot())"
+      >{{ rootLabel() }}</span
+    >
+  }
   <button
     type="button"
     class="icon"
@@ -152,7 +170,20 @@
           <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
         </svg>
       }
-      @if (renaming() === path(node)) {
+      @if (node.dirPath !== null && renamingRoot() === node.dirPath) {
+        <input
+          #rootInput
+          class="rename"
+          type="text"
+          aria-label="Root name"
+          [value]="node.name"
+          (click)="$event.stopPropagation()"
+          (keydown)="$event.stopPropagation()"
+          (keydown.enter)="commitRenameRoot(node.dirPath, rootInput)"
+          (keydown.escape)="cancelRenameRoot()"
+          (blur)="commitRenameRoot(node.dirPath, rootInput)"
+        />
+      } @else if (renaming() === path(node)) {
         <input
           #renameInput
           class="rename"

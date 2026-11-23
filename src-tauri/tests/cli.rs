@@ -506,8 +506,10 @@ mod several_roots {
         let (base, a, b) = two_vaults("ws");
         let data = data_dir("ws-data");
         let mut ws = nixe_lib::workspace::Workspace::new("both").unwrap();
-        ws.add_root(&a).unwrap();
-        ws.add_root(&b).unwrap();
+        ws.add_root(&a, &nixe_lib::workspace::Locations::default())
+            .unwrap();
+        ws.add_root(&b, &nixe_lib::workspace::Locations::default())
+            .unwrap();
         nixe_lib::workspace::save(&data, &ws).unwrap();
         let args: Vec<String> = ["search", "shared", "--workspace", "both"]
             .map(String::from)
