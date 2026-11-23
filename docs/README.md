@@ -19,6 +19,7 @@ links and Mermaid rendering all at once.
 - [mcp.md](mcp.md) — the read-only MCP server for agents
 - [updater.md](updater.md) — auto update, signing and key handling
 - [Vault configuration](adr/0007-vault-configuration-in-nixe.md) — `.nixe/config.json`, `.nixe/bookmarks.json`, `.nixe/local/`, the import from `.obsidian/`
+- [vault-git.md](vault-git.md) — what a vault commits and what not, the `.gitignore` block
 - [cutover.md](cutover.md) — the checklist for replacing Obsidian
 - [roadmap.md](roadmap.md) — milestones M000 to M009 of the vault app
 - [adr/](adr/) — architecture decisions
