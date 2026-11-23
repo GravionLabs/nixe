@@ -25,8 +25,11 @@ A root keeps both: `path` is the resolved absolute path that the rest of the cor
 `path`, so it holds no path of one device, and a file without templates (older versions) loads
 unchanged. A root whose variable has no value on the device keeps the template as its `path`,
 which is no folder, so it is skipped like a missing folder; saving writes the template back.
-`$OneDrive`, `$iCloud`, own variables and the messages for an unresolved variable follow in later
-issues (#462).
+`$OneDrive` is the `OneDrive` environment variable on Windows and the folder
+`~/Library/CloudStorage/OneDrive-*` on macOS; with several such folders (several accounts) it stays
+unresolved and names the candidates until the user picks one (stored per device, #495). `$iCloud` is
+`~/Library/Mobile Documents/com~apple~CloudDocs` on macOS. Linux has neither. Own variables and the
+messages for an unresolved variable follow in later issues (#462).
 
 ## Links between roots
 
