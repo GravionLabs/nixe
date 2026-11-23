@@ -175,6 +175,23 @@ describe("TerminalService", () => {
       expect(service.tabs()).toEqual([]);
     });
 
+    it("runs the exit handler of a preset tab once, and not after the tab is closed", async () => {
+      const { service } = create();
+      const onExit = vi.fn();
+      expect(await service.openPreset(TERMINAL_PRESETS[0], onExit)).toBe(true);
+      const key = service.tabs()[0].key;
+      service.ended(key);
+      service.ended(key);
+      expect(onExit).toHaveBeenCalledTimes(1);
+
+      const closed = vi.fn();
+      await service.openPreset(TERMINAL_PRESETS[0], closed);
+      const second = service.tabs()[1].key;
+      service.closeTab(second);
+      service.ended(second);
+      expect(closed).not.toHaveBeenCalled();
+    });
+
     it("has no preset command on iOS", () => {
       const { commands } = create("mobile");
       expect(commands.all().some((c) => c.id === "open-claude-in-vault")).toBe(false);

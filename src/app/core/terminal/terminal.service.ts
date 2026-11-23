@@ -50,6 +50,7 @@ export class TerminalService {
   private nextKey = 1;
   /** The first tab of a vault was opened; closing the last tab then leaves the panel empty. */
   private seeded = false;
+  private readonly exitHandlers = new Map<number, () => void>();
 
   constructor() {
     if (!this.supported) return;
@@ -112,20 +113,29 @@ export class TerminalService {
    * Opens a tab that runs the CLI of `preset` in the vault root. A missing CLI is found out before:
    * the notice carries the install hint and no tab opens.
    */
-  async openPreset(preset: TerminalPreset): Promise<void> {
-    if (!this.supported) return;
+  async openPreset(preset: TerminalPreset, onExit?: () => void): Promise<boolean> {
+    if (!this.supported) return false;
     if (!this.settings.terminalEnabled()) {
       this.notice.set(TERMINAL_OFF_NOTICE);
-      return;
+      return false;
     }
     try {
       await this.backend.checkPreset(preset.id);
     } catch (err) {
       this.notice.set(String(err));
-      return;
+      return false;
     }
     this.settings.terminalVisible.set(true);
-    this.addTab(preset);
+    const key = this.addTab(preset);
+    if (onExit) this.exitHandlers.set(key, onExit);
+    return true;
+  }
+
+  /** The panel reports that the process of a tab ended; a handler of `openPreset` runs once. */
+  ended(key: number): void {
+    const handler = this.exitHandlers.get(key);
+    this.exitHandlers.delete(key);
+    handler?.();
   }
 
   /** Opens the first tab of a vault once; the panel calls it when it is first shown. */
@@ -133,12 +143,13 @@ export class TerminalService {
     if (!this.seeded) this.addTab();
   }
 
-  private addTab(preset: TerminalPreset | null = null): void {
+  private addTab(preset: TerminalPreset | null = null): number {
     this.seeded = true;
     const key = this.nextKey++;
     const title = preset?.title ?? `Terminal ${key}`;
     this.tabs.update((tabs) => [...tabs, { key, title, preset: preset?.id ?? null }]);
     this.activeKey.set(key);
+    return key;
   }
 
   selectTab(key: number): void {
@@ -152,6 +163,7 @@ export class TerminalService {
     if (index < 0) return;
     const rest = tabs.filter((t) => t.key !== key);
     this.tabs.set(rest);
+    this.exitHandlers.delete(key as number);
     if (this.activeKey() === key)
       this.activeKey.set(rest[Math.min(index, rest.length - 1)]?.key ?? null);
   }
@@ -161,6 +173,7 @@ export class TerminalService {
     this.tabs.set([]);
     this.activeKey.set(null);
     this.seeded = false;
+    this.exitHandlers.clear();
   }
 
   /** Turns the terminal on or off; turning it on asks once. Returns whether the setting changed to `value`. */

@@ -45,6 +45,8 @@ export interface SectionSources {
     description: string | null;
     missing: boolean;
   }[];
+  /** The skills of the vault (#445); without them, or while the vault has no `skills-lock.json`, no button is shown. */
+  skills?: { available: () => boolean; update: () => void };
   /** The own location variables of this device (#495); without it the Locations section is absent. */
   locations?: {
     variables: () => readonly { name: string; path: string }[];
@@ -423,6 +425,20 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
       order: 32,
       items: () => {
         const roles = src.roles?.() ?? [];
+        const update: SettingItem[] = src.skills?.available()
+          ? [
+              {
+                kind: "action",
+                id: "vault-skills-update",
+                label: "Skills",
+                description:
+                  "Updates the skills of the vault from GravionLabs/skills with `npx skills update -y` in a terminal tab. The changed files are ordinary changes in the Git view; nothing is committed. Needs the terminal and Node.js.",
+                keywords: ["nixe", "skills", "update", "npx", "vault-setup"],
+                buttonLabel: "Update vault skills",
+                run: () => src.skills?.update(),
+              },
+            ]
+          : [];
         if (roles.length === 0) {
           return [
             {
@@ -434,24 +450,28 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
               keywords: ["nixe", "folder", "role", "inbox", "journal"],
               value: () => "No folder roles",
             },
+            ...update,
           ];
         }
-        return roles.map((r) => ({
-          kind: "readonly" as const,
-          id: `folder-role-${r.role}`,
-          label: r.role,
-          description: [
-            r.description,
-            r.missing
-              ? "The folder is missing. The role is kept; set it again or restore the folder."
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" "),
-          keywords: ["nixe", "folder", "role", r.path],
-          value: () => (r.missing ? `${r.path} (missing)` : r.path),
-          source: () => ".nixe/config.json",
-        }));
+        return [
+          ...roles.map((r) => ({
+            kind: "readonly" as const,
+            id: `folder-role-${r.role}`,
+            label: r.role,
+            description: [
+              r.description,
+              r.missing
+                ? "The folder is missing. The role is kept; set it again or restore the folder."
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" "),
+            keywords: ["nixe", "folder", "role", r.path],
+            value: () => (r.missing ? `${r.path} (missing)` : r.path),
+            source: () => ".nixe/config.json",
+          })),
+          ...update,
+        ];
       },
     },
     {

@@ -88,6 +88,8 @@ fn on_path(name: &str) -> bool {
 pub struct Preset {
     pub id: &'static str,
     pub program: &'static str,
+    /// Arguments after the program; empty starts the CLI interactively.
+    pub args: &'static [&'static str],
     pub install_hint: &'static str,
 }
 
@@ -95,12 +97,27 @@ pub const PRESETS: &[Preset] = &[
     Preset {
         id: "claude",
         program: "claude",
+        args: &[],
         install_hint: "Claude Code is not installed. Install it from https://docs.claude.com/en/docs/claude-code and make sure `claude` is on your PATH.",
     },
     Preset {
         id: "copilot",
         program: "copilot",
+        args: &[],
         install_hint: "GitHub Copilot CLI is not installed. Install it from https://github.com/features/copilot/cli and make sure `copilot` is on your PATH.",
+    },
+    // Not listed in the frontend's presets: started by "Update vault skills" (#445).
+    Preset {
+        id: "skills-update",
+        program: "npx",
+        args: &["skills", "update", "-y"],
+        install_hint: "npx is not installed. Install Node.js from https://nodejs.org (it includes npx) and make sure `npx` is on your PATH.",
+    },
+    Preset {
+        id: "claude-vault-setup",
+        program: "claude",
+        args: &["/vault-setup update"],
+        install_hint: "Claude Code is not installed. Install it from https://docs.claude.com/en/docs/claude-code and make sure `claude` is on your PATH.",
     },
 ];
 
@@ -119,7 +136,7 @@ pub fn preset_shell(
         find_program(preset.program, path).ok_or_else(|| preset.install_hint.to_string())?;
     Ok(Shell {
         program: found.to_string_lossy().into_owned(),
-        args: Vec::new(),
+        args: preset.args.iter().map(|a| a.to_string()).collect(),
     })
 }
 
@@ -511,6 +528,29 @@ mod tests {
         assert!(err.contains("copilot"), "{err}");
         assert!(preset_shell(PRESETS, "claude", Some(&path)).is_err());
         assert!(preset_shell(PRESETS, "claude", None).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn skills_update_runs_npx_with_its_arguments() {
+        let dir = temp_bin("npx", "npx", 0o755);
+        let path = std::env::join_paths([dir.clone()]).unwrap();
+        let shell = preset_shell(PRESETS, "skills-update", Some(&path)).unwrap();
+        assert_eq!(PathBuf::from(&shell.program), dir.join("npx"));
+        assert_eq!(shell.args, ["skills", "update", "-y"]);
+        let err = preset_shell(PRESETS, "skills-update", None).unwrap_err();
+        assert!(err.contains("Node.js"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn vault_setup_starts_claude_with_the_update_prompt() {
+        let dir = temp_bin("setup", "claude", 0o755);
+        let path = std::env::join_paths([dir.clone()]).unwrap();
+        let shell = preset_shell(PRESETS, "claude-vault-setup", Some(&path)).unwrap();
+        assert_eq!(shell.args, ["/vault-setup update"]);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

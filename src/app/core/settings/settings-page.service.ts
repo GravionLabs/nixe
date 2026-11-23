@@ -6,6 +6,7 @@ import type { ObsidianSetting } from "../file/backend";
 import { backend } from "../file/backend";
 import { GitService } from "../git/git.service";
 import { FolderRolesService } from "../workspace/folder-roles.service";
+import { VaultSkillsService } from "../workspace/vault-skills.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { LogActionsService } from "../log/log-actions.service";
 import { TerminalService } from "../terminal/terminal.service";
@@ -38,6 +39,7 @@ export class SettingsPageService {
     const terminal = inject(TerminalService);
     const logActions = inject(LogActionsService);
     const folderRoles = inject(FolderRolesService);
+    const vaultSkills = inject(VaultSkillsService);
     const locations = inject(LocationsService);
     this.locations = locations;
     const sections = builtinSections({
@@ -72,6 +74,9 @@ export class SettingsPageService {
       settings: inject(SettingsService),
       obsidian: () => this.obsidian(),
       roles: () => folderRoles.roles(),
+      skills: terminal.supported
+        ? { available: () => vaultSkills.available(), update: () => void vaultSkills.update() }
+        : undefined,
       commands: () => commands.all(),
       version: () => updater.version,
       logFolder: () => logActions.folder(),

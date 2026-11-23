@@ -45,3 +45,14 @@ panel and ends the session.
   registered, the setting is not listed and the panel is not rendered.
 - **Files an agent changes:** no new policy, the file watcher and `DocumentService` handle it (see
   [editor.md](editor.md)).
+
+## Update vault skills
+
+A vault with a `skills-lock.json` (skills from GravionLabs/skills) offers the command "Update vault
+skills" in the palette and a button in the section Vault of the settings (`core/workspace/vault-skills.service.ts`).
+It opens a terminal tab in the vault that runs `npx skills update -y` (the Rust preset `skills-update`),
+so the output and a failure are visible. Without `npx` on the PATH no tab opens and a message names
+Node.js; with the terminal off the usual message points to the setting. When the process has ended,
+Nixe asks whether to start `/vault-setup update` (it updates the core rules of `CLAUDE.md`) with
+Claude in a new tab (the preset `claude-vault-setup`). Nixe commits nothing: the changed files are
+ordinary changes of the Git view.
