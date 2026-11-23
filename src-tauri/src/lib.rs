@@ -1140,6 +1140,15 @@ fn workspace_add_root(
     Ok(workspace)
 }
 
+/// The variable forms in which the folder at `path` could be stored as a root (#498): one per
+/// location variable whose folder contains it, the deepest first. Empty for a folder elsewhere.
+#[tauri::command]
+fn workspace_variable_choices(app: AppHandle, path: String) -> Vec<workspace::VariableChoice> {
+    // A folder inside a vault is added as the vault, so the choice is about the vault root.
+    let root = vault::find_vault_root(Path::new(&path));
+    workspace::Locations::from_app(&app).choices_for(&root)
+}
+
 /// `workspace` with the root at `path` renamed (#497): its link prefix, independent of the folder
 /// name. Refused when the name clashes with another root or is no valid link prefix.
 #[tauri::command]
@@ -1461,6 +1470,7 @@ pub fn run() {
         workspace_save,
         workspace_delete,
         workspace_add_root,
+        workspace_variable_choices,
         workspace_rename_root,
         locations_list,
         locations_set,
@@ -1605,6 +1615,7 @@ pub fn run() {
         workspace_save,
         workspace_delete,
         workspace_add_root,
+        workspace_variable_choices,
         workspace_rename_root,
         workspace_resolve_links,
         read_folds,

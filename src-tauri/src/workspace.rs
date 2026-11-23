@@ -368,6 +368,52 @@ impl Locations {
     }
 }
 
+/// A way to store a folder as `$Name/rest` (#498).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VariableChoice {
+    /// The variable without `$`.
+    pub name: String,
+    /// The path as it would be stored: `$Name/rest`, or `$Name` for the folder itself.
+    pub template: String,
+    /// The absolute path it resolves to on this device, forward slashes.
+    pub resolved: String,
+}
+
+impl Locations {
+    /// The variables whose folder contains `path` (or is `path`), the deepest folder first, each
+    /// with the template it would store. Empty for a folder elsewhere, which stays an absolute
+    /// path. Variables without a value on this device are not offered.
+    pub fn choices_for(&self, path: &Path) -> Vec<VariableChoice> {
+        let canon = |p: &Path| dunce::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        let target = canon(path);
+        let mut names: Vec<&str> = BUILTIN_VARIABLES.to_vec();
+        names.extend(self.own.keys().map(String::as_str));
+        let mut found: Vec<(usize, VariableChoice)> = names
+            .into_iter()
+            .filter_map(|name| {
+                let base = canon(self.get(name).ok()?);
+                let rest = target.strip_prefix(&base).ok()?;
+                let rest = slashes(rest);
+                let template = if rest.is_empty() {
+                    format!("${name}")
+                } else {
+                    format!("${name}/{rest}")
+                };
+                Some((
+                    base.components().count(),
+                    VariableChoice {
+                        name: name.to_string(),
+                        template,
+                        resolved: slashes(&target),
+                    },
+                ))
+            })
+            .collect();
+        found.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.name.cmp(&b.1.name)));
+        found.into_iter().map(|(_, c)| c).collect()
+    }
+}
+
 /// The sub-directories of `dir`; empty when it cannot be read.
 fn list_dirs(dir: &Path) -> Vec<PathBuf> {
     fs::read_dir(dir)
@@ -1151,6 +1197,50 @@ mod tests {
         assert_eq!(loc.resolve("$OneDrive/x").unwrap(), format!("{work}/x"));
         fs::write(dir.join(LOCATIONS_FILE), "{ damaged").unwrap();
         assert_eq!(OwnLocations::load(&dir), OwnLocations::default());
+    }
+
+    #[test]
+    fn a_folder_below_a_variable_offers_its_template_deepest_first() {
+        let base = temp_dir("choices");
+        let books = base.join("home/Documents/Books/fiction");
+        fs::create_dir_all(&books).unwrap();
+        let mut loc = device(&base);
+        loc.own
+            .insert("Books".into(), base.join("home/Documents/Books"));
+        let got = loc.choices_for(&books);
+        let templates: Vec<_> = got.iter().map(|c| c.template.as_str()).collect();
+        assert_eq!(
+            templates,
+            [
+                "$Books/fiction",
+                "$Documents/Books/fiction",
+                "$Home/Documents/Books/fiction"
+            ]
+        );
+        assert!(got.iter().all(|c| c.resolved == slashes(&books)));
+        // The variable's own folder is offered as the bare variable.
+        let own = base.join("home/Documents/Books");
+        assert_eq!(loc.choices_for(&own)[0].template, "$Books");
+        // A resolved choice round-trips through add_root and keeps the template.
+        let mut ws = Workspace::new("w").unwrap();
+        let root = ws.add_root(Path::new(&got[0].template), &loc).unwrap();
+        assert_eq!(root.template.as_deref(), Some("$Books/fiction"));
+        assert_eq!(root.path, slashes(&books));
+    }
+
+    #[test]
+    fn a_folder_elsewhere_or_a_variable_without_value_offers_nothing() {
+        let base = temp_dir("choices-none");
+        let elsewhere = base.join("other/notes");
+        fs::create_dir_all(&elsewhere).unwrap();
+        assert!(device(&base).choices_for(&elsewhere).is_empty());
+        assert!(NONE.choices_for(&base.join("home")).is_empty());
+        // A sibling that only shares a name prefix is not below the variable.
+        let sibling = base.join("home/Documents2");
+        fs::create_dir_all(&sibling).unwrap();
+        let got = device(&base).choices_for(&sibling);
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].name, "Home");
     }
 
     #[test]

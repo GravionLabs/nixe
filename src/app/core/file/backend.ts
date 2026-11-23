@@ -140,6 +140,15 @@ export interface NewNoteLocation {
   folder: string;
 }
 
+/** A way to store a folder as `$Name/rest` in place of its absolute path. */
+export interface VariableChoice {
+  name: string;
+  /** What would be stored: `$Name/rest`. */
+  template: string;
+  /** The absolute path it resolves to on this device. */
+  resolved: string;
+}
+
 /** How a link to a note is written (`newLinkFormat` of `.obsidian/app.json`). */
 export interface LinkFormat {
   format: "shortest" | "relative" | "absolute";
@@ -582,6 +591,9 @@ export const backend = {
   /** `workspace` with the folder added as a root; the backend detects its kind. */
   workspaceAddRoot: (workspace: Workspace, path: string) =>
     invoke<Workspace>("workspace_add_root", { workspace, path }),
+  /** The variable forms for the folder at `path`, deepest first; empty for a folder elsewhere. */
+  workspaceVariableChoices: (path: string) =>
+    invoke<VariableChoice[]>("workspace_variable_choices", { path }),
   /** `workspace` with the root at `path` renamed; refused for a clash or an invalid link prefix. */
   workspaceRenameRoot: (workspace: Workspace, path: string, name: string) =>
     invoke<Workspace>("workspace_rename_root", { workspace, path, name }),

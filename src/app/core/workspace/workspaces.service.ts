@@ -1,7 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import type { RootArg, Workspace, WorkspaceRoot } from "../file/backend";
+import type { RootArg, VariableChoice, Workspace, WorkspaceRoot } from "../file/backend";
 import { backend } from "../file/backend";
 import { CommandRegistry } from "../commands/command-registry";
 import { basename } from "../markdown/paths";
@@ -29,6 +29,13 @@ export function unresolvedVariable(root: WorkspaceRoot): string | null {
   // The core keeps the template as `path` when its variable has no value; `$$x` resolves to `$x`.
   if (!root.template || root.path !== root.template) return null;
   return /^\$([^/\\]+)/.exec(root.template)?.[1] ?? null;
+}
+
+/** A folder picked for the workspace that lies below a location variable: the user chooses its form. */
+export interface RootChoice {
+  /** The absolute path of the picked folder. */
+  path: string;
+  choices: VariableChoice[];
 }
 
 /** A name for a workspace that was not named: the names of its roots. */
@@ -64,6 +71,8 @@ export class WorkspacesService {
   readonly indexRevision = signal(0);
   /** Set when a workspace opened without some roots; the shell shows one message and clears it. */
   readonly skipped = signal<SkippedRoots | null>(null);
+  /** Set while the user picks between the absolute path and a `$Variable` form of a folder. */
+  readonly rootChoice = signal<RootChoice | null>(null);
   private unregister: (() => void)[] = [];
 
   constructor() {
@@ -80,7 +89,24 @@ export class WorkspacesService {
   /** Asks for a folder and adds it as a root. */
   async addFolderWithDialog(): Promise<void> {
     const selected = await open({ directory: true, multiple: false });
-    if (typeof selected === "string") await this.addFolder(selected);
+    if (typeof selected !== "string") return;
+    // A folder below a variable offers the variable form; the absolute path stays the default.
+    const choices = await backend.workspaceVariableChoices(selected);
+    if (choices.length === 0) await this.addFolder(selected);
+    else this.rootChoice.set({ path: selected, choices });
+  }
+
+  /** Ends the choice: `template` is the `$Name/rest` form, null the absolute path. */
+  async chooseRootForm(template: string | null): Promise<void> {
+    const pending = this.rootChoice();
+    if (!pending) return;
+    this.rootChoice.set(null);
+    await this.addFolder(template ?? pending.path);
+  }
+
+  /** Closes the choice without adding a folder. */
+  cancelRootChoice(): void {
+    this.rootChoice.set(null);
   }
 
   /** Adds `path` as a root; the open folder becomes the first root when there is no workspace yet. */

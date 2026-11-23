@@ -184,6 +184,7 @@ export function createNixeDemo(): NixeDemo {
       workspace.roots.push({ path, name: path.slice(path.lastIndexOf("/") + 1), kind: "folder" });
       return workspace;
     },
+    workspace_variable_choices: () => [],
     workspace_rename_root: (a) => {
       const workspace = structuredClone(a?.["workspace"] as Workspace);
       const path = str(a, "path");

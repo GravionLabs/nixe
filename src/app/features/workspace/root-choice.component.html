@@ -1,0 +1,30 @@
+@if (workspaces.rootChoice(); as pending) {
+  <hx-dialog
+    [visible]="true"
+    (hidden)="workspaces.cancelRootChoice()"
+    header="Add folder to workspace"
+    dismissableMask
+    position="top"
+    width="min(560px, 90vw)"
+  >
+    <div class="choice">
+      <p>Store this folder as a path on this device or relative to a location variable?</p>
+      <ul>
+        <li>
+          <button type="button" class="primary" (click)="choose(null)">
+            <span class="form">Absolute path</span>
+            <span class="path">{{ pending.path }}</span>
+          </button>
+        </li>
+        @for (choice of pending.choices; track choice.name) {
+          <li>
+            <button type="button" (click)="choose(choice.template)">
+              <span class="form">{{ choice.template }}</span>
+              <span class="path">{{ choice.resolved }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    </div>
+  </hx-dialog>
+}
