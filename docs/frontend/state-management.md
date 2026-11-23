@@ -157,7 +157,7 @@ is watched for external changes; the watcher event goes to every tab showing tha
   built-in ones (General, Editor, Files and links, Appearance, Git, Shortcuts) are in
   `builtin-sections.ts`. Features and plugins register theirs the same way.
 - **Obsidian settings** (new-note folder, attachment folder, link format, templates, daily notes) are
-  read from `.obsidian/` by `obsidian_settings` and shown read-only with their source file.
+  read from `.nixe/config.json`, else `.obsidian/`, by `obsidian_settings` and shown read-only with their source file.
 - **Apply at once.** Items read and write the `SettingsService` signals, so changes need no restart.
   The search field filters items by label, description, keywords and section title.
 
