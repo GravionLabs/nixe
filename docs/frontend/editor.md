@@ -61,7 +61,7 @@ CodeMirror completion for links and tags; nothing is offered in code.
   `[[Note|Alias]]`. `[[Note#` lists the headings of the note (`[[#` those of the open note) and
   `[[Note#^` its block ids (`^id` at the end of a line); both are read from the note's text, so
   unsaved edits of the open note count. The link is closed with `]]`.
-- The note part follows `newLinkFormat` of `.obsidian/app.json` (`shortest`, `relative`,
+- The note part follows `newLinkFormat` of `.nixe/config.json` (else `.obsidian/app.json`) (`shortest`, `relative`,
   `absolute`; the `link_format` command reads it, the same reader the rename relinking uses).
 - `#` at a word start lists the vault's tags (the `tags` command) by frequency, filtered fuzzily.
 
@@ -71,7 +71,7 @@ CodeMirror completion for links and tags; nothing is offered in code.
 `rename_path` and `trash_path`, which refuse any path outside the vault root.
 
 - **⌘/Ctrl+N** creates `Untitled.md` (`Untitled 1.md` … when taken) in the folder of
-  `.obsidian/app.json` (`newFileLocation` `folder` + `newFileFolderPath`, or `current` for the
+  `.nixe/config.json` (else `.obsidian/app.json`) (`newFileLocation` `folder` + `newFileFolderPath`, or `current` for the
   folder of the open note), otherwise the vault root, and opens it in the editor.
 - A click on an **unresolved wikilink** creates its target by the same rule (a `folder/Name`
   target is created at that path); the quick switcher creates a note from the query when
@@ -89,7 +89,7 @@ CodeMirror completion for links and tags; nothing is offered in code.
 - Renaming or moving a note or folder rewrites the links to it in the notes that contain them
   (`[[wikilinks]]`, `![[embeds]]` and Markdown links), like Obsidian's `alwaysUpdateLinks`.
   Aliases, headings and block references stay; the path form follows `newLinkFormat` of
-  `.obsidian/app.json` (`shortest`, `relative`, `absolute`). A folder rename first lists the notes
+  `.nixe/config.json` (else `.obsidian/app.json`) (`shortest`, `relative`, `absolute`). A folder rename first lists the notes
   that change and asks for confirmation. The Rust core reads the notes that link to the renamed
   files from the index, renames, and writes all of them at once, so the watcher reports one batch.
   Links in the frontmatter, code spans, fenced code and `%%comments%%` are left alone, and a
@@ -99,7 +99,7 @@ CodeMirror completion for links and tags; nothing is offered in code.
 
 The command `Insert template` (open in the editor) lists the Markdown files in the template folder and inserts the chosen one at the cursor.
 
-- **Folder:** `folder` of `.obsidian/templates.json` (`template_folder`), else the setting `templateFolder`.
+- **Folder:** `templates.folder` of `.nixe/config.json`, else `folder` of `.obsidian/templates.json` (fallback, ADR 0007), else the setting `templateFolder`.
 - **Variables** (`core/templates/template-core.ts`): `{{title}}` (note name), `{{date}}`, `{{time}}`, `{{date:FORMAT}}` and `{{time:FORMAT}}`. `FORMAT` uses Moment tokens in English (`YYYY MM DD Do dddd HH hh mm ss A Q W Z X …`, text in `[brackets]` stays). Without a format: `YYYY-MM-DD` and `HH:mm`; `dateFormat` and `timeFormat` of `templates.json` are not read. Other `{{…}}` text stays.
 - **Frontmatter:** the template's frontmatter is merged into the note's, not inserted in the body. The note keeps its own values; empty ones and missing properties come from the template; lists are joined without duplicates. A note with invalid frontmatter is refused.
 
@@ -107,7 +107,7 @@ The command `Insert template` (open in the editor) lists the Markdown files in t
 
 `Open today's daily note` (`Mod+Shift+D`) opens the note of today and creates it first when it does not exist; `Open previous daily note` and `Open next daily note` open the nearest existing daily note before or after the open one (before or after today when the open note is none). Code: `core/daily/`.
 
-- **Settings:** `folder`, `format` and `template` of `.obsidian/daily-notes.json` (`daily_notes_config`); a key it does not set comes from the settings `dailyFolder`, `dailyFormat` and `dailyTemplate`. Default: the vault root and `YYYY-MM-DD`.
+- **Settings:** `folder`, `format` and `template` of `daily` in `.nixe/config.json` (else `.obsidian/daily-notes.json`) (`daily_notes_config`); a key it does not set comes from the settings `dailyFolder`, `dailyFormat` and `dailyTemplate`. Default: the vault root and `YYYY-MM-DD`.
 - **Format:** Moment tokens as in templates. A `/` nests folders: `YYYY/MM/YYYY-MM-DD` gives `2026/03/2026-03-02.md`, and the folders are created. Previous and next read year, month and day (`YYYY YY MM M MMMM MMM DD D Do`) back from the paths; a format without them has no previous or next note.
 - **Template:** expanded as in `Insert template` (`{{title}}` is the note name); the whole template, frontmatter included, becomes the new note. A missing template is an error and creates nothing.
 
@@ -116,7 +116,7 @@ The command `Insert template` (open in the editor) lists the Markdown files in t
 
 Pasting an image or dropping a file into the editor copies it into the vault and inserts `![[name]]` at the cursor. Code: `attachments.rs` (commands `save_attachment`, `import_attachment`), `core/editor/attachment-core.ts`.
 
-- **Folder:** `attachmentFolderPath` of `.obsidian/app.json`: missing, empty or `/` is the vault root; `./` is the folder of the open note; `./sub` a subfolder of it; any other value a fixed vault folder. The folder is created when missing; a path that leads out of the vault is refused.
+- **Folder:** `attachmentFolderPath` of `.nixe/config.json` (else `.obsidian/app.json`): missing, empty or `/` is the vault root; `./` is the folder of the open note; `./sub` a subfolder of it; any other value a fixed vault folder. The folder is created when missing; a path that leads out of the vault is refused.
 - **Names:** a pasted image is `Pasted image YYYYMMDDHHmmss.png` (the extension follows the image type); a pasted or dropped file keeps its name. A taken name gets a number (`name 1.png`), nothing is overwritten.
 - **Links:** the link holds the file name, or the vault-relative path when another file of the vault has the same name.
 - **Dropped files inside the vault** are not copied; only the link is inserted. Dropping while the editor is closed still opens the file or folder.
