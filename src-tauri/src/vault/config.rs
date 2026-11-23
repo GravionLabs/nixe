@@ -1,6 +1,7 @@
 //! The vault configuration `.nixe/config.json` (ADR 0007, #439): `language`, `folders`, `files`
 //! and the sections `newNotes`, `templates` and `daily`. It is read per key; a key it does not
-//! set comes from `.obsidian/` (until the expiry of the fallback). Nothing here writes.
+//! set comes from `.obsidian/` (until the expiry of the fallback). The writers (#446) set and remove
+//! a folder role and follow a rename; they keep the other keys and their order.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -20,6 +21,8 @@ pub struct Entry {
     pub description: Option<String>,
     #[serde(skip)]
     pub extra: Map<String, Value>,
+    /// Set by `layout` for the frontend: the folder or file of the entry does not exist.
+    pub missing: bool,
 }
 
 impl Entry {
@@ -29,6 +32,7 @@ impl Entry {
                 path: path.clone(),
                 description: None,
                 extra: Map::new(),
+                missing: false,
             }),
             Value::Object(object) => {
                 let mut extra = object.clone();
@@ -46,14 +50,14 @@ impl Entry {
                     path,
                     description,
                     extra,
+                    missing: false,
                 })
             }
             _ => None,
         }
     }
 
-    /// The JSON form for a write (no writer yet, a later item of #435): the short form when the entry is only a path.
-    #[allow(dead_code)]
+    /// The JSON form for a write: the short form when the entry is only a path.
     pub fn to_value(&self) -> Value {
         if self.description.is_none() && self.extra.is_empty() {
             return Value::String(self.path.clone());
@@ -236,9 +240,211 @@ impl Config {
     }
 }
 
-/// The layout of the open vault for the frontend.
+/// The layout of the open vault for the frontend; an entry whose path does not exist is marked.
 pub fn layout(root: &Path) -> Layout {
-    Config::load(root).layout()
+    let mut layout = Config::load(root).layout();
+    for entry in layout.folders.values_mut().chain(layout.files.values_mut()) {
+        entry.missing = !root.join(&entry.path).exists();
+    }
+    layout
+}
+
+/// The standard folder roles (ADR 0007); every other role name is an own role and needs a description.
+pub const STANDARD_FOLDER_ROLES: &[&str] = &[
+    "inbox",
+    "journal",
+    "templates",
+    "attachments",
+    "projects",
+    "areas",
+    "resources",
+    "archive",
+    "clippings",
+    "subjects",
+    "sources",
+    "exams",
+];
+
+/// The `schemaVersion` this Nixe writes; a file with a newer one is not written.
+const SCHEMA_VERSION: i64 = 1;
+
+/// Reads the file for a write: a missing file is an empty object, an invalid or newer one an error
+/// (it is never overwritten).
+fn load_for_write(root: &Path) -> Result<Map<String, Value>, String> {
+    let text = match fs::read_to_string(root.join(SOURCE)) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Map::new()),
+        Err(e) => return Err(format!("{SOURCE}: {e}")),
+    };
+    let json = match serde_json::from_str::<Value>(&text) {
+        Ok(Value::Object(json)) => json,
+        _ => return Err(format!("{SOURCE} is not a valid JSON object; not changed")),
+    };
+    if json
+        .get("schemaVersion")
+        .and_then(Value::as_i64)
+        .is_some_and(|v| v > SCHEMA_VERSION)
+    {
+        return Err(format!("{SOURCE} has a newer schemaVersion; not changed"));
+    }
+    Ok(json)
+}
+
+fn save(root: &Path, json: Map<String, Value>) -> Result<(), String> {
+    fs::create_dir_all(root.join(".nixe")).map_err(|e| format!(".nixe: {e}"))?;
+    let mut text = serde_json::to_string_pretty(&Value::Object(json)).map_err(|e| e.to_string())?;
+    text.push('\n');
+    crate::write::write_text_file(root, &root.join(SOURCE), &text)
+}
+
+fn valid_role_name(role: &str) -> bool {
+    !role.is_empty()
+        && role
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Sets the folder role `role` on the folder `path` (vault-relative). A folder has at most one
+/// role: another one is refused (remove it first); the same role again changes its description. A role name is unique, a path outside the vault is refused, and
+/// an own role (not a standard one) needs a description. Every other key stays, in its order.
+pub fn set_folder_role(
+    root: &Path,
+    path: &str,
+    role: &str,
+    description: Option<&str>,
+) -> Result<(), String> {
+    let role = role.trim();
+    if !valid_role_name(role) {
+        return Err("A role name has letters, digits, - and _ only.".into());
+    }
+    let path = match vault_path(path) {
+        Ok(Some(path)) => path,
+        Ok(None) => return Err("The vault root cannot have a role.".into()),
+        Err(()) => return Err(format!("{path} is outside the vault")),
+    };
+    let description = description.map(str::trim).filter(|d| !d.is_empty());
+    if description.is_none() && !STANDARD_FOLDER_ROLES.contains(&role) {
+        return Err(format!("An own role needs a description: {role}"));
+    }
+    let mut json = load_for_write(root)?;
+    let mut folders = match json.get("folders") {
+        Some(Value::Object(folders)) => folders.clone(),
+        Some(_) => return Err(format!("{SOURCE}: folders is not an object; not changed")),
+        None => Map::new(),
+    };
+    for (name, value) in &folders {
+        let Some(entry) = Entry::from_value(value) else {
+            continue;
+        };
+        let same_path = vault_path(&entry.path).ok().flatten().as_deref() == Some(path.as_str());
+        if name == role && !same_path {
+            return Err(format!("The role {role} is already set on {}.", entry.path));
+        }
+        if same_path && name != role {
+            return Err(format!(
+                "{path} has the role {name} already; remove it first."
+            ));
+        }
+    }
+    // The same role again keeps the unknown keys of its entry.
+    let mut entry = folders
+        .get(role)
+        .and_then(Entry::from_value)
+        .unwrap_or(Entry {
+            path: path.clone(),
+            description: None,
+            extra: Map::new(),
+            missing: false,
+        });
+    entry.path = path;
+    entry.description = description.map(str::to_string);
+    folders.insert(role.into(), entry.to_value());
+    json.insert("folders".into(), Value::Object(folders));
+    ensure_schema_version(&mut json);
+    save(root, json)
+}
+
+fn ensure_schema_version(json: &mut Map<String, Value>) {
+    json.entry("schemaVersion")
+        .or_insert(Value::from(SCHEMA_VERSION));
+}
+
+/// Removes the role of the folder `path`; `false` when it has none. The folder stays on disk.
+pub fn remove_folder_role(root: &Path, path: &str) -> Result<bool, String> {
+    let path = match vault_path(path) {
+        Ok(Some(path)) => path,
+        Ok(None) => return Ok(false),
+        Err(()) => return Err(format!("{path} is outside the vault")),
+    };
+    let mut json = load_for_write(root)?;
+    let Some(Value::Object(folders)) = json.get_mut("folders") else {
+        return Ok(false);
+    };
+    let found: Vec<String> = folders
+        .iter()
+        .filter(|(_, v)| {
+            Entry::from_value(v)
+                .and_then(|e| vault_path(&e.path).ok().flatten())
+                .as_deref()
+                == Some(path.as_str())
+        })
+        .map(|(k, _)| k.clone())
+        .collect();
+    if found.is_empty() {
+        return Ok(false);
+    }
+    for role in found {
+        folders.shift_remove(&role);
+    }
+    save(root, json)?;
+    Ok(true)
+}
+
+/// `path` after `from` became `to`; `None` when `path` is neither `from` nor below it.
+fn moved_path(path: &str, from: &str, to: &str) -> Option<String> {
+    if path == from {
+        return Some(to.to_string());
+    }
+    let rest = path.strip_prefix(from)?.strip_prefix('/')?;
+    Some(format!("{to}/{rest}"))
+}
+
+/// Follows the rename or move of `from` to `to` (vault-relative): the path of every role in
+/// `folders` and `files` that is `from` or below it becomes the path under `to`. Returns how many
+/// were changed; the file is not written when none is.
+pub fn rename_roles(root: &Path, from: &str, to: &str) -> Result<usize, String> {
+    let (Ok(Some(from)), Ok(Some(to))) = (vault_path(from), vault_path(to)) else {
+        return Ok(0);
+    };
+    let mut json = match load_for_write(root) {
+        Ok(json) => json,
+        // Without a readable file there is nothing to follow.
+        Err(_) if !root.join(SOURCE).exists() => return Ok(0),
+        Err(e) => return Err(e),
+    };
+    let mut changed = 0;
+    for section in ["folders", "files"] {
+        let Some(Value::Object(entries)) = json.get_mut(section) else {
+            continue;
+        };
+        for value in entries.values_mut() {
+            let Some(mut entry) = Entry::from_value(value) else {
+                continue;
+            };
+            let Some(current) = vault_path(&entry.path).ok().flatten() else {
+                continue;
+            };
+            if let Some(moved) = moved_path(&current, &from, &to) {
+                entry.path = moved;
+                *value = entry.to_value();
+                changed += 1;
+            }
+        }
+    }
+    if changed > 0 {
+        save(root, json)?;
+    }
+    Ok(changed)
 }
 
 #[cfg(test)]
@@ -351,5 +557,183 @@ mod tests {
         assert_eq!(entry.to_value(), object);
         let short = Entry::from_value(&Value::String("In".into())).unwrap();
         assert_eq!(short.to_value(), Value::String("In".into()));
+    }
+
+    fn read_json(root: &Path) -> Value {
+        serde_json::from_str(&fs::read_to_string(root.join(SOURCE)).unwrap()).unwrap()
+    }
+
+    fn keys(value: &Value) -> Vec<&str> {
+        value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect()
+    }
+
+    #[test]
+    fn setting_a_role_keeps_the_other_keys_and_their_order() {
+        let root = vault(
+            "set-order",
+            Some(r#"{"language":"de","folders":{"inbox":"In"},"daily":{"folder":"D"},"zeta":1}"#),
+        );
+        set_folder_role(&root, "Prüfungen/", "exams", None).unwrap();
+        set_folder_role(&root, "Wissen", "vault-notes", Some("loose notes")).unwrap();
+        let json = read_json(&root);
+        assert_eq!(
+            keys(&json),
+            ["language", "folders", "daily", "zeta", "schemaVersion"]
+        );
+        assert_eq!(keys(&json["folders"]), ["inbox", "exams", "vault-notes"]);
+        assert_eq!(json["folders"]["exams"], "Prüfungen");
+        assert_eq!(
+            json["folders"]["vault-notes"],
+            serde_json::json!({"path":"Wissen","description":"loose notes"})
+        );
+        assert_eq!(json["zeta"], 1);
+    }
+
+    #[test]
+    fn a_role_is_created_in_a_vault_without_a_config() {
+        let root = vault("set-new", None);
+        let _ = fs::remove_dir_all(root.join(".nixe"));
+        set_folder_role(&root, "Inbox", "inbox", None).unwrap();
+        assert_eq!(
+            read_json(&root),
+            serde_json::json!({"folders":{"inbox":"Inbox"},"schemaVersion":1})
+        );
+    }
+
+    #[test]
+    fn a_folder_has_one_role_and_a_name_is_unique() {
+        let root = vault("unique", Some(r#"{"folders":{"inbox":"In","exams":"Ex"}}"#));
+        // The name is taken by another folder.
+        assert!(set_folder_role(&root, "Other", "inbox", None).is_err());
+        // The folder has a role: a second one is refused.
+        assert!(set_folder_role(&root, "In", "archive", None).is_err());
+        assert_eq!(keys(&read_json(&root)["folders"]), ["inbox", "exams"]);
+        // The same role again updates its description and keeps unknown keys.
+        fs::write(
+            root.join(SOURCE),
+            r#"{"folders":{"mine":{"path":"M","description":"a","color":"red"}}}"#,
+        )
+        .unwrap();
+        set_folder_role(&root, "M", "mine", Some("b")).unwrap();
+        assert_eq!(
+            read_json(&root)["folders"]["mine"],
+            serde_json::json!({"path":"M","description":"b","color":"red"})
+        );
+    }
+
+    #[test]
+    fn a_bad_role_is_refused_and_changes_nothing() {
+        let text = r#"{"folders":{"inbox":"In"}}"#;
+        let root = vault("refused", Some(text));
+        for (path, role, desc) in [
+            ("../Other", "inbox2", Some("x")),
+            ("C:/Users", "inbox2", Some("x")),
+            ("", "inbox2", Some("x")),
+            ("Own", "own", None),
+            ("Own", "own", Some("  ")),
+            ("Own", "", Some("x")),
+            ("Own", "a b", Some("x")),
+        ] {
+            assert!(
+                set_folder_role(&root, path, role, desc).is_err(),
+                "{path} {role}"
+            );
+        }
+        assert_eq!(fs::read_to_string(root.join(SOURCE)).unwrap(), text);
+    }
+
+    #[test]
+    fn an_invalid_or_newer_file_is_not_overwritten() {
+        for text in ["{ not json", "[1]", r#"{"schemaVersion":2,"folders":{}}"#] {
+            let root = vault("keep", Some(text));
+            assert!(
+                set_folder_role(&root, "A", "inbox", None).is_err(),
+                "{text}"
+            );
+            assert!(remove_folder_role(&root, "A").is_err(), "{text}");
+            assert_eq!(fs::read_to_string(root.join(SOURCE)).unwrap(), text);
+        }
+    }
+
+    #[test]
+    fn removing_a_role_keeps_the_rest() {
+        let root = vault(
+            "remove",
+            Some(
+                r#"{"language":"de","folders":{"inbox":"In","exams":"Ex"},"files":{"profile":"P.md"}}"#,
+            ),
+        );
+        assert!(remove_folder_role(&root, "In/").unwrap());
+        assert!(!remove_folder_role(&root, "In").unwrap());
+        let json = read_json(&root);
+        assert_eq!(keys(&json), ["language", "folders", "files"]);
+        assert_eq!(keys(&json["folders"]), ["exams"]);
+    }
+
+    #[test]
+    fn a_rename_updates_the_role_of_the_folder() {
+        let root = vault(
+            "rename",
+            Some(
+                r#"{"language":"de","folders":{"inbox":"In","exams":{"path":"Ex","description":"d","color":"red"}}}"#,
+            ),
+        );
+        assert_eq!(rename_roles(&root, "In", "Eingang").unwrap(), 1);
+        let json = read_json(&root);
+        assert_eq!(keys(&json), ["language", "folders"]);
+        assert_eq!(json["folders"]["inbox"], "Eingang");
+        assert_eq!(json["folders"]["exams"]["path"], "Ex");
+        // A folder with a longer name that only starts the same is not touched.
+        assert_eq!(rename_roles(&root, "Ein", "X").unwrap(), 0);
+    }
+
+    #[test]
+    fn a_move_of_a_parent_updates_every_role_below_it() {
+        let root = vault(
+            "parent",
+            Some(
+                r#"{"folders":{"projects":"Work","inbox":"Work/In","exams":"Workshop","archive":"Work/Old/2020"},"files":{"profile":"Work/Me.md"}}"#,
+            ),
+        );
+        assert_eq!(rename_roles(&root, "Work", "Area/Work").unwrap(), 4);
+        let json = read_json(&root);
+        assert_eq!(json["folders"]["projects"], "Area/Work");
+        assert_eq!(json["folders"]["inbox"], "Area/Work/In");
+        assert_eq!(json["folders"]["exams"], "Workshop");
+        assert_eq!(json["folders"]["archive"], "Area/Work/Old/2020");
+        assert_eq!(json["files"]["profile"], "Area/Work/Me.md");
+    }
+
+    #[test]
+    fn a_rename_without_roles_writes_nothing() {
+        let root = vault("none", None);
+        assert_eq!(rename_roles(&root, "A", "B").unwrap(), 0);
+        assert!(!root.join(SOURCE).exists());
+        let text = r#"{"folders":{"inbox":"In"}}"#;
+        fs::write(root.join(SOURCE), text).unwrap();
+        assert_eq!(rename_roles(&root, "A", "B").unwrap(), 0);
+        assert_eq!(fs::read_to_string(root.join(SOURCE)).unwrap(), text);
+    }
+
+    #[test]
+    fn a_folder_that_two_roles_share_gets_one_role_and_the_layout_marks_a_missing_folder() {
+        let root = vault(
+            "two",
+            Some(r#"{"folders":{"inbox":"In","archive":"In","exams":"Gone"}}"#),
+        );
+        fs::create_dir_all(root.join("In")).unwrap();
+        // A hand-written file with two roles on one folder: a third one is refused.
+        assert!(set_folder_role(&root, "In", "projects", None).is_err());
+        assert!(remove_folder_role(&root, "In").unwrap());
+        let layout = layout(&root);
+        assert_eq!(layout.folders.len(), 1);
+        assert!(layout.folders["exams"].missing);
+        fs::create_dir_all(root.join("Gone")).unwrap();
+        assert!(!super::layout(&root).folders["exams"].missing);
     }
 }

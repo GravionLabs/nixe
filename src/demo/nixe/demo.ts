@@ -52,6 +52,15 @@ export function createNixeDemo(): NixeDemo {
   let settings: string | null = JSON.stringify({ lastFolder: VAULT, recentVaults: [VAULT] });
   let bookmarks: string | null = null;
   let folds: string | null = null;
+  // The folder roles of `.nixe/config.json`, in memory (#446).
+  const roles = new Map<string, { path: string; description: string | null }>();
+  const layout = () => ({
+    language: null,
+    folders: Object.fromEntries(
+      [...roles].map(([role, e]) => [role, { ...e, missing: !vault.exists(`${VAULT}/${e.path}`) }]),
+    ),
+    files: {},
+  });
 
   backend.fixed({
     take_pending_file: null,
@@ -66,7 +75,6 @@ export function createNixeDemo(): NixeDemo {
     find_wiki_root: VAULT,
     obsidian_settings: [],
     import_obsidian_settings: { written: [], sources: [], warnings: [] },
-    vault_layout: { language: null, folders: {}, files: {} },
     link_format: "shortest",
     new_note_location: { location: "root", folder: "" },
     template_folder: null,
@@ -96,6 +104,18 @@ export function createNixeDemo(): NixeDemo {
     write_app_bookmarks: (a) => void (bookmarks = str(a, "content")),
     read_folds: () => folds,
     write_folds: (a) => void (folds = str(a, "content")),
+    vault_layout: () => layout(),
+    set_folder_role: (a) => {
+      const [path, role] = [str(a, "path"), str(a, "role")];
+      const taken = [...roles].find(([name, e]) => name === role && e.path !== path);
+      if (taken) throw `The role ${role} is already set on ${taken[1].path}.`;
+      roles.set(role, { path, description: strOrNull(a, "description") });
+      return layout();
+    },
+    remove_folder_role: (a) => {
+      for (const [role, e] of roles) if (e.path === str(a, "path")) roles.delete(role);
+      return layout();
+    },
     is_dir: (a) => vault.isDir(str(a, "path")),
     is_file: (a) => vault.isFile(str(a, "path")),
     path_exists: (a) => vault.exists(str(a, "path")),

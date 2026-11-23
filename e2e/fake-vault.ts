@@ -22,6 +22,7 @@ export const FAKE_VAULT: Record<string, unknown> = {
   take_pending_export: null,
   finish_export: null,
   notes_list: [],
+  vault_layout: { language: null, folders: {}, files: {} },
   index_status: { state: "ready", done: 1, total: 1, notes: 1, error: null },
   index_start: null,
   notes: [],

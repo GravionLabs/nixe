@@ -17,6 +17,7 @@ import { provideHxAppInfo } from "@gravionlabs/helix-desktop/tauri";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { builtinSections, parseList } from "./builtin-sections";
 import { SettingsPageService } from "./settings-page.service";
+import { FolderRolesService } from "../workspace/folder-roles.service";
 import { SettingsRegistry } from "./settings-registry";
 import { SettingsService } from "./settings.service";
 
@@ -65,12 +66,33 @@ describe("settings page", () => {
       "Editor",
       "Export and print",
       "Files and links",
+      "Vault",
       "Capture",
       "Appearance",
       "Sync",
       "Terminal",
       "Shortcuts",
     ]);
+  });
+
+  it("lists the folder roles in the Vault section and marks a missing folder", () => {
+    const section = () =>
+      TestBed.inject(SettingsRegistry)
+        .shown()
+        .find((s) => s.id === "vault")!;
+    expect(section().items.map((i) => i.id)).toEqual(["folder-roles-none"]);
+    const roles = TestBed.inject(FolderRolesService);
+    vi.spyOn(roles, "roles").mockReturnValue([
+      { role: "inbox", path: "In", description: null, missing: false },
+      { role: "exams", path: "Ex", description: "all exams", missing: true },
+    ]);
+    const items = section().items;
+    expect(items.map((i) => i.label)).toEqual(["inbox", "exams"]);
+    const value = (i: (typeof items)[number]) => (i.kind === "readonly" ? i.value() : "");
+    expect(value(items[0])).toBe("In");
+    expect(value(items[1])).toBe("Ex (missing)");
+    expect(items[1].description).toContain("all exams");
+    expect(items[1].description).toContain("missing");
   });
 
   it("shows the running version read-only in General", () => {

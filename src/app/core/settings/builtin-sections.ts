@@ -37,6 +37,13 @@ export interface SectionSources {
     cancelTokenPrompt: () => void;
     gh?: NonNullable<Extract<SettingItem, { kind: "token" }>["gh"]>;
   };
+  /** The folder roles of the open vault (#446); without them the Vault section only says so. */
+  roles?: () => readonly {
+    role: string;
+    path: string;
+    description: string | null;
+    missing: boolean;
+  }[];
   /** The terminal (#360); absent where there is none (iOS), so the setting is not shown. */
   terminal?: { setEnabled: (value: boolean) => Promise<boolean> };
   /** The theme and snippet files and the folder they live in (#114); none without the appearance service. */
@@ -401,6 +408,43 @@ export function builtinSections(src: SectionSources): SettingsSection[] {
             ["extract", "composer", "embed"],
           ),
         ];
+      },
+    },
+    {
+      id: "vault",
+      title: "Vault",
+      order: 32,
+      items: () => {
+        const roles = src.roles?.() ?? [];
+        if (roles.length === 0) {
+          return [
+            {
+              kind: "readonly" as const,
+              id: "folder-roles-none",
+              label: "Folder roles",
+              description:
+                "A folder role tells skills and agents where to file notes. Set one with “Set folder role…” in the context menu of a folder; it is stored in `.nixe/config.json`.",
+              keywords: ["nixe", "folder", "role", "inbox", "journal"],
+              value: () => "No folder roles",
+            },
+          ];
+        }
+        return roles.map((r) => ({
+          kind: "readonly" as const,
+          id: `folder-role-${r.role}`,
+          label: r.role,
+          description: [
+            r.description,
+            r.missing
+              ? "The folder is missing. The role is kept; set it again or restore the folder."
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" "),
+          keywords: ["nixe", "folder", "role", r.path],
+          value: () => (r.missing ? `${r.path} (missing)` : r.path),
+          source: () => ".nixe/config.json",
+        }));
       },
     },
     {

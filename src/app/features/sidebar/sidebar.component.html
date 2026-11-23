@@ -179,6 +179,12 @@
             }
           }
         </span>
+        @if (roleTitle(node); as title) {
+          <svg class="role" viewBox="0 0 24 24" role="img" [attr.aria-label]="title">
+            <title>{{ title }}</title>
+            <path d="M5 4v17M5 4h11l-2 4 2 4H5" />
+          </svg>
+        }
         @if (node.filePath !== null && conflicted().has(node.filePath)) {
           <span class="badge" title="Sync conflict: both versions were kept">conflict</span>
         }

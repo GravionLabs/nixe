@@ -9,6 +9,7 @@ import { DocumentService } from "../file/document.service";
 import { BookmarksService } from "../bookmarks/bookmarks.service";
 import { basename, dirname, joinPath } from "../markdown/paths";
 import { noteFromLinkTarget, planMove, remapPath, renamedName, uniqueName } from "./file-ops";
+import { FolderRolesService } from "./folder-roles.service";
 import { VaultUndoService } from "./vault-undo.service";
 import { WorkspaceService } from "./workspace.service";
 
@@ -20,6 +21,7 @@ export class VaultOpsService {
   private readonly editor = inject(EditorService);
   private readonly bookmarks = inject(BookmarksService);
   private readonly undo = inject(VaultUndoService);
+  private readonly roles = inject(FolderRolesService);
 
   /** The folder a new note goes to: `.obsidian/app.json`, else the vault root. */
   async newNoteFolder(): Promise<string> {
@@ -133,7 +135,12 @@ export class VaultOpsService {
     if (open && moved && moved !== open) await this.doc.open(moved, { addToHistory: false });
   }
 
-  async trash(path: string): Promise<void> {
+  /**
+   * Moves a note or folder to the trash. A folder with a role keeps the role (it is only marked
+   * missing); the returned text warns about it, `null` when there is nothing to warn about.
+   */
+  async trash(path: string): Promise<string | null> {
+    const warning = this.roles.deleteWarning(path);
     const open = this.doc.path();
     const affected = open !== null && remapPath(open, path, "") !== open;
     // Pending text is written first, so closing the editor cannot recreate the note afterwards.
@@ -145,6 +152,7 @@ export class VaultOpsService {
     }
     await this.changed();
     await this.undo.offer();
+    return warning;
   }
 
   private confirmRelink(changes: RelinkChange[], verb = "Rename", folder = true): Promise<boolean> {
@@ -170,7 +178,9 @@ export class VaultOpsService {
     return entries.map((e) => e.name);
   }
 
-  private changed(): Promise<void> {
-    return this.workspace.reloadTree();
+  private async changed(): Promise<void> {
+    await this.workspace.reloadTree();
+    // A rename or move rewrote the paths of the roles, a deletion left them missing.
+    await this.roles.reload();
   }
 }
