@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { loggedInvoke as invoke } from "../log/logged-invoke";
 import type { CssFile } from "../appearance/appearance-core";
 
 export interface DirEntry {
