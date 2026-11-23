@@ -129,6 +129,53 @@ describe("WorkspacesService", () => {
     expect(workspace.extraRoots().map((n) => n.dirPath)).toEqual(["/c"]);
   });
 
+  it("skips a root with an unresolved variable, reports it once and keeps it for a save", async () => {
+    const unresolved = {
+      path: "$Books/n",
+      template: "$Books/n",
+      name: "n",
+      kind: "folder" as const,
+    };
+    stored.set("w", {
+      name: "w",
+      roots: [root("/a", "a"), unresolved, { ...root("/b", "b"), template: "$Home/b" }],
+    });
+    vi.spyOn(backend, "isDir").mockImplementation(async (p) => !p.startsWith("$"));
+    const save = vi.spyOn(backend, "workspaceSave").mockResolvedValue(undefined);
+    await service.openSaved("w");
+    expect(service.skipped()).toEqual({ workspace: "w", variables: ["Books"] });
+    expect(workspace.root()).toBe("/a");
+    expect(workspace.extraRoots().map((n) => n.dirPath)).toEqual(["/b"]);
+    await service.save();
+    expect(save.mock.lastCall![0].roots).toContainEqual(unresolved);
+  });
+
+  it("reports nothing when every variable resolves, and still names them when no root is left", async () => {
+    stored.set("ok", { name: "ok", roots: [{ ...root("/h/x", "x"), template: "$Home/x" }] });
+    await service.openSaved("ok");
+    expect(service.skipped()).toBeNull();
+    stored.set("none", {
+      name: "none",
+      roots: [{ path: "$A/x", template: "$A/x", name: "x", kind: "folder" }],
+    });
+    vi.spyOn(backend, "isDir").mockResolvedValue(false);
+    await expect(service.openSaved("none")).rejects.toThrow("No folder");
+    expect(service.skipped()).toEqual({ workspace: "none", variables: ["A"] });
+  });
+
+  it("brings the root back when the variable is set and the workspace is reopened", async () => {
+    const first = { path: "$Books/n", template: "$Books/n", name: "n", kind: "folder" as const };
+    stored.set("w", { name: "w", roots: [root("/a", "a"), first] });
+    vi.spyOn(backend, "isDir").mockImplementation(async (p) => !p.startsWith("$"));
+    await service.openSaved("w");
+    expect(workspace.extraRoots()).toEqual([]);
+    stored.set("w", { name: "w", roots: [root("/a", "a"), { ...first, path: "/books/n" }] });
+    service.skipped.set(null);
+    await service.openSaved("w");
+    expect(service.skipped()).toBeNull();
+    expect(workspace.extraRoots().map((n) => n.dirPath)).toEqual(["/books/n"]);
+  });
+
   it("ends the workspace when another folder opens", async () => {
     await workspace.openFolder("/a", { openDefaultPage: false });
     await service.addFolder("/b");

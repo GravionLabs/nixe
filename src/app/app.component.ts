@@ -276,6 +276,30 @@ export class AppComponent {
     });
 
     effect(() => {
+      const skipped = this.workspaces.skipped();
+      if (skipped === null) return;
+      untracked(() => {
+        const names = skipped.variables.map((v) => `$${v}`).join(", ");
+        const verb = skipped.variables.length === 1 ? "has" : "have";
+        this.messages.add({
+          severity: "warn",
+          summary: `${names} ${verb} no value on this device. The folders that use it are skipped.`,
+          sticky: true,
+          action: {
+            label: "Set variable",
+            run: () =>
+              void this.run(async () => {
+                this.tabs.openView("settings");
+                await this.settingsPage.open();
+                this.settingsPage.select("locations");
+              }),
+          },
+        });
+        this.workspaces.skipped.set(null);
+      });
+    });
+
+    effect(() => {
       const notice = this.vaultUndo.notice();
       if (notice === null) return;
       untracked(() => {
