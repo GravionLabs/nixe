@@ -135,17 +135,22 @@ describe("DocumentService history", () => {
   it("a jump within the note is an entry; back scrolls without reading the note again", async () => {
     const d = await doc();
     line = 40;
-    expect(d.jump({ anchor: "Unit A" }, () => true)).toBe(true);
+    expect(
+      d.jump({ anchor: "Unit A" }, () => {
+        line = 90;
+        return true;
+      }),
+    ).toBe(true);
     expect(d.canGoBack()).toBe(true);
     invoke.mockClear();
-    line = 90;
+    line = 95;
     await d.back();
     expect(invoke).not.toHaveBeenCalled();
     expect(d.pendingLine()).toBe(40);
     expect(d.canGoBack()).toBe(false);
     expect(d.canGoForward()).toBe(true);
     await d.forward();
-    expect(d.pendingLine()).toBe(90);
+    expect(d.pendingLine()).toBe(95);
   });
 
   it("a jump that does not scroll adds no entry", async () => {
@@ -159,9 +164,28 @@ describe("DocumentService history", () => {
     await d.open("/v/a.md");
     line = 7;
     d.jump({ line: 7 }, () => true);
-    d.jump({ anchor: "X" }, () => true);
+    expect(d.canGoBack()).toBe(false);
+    d.jump({ anchor: "X" }, () => {
+      line = 20;
+      return true;
+    });
     d.jump({ anchor: "X" }, () => true);
     expect(paths(d)).toEqual(["/v/a.md", "/v/a.md"]);
+  });
+
+  it("a second click on the same heading link adds an entry once the reader has scrolled away", async () => {
+    const d = await doc();
+    line = 40;
+    d.jump({ anchor: "X" }, () => {
+      line = 60; // landed on the heading
+      return true;
+    });
+    expect(d.historyState().history).toHaveLength(2);
+    d.jump({ anchor: "X" }, () => true);
+    expect(d.historyState().history).toHaveLength(2);
+    line = 90;
+    d.jump({ anchor: "X" }, () => true);
+    expect(d.historyState().history).toHaveLength(3);
   });
 
   it("drops the forward entries on a new jump", async () => {

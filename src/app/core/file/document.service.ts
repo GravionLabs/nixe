@@ -87,7 +87,9 @@ export class DocumentService {
     const path = this.path();
     const left = this.currentLine();
     if (!scroll()) return false;
-    if (path) this.record({ path, line: target.line ?? null, anchor: target.anchor ?? null }, left);
+    // The line the view landed on lets a second click on the same link tell whether the reader moved.
+    const line = target.line ?? this.currentLine();
+    if (path) this.record({ path, line, anchor: target.anchor ?? null }, left);
     return true;
   }
 
@@ -103,8 +105,14 @@ export class DocumentService {
     if (current && current.path === entry.path) {
       // The same note without a target, or the target the reader already stands at: no entry.
       if (entry.anchor === null && entry.line === null) return;
-      if (entry.anchor !== null && current.anchor === entry.anchor) return;
-      if (entry.line !== null && (left ?? current.line) === entry.line) return;
+      if (
+        entry.anchor !== null &&
+        current.anchor === entry.anchor &&
+        (left === null || left === current.line)
+      )
+        return;
+      if (entry.anchor === null && entry.line !== null && (left ?? current.line) === entry.line)
+        return;
     }
     const kept = list.slice(0, at + 1);
     if (current && left !== null) kept[at] = { ...current, line: left };
