@@ -96,6 +96,24 @@ export class WorkspacesService {
     this.show(ws);
   }
 
+  /** The name of the root at `path` as links use it; the folder name outside a workspace. */
+  rootName(path: string): string {
+    return this.current()?.roots.find((r) => r.path === path)?.name || basename(path);
+  }
+
+  /**
+   * Gives the root at `path` its own name (#497), the prefix of `[[Name:Note]]` links. The backend
+   * refuses a name of another root and one that is no link prefix (`:`); the error is thrown.
+   * Links under the old name are not rewritten.
+   */
+  async renameRoot(path: string, name: string): Promise<void> {
+    const ws = this.current();
+    if (!ws) throw new Error("Add a folder to the workspace first.");
+    const renamed = await backend.workspaceRenameRoot(ws, path, name);
+    this.current.set(renamed);
+    this.workspace.renameExtraRoot(path, this.rootName(path));
+  }
+
   /**
    * The note a `[[Root name:Note]]` link or a link inside a further root points to, as an absolute
    * path; `undefined` when the workspace does not decide (no workspace, or an ordinary link of the

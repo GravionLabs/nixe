@@ -53,8 +53,8 @@ folder that is no candidate any more is ignored. A damaged file counts as empty.
 ## Links between roots
 
 A link resolves inside the root of the note that holds it. To reach a note of another root, prefix
-the target with the name of that root and a colon (the name is the folder name, shown in the
-sidebar; case-insensitive):
+the target with the name of that root and a colon (the name is the folder name until you rename
+the root; shown in the sidebar; case-insensitive):
 
 ```md
 [[Wiki:Onboarding]]
@@ -64,6 +64,18 @@ sidebar; case-insensitive):
 The prefix is only used when it names a root; otherwise the colon belongs to the note name
 (`[[Re: plan]]`). Root names are unique in a workspace (`notes`, `notes (2)`). The rule is
 implemented by `WorkspaceLinks` in `src-tauri/src/workspace.rs`.
+
+### Own root names
+
+The name of a root is stored with the root in `workspaces/<name>.json` and does not depend on the
+folder name, so `[[Books:…]]` works on every device whatever the folder is called there. To rename
+a root, double-click the root header at the top of the sidebar (the first root), or choose **Rename
+root** in the context menu of a further root; Enter saves, Escape cancels. **Save workspace** stores
+the new name. A name is refused when another root has it (case-insensitive) or when it is no valid
+link prefix: empty, longer than 100 characters, or containing one of `:` `[` `]` `|` `#` `^`. The
+renamed root resolves `[[NewName:note]]` and no longer `[[OldName:note]]`; links under the old name
+are not rewritten. The rule is `Workspace::rename_root` in `src-tauri/src/workspace.rs` (Tauri
+command `workspace_rename_root`).
 
 ## Search and quick switcher
 

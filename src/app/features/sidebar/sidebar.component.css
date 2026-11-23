@@ -238,3 +238,8 @@ mark {
     background: color-mix(in srgb, var(--h-primary-color) 45%, transparent);
   }
 }
+
+.root-rename {
+  flex: 1;
+  min-width: 0;
+}

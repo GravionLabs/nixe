@@ -184,6 +184,20 @@ export function createNixeDemo(): NixeDemo {
       workspace.roots.push({ path, name: path.slice(path.lastIndexOf("/") + 1), kind: "folder" });
       return workspace;
     },
+    workspace_rename_root: (a) => {
+      const workspace = structuredClone(a?.["workspace"] as Workspace);
+      const path = str(a, "path");
+      const name = str(a, "name").trim();
+      if (!name || /[:[\]|#^]/.test(name)) throw `"${name}" is not a valid root name`;
+      if (
+        workspace.roots.some((r) => r.path !== path && r.name.toLowerCase() === name.toLowerCase())
+      )
+        throw `another root is called "${name}" already`;
+      const root = workspace.roots.find((r) => r.path === path);
+      if (!root) throw `${path}: not a root of this workspace`;
+      root.name = name;
+      return workspace;
+    },
     locations_list: () => structuredClone(locations),
     locations_set: (a) => {
       const name = str(a, "name").trim();

@@ -480,6 +480,31 @@ impl Workspace {
         self.roots.len() != before
     }
 
+    /// Gives the root at `path` the name `name` (#497): the prefix of its links on every device,
+    /// whatever the folder is called. The name is trimmed; it must be a valid link prefix and
+    /// differ (case-insensitive) from the name of every other root. Links under the old name are
+    /// not rewritten. Returns the stored name.
+    pub fn rename_root(&mut self, path: &str, name: &str) -> Result<String, String> {
+        let name = valid_root_name(name)?;
+        if !self.roots.iter().any(|r| r.path == path) {
+            return Err(format!("{path}: not a root of this workspace"));
+        }
+        if self
+            .roots
+            .iter()
+            .any(|r| r.path != path && r.name.eq_ignore_ascii_case(&name))
+        {
+            return Err(format!("another root is called \"{name}\" already"));
+        }
+        let root = self
+            .roots
+            .iter_mut()
+            .find(|r| r.path == path)
+            .expect("checked above");
+        root.name.clone_from(&name);
+        Ok(name)
+    }
+
     /// `base`, or `base (2)`, `base (3)` … when a root has the name already.
     fn free_name(&self, base: &str) -> String {
         let taken = |n: &str| self.roots.iter().any(|r| r.name.eq_ignore_ascii_case(n));
@@ -517,6 +542,22 @@ pub fn name_roots(paths: &[PathBuf]) -> Vec<WorkspaceRoot> {
         ws.roots.push(root);
     }
     ws.roots
+}
+
+/// A root name that works as the prefix of a link (`[[Name:Note]]`): not empty, at most 100
+/// characters, no `:` (it ends the prefix) and none of the characters that end or split a link.
+fn valid_root_name(name: &str) -> Result<String, String> {
+    let name = name.trim();
+    let bad = name.is_empty()
+        || name.chars().count() > 100
+        || name.chars().any(|c| c.is_control() || ":[]|#^".contains(c));
+    if bad {
+        Err(format!(
+            "\"{name}\" is not a valid root name (not empty, none of : [ ] | # ^)"
+        ))
+    } else {
+        Ok(name.to_string())
+    }
 }
 
 /// A workspace name that is a safe file name: no separators, no leading dot, not empty.
@@ -831,6 +872,43 @@ mod tests {
         // A note of the other root is not found without a prefix.
         assert_eq!(hit(&pa, "OnlyB"), None);
         assert_eq!(hit(&pb, "OnlyA"), None);
+    }
+
+    #[test]
+    fn a_renamed_root_resolves_under_the_new_name_only_and_keeps_it_when_saved() {
+        let (a, b, mut ws) = two_roots("rename");
+        let (pa, pb) = (slashes(&a), slashes(&b));
+        assert_eq!(ws.rename_root(&pb, "  Books ").unwrap(), "Books");
+        let links = WorkspaceLinks::new(&ws);
+        let at = Some(ResolvedLink {
+            root: pb.clone(),
+            path: "Todo.md".to_string(),
+        });
+        assert_eq!(links.resolve(&pa, "Books:Todo"), at);
+        assert_eq!(links.resolve(&pa, "beta:Todo"), None);
+        // The new name survives save and load, and differs from the folder name.
+        let app = temp_dir("rename-app");
+        ws.name = "Mine".to_string();
+        save(&app, &ws).unwrap();
+        let loaded = load(&app, "Mine", &NONE).unwrap();
+        assert_eq!(loaded.roots[1].name, "Books");
+        assert_eq!(loaded, ws);
+    }
+
+    #[test]
+    fn a_root_name_that_clashes_or_cannot_be_a_link_prefix_is_refused() {
+        let (a, b, mut ws) = two_roots("rename-bad");
+        let (pa, pb) = (slashes(&a), slashes(&b));
+        let other = ws.roots[0].name.clone();
+        assert!(ws.rename_root(&pb, &other.to_uppercase()).is_err());
+        for bad in ["", "   ", "A:B", "a]b", "a|b", "a#b", "a[b", "a\nb"] {
+            assert!(ws.rename_root(&pb, bad).is_err(), "{bad:?}");
+        }
+        assert!(ws.rename_root("/nowhere", "Fine").is_err());
+        assert_eq!(ws.roots[1].name, "beta");
+        // The root's own name in another case is no clash.
+        assert_eq!(ws.rename_root(&pb, "BETA").unwrap(), "BETA");
+        assert_eq!(ws.rename_root(&pa, "alpha").unwrap(), "alpha");
     }
 
     #[test]
