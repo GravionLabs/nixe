@@ -9,6 +9,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import type { Workspace } from "../file/backend";
+import { open } from "@tauri-apps/plugin-dialog";
+
 import { backend } from "../file/backend";
 import { CommandRegistry } from "../commands/command-registry";
 import { DocumentService } from "../file/document.service";
@@ -91,6 +93,63 @@ describe("WorkspacesService", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     await service.addFolder("/c");
     await vi.waitFor(() => expect(service.indexRevision()).toBe(2));
+  });
+
+  describe("choosing a variable (#498)", () => {
+    const choice = {
+      name: "Documents",
+      template: "$Documents/Books",
+      resolved: "/home/u/Documents/Books",
+    };
+
+    beforeEach(async () => {
+      await workspace.openFolder("/a", { openDefaultPage: false });
+      vi.mocked(open).mockResolvedValue("/home/u/Documents/Books");
+    });
+
+    it("adds a folder elsewhere at once, with its absolute path", async () => {
+      vi.spyOn(backend, "workspaceVariableChoices").mockResolvedValue([]);
+      await service.addFolderWithDialog();
+      expect(service.rootChoice()).toBeNull();
+      expect(service.current()?.roots.map((r) => r.path)).toEqual([
+        "/a",
+        "/home/u/Documents/Books",
+      ]);
+    });
+
+    it("offers the variable forms for a folder below a variable and adds nothing yet", async () => {
+      vi.spyOn(backend, "workspaceVariableChoices").mockResolvedValue([choice]);
+      await service.addFolderWithDialog();
+      expect(service.rootChoice()).toEqual({ path: "/home/u/Documents/Books", choices: [choice] });
+      expect(service.current()).toBeNull();
+    });
+
+    it("stores the template when the variable form is chosen", async () => {
+      vi.spyOn(backend, "workspaceVariableChoices").mockResolvedValue([choice]);
+      await service.addFolderWithDialog();
+      await service.chooseRootForm("$Documents/Books");
+      expect(service.rootChoice()).toBeNull();
+      expect(backend.workspaceAddRoot).toHaveBeenLastCalledWith(
+        expect.anything(),
+        "$Documents/Books",
+      );
+    });
+
+    it("keeps the absolute path when it is chosen, and adds nothing on cancel", async () => {
+      vi.spyOn(backend, "workspaceVariableChoices").mockResolvedValue([choice]);
+      await service.addFolderWithDialog();
+      await service.chooseRootForm(null);
+      expect(backend.workspaceAddRoot).toHaveBeenLastCalledWith(
+        expect.anything(),
+        "/home/u/Documents/Books",
+      );
+      vi.mocked(backend.workspaceAddRoot).mockClear();
+      await service.addFolderWithDialog();
+      service.cancelRootChoice();
+      await service.chooseRootForm(null);
+      expect(service.rootChoice()).toBeNull();
+      expect(backend.workspaceAddRoot).not.toHaveBeenCalled();
+    });
   });
 
   it("needs an open folder before the first root", async () => {

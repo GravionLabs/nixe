@@ -34,6 +34,16 @@ shows one message that names the variable (`$Books has no value on this device`)
 before. The skipped root stays in the workspace and in `workspaces/<name>.json`, and reopening the
 workspace after the variable is set brings it back.
 
+### Choosing a variable when adding a root
+
+**Add folder to workspace…** checks the picked folder against the variables that have a value on
+the device (`$Home`, `$Documents`, `$OneDrive`, `$iCloud`, the own ones). For a folder below one or
+more of them, a dialog lists the absolute path (the default, first) and each `$Name/rest` form, the
+deepest variable first, every row with the path it resolves to. The choice decides what the
+workspace stores; the sidebar shows the resolved path as before. A folder below no variable is
+added at once as an absolute path. A folder inside a vault is offered as the vault root, which is
+what gets added (Tauri command `workspace_variable_choices`).
+
 ### Own variables
 
 The section **Locations** of the settings page lists the own variables of the device

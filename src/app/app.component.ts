@@ -56,6 +56,7 @@ import { SettingsService } from "./core/settings/settings.service";
 import { DailyService } from "./core/daily/daily.service";
 import { ComposerService } from "./core/composer/composer.service";
 import { SwitcherService } from "./core/switcher/switcher.service";
+import { RootChoiceComponent } from "./features/workspace/root-choice.component";
 import { WorkspacesService, skippedMessage } from "./core/workspace/workspaces.service";
 import { VaultUndoService } from "./core/workspace/vault-undo.service";
 import { RecentPickerService, missingMessage } from "./core/workspace/recent-picker.service";
@@ -122,6 +123,7 @@ export class NavIconDirective {
     SidebarComponent,
     StartComponent,
     WorkspaceComponent,
+    RootChoiceComponent,
   ],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
