@@ -7,15 +7,18 @@ use std::time::Instant;
 use nixe_lib::cli::{execute, CliError};
 use serde_json::Value;
 
+// The same guard as the unit tests use: the directory is removed when it drops, also on a panic.
+#[allow(dead_code)]
+#[path = "../src/test_dir.rs"]
+mod test_dir;
+use test_dir::TestDir;
+
 fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/vault")
 }
 
-fn temp(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("nixe-check-{name}-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
+fn temp(name: &str) -> TestDir {
+    TestDir::new(&format!("nixe-check-{name}-"))
 }
 
 /// Runs `nixe check` on `vault`; the text on stdout and the exit-code-relevant result.

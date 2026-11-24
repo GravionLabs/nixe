@@ -611,6 +611,7 @@ pub fn rename_with_links(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
     fn files(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()
@@ -886,8 +887,7 @@ mod tests {
 
     #[test]
     fn reads_the_link_format_from_app_json() {
-        let root = std::env::temp_dir().join(format!("nixe-relink-fmt-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+        let root = TestDir::new("nixe-relink-fmt-");
         fs::create_dir_all(root.join(".obsidian")).unwrap();
         assert_eq!(link_format(&root), LinkFormat::Shortest);
         for (value, want) in [
@@ -907,15 +907,14 @@ mod tests {
         assert_eq!(link_format(&root), LinkFormat::Shortest);
     }
 
-    fn vault(name: &str, notes: &[(&str, &str)]) -> std::path::PathBuf {
-        let root = std::env::temp_dir().join(format!("nixe-relink-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+    fn vault(name: &str, notes: &[(&str, &str)]) -> TestDir {
+        let root = TestDir::new(&format!("nixe-relink-{name}-"));
         for (path, text) in notes {
             let p = root.join(path);
             fs::create_dir_all(p.parent().unwrap()).unwrap();
             fs::write(p, text).unwrap();
         }
-        dunce::canonicalize(root).unwrap()
+        root
     }
 
     #[test]

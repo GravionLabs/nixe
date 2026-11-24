@@ -6,15 +6,18 @@ use std::path::{Path, PathBuf};
 use nixe_lib::cli::{execute, CliError};
 use serde_json::{json, Value};
 
+// The same guard as the unit tests use: the directory is removed when it drops, also on a panic.
+#[allow(dead_code)]
+#[path = "../src/test_dir.rs"]
+mod test_dir;
+use test_dir::TestDir;
+
 fn vault() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/vault")
 }
 
-fn data_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("nixe-cli-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn data_dir(name: &str) -> TestDir {
+    TestDir::new(&format!("nixe-cli-{name}-"))
 }
 
 fn run(name: &str, args: &[&str]) -> Result<String, CliError> {
@@ -258,13 +261,12 @@ fn a_subcommand_answers_quickly_on_a_2000_note_vault() {
 
 use nixe_lib::cli::execute_with;
 
-fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("nixe-cli-w-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+fn scratch(name: &str) -> TestDir {
+    let dir = TestDir::new(&format!("nixe-cli-w-{name}-"));
     std::fs::create_dir_all(dir.join("folder")).unwrap();
     std::fs::write(dir.join("folder/Deep.md"), "# Deep\nbody").unwrap();
     std::fs::write(dir.join("Plain.md"), "one\n").unwrap();
-    dunce::canonicalize(dir).unwrap()
+    dir
 }
 
 fn write_cmd(name: &str, root: &Path, args: &[&str], stdin: &str) -> Result<String, CliError> {
@@ -407,7 +409,7 @@ mod several_roots {
     use super::*;
 
     /// Two small vaults named `alpha` and `beta` below a temp directory.
-    fn two_vaults(name: &str) -> (PathBuf, PathBuf, PathBuf) {
+    fn two_vaults(name: &str) -> (TestDir, PathBuf, PathBuf) {
         let base = data_dir(&format!("{name}-vaults"));
         let (a, b) = (base.join("alpha"), base.join("beta"));
         std::fs::create_dir_all(&a).unwrap();
@@ -590,14 +592,16 @@ mod site {
     use std::collections::BTreeSet;
     use std::fs;
 
-    fn export(name: &str, args: &[&str]) -> (PathBuf, Result<String, CliError>) {
-        let out = std::env::temp_dir().join(format!("nixe-site-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&out);
+    /// The folder of the site is `<scratch>/site`, which does not exist yet; the guard removes both.
+    fn export(name: &str, args: &[&str]) -> (TestDir, PathBuf, Result<String, CliError>) {
+        let scratch = TestDir::new(&format!("nixe-site-{name}-"));
+        let out = scratch.join("site");
         let mut all = vec!["export"];
         all.extend_from_slice(args);
         let out_arg = out.to_string_lossy().into_owned();
         all.extend(["--site", &out_arg]);
-        (out, run(name, &all))
+        let result = run(name, &all);
+        (scratch, out, result)
     }
 
     fn pages(dir: &Path) -> Vec<PathBuf> {
@@ -656,7 +660,7 @@ mod site {
 
     #[test]
     fn every_internal_link_of_the_exported_vault_resolves() {
-        let (out, result) = export("vault", &["."]);
+        let (_scratch, out, result) = export("vault", &["."]);
         assert!(result.unwrap().contains("pages"));
         let files = pages(&out);
         assert!(files.len() > 8);
@@ -684,7 +688,7 @@ mod site {
 
     #[test]
     fn a_page_has_wikilinks_a_navigation_tree_backlinks_and_the_search() {
-        let (out, result) = export("parts", &["."]);
+        let (_scratch, out, result) = export("parts", &["."]);
         result.unwrap();
         let index = fs::read_to_string(out.join("index.html")).unwrap();
         assert!(index.contains("<a class=\"wikilink\" href=\"Note.html\">Note</a>"));
@@ -721,8 +725,7 @@ mod site {
 
     #[test]
     fn a_folder_or_a_frontmatter_property_excludes_a_note_and_its_links_become_text() {
-        let dir = std::env::temp_dir().join(format!("nixe-site-src-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
+        let dir = TestDir::new("nixe-site-src-");
         fs::create_dir_all(dir.join("private")).unwrap();
         fs::create_dir_all(dir.join(".obsidian")).unwrap();
         fs::write(
@@ -776,7 +779,7 @@ mod site {
 
     #[test]
     fn a_site_of_a_subfolder_uses_relative_links_only() {
-        let (out, result) = export("sub", &["folder"]);
+        let (_scratch, out, result) = export("sub", &["folder"]);
         result.unwrap();
         let deep = fs::read_to_string(out.join("Deep.html")).unwrap();
         assert!(deep.contains("href=\"_nixe/site.css\""));
@@ -785,11 +788,11 @@ mod site {
 
     #[test]
     fn wrong_arguments_are_usage_errors() {
-        let (_, r) = export("both", &[".", "--format", "html"]);
+        let (_scratch, _, r) = export("both", &[".", "--format", "html"]);
         assert!(matches!(r, Err(CliError::Usage(_))));
-        let (_, r) = export("two", &[".", "folder"]);
+        let (_scratch, _, r) = export("two", &[".", "folder"]);
         assert!(matches!(r, Err(CliError::Usage(_))));
-        let (_, r) = export("missing", &["nope"]);
+        let (_scratch, _, r) = export("missing", &["nope"]);
         assert!(matches!(r, Err(CliError::Failed(_))));
     }
 }

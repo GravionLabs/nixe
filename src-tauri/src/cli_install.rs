@@ -159,13 +159,11 @@ pub fn run(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::fs;
 
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-cli-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dir
+    fn temp_dir(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-cli-{name}-"))
     }
 
     #[test]

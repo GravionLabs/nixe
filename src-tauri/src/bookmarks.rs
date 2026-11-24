@@ -81,11 +81,10 @@ pub fn write_app(dir: &Path, content: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
-    fn tmp(name: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-bookmarks-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        p
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-bookmarks-{name}-"))
     }
 
     #[test]

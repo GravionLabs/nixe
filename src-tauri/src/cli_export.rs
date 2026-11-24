@@ -126,17 +126,19 @@ pub fn resolve(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::fs;
 
-    fn vault(name: &str) -> (PathBuf, PathBuf) {
-        let base = std::env::temp_dir().join(format!("nixe-export-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&base);
+    /// The vault and data folders; the first element is the guard of both.
+    fn vault(name: &str) -> (TestDir, PathBuf, PathBuf) {
+        let base = TestDir::new(&format!("nixe-export-{name}-"));
         let vault = base.join("vault");
         fs::create_dir_all(vault.join("sub")).unwrap();
         fs::write(vault.join("sub/Plan.md"), "# Plan\n").unwrap();
         fs::write(vault.join("A.md"), "a").unwrap();
         fs::create_dir_all(base.join("data")).unwrap();
-        (vault, base.join("data"))
+        let data = base.join("data");
+        (base, vault, data)
     }
 
     fn opts(format: Option<&str>, note: &str) -> Options {
@@ -149,7 +151,7 @@ mod tests {
 
     #[test]
     fn html_goes_to_the_current_directory_and_runs_headless() {
-        let (vault, data) = vault("html");
+        let (_base, vault, data) = vault("html");
         let mut o = opts(Some("html"), "Plan");
         o.vaults = vec![vault.to_string_lossy().into_owned()];
         o.dark = Some(true);
@@ -166,7 +168,7 @@ mod tests {
 
     #[test]
     fn out_is_relative_to_the_current_directory() {
-        let (vault, data) = vault("out");
+        let (_base, vault, data) = vault("out");
         let mut o = opts(Some("html"), "sub/Plan.md");
         o.vaults = vec![vault.to_string_lossy().into_owned()];
         o.out = Some("x/y.html".into());
@@ -176,7 +178,7 @@ mod tests {
 
     #[test]
     fn pdf_has_no_file_and_opens_the_print_dialog() {
-        let (vault, data) = vault("pdf");
+        let (_base, vault, data) = vault("pdf");
         let mut o = opts(Some("pdf"), "A");
         o.vaults = vec![vault.to_string_lossy().into_owned()];
         let r = resolve(&o, &vault, &data, true).unwrap();
@@ -191,7 +193,7 @@ mod tests {
 
     #[test]
     fn wrong_arguments_are_usage_errors_and_a_missing_note_a_failure() {
-        let (vault, data) = vault("bad");
+        let (_base, vault, data) = vault("bad");
         let v = vec![vault.to_string_lossy().into_owned()];
         for o in [
             opts(None, "A"),

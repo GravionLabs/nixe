@@ -772,6 +772,7 @@ impl WorkspaceLinks {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
     const NONE: Locations = Locations {
         home: None,
@@ -790,11 +791,8 @@ mod tests {
         }
     }
 
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-ws-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dunce::canonicalize(dir).unwrap()
+    fn temp_dir(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-ws-{name}-"))
     }
 
     fn write(root: &Path, rel: &str, text: &str) {
@@ -804,7 +802,8 @@ mod tests {
     }
 
     /// Two roots that both have `Todo.md` and `Ideas.md`; `a` is a vault, `b` a plain folder.
-    fn two_roots(name: &str) -> (PathBuf, PathBuf, Workspace) {
+    /// The first element is the scratch directory of both roots.
+    fn two_roots(name: &str) -> (TestDir, PathBuf, PathBuf, Workspace) {
         let base = temp_dir(name);
         let (a, b) = (base.join("alpha"), base.join("beta"));
         write(&a, ".obsidian/app.json", "{}");
@@ -817,7 +816,7 @@ mod tests {
         let mut ws = Workspace::new("both").unwrap();
         ws.add_root(&a, &NONE).unwrap();
         ws.add_root(&b, &NONE).unwrap();
-        (a, b, ws)
+        (base, a, b, ws)
     }
 
     #[test]
@@ -870,7 +869,7 @@ mod tests {
 
     #[test]
     fn a_workspace_is_saved_listed_loaded_and_deleted_without_touching_the_folders() {
-        let (a, b, ws) = two_roots("save");
+        let (_base, a, b, ws) = two_roots("save");
         let snapshot = |p: &Path| vault::list_vault_files(p);
         let (before_a, before_b) = (snapshot(&a), snapshot(&b));
         let app = temp_dir("save-app");
@@ -901,7 +900,7 @@ mod tests {
 
     #[test]
     fn an_equal_note_name_resolves_inside_its_own_root() {
-        let (a, b, ws) = two_roots("equal");
+        let (_base, a, b, ws) = two_roots("equal");
         let links = WorkspaceLinks::new(&ws);
         let (pa, pb) = (slashes(&a), slashes(&b));
         let hit = |from: &str, target: &str| links.resolve(from, target);
@@ -922,7 +921,7 @@ mod tests {
 
     #[test]
     fn a_renamed_root_resolves_under_the_new_name_only_and_keeps_it_when_saved() {
-        let (a, b, mut ws) = two_roots("rename");
+        let (_base, a, b, mut ws) = two_roots("rename");
         let (pa, pb) = (slashes(&a), slashes(&b));
         assert_eq!(ws.rename_root(&pb, "  Books ").unwrap(), "Books");
         let links = WorkspaceLinks::new(&ws);
@@ -943,7 +942,7 @@ mod tests {
 
     #[test]
     fn a_root_name_that_clashes_or_cannot_be_a_link_prefix_is_refused() {
-        let (a, b, mut ws) = two_roots("rename-bad");
+        let (_base, a, b, mut ws) = two_roots("rename-bad");
         let (pa, pb) = (slashes(&a), slashes(&b));
         let other = ws.roots[0].name.clone();
         assert!(ws.rename_root(&pb, &other.to_uppercase()).is_err());
@@ -959,7 +958,7 @@ mod tests {
 
     #[test]
     fn a_root_prefix_reaches_a_note_of_another_root() {
-        let (a, b, ws) = two_roots("prefix");
+        let (_base, a, b, ws) = two_roots("prefix");
         let links = WorkspaceLinks::new(&ws);
         let (pa, pb) = (slashes(&a), slashes(&b));
         let at = |root: &str, path: &str| {

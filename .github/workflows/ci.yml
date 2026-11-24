@@ -32,6 +32,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm check:temp-dirs
       - run: pnpm build
 
   # Advisory (#401): not in `needs` of the `ci` job, so a red run does not block a merge.

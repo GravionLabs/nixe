@@ -90,12 +90,10 @@ pub fn write_text_file(root: &Path, path: &Path, content: &str) -> Result<(), St
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
-    fn tmp(name: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-write-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        p
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-write-{name}-"))
     }
 
     fn leftovers(dir: &Path) -> Vec<String> {
@@ -125,7 +123,8 @@ mod tests {
 
     #[test]
     fn write_root_refuses_files_that_are_not_notes() {
-        let base = dunce::canonicalize(tmp("wext")).unwrap();
+        let guard = tmp("wext");
+        let base = dunce::canonicalize(&guard).unwrap();
         assert!(write_root(Some(&base), None, &base.join(".zshrc")).is_err());
         assert!(write_root(Some(&base), None, &base.join("x.sh")).is_err());
         assert!(write_root(Some(&base), None, &base.join("X.MD")).is_ok());
