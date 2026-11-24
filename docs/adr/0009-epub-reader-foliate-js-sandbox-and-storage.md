@@ -37,6 +37,8 @@ The book renders in an `iframe` whose `src` is a `blob:` URL made from the book 
 
 - The CSP gets `frame-src blob:`; no other frame source is allowed.
 - The `iframe` carries a `sandbox` attribute without `allow-scripts`: no script of the book runs.
+  foliate-js adds `allow-scripts` itself; a pnpm patch (`patches/foliate-js@1.0.1.patch`) removes it
+  (#487, see the finding in the [WebKitGTK check](#webkitgtk-check-485)).
   The reader itself (foliate-js) runs in the app and reads and styles the content from outside.
   The frame gets `allow-same-origin` so that the reader can reach its document; this is safe only
   because scripts stay off, and `allow-scripts` must never be added together with it.
@@ -105,3 +107,11 @@ foliate-js 1.0.1 in WebKitGTK 2.52.6 (Linux), on a page with the CSP of `tauri.c
   highlights and quotes in the vault stay valid because they carry the CFI and the book name.
 - Following issues implement the reader, the CSP change, the command that reads books and the
   storage of position, highlights and quotes; the user docs are written with them.
+
+## Decision of #487
+
+- The sandbox of the Sandbox section holds: the reader patches foliate-js so that its frames get
+  `sandbox="allow-same-origin"`. `e2e/epub.e2e.ts` proves in Chromium that a script and an `onclick`
+  of a book do not run.
+- `style-src` keeps `'self' 'unsafe-inline'`: the stylesheets of a book stay blocked for now, the book is
+  shown with the styles of the reader. Whether `blob:` joins `style-src` is left to the theme issue (#490).
