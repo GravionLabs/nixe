@@ -41,3 +41,8 @@ export function greet(name: string): string {
 
 - `books/sample.epub`: a two-chapter book with a table of contents (the reader specs and the demo).
 - `books/script.epub`: the same book with an inline `<script>` and an `onclick` in chapter 1, both of which set `data-script-ran` on the page; the reader must not run them (ADR 0009).
+
+## Web pages
+
+`web/` has saved pages for the tests of `nixe clip` ([docs/links.md](../docs/links.md)): `article.html`,
+`no-article.html` (no readable content), `no-title.html` and `latin1.html` (ISO-8859-1, not UTF-8).
