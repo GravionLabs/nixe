@@ -114,7 +114,7 @@ Off by default; settings (Git panel, stored in `nixe.settings`): `autoSync`, `au
 
 ## Capture window
 
-`capture_save(text)`, `capture_note_names()`, `capture_link_title(url)`, `capture_hide()` and `capture_apply()` belong to the capture window (see [../capture.md](../capture.md)). `capture_apply` registers the global shortcut of the settings file again and creates or removes the window and the tray icon.
+`capture_save(text)`, `capture_save_link(url)` (a link note like `nixe clip`; returns `{path, created, warning}`), `capture_note_names()`, `capture_link_title(url)`, `capture_hide()` and `capture_apply()` belong to the capture window (see [../capture.md](../capture.md)). `capture_apply` registers the global shortcut of the settings file again and creates or removes the window and the tray icon.
 
 ## Terminal
 

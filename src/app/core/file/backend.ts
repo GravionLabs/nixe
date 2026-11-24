@@ -562,6 +562,11 @@ export const backend = {
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
   /** Writes the captured text to the daily note or the inbox (#118); returns the note. */
   captureSave: (text: string) => invoke<string>("capture_save", { text }),
+  /** Saves a URL as a link note (#507); `created` is false for a duplicate, `warning` names a failed fetch. */
+  captureSaveLink: (url: string) =>
+    invoke<{ path: string; created: boolean; warning: string | null }>("capture_save_link", {
+      url,
+    }),
   /** Note names of the vault for the `[[` completion of the capture window. */
   captureNoteNames: () => invoke<string[]>("capture_note_names"),
   /** The title of the page at a URL; null when it cannot be fetched within two seconds. */

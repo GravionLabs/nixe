@@ -103,4 +103,27 @@ describe("CaptureComponent", () => {
     fixture.detectChanges();
     expect(el.querySelector("[role=alert]")?.textContent).toContain("no vault");
   });
+
+  it("hints Alt+Enter for a URL and saves it as a link note, Enter keeps the text capture", async () => {
+    const link = vi
+      .spyOn(backend, "captureSaveLink")
+      .mockResolvedValue({ path: "/v/Links/a.md", created: true, warning: null });
+    const save = vi.spyOn(backend, "captureSave").mockResolvedValue("/v/n.md");
+    const { type, key, el, fixture } = create();
+    type("hello");
+    expect(el.querySelector(".link-hint")).toBeNull();
+    key({ key: "Enter", altKey: true });
+    expect(link).not.toHaveBeenCalled();
+    type("https://example.com/a");
+    expect(el.querySelector(".link-hint")?.textContent).toContain("Alt+Enter: save as link");
+    key({ key: "Enter", altKey: true });
+    await fixture.whenStable();
+    expect(link).toHaveBeenCalledWith("https://example.com/a");
+    expect(save).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(TestBed.inject(CaptureService).text()).toBe(""));
+    type("https://example.com/a");
+    key({ key: "Enter" });
+    await vi.waitFor(() => expect(save).toHaveBeenCalledWith("https://example.com/a"));
+    expect(backend.captureHide).toHaveBeenCalled();
+  });
 });
