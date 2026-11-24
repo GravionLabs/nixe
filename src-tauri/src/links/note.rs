@@ -189,6 +189,8 @@ pub struct Note<'a> {
     pub archive_files: &'a [String],
     /// The reader text; `None` leaves out `## Archive`.
     pub archive: Option<&'a str>,
+    /// The text under `## Notes`.
+    pub notes: Option<&'a str>,
 }
 
 /// The text of the note in the order of `docs/links.md`.
@@ -230,6 +232,9 @@ pub fn render(note: &Note) -> String {
         out.push_str(&format!("> {one_line}\n\n"));
     }
     out.push_str("## Notes\n");
+    if let Some(n) = note.notes.map(str::trim).filter(|n| !n.is_empty()) {
+        out.push_str(&format!("\n{n}\n"));
+    }
     if let Some(archive) = note.archive {
         out.push_str(&format!("\n## Archive\n\n{archive}\n"));
     }
@@ -316,6 +321,7 @@ mod tests {
             site: Some("x.test"),
             archive_files: &[".archive/T.html".to_string()],
             archive: Some("# Body"),
+            notes: None,
         });
         assert_eq!(
             text,
@@ -334,9 +340,10 @@ mod tests {
             site: None,
             archive_files: &[],
             archive: None,
+            notes: Some("Read this \u{2192} later\n"),
         });
         assert!(bare.contains("tags: []\n"));
-        assert!(bare.ends_with("## Notes\n"));
+        assert!(bare.ends_with("## Notes\n\nRead this \u{2192} later\n"));
     }
 
     #[test]

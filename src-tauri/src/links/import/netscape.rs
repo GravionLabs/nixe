@@ -36,6 +36,8 @@ pub fn parse(html: &str) -> Vec<Entry> {
                     saved: attr(&attrs, "add_date").and_then(saved_from_epoch),
                     read: false,
                     folders: lists.iter().flatten().cloned().collect(),
+                    description: None,
+                    note: None,
                 });
             }
             _ => {}

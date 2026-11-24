@@ -1,8 +1,10 @@
-//! `nixe import-links <file>`: link notes from a browser bookmark export (Netscape HTML) or a
-//! Pocket export (CSV or the older HTML). See `docs/links.md`.
+//! `nixe import-links <file>`: link notes from a browser bookmark export (Netscape HTML), a
+//! Pocket export (CSV or the older HTML), a Raindrop CSV or a Linkwarden JSON backup. See `docs/links.md`.
 
+pub mod linkwarden;
 pub mod netscape;
 pub mod pocket;
+pub mod raindrop;
 
 use std::path::Path;
 
@@ -25,6 +27,10 @@ pub struct Entry {
     pub read: bool,
     /// The bookmark folders around it, outermost first.
     pub folders: Vec<String>,
+    /// A short description of the page, when the export has one.
+    pub description: Option<String>,
+    /// The user's own note; it goes under `## Notes`.
+    pub note: Option<String>,
 }
 
 /// What an import did. `failed` and `warnings` hold one line each.
@@ -37,12 +43,24 @@ pub struct Summary {
     pub warnings: Vec<String>,
 }
 
-/// The entries of an export; the format comes from the content: a CSV with a header line, or
-/// HTML in the Netscape form (folders) or the Pocket form.
+/// The entries of an export; the format comes from the content: JSON (a Linkwarden backup),
+/// a CSV with a header line (Raindrop or Pocket), or HTML in the Netscape form (folders) or the
+/// Pocket form.
 pub fn parse(text: &str) -> Result<Vec<Entry>, String> {
     let head = text.trim_start_matches('\u{feff}').trim_start();
+    if head.starts_with('{') {
+        return match serde_json::from_str::<serde_json::Value>(head) {
+            Ok(v) if linkwarden::is_backup(&v) => linkwarden::parse(&v),
+            _ => Err("not a bookmark, Pocket, Raindrop or Linkwarden export".into()),
+        };
+    }
     if !head.starts_with('<') {
-        return pocket::parse_csv(text);
+        let first = pocket::records(head).into_iter().next().unwrap_or_default();
+        return if raindrop::is_header(&first) {
+            raindrop::parse(head)
+        } else {
+            pocket::parse_csv(head)
+        };
     }
     let lower = text.to_lowercase();
     if lower.contains("netscape-bookmark-file") || lower.contains("<dt>") {
@@ -90,6 +108,8 @@ pub fn import(
             saved: entry.saved.clone(),
             status: entry.read.then(|| "read".to_string()),
             offline,
+            description: entry.description.clone(),
+            note: entry.note.clone(),
         };
         let mut result = clip_with(root, app_data, request(!fetch), now, fetcher);
         if fetch {
@@ -222,6 +242,13 @@ pub(super) fn split_tags(list: impl AsRef<str>) -> Vec<String> {
         .collect()
 }
 
+/// An ISO 8601 time (`2023-11-14T22:13:20.000Z`) as the note keeps it.
+pub(super) fn saved_from_iso(text: &str) -> Option<String> {
+    DateTime::parse_from_rfc3339(text.trim())
+        .ok()
+        .map(|t| t.format("%Y-%m-%dT%H:%M:%S%:z").to_string())
+}
+
 /// Seconds since the epoch (an export writes them) as an RFC 3339 time in UTC.
 pub(super) fn saved_from_epoch(seconds: String) -> Option<String> {
     let seconds: i64 = seconds.trim().parse().ok()?;
@@ -273,7 +300,46 @@ mod tests {
         assert_eq!(parse(&fixture("bookmarks.html")).unwrap().len(), 5);
         assert_eq!(parse(&fixture("pocket.csv")).unwrap().len(), 3);
         assert_eq!(parse(&fixture("pocket.html")).unwrap().len(), 2);
+        assert_eq!(parse(&fixture("raindrop.csv")).unwrap().len(), 3);
+        assert_eq!(parse(&fixture("linkwarden.json")).unwrap().len(), 4);
         assert!(parse("<html><body>nothing</body></html>").is_err());
+        assert!(parse("{\"links\": []}").is_err());
+        assert!(parse("{ not json").is_err());
+    }
+
+    #[test]
+    fn raindrop_becomes_notes_with_description_and_notes_section() {
+        let root = tmp("raindrop");
+        let data = root.with_extension("data");
+        let entries = parse(&fixture("raindrop.csv")).unwrap();
+        let s = import(&root, &data, &entries, None, false, &now(), &no_network);
+        assert_eq!((s.created, s.skipped), (2, 1), "{s:?}");
+        let text =
+            std::fs::read_to_string(root.join("Links/Programming/The -Rust- Book.md")).unwrap();
+        assert!(text.contains("description: An intro to Rust\n"), "{text}");
+        assert!(
+            text.contains("saved: 2023-11-14T22:13:20+00:00\n"),
+            "{text}"
+        );
+        assert!(
+            text.ends_with("## Notes\n\nChapter 4, read twice\nsecond line\n"),
+            "{text}"
+        );
+        assert!(root.join("Links/Unsorted/example.org.md").exists());
+    }
+
+    #[test]
+    fn linkwarden_collections_become_nested_folders() {
+        let root = tmp("linkwarden");
+        let data = root.with_extension("data");
+        let entries = parse(&fixture("linkwarden.json")).unwrap();
+        let s = import(&root, &data, &entries, None, false, &now(), &no_network);
+        assert_eq!((s.created, s.skipped), (3, 1), "{s:?}");
+        let text = std::fs::read_to_string(root.join("Links/Dev/Linkwarden docs.md")).unwrap();
+        assert!(text.contains("  - self-hosted\n"), "{text}");
+        assert!(text.contains("> How the backup looks\n"), "{text}");
+        assert!(root.join("Links/Dev/Rust/example.org.md").exists());
+        assert!(root.join("Links/Loose/Top.md").exists());
     }
 
     #[test]

@@ -41,7 +41,7 @@ usage: nixe <path>|-                       open the viewer
        nixe check [--exclude <dir>]... [--links [--force]] [--vault <dir>] [--json]   exit 1 on broken or dead links
        nixe new <title> [--folder <dir>] [--open] [--vault <dir>]
        nixe clip <url> [--tag <t>]... [--folder <dir>] [--title <t>] [--html <file>|-] [--json] [--open] [--vault <dir>]
-       nixe import-links <file> [--folder <dir>] [--fetch] [--json] [--vault <dir>]   bookmarks (Netscape HTML) or Pocket export
+       nixe import-links <file> [--folder <dir>] [--fetch] [--json] [--vault <dir>]   bookmarks (Netscape HTML), Pocket, Raindrop CSV or Linkwarden JSON
        nixe append <note> [text] [--vault <dir>]   text from stdin when omitted
        nixe append --inbox [text] [--vault <dir>]
        nixe daily [--append <text>] [--vault <dir>]   open today's daily note, or append to it

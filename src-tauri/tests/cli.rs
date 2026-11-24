@@ -980,6 +980,29 @@ mod import_links {
     }
 
     #[test]
+    fn import_of_raindrop_and_linkwarden_exports() {
+        let root = scratch("import-raindrop");
+        let out = write_cmd(
+            "import-raindrop",
+            &root,
+            &["import-links", &export("raindrop.csv")],
+            "",
+        )
+        .unwrap();
+        assert_eq!(out.trim(), "created 2, skipped 1, failed 0");
+        assert!(root.join("Links/Programming").is_dir());
+        let out = write_cmd(
+            "import-raindrop",
+            &root,
+            &["import-links", &export("linkwarden.json")],
+            "",
+        )
+        .unwrap();
+        assert_eq!(out.trim(), "created 3, skipped 1, failed 0");
+        assert!(root.join("Links/Dev/Rust").is_dir());
+    }
+
+    #[test]
     fn import_refuses_wrong_arguments_and_unknown_files() {
         let root = scratch("import-bad");
         let run = |args: &[&str]| write_cmd("import-bad", &root, args, "");

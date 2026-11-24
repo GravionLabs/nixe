@@ -43,6 +43,8 @@ pub fn parse_html(html: &str) -> Vec<Entry> {
                 saved: attr(&attrs, "time_added").and_then(saved_from_epoch),
                 read,
                 folders: Vec::new(),
+                description: None,
+                note: None,
             });
         }
     }
@@ -50,7 +52,7 @@ pub fn parse_html(html: &str) -> Vec<Entry> {
 }
 
 /// The CSV records of `text`: quoted fields may hold commas, doubled quotes and line breaks.
-fn records(text: &str) -> Vec<Vec<String>> {
+pub(super) fn records(text: &str) -> Vec<Vec<String>> {
     let mut rows = Vec::new();
     let mut row = Vec::new();
     let mut field = String::new();
@@ -115,6 +117,8 @@ pub fn parse_csv(text: &str) -> Result<Vec<Entry>, String> {
                 saved: get(row, added).and_then(saved_from_epoch),
                 read: get(row, status).is_some_and(|s| s.eq_ignore_ascii_case("archive")),
                 folders: Vec::new(),
+                description: None,
+                note: None,
             })
         })
         .collect())

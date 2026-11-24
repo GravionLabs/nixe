@@ -107,15 +107,18 @@ It needs no index.
 Exit `1` for an address that is not `http(s)`, a page that cannot be fetched or a folder outside
 the vault; `2` for wrong arguments.
 
-## Import bookmarks and Pocket exports
+## Import bookmarks, Pocket, Raindrop and Linkwarden exports
 
 `nixe import-links <file> [--folder <dir>] [--fetch] [--json] [--vault <dir>]` turns an export
 into link notes ([links.md](links.md)) and prints `created N, skipped N, failed N`.
 
 - **Formats**, found from the content: Netscape bookmark HTML (the export of Chrome, Firefox,
-  Edge and Safari), a Pocket CSV (`title,url,time_added,tags,status`) and the older Pocket HTML.
+  Edge and Safari), a Pocket CSV (`title,url,time_added,tags,status`), the older Pocket HTML, the Raindrop CSV
+  (`id,title,note,excerpt,url,folder,tags,created,…`) and the Linkwarden JSON backup.
 - Bookmark folders become subfolders of the links folder (`--folder`, else the role `links`,
-  else `Links/`). `ADD_DATE` / `time_added` becomes `saved`, `TAGS` / `tags` become tags. A Pocket
+  else `Links/`). `ADD_DATE` / `time_added` becomes `saved`, `TAGS` / `tags` become tags. A Raindrop `folder` is the subfolder, `excerpt` the description,
+  `note` the text under `## Notes` and `created` the `saved` date. A Linkwarden collection with a
+  parent becomes a nested subfolder; `description` and `createdAt` carry over. A Pocket
   item in the archive (`status` `archive`, or below `Read Archive`) is `status: read`, every other
   note `unread`.
 - Without `--fetch` no page is downloaded: the title comes from the export (the host when it has

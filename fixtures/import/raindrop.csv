@@ -1,0 +1,5 @@
+id,title,note,excerpt,url,folder,tags,created,cover,highlights,favorite
+1,"The ""Rust"" Book","Chapter 4, read twice
+second line",An intro to Rust,https://example.com/rust-book,Programming,"rust, books",2023-11-14T22:13:20.000Z,,,false
+2,,,,https://example.org/plain,Unsorted,,2023-11-15T10:00:00Z,,,true
+3,Bookmarklet,,,javascript:void(0),Programming,,2023-11-16T10:00:00Z,,,false
