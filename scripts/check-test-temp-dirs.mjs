@@ -62,9 +62,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const leaks = findLeaks(root);
   if (leaks.length > 0) {
-    console.error("These Rust files create test directories under env::temp_dir() and never remove them:");
+    console.error(
+      "These Rust files create test directories under env::temp_dir() and never remove them:",
+    );
     for (const f of leaks) console.error(`  ${f}`);
-    console.error("Use TestDir (src-tauri/src/test_dir.rs) or tempfile::TempDir; see docs/backend/tests.md.");
+    console.error(
+      "Use TestDir (src-tauri/src/test_dir.rs) or tempfile::TempDir; see docs/backend/tests.md.",
+    );
     process.exit(1);
   }
   console.log("No Rust test leaves directories in the temp directory.");
