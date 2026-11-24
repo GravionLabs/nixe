@@ -1,6 +1,6 @@
 //! The optional HTML archive of a link note (#505): the page as one self-contained file in
 //! `<links folder>/.archive/`, images and style sheets inlined as data URIs. Scripts are dropped,
-//! so the file shows the page as it was saved and runs nothing. The folder is not synced by Git
+//! so the file shows the page as it was saved and runs nothing (no scripts, event handlers, `javascript:` addresses, frames). The folder is not synced by Git
 //! (see `crate::git::gitignore_ensure`).
 
 use base64::Engine;
@@ -56,8 +56,10 @@ impl Inliner<'_> {
     /// `css` with every `url(…)` that leads to a file replaced by a data URI.
     fn css(&mut self, css: &str, base: &str) -> String {
         let mut out = String::with_capacity(css.len());
+        let lower = css.to_ascii_lowercase();
         let mut rest = css;
-        while let Some(at) = rest.to_ascii_lowercase().find("url(") {
+        let mut rest_lower = lower.as_str();
+        while let Some(at) = rest_lower.find("url(") {
             out.push_str(&rest[..at + 4]);
             let after = &rest[at + 4..];
             let Some(close) = after.find(')') else {
@@ -72,6 +74,7 @@ impl Inliner<'_> {
             }
             out.push(')');
             rest = &after[close + 1..];
+            rest_lower = &rest_lower[rest_lower.len() - rest.len()..];
         }
         out.push_str(rest);
         out
@@ -129,6 +132,24 @@ fn escape(value: &str) -> String {
     value.replace('&', "&amp;").replace('"', "&quot;")
 }
 
+fn is_active(key: &str, value: &str) -> bool {
+    let v: String = value
+        .chars()
+        .filter(|c| !c.is_whitespace() && !c.is_control())
+        .collect();
+    key.starts_with("on") || v.to_ascii_lowercase().starts_with("javascript:")
+}
+
+fn needs_cleaning(attrs: &[(String, String)]) -> bool {
+    attrs.iter().any(|(k, v)| is_active(k, v))
+}
+
+/// The attributes without event handlers and without `javascript:` addresses.
+fn safe(mut attrs: Vec<(String, String)>) -> Vec<(String, String)> {
+    attrs.retain(|(k, v)| !is_active(k, v));
+    attrs
+}
+
 /// The tag `name` with the attributes `attrs`.
 fn render_tag(name: &str, attrs: &[(String, String)]) -> String {
     let mut out = format!("<{name}");
@@ -173,6 +194,15 @@ pub fn inline_page(html: &str, page_url: &str, fetcher: Fetcher) -> Result<Strin
             at = start + 1;
             continue;
         }
+        if html[start..].starts_with("<!--") {
+            // A comment holds no tags: `<!-- <script src=a.js> -->` is text.
+            let end = html[start + 4..]
+                .find("-->")
+                .map_or(html.len(), |i| start + 4 + i + 3);
+            out.push_str(&html[start..end]);
+            at = end;
+            continue;
+        }
         let Some(end) = tag_end(html, start) else {
             out.push_str(&html[start..]);
             at = html.len();
@@ -188,10 +218,11 @@ pub fn inline_page(html: &str, page_url: &str, fetcher: Fetcher) -> Result<Strin
         match name.as_str() {
             "script" => {
                 // Gone with its content.
+                // An unclosed one loses only its own tag, never the rest of the page.
                 at = lower[end..]
                     .find("</script")
                     .and_then(|i| tag_end(html, end + i))
-                    .unwrap_or(html.len());
+                    .unwrap_or(end);
             }
             "style" => {
                 let close = lower[end..].find("</style").map_or(html.len(), |i| end + i);
@@ -199,6 +230,9 @@ pub fn inline_page(html: &str, page_url: &str, fetcher: Fetcher) -> Result<Strin
                 out.push_str(&inl.css(&html[end..close], page_url));
                 at = close;
             }
+            // Frames, plug-ins and a meta refresh load or run what the archive must not.
+            "iframe" | "object" | "embed" | "frame" | "frameset" => {}
+            "meta" if inner.to_ascii_lowercase().contains("http-equiv") => {}
             "img" => {
                 let mut attrs = attributes(inner);
                 let src = attrs.iter().position(|(k, _)| k == "src");
@@ -211,10 +245,15 @@ pub fn inline_page(html: &str, page_url: &str, fetcher: Fetcher) -> Result<Strin
                         attrs[i].1 = url;
                     }
                 }
-                out.push_str(&render_tag("img", &attrs));
+                out.push_str(&render_tag("img", &safe(attrs)));
             }
             "link" => {
                 let attrs = attributes(inner);
+                let alternate = attrs.iter().any(|(k, v)| {
+                    k == "rel"
+                        && v.split_whitespace()
+                            .any(|t| t.eq_ignore_ascii_case("alternate"))
+                });
                 let get = |key: &str| {
                     attrs
                         .iter()
@@ -225,25 +264,33 @@ pub fn inline_page(html: &str, page_url: &str, fetcher: Fetcher) -> Result<Strin
                     r.split_whitespace()
                         .any(|t| t.eq_ignore_ascii_case("stylesheet"))
                 });
-                let sheet = is_sheet
+                let sheet = (is_sheet && !alternate)
                     .then(|| get("href"))
                     .flatten()
                     .and_then(|href| resolve(page_url, href))
                     .and_then(|url| inl.stylesheet(&url));
                 match sheet {
-                    Some(css) => out.push_str(&format!("<style>{css}</style>")),
-                    None => out.push_str(&html[start..end]),
+                    Some(css) => {
+                        let media = get("media").map(|m| format!(" media=\"{}\"", escape(m)));
+                        out.push_str(&format!(
+                            "<style{}>{css}</style>",
+                            media.unwrap_or_default()
+                        ));
+                    }
+                    None => out.push_str(&render_tag("link", &safe(attrs.clone()))),
                 }
             }
             _ => {
+                let mut attrs = attributes(inner);
                 if inner.to_ascii_lowercase().contains("style") && inner.contains("url(") {
-                    let mut attrs = attributes(inner);
                     for (key, value) in &mut attrs {
                         if key == "style" {
                             *value = inl.css(value, page_url);
                         }
                     }
-                    out.push_str(&render_tag(&name, &attrs));
+                }
+                if needs_cleaning(&attrs) || inner.contains("url(") {
+                    out.push_str(&render_tag(&name, &safe(attrs)));
                 } else {
                     out.push_str(&html[start..end]);
                 }
@@ -339,6 +386,41 @@ mod tests {
             inline_page("<p>plain</p>", PAGE_URL, &site).unwrap(),
             "<meta charset=\"utf-8\"><p>plain</p>"
         );
+    }
+
+    #[test]
+    fn active_content_is_removed() {
+        let html = "<body onload=\"x()\"><img src=\"a.png\" onerror=\"x()\">\
+                    <a href=\"JavaScript:x()\" title=t>l</a><iframe src=f></iframe>\
+                    <meta http-equiv=refresh content=\"0;url=//e\"><p>ok</p>";
+        let out = inline_page(html, PAGE_URL, &site).unwrap();
+        for bad in ["onload", "onerror", "avascript", "<iframe", "http-equiv"] {
+            assert!(!out.contains(bad), "{bad}: {out}");
+        }
+        assert!(
+            out.contains("<a title=\"t\">l</a>") && out.contains("<p>ok</p>"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn a_script_in_a_comment_or_unclosed_keeps_the_page() {
+        let out = inline_page("<!-- <script src=a.js> --><p>content</p>", PAGE_URL, &site).unwrap();
+        assert!(out.contains("<p>content</p>"), "{out}");
+        let out = inline_page("<script src=a.js><p>content</p>", PAGE_URL, &site).unwrap();
+        assert!(
+            out.contains("<p>content</p>") && !out.contains("<script"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn media_is_kept_and_alternate_sheets_are_not_applied() {
+        let html = "<link rel=stylesheet media=print href=/static/site.css>\
+                    <link rel=\"alternate stylesheet\" href=/static/site.css>";
+        let out = inline_page(html, PAGE_URL, &site).unwrap();
+        assert!(out.contains("<style media=\"print\">"), "{out}");
+        assert_eq!(out.matches("<style").count(), 1, "{out}");
     }
 
     #[test]

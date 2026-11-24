@@ -101,7 +101,7 @@ ignored with a warning in the log. Only `html` is implemented; `screenshot` and 
 ```
 
 With `html`, `nixe clip` writes `<folder>/.archive/<note stem>.html`: the page as one file, with
-images and style sheets (also their `url(…)`) inlined as data URIs and the scripts removed
+images and style sheets (also their `url(…)`) inlined as data URIs and scripts, event handlers, `javascript:` addresses, frames and meta refresh removed
 (`src-tauri/src/links/archive.rs`). An asset that cannot be fetched, is larger than 2 MiB
 (`MAX_ASSET_BYTES`) or would take the file over 10 MiB (`MAX_ARCHIVE_BYTES`) stays a link to its
 absolute address; a page that is larger than 10 MiB on its own gets no file. A copy that fails
