@@ -181,6 +181,7 @@ pub async fn clip_link(
                 title,
                 tags,
                 folder,
+                ..super::ClipRequest::default()
             },
             &chrono::Local::now().fixed_offset(),
             &super::fetch::fetch,

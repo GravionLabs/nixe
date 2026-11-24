@@ -472,6 +472,7 @@ impl VaultServer {
                 title: a.title,
                 tags: a.tags.unwrap_or_default(),
                 folder,
+                ..ClipRequest::default()
             },
         )
         .map_err(|e| e.to_string())?;

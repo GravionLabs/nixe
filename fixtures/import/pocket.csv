@@ -1,0 +1,4 @@
+title,url,time_added,tags,status
+Pocket "quoted" title,https://example.com/pocket-one,1700000000,rust|web,unread
+"Comma, in the title",https://example.com/pocket-two,1700086400,,archive
+,https://example.org/no-title,1700172800,"a|b",unread

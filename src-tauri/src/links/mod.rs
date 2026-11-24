@@ -8,6 +8,8 @@ pub mod dead;
 #[cfg(desktop)]
 pub mod fetch;
 #[cfg(desktop)]
+pub mod import;
+#[cfg(desktop)]
 pub mod note;
 #[cfg(desktop)]
 pub mod render;
@@ -45,6 +47,13 @@ mod clip_impl {
         pub tags: Vec<String>,
         /// Vault-relative; without it the role `links` of `.nixe/config.json`, else [`DEFAULT_FOLDER`].
         pub folder: Option<String>,
+        /// `saved` of the note (an import keeps the date of the export); default: now.
+        pub saved: Option<String>,
+        /// `unread` (default) or `read`.
+        pub status: Option<String>,
+        /// Fetches nothing and writes no archive: the note holds the URL and the given title.
+        /// Imports use it; the new note has no `## Archive`.
+        pub offline: bool,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -129,6 +138,7 @@ mod clip_impl {
         }
         let html = match req.html {
             Some(html) => html,
+            None if req.offline => String::new(),
             None => {
                 let page = fetcher(url)?;
                 fetch::decode(&page.bytes, page.content_type.as_deref())
@@ -164,6 +174,7 @@ mod clip_impl {
         .find(|t| !t.is_empty())
         .unwrap_or_else(|| host.clone());
         let archive = match note::reader_markdown(&html, url) {
+            _ if req.offline => None,
             Ok(text) => Some(text),
             Err(why) => {
                 warnings.push(format!("{url}: {why}; saved without ## Archive"));
@@ -186,7 +197,15 @@ mod clip_impl {
             url,
             title: &title,
             tags: &tags,
-            saved: &now.format("%Y-%m-%dT%H:%M:%S%:z").to_string(),
+            saved: &req
+                .saved
+                .clone()
+                .unwrap_or_else(|| now.format("%Y-%m-%dT%H:%M:%S%:z").to_string()),
+            status: if req.status.as_deref() == Some("read") {
+                "read"
+            } else {
+                "unread"
+            },
             description: meta.description.as_deref(),
             image: meta.image.as_deref(),
             site: Some(&site),
@@ -205,8 +224,11 @@ mod clip_impl {
             crate::cli::CliError::Usage(m) | crate::cli::CliError::Failed(m) => ClipError::Write(m),
         })?;
         let path = free_path(&dir, &note::file_name(&title, &host));
-        let mut archive_files = archive_html(&root, &path, url, &html, fetcher, &mut warnings);
-        archive_files.extend(archive_rendered(&root, &path, url, renderer, &mut warnings));
+        let mut archive_files = Vec::new();
+        if !req.offline {
+            archive_files = archive_html(&root, &path, url, &html, fetcher, &mut warnings);
+            archive_files.extend(archive_rendered(&root, &path, url, renderer, &mut warnings));
+        }
         let text = note::render(&Note {
             archive_files: &archive_files,
             ..note

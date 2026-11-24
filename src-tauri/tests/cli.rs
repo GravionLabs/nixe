@@ -938,3 +938,64 @@ mod clip {
         assert!(run(&["clip", "https://x.test/", "--html", "missing.html"]).is_err());
     }
 }
+
+#[cfg(desktop)]
+mod import_links {
+    use super::*;
+
+    fn export(name: &str) -> String {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures/import")
+            .join(name)
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn import_prints_the_counts_and_a_second_run_skips_everything() {
+        let root = scratch("import-count");
+        let file = export("bookmarks.html");
+        let run = || write_cmd("import-count", &root, &["import-links", &file], "");
+        assert_eq!(run().unwrap().trim(), "created 3, skipped 2, failed 0");
+        assert!(root
+            .join("Links/Bookmarks bar/Reading/Deep link.md")
+            .exists());
+        assert_eq!(run().unwrap().trim(), "created 0, skipped 5, failed 0");
+    }
+
+    #[test]
+    fn import_of_pocket_csv_takes_folder_and_json() {
+        let root = scratch("import-csv");
+        let file = export("pocket.csv");
+        let out = write_cmd(
+            "import-csv",
+            &root,
+            &["import-links", &file, "--folder", "Pocket", "--json"],
+            "",
+        )
+        .unwrap();
+        assert_eq!(out.trim(), r#"{"created":3,"skipped":0,"failed":[]}"#);
+        assert!(root.join("Pocket/Comma, in the title.md").exists());
+    }
+
+    #[test]
+    fn import_refuses_wrong_arguments_and_unknown_files() {
+        let root = scratch("import-bad");
+        let run = |args: &[&str]| write_cmd("import-bad", &root, args, "");
+        assert!(matches!(run(&["import-links"]), Err(CliError::Usage(_))));
+        assert!(matches!(
+            run(&["import-links", "a", "b"]),
+            Err(CliError::Usage(_))
+        ));
+        assert!(matches!(
+            run(&["import-links", "missing.html"]),
+            Err(CliError::Failed(_))
+        ));
+        let page = Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/web/article.html");
+        assert!(matches!(
+            run(&["import-links", page.to_str().unwrap(), "--folder", "../x"]),
+            Err(CliError::Failed(_))
+        ));
+    }
+}
