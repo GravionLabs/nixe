@@ -43,6 +43,7 @@ export class EpubComponent implements OnDestroy {
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private view: FoliateView | null = null;
+  private path: string | null = null;
   private generation = 0;
 
   constructor() {
@@ -51,7 +52,7 @@ export class EpubComponent implements OnDestroy {
       const book = this.book();
       const stage = this.host.nativeElement.querySelector<HTMLElement>(".stage");
       untracked(() => {
-        if (book && stage) void this.mount(book.book, stage);
+        if (book && stage) void this.mount(book.book, book.path, stage);
         else {
           this.generation++;
           this.unmount();
@@ -99,18 +100,24 @@ export class EpubComponent implements OnDestroy {
     else this.prev();
   }
 
-  private async mount(book: FoliateBook, stage: HTMLElement): Promise<void> {
+  private async mount(book: FoliateBook, path: string, stage: HTMLElement): Promise<void> {
     const run = ++this.generation;
     this.unmount();
     this.error.set(null);
     try {
       await import("foliate-js/view.js");
       if (run !== this.generation) return;
+      let saved: string | null = null;
       const view = document.createElement("foliate-view") as FoliateView;
       view.className = "book";
       view.addEventListener("relocate", (event) => {
         const detail = (event as CustomEvent<FoliateRelocate>).detail;
         this.current.set(detail.tocItem?.href ?? null);
+        // The relocation that restores the saved position writes nothing.
+        if (!detail.cfi) return;
+        const restored = detail.cfi === saved;
+        saved = null;
+        if (!restored) this.epub.savePosition(path, detail.cfi);
       });
       // The keys of a focused book frame do not reach the page: the frame's document tells them.
       view.addEventListener("load", (event) => {
@@ -119,10 +126,14 @@ export class EpubComponent implements OnDestroy {
       });
       stage.append(view);
       this.view = view;
+      this.path = path;
       await view.open(book);
       if (run !== this.generation) return;
       view.renderer.setAttribute("flow", this.epub.flow());
-      await view.init({ showTextStart: true });
+      const last = await this.epub.position(path);
+      if (run !== this.generation) return;
+      saved = last;
+      await view.init({ lastLocation: last, showTextStart: last === null });
     } catch (err) {
       if (run === this.generation) this.error.set(String(err instanceof Error ? err.message : err));
     }
@@ -131,6 +142,8 @@ export class EpubComponent implements OnDestroy {
   private unmount(): void {
     const view = this.view;
     this.view = null;
+    if (this.path !== null) this.epub.flushPosition(this.path);
+    this.path = null;
     if (!view) return;
     try {
       view.close();

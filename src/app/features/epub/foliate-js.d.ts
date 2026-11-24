@@ -33,6 +33,8 @@ declare module "foliate-js/view.js" {
   export interface FoliateRelocate {
     /** The table of contents entry that holds the position. */
     tocItem?: { href: string; label: string };
+    /** The EPUB CFI of the start of the visible text. */
+    cfi?: string;
   }
 
   /** The `<foliate-view>` element; `view.js` registers it. */

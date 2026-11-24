@@ -33,3 +33,29 @@ export function flattenToc(items: readonly FoliateTocItem[] | undefined, depth =
     ...flattenToc(item.subitems, depth + 1),
   ]);
 }
+
+/** The saved reading position of a book: a CFI, with the book it belongs to (#489). */
+export interface EpubPosition {
+  root: string;
+  path: string;
+  cfi: string;
+}
+
+/** The name of a book for the store: the root name and the path relative to that root. */
+export function positionKey(root: string, relPath: string): string {
+  return `${root}:${relPath}`;
+}
+
+/** The CFI of a stored position; a damaged text, another shape or another book gives `null`. */
+export function parsePosition(text: string | null, root: string, relPath: string): string | null {
+  if (text === null) return null;
+  try {
+    const value: unknown = JSON.parse(text);
+    if (typeof value !== "object" || value === null) return null;
+    const { cfi, root: r, path: p } = value as Partial<EpubPosition>;
+    if (typeof cfi !== "string" || cfi === "" || r !== root || p !== relPath) return null;
+    return cfi;
+  } catch {
+    return null;
+  }
+}
