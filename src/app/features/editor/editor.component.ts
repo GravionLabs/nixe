@@ -316,6 +316,7 @@ export class EditorComponent implements OnDestroy {
   /** Blocks of the live preview go through the same pipeline as the reading view. */
   private readonly liveHooks: LivePreviewHooks = {
     propertiesDisplay: () => this.settings.propertiesDisplay(),
+    openLink: (link, newTab) => void this.openLink(link, newTab),
     mountProperties: (el, source, actions): PropertiesHandle => {
       const ref = createComponent(PropertiesComponent, {
         environmentInjector: this.injector,

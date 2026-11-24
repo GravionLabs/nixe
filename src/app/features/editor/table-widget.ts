@@ -2,6 +2,8 @@ import { redo, undo } from "@codemirror/commands";
 import { WidgetType } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 
+import type { EditorLink } from "../../core/editor/editor-core";
+import { classifyHref } from "../../core/markdown/link-resolver";
 import type { Align, TableModel } from "../../core/editor/table-core";
 import {
   deleteColumn,
@@ -20,6 +22,8 @@ export interface TableHooks {
   render(el: HTMLElement, source: string): void;
   /** The range of the table block in the document, or null when the widget is gone. */
   locate(view: EditorView, dom: HTMLElement): { from: number; to: number } | null;
+  /** A click on a drawn link of a cell opens it; `newTab` when ⌘/Ctrl is held. Absent: the click edits the cell. */
+  openLink?(link: EditorLink, newTab: boolean): void;
 }
 
 /** A cell of the table, 0-based; row 0 is the header. */
@@ -105,6 +109,7 @@ class TableEditor {
     this.model = parseTable(source.split("\n"));
     el.append(this.table);
     this.build();
+    this.table.addEventListener("mousedown", (e) => this.onMouseDown(e));
     this.table.addEventListener("input", (e) => this.onInput(e));
     this.table.addEventListener("focusin", (e) => this.onFocusIn(e));
     this.table.addEventListener("focusout", (e) => this.onFocusOut(e));
@@ -239,6 +244,27 @@ class TableEditor {
       userEvent: "input.table",
     });
     return true;
+  }
+
+  /** A click on a drawn link opens it instead of putting the cursor into the cell (which would draw the source). */
+  private onMouseDown(event: MouseEvent): void {
+    const hooks = this.hooks;
+    const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+    if (!hooks.openLink || !anchor || event.button !== 0 || event.shiftKey || event.altKey) return;
+    const wiki = anchor.classList.contains("wikilink") ? anchor.getAttribute("data-target") : null;
+    const href = anchor.getAttribute("href");
+    let link: EditorLink;
+    if (wiki !== null) {
+      link = { kind: "wikilink", from: 0, to: 0, target: wiki };
+    } else {
+      const kind = classifyHref(href).kind;
+      // Same-note anchors, unsafe schemes and tags open nothing here: the click stays an edit.
+      if (!href || kind === "anchor" || kind === "none" || anchor.classList.contains("tag")) return;
+      link = { kind: "markdown", from: 0, to: 0, target: href };
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    hooks.openLink(link, event.metaKey || event.ctrlKey);
   }
 
   private onInput(event: Event): void {
