@@ -63,6 +63,71 @@ pub fn normalize(url: &str) -> String {
     out
 }
 
+/// `reference` (an `href` or `src` of a page) as an absolute `http(s)` URL against the address
+/// `base` of that page. `None` for `data:`, `javascript:` and every other scheme, for a bare
+/// fragment, and when `base` is no `http(s)` URL.
+pub fn resolve(base: &str, reference: &str) -> Option<String> {
+    let reference = reference.trim();
+    let reference = reference.split('#').next().unwrap_or_default();
+    if reference.is_empty() {
+        return None;
+    }
+    let (scheme, rest) = base.split_once("://")?;
+    if !matches!(scheme.to_ascii_lowercase().as_str(), "http" | "https") {
+        return None;
+    }
+    let rest = rest.split('#').next().unwrap_or_default();
+    let (before_query, _) = rest.split_once('?').unwrap_or((rest, ""));
+    let (authority, base_path) = match before_query.find('/') {
+        Some(i) => before_query.split_at(i),
+        None => (before_query, "/"),
+    };
+    if let Some((s, _)) = reference.split_once("://") {
+        let s = s.to_ascii_lowercase();
+        return matches!(s.as_str(), "http" | "https").then(|| reference.to_string());
+    }
+    if let Some(rest) = reference.strip_prefix("//") {
+        return Some(format!("{scheme}://{rest}"));
+    }
+    // `data:`, `mailto:`, `javascript:` … : a scheme before the first `/`, `?`.
+    let head = reference.split(['/', '?']).next().unwrap_or_default();
+    if head.contains(':') {
+        return None;
+    }
+    if reference.starts_with('?') {
+        return Some(format!("{scheme}://{authority}{base_path}{reference}"));
+    }
+    let (path, query) = match reference.split_once('?') {
+        Some((p, q)) => (p, format!("?{q}")),
+        None => (reference, String::new()),
+    };
+    let joined = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        let dir = base_path.rsplit_once('/').map_or("", |(d, _)| d);
+        format!("{dir}/{path}")
+    };
+    let mut segments: Vec<&str> = Vec::new();
+    let parts: Vec<&str> = joined.split('/').skip(1).collect();
+    for (i, part) in parts.iter().enumerate() {
+        match *part {
+            "." => {}
+            ".." => {
+                segments.pop();
+            }
+            p => segments.push(p),
+        }
+        // A trailing `.` or `..` leaves a folder: keep the final slash.
+        if i + 1 == parts.len() && matches!(*part, "." | "..") {
+            segments.push("");
+        }
+    }
+    Some(format!(
+        "{scheme}://{authority}/{}{query}",
+        segments.join("/")
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,5 +202,31 @@ mod tests {
     #[test]
     fn something_that_is_no_url_is_only_trimmed() {
         assert_eq!(normalize(" example.com/a/ "), "example.com/a/");
+    }
+    #[test]
+    fn resolves_references_against_the_page() {
+        let base = "https://example.com/a/b/page.html?x=1#top";
+        let cases = [
+            ("img.png", Some("https://example.com/a/b/img.png")),
+            ("./img.png?v=2", Some("https://example.com/a/b/img.png?v=2")),
+            ("../img.png", Some("https://example.com/a/img.png")),
+            ("../../../../img.png", Some("https://example.com/img.png")),
+            ("/img.png", Some("https://example.com/img.png")),
+            ("//cdn.test/i.png", Some("https://cdn.test/i.png")),
+            ("http://o.test/i.png#f", Some("http://o.test/i.png")),
+            ("?y=2", Some("https://example.com/a/b/page.html?y=2")),
+            ("data:image/png;base64,AAAA", None),
+            ("javascript:void(0)", None),
+            ("#top", None),
+            ("", None),
+        ];
+        for (reference, want) in cases {
+            assert_eq!(resolve(base, reference).as_deref(), want, "{reference}");
+        }
+        assert_eq!(
+            resolve("https://example.com", "a.css").as_deref(),
+            Some("https://example.com/a.css")
+        );
+        assert_eq!(resolve("not a url", "a.css"), None);
     }
 }

@@ -45,6 +45,7 @@ The reader text of the page as Markdown.
 | `description` | no | the description of the page (meta description) |
 | `image` | no | the URL of the preview image |
 | `site` | no | the name or host of the site |
+| `archive` | no | a list of archive files next to the note, relative to its folder (`.archive/<note stem>.html`); only when `links.archive` asked for them and the file was written |
 
 An optional key that is empty is left out, not written empty.
 
@@ -83,11 +84,32 @@ prints `exists: <path>` (exit code 0; `--open` opens that note).
   (see [ADR 0007](adr/0007-vault-configuration-in-nixe.md)). Tools resolve it through the role.
 - **Collections:** a subfolder of the links folder is a collection (`Links/Recipes/`). A link note
   may sit in any subfolder; the collection is the folder, not a property.
-- **`Links/.archive/`:** optional HTML, screenshot and PDF copies of a page, next to the reader
-  text. The folder is gitignored and not synced by Git (the entry joins the `.gitignore` block of
-  [vault-git.md](vault-git.md) with the PBI that writes the archive); use a
+- **`Links/.archive/`:** optional copies of a page next to the reader text, in the `.archive/`
+  folder of the folder that holds the note. The folder is gitignored and not synced by Git; use a
   file sync service for it if the files are wanted on other devices. A link note refers to such a
-  file by name only when it exists on this device.
+  file by name (`archive` in the frontmatter) only when the file was written on this device.
+
+### The archive setting
+
+`links.archive` in `.nixe/config.json` is a list of the copies a clip stores besides the Markdown
+note: `html`, `screenshot`, `pdf`. The default is `[]` (Markdown only). An unknown entry is
+ignored with a warning in the log. Only `html` is implemented; `screenshot` and `pdf` follow in
+#506.
+
+```json
+{ "links": { "archive": ["html"] } }
+```
+
+With `html`, `nixe clip` writes `<folder>/.archive/<note stem>.html`: the page as one file, with
+images and style sheets (also their `url(…)`) inlined as data URIs and scripts, event handlers, `javascript:` addresses, frames and meta refresh removed
+(`src-tauri/src/links/archive.rs`). An asset that cannot be fetched, is larger than 2 MiB
+(`MAX_ASSET_BYTES`) or would take the file over 10 MiB (`MAX_ARCHIVE_BYTES`) stays a link to its
+absolute address; a page that is larger than 10 MiB on its own gets no file. A copy that fails
+never fails the clip: the note is saved without `archive` and the clip prints a warning.
+
+Before the first file of a folder is written, `<folder>/.archive/` is appended to the `.gitignore`
+of the vault when Git does not ignore it yet (`git::gitignore_ensure`; the file is appended to,
+never rewritten, under the `# Nixe` comment of [vault-git.md](vault-git.md)).
 
 ## Example notes
 

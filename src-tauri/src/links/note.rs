@@ -23,7 +23,7 @@ fn collapse(text: &str) -> Option<String> {
 }
 
 /// The attributes of the tag text between `<` and `>` (names lower-cased, values decoded).
-fn attributes(tag: &str) -> Vec<(String, String)> {
+pub(super) fn attributes(tag: &str) -> Vec<(String, String)> {
     let mut out = Vec::new();
     let chars: Vec<char> = tag.chars().collect();
     let mut i = 0;
@@ -183,6 +183,8 @@ pub struct Note<'a> {
     pub description: Option<&'a str>,
     pub image: Option<&'a str>,
     pub site: Option<&'a str>,
+    /// Archive files next to the note, relative to its folder (`.archive/<stem>.html`).
+    pub archive_files: &'a [String],
     /// The reader text; `None` leaves out `## Archive`.
     pub archive: Option<&'a str>,
 }
@@ -208,6 +210,12 @@ pub fn render(note: &Note) -> String {
     ] {
         if let Some(v) = value.filter(|v| !v.trim().is_empty()) {
             out.push_str(&format!("{key}: {}\n", yaml(v)));
+        }
+    }
+    if !note.archive_files.is_empty() {
+        out.push_str("archive:\n");
+        for file in note.archive_files {
+            out.push_str(&format!("  - {}\n", yaml(file)));
         }
     }
     out.push_str("---\n\n");
@@ -299,12 +307,13 @@ mod tests {
             description: Some("About it"),
             image: None,
             site: Some("x.test"),
+            archive_files: &[".archive/T.html".to_string()],
             archive: Some("# Body"),
         });
         assert_eq!(
             text,
             "---\ntype: link\nurl: https://x.test/a\ntitle: 'Title: with colon'\ntags:\n  - reading\n\
-             saved: 2026-11-20T09:30:00+01:00\nstatus: unread\ndescription: About it\nsite: x.test\n---\n\n\
+             saved: 2026-11-20T09:30:00+01:00\nstatus: unread\ndescription: About it\nsite: x.test\narchive:\n  - .archive/T.html\n---\n\n\
              > About it\n\n## Notes\n\n## Archive\n\n# Body\n"
         );
         let bare = render(&Note {
@@ -315,6 +324,7 @@ mod tests {
             description: None,
             image: None,
             site: None,
+            archive_files: &[],
             archive: None,
         });
         assert!(bare.contains("tags: []\n"));

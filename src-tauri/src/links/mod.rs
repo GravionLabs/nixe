@@ -2,6 +2,8 @@
 //! `links::clip`: a URL and optionally its rendered HTML become a note in the vault) and the
 //! opt-in dead link check. Clipping needs `capture` and the network, so it is desktop only.
 
+#[cfg(desktop)]
+pub mod archive;
 pub mod dead;
 #[cfg(desktop)]
 pub mod fetch;
@@ -18,6 +20,7 @@ mod clip_impl {
     use chrono::{DateTime, FixedOffset};
     use serde::Serialize;
 
+    use super::archive;
     use super::fetch::{self, Fetcher};
     use super::note::{self, Note};
     use super::url;
@@ -162,7 +165,7 @@ mod clip_impl {
                 all
             });
         let site = meta.site_name.clone().unwrap_or_else(|| host.clone());
-        let text = note::render(&Note {
+        let note = Note {
             url,
             title: &title,
             tags: &tags,
@@ -170,8 +173,9 @@ mod clip_impl {
             description: meta.description.as_deref(),
             image: meta.image.as_deref(),
             site: Some(&site),
+            archive_files: &[],
             archive: archive.as_deref(),
-        });
+        };
 
         // A role outside the vault is ignored with the warning of `Config` (#439).
         let role = Config::load(&root).links_folder();
@@ -184,6 +188,11 @@ mod clip_impl {
             crate::cli::CliError::Usage(m) | crate::cli::CliError::Failed(m) => ClipError::Write(m),
         })?;
         let path = free_path(&dir, &note::file_name(&title, &host));
+        let archive_files = archive_html(&root, &path, url, &html, fetcher, &mut warnings);
+        let text = note::render(&Note {
+            archive_files: &archive_files,
+            ..note
+        });
         let write_root = write::write_root(Some(&root), None, &path).map_err(ClipError::Write)?;
         write::write_text_file(&write_root, &path, &text).map_err(ClipError::Write)?;
         Ok(ClipResult {
@@ -191,6 +200,65 @@ mod clip_impl {
             created: true,
             warnings,
         })
+    }
+
+    /// Writes the HTML copy of the page next to the note when `links.archive` asks for it and
+    /// returns the file names for the frontmatter (relative to the folder of the note). A copy
+    /// that cannot be made is a warning, never a failed clip.
+    fn archive_html(
+        root: &Path,
+        note_path: &Path,
+        url: &str,
+        html: &str,
+        fetcher: Fetcher,
+        warnings: &mut Vec<String>,
+    ) -> Vec<String> {
+        if !Config::load(root)
+            .links_archive()
+            .iter()
+            .any(|k| k == archive::HTML)
+        {
+            return Vec::new();
+        }
+        let result = (|| -> Result<String, String> {
+            let page = archive::inline_page(html, url, fetcher)?;
+            let dir = note_path.parent().ok_or("the note has no folder")?;
+            let name = format!(
+                "{}.html",
+                note_path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .ok_or("the note has no name")?
+            );
+            let archive_dir = dir.join(archive::ARCHIVE_DIR);
+            // The folder is not synced: the ignore entry comes before the first file.
+            let rel = archive_dir
+                .strip_prefix(root)
+                .map_err(|_| "the archive folder is outside the vault".to_string())?;
+            let rel = rel.to_string_lossy().replace('\\', "/");
+            crate::git::gitignore_ensure(root, &rel)?;
+            std::fs::create_dir_all(&archive_dir).map_err(|e| format!("{rel}: {e}"))?;
+            write_archive_file(&archive_dir.join(&name), &page)?;
+            Ok(format!("{}/{name}", archive::ARCHIVE_DIR))
+        })();
+        match result {
+            Ok(file) => vec![file],
+            Err(why) => {
+                warnings.push(format!("{url}: {why}; saved without the HTML archive"));
+                Vec::new()
+            }
+        }
+    }
+
+    /// A temp file and a rename, like the notes: no half file.
+    fn write_archive_file(path: &Path, text: &str) -> Result<(), String> {
+        let tmp = path.with_extension("html.nixe-tmp");
+        std::fs::write(&tmp, text)
+            .and_then(|()| std::fs::rename(&tmp, path))
+            .map_err(|e| {
+                let _ = std::fs::remove_file(&tmp);
+                format!("{}: {e}", path.display())
+            })
     }
 
     /// The note (absolute path) that holds `url` already, found through the index of the vault.
@@ -498,6 +566,132 @@ mod clip_impl {
                     .unwrap()
                     .created
             );
+        }
+
+        /// The assets of `fixtures/web/archive.html`.
+        fn assets(url: &str) -> Result<Page, ClipError> {
+            let (name, mime) = match url {
+                "https://example.com/img/pic.png" | "https://example.com/img/bg.png" => {
+                    ("archive-pixel.png", "image/png")
+                }
+                "https://example.com/static/site.css" => ("archive.css", "text/css"),
+                _ => return Err(ClipError::Fetch(format!("{url}: 404"))),
+            };
+            Ok(Page {
+                bytes: fixture(name),
+                content_type: Some(mime.into()),
+            })
+        }
+
+        fn clip_archive(name: &str, config: Option<&str>, git: bool) -> (PathBuf, ClipResult) {
+            let root = tmp(name);
+            if git {
+                git2::Repository::init(&root).unwrap();
+            }
+            if let Some(config) = config {
+                std::fs::create_dir_all(root.join(".nixe")).unwrap();
+                std::fs::write(root.join(".nixe/config.json"), config).unwrap();
+            }
+            let mut req = request("https://example.com/a");
+            req.html = Some(String::from_utf8(fixture("archive.html")).unwrap());
+            let r = clip_with(&root, &data(&root), req, &at(), &assets).unwrap();
+            (root, r)
+        }
+
+        #[test]
+        fn without_the_setting_no_archive_is_written() {
+            for config in [None, Some(r#"{"links":{"archive":[]}}"#)] {
+                let (root, r) = clip_archive("archive-off", config, true);
+                assert!(!root.join("Links/.archive").exists());
+                assert!(!root.join(".gitignore").exists());
+                let text = std::fs::read_to_string(&r.path).unwrap();
+                assert!(!text.contains("archive:"), "{text}");
+            }
+        }
+
+        #[test]
+        fn the_html_setting_writes_one_file_and_names_it_in_the_note() {
+            let (root, r) = clip_archive(
+                "archive-html",
+                Some(r#"{"links":{"archive":["html"]}}"#),
+                true,
+            );
+            assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+            assert_eq!(r.path, root.join("Links/Archive Page.md"));
+            let text = std::fs::read_to_string(&r.path).unwrap();
+            assert!(
+                text.contains("\narchive:\n  - .archive/Archive Page.html\n---\n"),
+                "{text}"
+            );
+            let file =
+                std::fs::read_to_string(root.join("Links/.archive/Archive Page.html")).unwrap();
+            assert!(file.contains("<img src=\"data:image/png;base64,"), "{file}");
+            assert!(file.contains("<style>body { background: url(\"data:image/png"));
+            assert!(!file.contains("<script"));
+            // The folder is ignored by Git and the file with it; nothing else is touched.
+            assert_eq!(
+                std::fs::read_to_string(root.join(".gitignore")).unwrap(),
+                "# Nixe\nLinks/.archive/\n"
+            );
+            assert!(git2::Repository::open(&root)
+                .unwrap()
+                .is_path_ignored("Links/.archive/Archive Page.html")
+                .unwrap());
+            // The frontmatter is still valid YAML.
+            let (fm, _) = text[4..].split_once("\n---\n").unwrap();
+            let yaml: serde_yaml_ng::Value = serde_yaml_ng::from_str(fm).unwrap();
+            assert_eq!(yaml["archive"][0], ".archive/Archive Page.html");
+        }
+
+        #[test]
+        fn the_gitignore_is_appended_to_and_not_rewritten() {
+            let root = tmp("archive-gitignore");
+            std::fs::write(root.join(".gitignore"), "build/\n").unwrap();
+            std::fs::create_dir_all(root.join(".nixe")).unwrap();
+            std::fs::write(
+                root.join(".nixe/config.json"),
+                r#"{"links":{"archive":["html"]},"folders":{"links":"Reading"}}"#,
+            )
+            .unwrap();
+            for url in ["https://example.com/a", "https://example.com/b"] {
+                let mut req = request(url);
+                req.html = Some(String::from_utf8(fixture("archive.html")).unwrap());
+                clip_with(&root, &data(&root), req, &at(), &assets).unwrap();
+            }
+            assert_eq!(
+                std::fs::read_to_string(root.join(".gitignore")).unwrap(),
+                "build/\n\n# Nixe\nReading/.archive/\n"
+            );
+            assert!(root.join("Reading/.archive/Archive Page.html").is_file());
+            assert!(root.join("Reading/.archive/Archive Page 2.html").is_file());
+        }
+
+        #[test]
+        fn an_archive_that_cannot_be_written_is_a_warning_and_the_note_is_saved() {
+            let root = tmp("archive-blocked");
+            std::fs::create_dir_all(root.join(".nixe")).unwrap();
+            std::fs::write(
+                root.join(".nixe/config.json"),
+                r#"{"links":{"archive":["html"]}}"#,
+            )
+            .unwrap();
+            // A file where the folder should be.
+            std::fs::create_dir_all(root.join("Links")).unwrap();
+            std::fs::write(root.join("Links/.archive"), "").unwrap();
+            let mut req = request("https://example.com/a");
+            req.html = Some("<title>Blocked</title>".into());
+            let r = clip_with(&root, &data(&root), req, &at(), &no_network).unwrap();
+            assert!(r.created);
+            assert!(
+                r.warnings
+                    .iter()
+                    .any(|w| w.contains("saved without the HTML archive")),
+                "{:?}",
+                r.warnings
+            );
+            assert!(!std::fs::read_to_string(&r.path)
+                .unwrap()
+                .contains("archive:"));
         }
 
         fn clip_with_config(name: &str, config: Option<&str>) -> (PathBuf, ClipResult) {
