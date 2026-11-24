@@ -1666,6 +1666,8 @@ pub fn run() {
         index::commands::workspace_notes,
         index::commands::vault_health,
         index::commands::check_dead_links,
+        #[cfg(desktop)]
+        links::render::clip_link,
         watch_file,
         watch_roots,
         git_vault_status,
@@ -1815,6 +1817,8 @@ pub fn run() {
         index::commands::workspace_notes,
         index::commands::vault_health,
         index::commands::check_dead_links,
+        #[cfg(desktop)]
+        links::render::clip_link,
         watch_file,
         watch_roots,
         git_vault_status,

@@ -3004,10 +3004,12 @@ name = "nixe"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "cairo-rs",
  "chrono",
  "dom_smoothie",
  "dunce",
  "git2",
+ "gtk",
  "htmd",
  "ignore",
  "keyring",
@@ -3033,6 +3035,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "ureq",
+ "webkit2gtk",
 ]
 
 [[package]]

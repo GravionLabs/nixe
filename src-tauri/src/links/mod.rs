@@ -9,6 +9,8 @@ pub mod dead;
 pub mod fetch;
 #[cfg(desktop)]
 pub mod note;
+#[cfg(desktop)]
+pub mod render;
 pub mod url;
 
 /// The clip code lives in one module so that a single `cfg` keeps it off mobile.
@@ -23,6 +25,7 @@ mod clip_impl {
     use super::archive;
     use super::fetch::{self, Fetcher};
     use super::note::{self, Note};
+    use super::render::{Format, Renderer};
     use super::url;
     use crate::capture::is_url;
     use crate::index::{self, read};
@@ -86,13 +89,27 @@ mod clip_impl {
         )
     }
 
-    /// [`clip`] with the clock and the fetch given; the tests pass saved pages.
+    /// [`clip`] with the clock and the fetch given; the tests pass saved pages. Without a
+    /// renderer (the CLI) a `screenshot` or `pdf` archive is skipped with a warning.
     pub fn clip_with(
         root: &Path,
         app_data: &Path,
         req: ClipRequest,
         now: &DateTime<FixedOffset>,
         fetcher: Fetcher,
+    ) -> Result<ClipResult, ClipError> {
+        clip_rendered(root, app_data, req, now, fetcher, None)
+    }
+
+    /// [`clip_with`] with the renderer of the desktop app (#506) that makes the screenshot and
+    /// the PDF.
+    pub fn clip_rendered(
+        root: &Path,
+        app_data: &Path,
+        req: ClipRequest,
+        now: &DateTime<FixedOffset>,
+        fetcher: Fetcher,
+        renderer: Option<&dyn Renderer>,
     ) -> Result<ClipResult, ClipError> {
         let url = req.url.trim();
         if !is_url(url) {
@@ -188,7 +205,8 @@ mod clip_impl {
             crate::cli::CliError::Usage(m) | crate::cli::CliError::Failed(m) => ClipError::Write(m),
         })?;
         let path = free_path(&dir, &note::file_name(&title, &host));
-        let archive_files = archive_html(&root, &path, url, &html, fetcher, &mut warnings);
+        let mut archive_files = archive_html(&root, &path, url, &html, fetcher, &mut warnings);
+        archive_files.extend(archive_rendered(&root, &path, url, renderer, &mut warnings));
         let text = note::render(&Note {
             archive_files: &archive_files,
             ..note
@@ -222,7 +240,6 @@ mod clip_impl {
         }
         let result = (|| -> Result<String, String> {
             let page = archive::inline_page(html, url, fetcher)?;
-            let dir = note_path.parent().ok_or("the note has no folder")?;
             let name = format!(
                 "{}.html",
                 note_path
@@ -230,14 +247,8 @@ mod clip_impl {
                     .and_then(|s| s.to_str())
                     .ok_or("the note has no name")?
             );
-            let archive_dir = dir.join(archive::ARCHIVE_DIR);
             // The folder is not synced: the ignore entry comes before the first file.
-            let rel = archive_dir
-                .strip_prefix(root)
-                .map_err(|_| "the archive folder is outside the vault".to_string())?;
-            let rel = rel.to_string_lossy().replace('\\', "/");
-            crate::git::gitignore_ensure(root, &rel)?;
-            std::fs::create_dir_all(&archive_dir).map_err(|e| format!("{rel}: {e}"))?;
+            let archive_dir = archive_dir(root, note_path)?;
             write_archive_file(&archive_dir.join(&name), &page)?;
             Ok(format!("{}/{name}", archive::ARCHIVE_DIR))
         })();
@@ -248,6 +259,88 @@ mod clip_impl {
                 Vec::new()
             }
         }
+    }
+
+    /// The screenshot and the PDF of the page next to the note when `links.archive` asks for
+    /// them; the names are relative to the folder of the note. A format that cannot be made is a
+    /// warning (and a log line), never a failed clip.
+    fn archive_rendered(
+        root: &Path,
+        note_path: &Path,
+        url: &str,
+        renderer: Option<&dyn Renderer>,
+        warnings: &mut Vec<String>,
+    ) -> Vec<String> {
+        let formats: Vec<Format> = Config::load(root)
+            .links_archive()
+            .iter()
+            .filter_map(|k| Format::from_setting(k))
+            .collect();
+        if formats.is_empty() {
+            return Vec::new();
+        }
+        let names = formats
+            .iter()
+            .map(|f| f.name())
+            .collect::<Vec<_>>()
+            .join(" and ");
+        let Some(renderer) = renderer else {
+            warnings.push(format!(
+                "{url}: the {names} archive is made by the desktop app only; skipped"
+            ));
+            return Vec::new();
+        };
+        let Some(stem) = note_path.file_stem().and_then(|s| s.to_str()) else {
+            return Vec::new();
+        };
+        let dir = match archive_dir(root, note_path) {
+            Ok(dir) => dir,
+            Err(why) => {
+                warnings.push(format!("{url}: {why}; saved without the {names} archive"));
+                return Vec::new();
+            }
+        };
+        let mut files = Vec::new();
+        for (format, result) in renderer.render(url, &formats) {
+            let name = format!("{stem}.{}", format.extension());
+            let written = result
+                .map_err(|e| e.to_string())
+                .and_then(|bytes| write_archive_bytes(&dir.join(&name), &bytes));
+            match written {
+                Ok(()) => files.push(format!("{}/{name}", archive::ARCHIVE_DIR)),
+                Err(why) => {
+                    log::warn!("{url}: {} archive skipped: {why}", format.name());
+                    warnings.push(format!(
+                        "{url}: {why}; saved without the {} archive",
+                        format.name()
+                    ));
+                }
+            }
+        }
+        files
+    }
+
+    /// The archive folder next to the note, created, and ignored by Git before the first file.
+    fn archive_dir(root: &Path, note_path: &Path) -> Result<PathBuf, String> {
+        let dir = note_path.parent().ok_or("the note has no folder")?;
+        let archive_dir = dir.join(archive::ARCHIVE_DIR);
+        let rel = archive_dir
+            .strip_prefix(root)
+            .map_err(|_| "the archive folder is outside the vault".to_string())?;
+        let rel = rel.to_string_lossy().replace('\\', "/");
+        crate::git::gitignore_ensure(root, &rel)?;
+        std::fs::create_dir_all(&archive_dir).map_err(|e| format!("{rel}: {e}"))?;
+        Ok(archive_dir)
+    }
+
+    fn write_archive_bytes(path: &Path, bytes: &[u8]) -> Result<(), String> {
+        let tmp = path.with_extension("nixe-tmp");
+        std::fs::write(&tmp, bytes)
+            .and_then(|()| std::fs::rename(&tmp, path))
+            .map_err(|e| {
+                let _ = std::fs::remove_file(&tmp);
+                format!("{}: {e}", path.display())
+            })
     }
 
     /// A temp file and a rename, like the notes: no half file.
@@ -664,6 +757,158 @@ mod clip_impl {
             );
             assert!(root.join("Reading/.archive/Archive Page.html").is_file());
             assert!(root.join("Reading/.archive/Archive Page 2.html").is_file());
+        }
+
+        use crate::links::render::{Format, RenderError};
+
+        /// Answers the render with fixed results and counts the calls.
+        struct Fake {
+            results: Vec<(Format, Result<Vec<u8>, RenderError>)>,
+            calls: std::cell::Cell<usize>,
+        }
+
+        impl Renderer for Fake {
+            fn render(
+                &self,
+                _: &str,
+                formats: &[Format],
+            ) -> Vec<(Format, Result<Vec<u8>, RenderError>)> {
+                self.calls.set(self.calls.get() + 1);
+                assert!(!formats.is_empty());
+                self.results.clone()
+            }
+        }
+
+        fn clip_rendered_with(
+            name: &str,
+            config: &str,
+            renderer: Option<&dyn Renderer>,
+        ) -> (PathBuf, ClipResult) {
+            let root = tmp(name);
+            std::fs::create_dir_all(root.join(".nixe")).unwrap();
+            std::fs::write(root.join(".nixe/config.json"), config).unwrap();
+            let mut req = request("https://example.com/a");
+            req.html = Some(String::from_utf8(fixture("archive.html")).unwrap());
+            let r = clip_rendered(&root, &data(&root), req, &at(), &assets, renderer).unwrap();
+            (root, r)
+        }
+
+        #[test]
+        fn the_renders_are_written_next_to_the_note_and_named_in_it() {
+            let fake = Fake {
+                results: vec![
+                    (Format::Screenshot, Ok(b"png".to_vec())),
+                    (Format::Pdf, Ok(b"pdf".to_vec())),
+                ],
+                calls: Default::default(),
+            };
+            let (root, r) = clip_rendered_with(
+                "render-both",
+                r#"{"links":{"archive":["html","screenshot","pdf"]}}"#,
+                Some(&fake),
+            );
+            assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+            assert_eq!(fake.calls.get(), 1);
+            assert_eq!(
+                std::fs::read(root.join("Links/.archive/Archive Page.png")).unwrap(),
+                b"png"
+            );
+            assert_eq!(
+                std::fs::read(root.join("Links/.archive/Archive Page.pdf")).unwrap(),
+                b"pdf"
+            );
+            let text = std::fs::read_to_string(&r.path).unwrap();
+            assert!(
+                text.contains(
+                    "\narchive:\n  - .archive/Archive Page.html\n  - .archive/Archive Page.png\n  - .archive/Archive Page.pdf\n---\n"
+                ),
+                "{text}"
+            );
+        }
+
+        #[test]
+        fn a_format_the_platform_cannot_make_is_skipped_and_the_clip_succeeds() {
+            let fake = Fake {
+                results: vec![
+                    (Format::Screenshot, Ok(b"png".to_vec())),
+                    (
+                        Format::Pdf,
+                        Err(RenderError::Unsupported("pdf is not available".into())),
+                    ),
+                ],
+                calls: Default::default(),
+            };
+            let (root, r) = clip_rendered_with(
+                "render-partial",
+                r#"{"links":{"archive":["screenshot","pdf"]}}"#,
+                Some(&fake),
+            );
+            assert!(r.created);
+            assert_eq!(r.warnings.len(), 1, "{:?}", r.warnings);
+            assert!(r.warnings[0].contains("pdf is not available"));
+            assert!(root.join("Links/.archive/Archive Page.png").is_file());
+            assert!(!root.join("Links/.archive/Archive Page.pdf").exists());
+            let text = std::fs::read_to_string(&r.path).unwrap();
+            assert!(
+                text.contains("  - .archive/Archive Page.png\n---\n"),
+                "{text}"
+            );
+            assert!(!text.contains(".pdf"), "{text}");
+        }
+
+        #[test]
+        fn a_page_that_does_not_render_is_saved_without_files() {
+            let fake = Fake {
+                results: vec![(
+                    Format::Screenshot,
+                    Err(RenderError::Failed("timed out".into())),
+                )],
+                calls: Default::default(),
+            };
+            let (root, r) = clip_rendered_with(
+                "render-failed",
+                r#"{"links":{"archive":["screenshot"]}}"#,
+                Some(&fake),
+            );
+            assert!(r.created);
+            assert!(r.warnings[0].contains("timed out"), "{:?}", r.warnings);
+            assert!(!std::fs::read_to_string(&r.path)
+                .unwrap()
+                .contains("archive:"));
+            assert!(!root.join("Links/.archive/Archive Page.png").exists());
+        }
+
+        #[test]
+        fn without_a_renderer_the_cli_skips_the_renders_with_a_note() {
+            let (root, r) = clip_rendered_with(
+                "render-cli",
+                r#"{"links":{"archive":["html","screenshot","pdf"]}}"#,
+                None,
+            );
+            assert_eq!(r.warnings.len(), 1, "{:?}", r.warnings);
+            assert!(
+                r.warnings[0]
+                    .contains("screenshot and pdf archive is made by the desktop app only"),
+                "{:?}",
+                r.warnings
+            );
+            assert!(root.join("Links/.archive/Archive Page.html").is_file());
+            assert!(!root.join("Links/.archive/Archive Page.png").exists());
+        }
+
+        #[test]
+        fn the_html_setting_alone_never_calls_the_renderer() {
+            let fake = Fake {
+                results: vec![],
+                calls: Default::default(),
+            };
+            let (_, r) = clip_rendered_with(
+                "render-html-only",
+                r#"{"links":{"archive":["html"]}}"#,
+                Some(&fake),
+            );
+            assert!(r.warnings.is_empty());
+            assert_eq!(fake.calls.get(), 0);
         }
 
         #[test]
