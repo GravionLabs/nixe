@@ -1,3 +1,4 @@
+import type { EditorLink } from "../../core/editor/editor-core";
 import type { EditorState, Extension, Range } from "@codemirror/state";
 import { StateField } from "@codemirror/state";
 import type { DecorationSet, ViewUpdate } from "@codemirror/view";
@@ -28,6 +29,8 @@ export interface LivePreviewHooks {
   mountProperties?(el: HTMLElement, source: string, actions: PropertiesActions): PropertiesHandle;
   /** How the properties show in the document; `hidden` draws no frontmatter at all. */
   propertiesDisplay?(): PropertiesDisplay;
+  /** A click on a link drawn in a table cell opens it (`newTab` with ⌘/Ctrl). Absent: the click edits the cell. */
+  openLink?(link: EditorLink, newTab: boolean): void;
 }
 
 /** What the properties block asks the editor to do. */
@@ -264,6 +267,7 @@ function tableHooks(hooks: LivePreviewHooks) {
   return {
     render: (el: HTMLElement, source: string) => hooks.render(el, source, "table"),
     locate: locateTable,
+    openLink: hooks.openLink ? (l: EditorLink, n: boolean) => hooks.openLink?.(l, n) : undefined,
   };
 }
 

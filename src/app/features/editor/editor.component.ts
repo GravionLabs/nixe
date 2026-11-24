@@ -42,7 +42,8 @@ import { embedFor, pastedImageName } from "../../core/editor/attachment-core";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { insertTemplate } from "../../core/templates/template-core";
-import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
+import { isEpubPath, isMarkdownPath, isRemoteEpubUrl, joinPath } from "../../core/markdown/paths";
+import { WorkspacesService } from "../../core/workspace/workspaces.service";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { fileLabel } from "../../core/switcher/fuzzy";
 import { SettingsService } from "../../core/settings/settings.service";
@@ -87,6 +88,7 @@ export class EditorComponent implements OnDestroy {
   private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
   private readonly ops = inject(VaultOpsService);
+  private readonly workspaces = inject(WorkspacesService);
   private readonly preview = inject(LinkPreviewService);
   private readonly settings = inject(SettingsService);
   private readonly editor = inject(EditorService);
@@ -314,6 +316,7 @@ export class EditorComponent implements OnDestroy {
   /** Blocks of the live preview go through the same pipeline as the reading view. */
   private readonly liveHooks: LivePreviewHooks = {
     propertiesDisplay: () => this.settings.propertiesDisplay(),
+    openLink: (link, newTab) => void this.openLink(link, newTab),
     mountProperties: (el, source, actions): PropertiesHandle => {
       const ref = createComponent(PropertiesComponent, {
         environmentInjector: this.injector,
@@ -697,7 +700,8 @@ export class EditorComponent implements OnDestroy {
       const href = classifyHref(link.target);
       switch (href.kind) {
         case "external":
-          await openUrl(href.url);
+          if (isRemoteEpubUrl(href.url)) await this.openBook(href.url);
+          else await openUrl(href.url);
           break;
         case "local": {
           const current = this.session?.path;
@@ -709,6 +713,7 @@ export class EditorComponent implements OnDestroy {
           });
           if (!resolved) this.failed.emit(`File not found: ${href.path}`);
           else if (isMarkdownPath(resolved)) await this.openAt(resolved, href.anchor, newTab);
+          else if (isEpubPath(resolved)) await this.openBook(resolved);
           else await openPath(resolved);
           break;
         }
@@ -726,18 +731,43 @@ export class EditorComponent implements OnDestroy {
     else await this.tabs.openPreview(path, { anchor });
   }
 
+  private async openBook(path: string): Promise<void> {
+    await this.settle();
+    await this.tabs.openEpub(path);
+  }
+
   private async openWikilink(value: string, newTab: boolean): Promise<void> {
     const { note, heading } = parseWikilinkTarget(value);
+    const other = note
+      ? await this.workspaces.resolveLink(value, this.session?.path ?? null)
+      : undefined;
+    if (other) {
+      if (isEpubPath(other)) await this.openBook(other);
+      else await this.openAt(other, heading, newTab);
+      return;
+    }
+    if (note && isEpubPath(note) && other === null) {
+      this.failed.emit(`File not found: ${note}`);
+      return;
+    }
     const root = this.workspace.vaultRoot();
     const files = this.workspace.vaultFiles();
     const resolved = note && root && files ? resolveWikilink(value, files) : null;
     if (!root || !files || !note) return;
+    if (!resolved && isEpubPath(note)) {
+      this.failed.emit(`File not found: ${note}`);
+      return;
+    }
     if (!resolved) {
       await this.settle();
       await this.ops.createNoteForLink(value).catch((err) => this.failed.emit(String(err)));
       return;
     }
     const path = joinPath(root, resolved);
+    if (isEpubPath(path)) {
+      await this.openBook(path);
+      return;
+    }
     if (!isMarkdownPath(path)) return;
     await this.openAt(path, heading, newTab);
   }

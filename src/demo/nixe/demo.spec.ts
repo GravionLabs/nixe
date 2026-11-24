@@ -93,6 +93,24 @@ describe("the demo backend of Nixe", () => {
     expect(await backend.invoke("read_text_file", { path: HOME_NOTE })).toBe("# Changed");
   });
 
+  it("answers read_epub for a book in the vault or a root and refuses the rest", async () => {
+    const { backend } = createNixeDemo();
+    const bytes = await backend.invoke<number[]>("read_epub", {
+      path: `${VAULT}/Books/a.epub`,
+      roots: [],
+    });
+    expect(bytes.slice(0, 2)).toEqual([0x50, 0x4b]);
+    // The demo reader shows the book of the fixtures (#487).
+    expect(bytes).toEqual([...readFileSync("fixtures/books/sample.epub")]);
+    await backend.invoke("read_epub", { path: "/other/b.EPUB", roots: ["/other/"] });
+    await expect(
+      backend.invoke("read_epub", { path: "/elsewhere/c.epub", roots: [VAULT] }),
+    ).rejects.toMatch("outside");
+    await expect(
+      backend.invoke("read_epub", { path: `${VAULT}/Home.md`, roots: [] }),
+    ).rejects.toMatch("not an EPUB");
+  });
+
   it("fails a command it does not know and names it", async () => {
     const { backend } = createNixeDemo();
     await expect(backend.invoke("brand_new_command")).rejects.toThrow("brand_new_command");

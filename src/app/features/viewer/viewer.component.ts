@@ -33,7 +33,7 @@ import {
   imageNaturalSize,
   revealLabel,
 } from "../../core/markdown/image-zoom";
-import { isMarkdownPath, joinPath } from "../../core/markdown/paths";
+import { isEpubPath, isMarkdownPath, isRemoteEpubUrl, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
@@ -639,7 +639,8 @@ export class ViewerComponent {
         this.jumpToAnchor(href.anchor);
         break;
       case "external":
-        await openUrl(href.url);
+        if (isRemoteEpubUrl(href.url)) await this.openBook(href.url);
+        else await openUrl(href.url);
         break;
       case "local": {
         const currentFile = this.doc.path();
@@ -656,6 +657,8 @@ export class ViewerComponent {
           this.notify.emit(`File not found: ${href.path}`);
         } else if (isMarkdownPath(resolved)) {
           await this.openNote(resolved, { anchor: href.anchor }, event.metaKey || event.ctrlKey);
+        } else if (isEpubPath(resolved)) {
+          await this.openBook(resolved);
         } else {
           await openPath(resolved);
         }
@@ -725,6 +728,15 @@ export class ViewerComponent {
     }
   }
 
+  /** Opens an EPUB book in the reader tab; a book that cannot be read shows its error. */
+  private async openBook(path: string): Promise<void> {
+    try {
+      await this.tabs.openEpub(path);
+    } catch (err) {
+      this.notify.emit(String(err));
+    }
+  }
+
   private async openWikilink(target: string, newTab = false): Promise<void> {
     const { note, heading } = parseWikilinkTarget(target);
     if (!note) {
@@ -733,7 +745,13 @@ export class ViewerComponent {
     }
     const other = await this.workspaces.resolveLink(target, this.doc.path());
     if (other) {
-      await this.openNote(other, { anchor: heading }, newTab);
+      if (isEpubPath(other)) await this.openBook(other);
+      else await this.openNote(other, { anchor: heading }, newTab);
+      return;
+    }
+    // A book that is not there is no note to create.
+    if (isEpubPath(note) && other === null) {
+      this.notify.emit(`File not found: ${note}`);
       return;
     }
     const root = this.workspace.vaultRoot();
@@ -741,10 +759,15 @@ export class ViewerComponent {
     const resolved = root && files && other === undefined ? resolveWikilink(target, files) : null;
     if (!root || !files) return;
     if (!resolved) {
-      await this.ops.createNoteForLink(target).catch((err) => this.notify.emit(String(err)));
+      if (isEpubPath(note)) this.notify.emit(`File not found: ${note}`);
+      else await this.ops.createNoteForLink(target).catch((err) => this.notify.emit(String(err)));
       return;
     }
     const path = joinPath(root, resolved);
+    if (isEpubPath(path)) {
+      await this.openBook(path);
+      return;
+    }
     if (!isMarkdownPath(path)) {
       await openPath(path);
       return;

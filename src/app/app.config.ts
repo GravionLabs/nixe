@@ -1,5 +1,10 @@
 import type { ApplicationConfig } from "@angular/core";
-import { inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from "@angular/core";
+import {
+  inject,
+  isDevMode,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+} from "@angular/core";
 
 import { HX_UPDATE_BEFORE_INSTALL } from "@gravionlabs/helix-desktop/tauri";
 import { provideHxTheme } from "@gravionlabs/helix-ui";
@@ -7,7 +12,7 @@ import { provideHxTheme } from "@gravionlabs/helix-ui";
 import { AppearanceService } from "./core/appearance/appearance.service";
 import { LogService } from "./core/log/log.service";
 import { SettingsService } from "./core/settings/settings.service";
-import { ACTIVE_TAB_PROVIDERS } from "./core/tabs/tabs.service";
+import { ACTIVE_TAB_PROVIDERS, TabsService } from "./core/tabs/tabs.service";
 import { saveBeforeInstall } from "./core/updater/save-before-install";
 
 export const appConfig: ApplicationConfig = {
@@ -23,6 +28,15 @@ export const appConfig: ApplicationConfig = {
     provideHxTheme({ storageKey: null }),
     // The open note is saved before an update is installed; the app version is provided in `main.ts`.
     { provide: HX_UPDATE_BEFORE_INSTALL, useFactory: saveBeforeInstall },
+    // The demo build and `ng serve` (never the release build) offer the e2e tests and the
+    // screenshots a way to open a book without a link.
+    provideAppInitializer(() => {
+      if (!isDevMode()) return;
+      const tabs = inject(TabsService);
+      (window as unknown as { __nixeDev?: object }).__nixeDev = {
+        openEpub: (path: string) => tabs.openEpub(path).then(() => undefined),
+      };
+    }),
     ...ACTIVE_TAB_PROVIDERS,
   ],
 };

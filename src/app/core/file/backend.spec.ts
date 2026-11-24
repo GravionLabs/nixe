@@ -38,3 +38,23 @@ describe("write_text_file", () => {
     });
   });
 });
+
+describe("read_epub", () => {
+  beforeEach(() => invoke.mockReset());
+
+  it("passes the roots and returns the bytes of the book", async () => {
+    invoke.mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
+    const bytes = await backend.readEpub("/r/a.epub", ["/r"]);
+    expect(invoke).toHaveBeenCalledWith("read_epub", { path: "/r/a.epub", roots: ["/r"] });
+    expect([...bytes]).toEqual([1, 2, 3]);
+  });
+
+  it("passes on the refusal of the backend", async () => {
+    invoke.mockImplementation((command: string) =>
+      command === "read_epub"
+        ? Promise.reject("outside the open roots and the vault: /x.epub")
+        : Promise.resolve(),
+    );
+    await expect(backend.readEpub("/x.epub", [])).rejects.toMatch("outside");
+  });
+});

@@ -14,8 +14,10 @@ import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { OutlineService } from "../outline/outline.service";
 import { SettingsService } from "../settings/settings.service";
-import { toSlashes } from "../markdown/paths";
+import { isRemoteEpubUrl, toSlashes } from "../markdown/paths";
 import type { CompareInput } from "../compare/compare";
+import type { EpubBook } from "../epub/epub";
+import { EpubService } from "../epub/epub.service";
 import type { LayoutState, TabState, TabView } from "./layout";
 import { TAB_VIEWS } from "./layout";
 import { MAX_TABS, clampRatio } from "./layout";
@@ -51,6 +53,8 @@ export interface Tab {
   readonly pinned: WritableSignal<boolean>;
   /** What the compare view of this tab shows; set together with the view `compare`. */
   readonly compare: WritableSignal<CompareInput | null>;
+  /** The book the epub view of this tab shows; set together with the view `epub` (#487). */
+  readonly epub: WritableSignal<EpubBook | null>;
   /** Set by the pane while the viewer of the tab is shown. */
   viewer: ViewerHandle | null;
   /** 1-based first visible line, kept while the tab is not shown. */
@@ -190,6 +194,33 @@ export class TabsService {
     }
     const tab = this.newTab();
     tab.view.set(view);
+    return tab;
+  }
+
+  /**
+   * Opens the EPUB book at `path` in a reader tab; the tab that reads it already is focused. The
+   * book is read first, so a book that cannot be read opens no tab and the error reaches the caller.
+   */
+  async openEpub(path: string): Promise<Tab> {
+    // A link to a book on the web: the core downloads it once and the tab shows the local file.
+    if (isRemoteEpubUrl(path)) path = await backend.downloadEpub(path);
+    path = toSlashes(path);
+    const find = () =>
+      this.allTabs().find((t) => t.view() === "epub" && t.epub()?.path === path) ?? null;
+    const open = (tab: Tab) => {
+      const pane = this.panes().find((p) => p.tabs.includes(tab));
+      if (pane) this.activate(pane.id, tab.id);
+      return tab;
+    };
+    const known = find();
+    if (known) return open(known);
+    const book = await this.injector.get(EpubService).load(path);
+    // The same book may have been opened while this one was read.
+    const again = find();
+    if (again) return open(again);
+    const tab = this.newTab();
+    tab.epub.set(book);
+    tab.view.set("epub");
     return tab;
   }
 
@@ -687,6 +718,7 @@ export class TabsService {
       view: signal<TabView | null>(null),
       pinned: signal(pinned),
       compare: signal<CompareInput | null>(null),
+      epub: signal<EpubBook | null>(null),
       viewer: null,
       scrollLine: null,
     };

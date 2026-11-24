@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import "@angular/compiler";
+import { readFileSync } from "node:fs";
 import { Component, inject } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { NgComponentOutlet } from "@angular/common";
@@ -35,6 +36,14 @@ describe("TabsService", () => {
       }
       if (cmd === "find_wiki_root") return "/v";
       if (cmd === "is_utf8_file") return true;
+      if (cmd === "download_epub") {
+        if (!String(args.url).startsWith("https://")) throw "only https URLs are downloaded";
+        return "/data/books/sample-1.epub";
+      }
+      if (cmd === "read_epub") {
+        if (!/sample(-1)?\.epub$/.test(args.path)) throw "outside the open roots and the vault";
+        return [...readFileSync("fixtures/books/sample.epub")];
+      }
       return undefined;
     });
     TestBed.resetTestingModule();
@@ -664,5 +673,61 @@ describe("TabsService", () => {
     const fixture = TestBed.createComponent(Host);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toBe("/v/a.md");
+  });
+
+  describe("openEpub", () => {
+    it("opens a tab with the view epub and the book; the tab title is the book title", async () => {
+      const tab = await tabs.openEpub("/v/Books/sample.epub");
+
+      expect(tab.view()).toBe("epub");
+      expect(tab.epub()?.path).toBe("/v/Books/sample.epub");
+      expect(tab.epub()?.title).toBe("Nixe Sample Book");
+      expect(tabs.activeTab()).toBe(tab);
+      expect(tabs.showWorkspace()).toBe(true);
+    });
+
+    it("downloads the book of an https link and opens the local file once", async () => {
+      const url = "https://example.org/books/sample.epub";
+      const tab = await tabs.openEpub(url);
+
+      expect(invoke).toHaveBeenCalledWith("download_epub", { url });
+      expect(tab.epub()?.path).toBe("/data/books/sample-1.epub");
+      const count = tabs.panes()[0].tabs.length;
+      expect(await tabs.openEpub(url)).toBe(tab);
+      expect(tabs.panes()[0].tabs.length).toBe(count);
+    });
+
+    it("opens no tab when the download is refused", async () => {
+      invoke.mockImplementation(async (cmd: string) => {
+        if (cmd === "download_epub") throw "book too large (limit 50 MB)";
+        return undefined;
+      });
+      await expect(tabs.openEpub("https://example.org/big.epub")).rejects.toMatch("too large");
+      expect(tabs.panes()[0].tabs.length).toBe(1);
+    });
+
+    it("focuses the tab that reads the book already", async () => {
+      const first = await tabs.openEpub("/v/Books/sample.epub");
+      await tabs.openInNewTab("/v/a.md");
+
+      const again = await tabs.openEpub("/v/Books/sample.epub");
+
+      expect(again).toBe(first);
+      expect(tabs.activeTab()).toBe(first);
+      expect(tabs.panes()[0].tabs.length).toBe(3);
+    });
+
+    it("opens no tab for a book that cannot be read", async () => {
+      await expect(tabs.openEpub("/elsewhere/b.epub")).rejects.toMatch("outside");
+
+      expect(tabs.panes()[0].tabs.length).toBe(1);
+      expect(tabs.activeTab().view()).toBeNull();
+    });
+
+    it("does not store the reader tab with the layout", async () => {
+      await tabs.openEpub("/v/Books/sample.epub");
+
+      expect(tabs.snapshot().panes[0].tabs[0].view).toBeNull();
+    });
   });
 });

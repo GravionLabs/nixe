@@ -50,6 +50,7 @@ mod cli_write;
 mod conflict;
 mod credentials;
 mod daily;
+mod epub;
 mod fileops;
 mod folds;
 mod git;
@@ -64,6 +65,7 @@ pub mod mcp;
 mod menu;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
+mod reading;
 mod review;
 mod settings;
 mod site;
@@ -251,6 +253,59 @@ fn read_data_uri(path: String) -> Option<String> {
 fn read_bundled_data_uri(app: AppHandle, path: String) -> Option<String> {
     let asset = app.asset_resolver().get(path.clone())?;
     data_uri(Path::new(&path), &asset.bytes)
+}
+
+/// The bytes of an `.epub` book for the reader (#486). Only a book in the vault or in one of the
+/// `roots` of the open workspace is returned, up to `epub::MAX_BYTES`.
+#[tauri::command]
+fn read_epub(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+    roots: Vec<String>,
+) -> Result<tauri::ipc::Response, String> {
+    let mut allowed: Vec<PathBuf> = roots.into_iter().map(PathBuf::from).collect();
+    allowed.extend(state.vault_root.lock().unwrap().clone());
+    // The books that were downloaded (#491) live outside every vault.
+    allowed.extend(books_dir(&app).ok());
+    epub::read_epub(&allowed, Path::new(&path)).map(tauri::ipc::Response::new)
+}
+
+/// `books/` of the app data directory: the downloaded EPUB books, never inside a vault (#491).
+fn books_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|d| d.join("books"))
+        .map_err(|e| e.to_string())
+}
+
+/// Downloads the EPUB book at an `https` URL into `books/` of the app data directory and returns
+/// its path; a book downloaded before is reused (#491).
+#[tauri::command]
+async fn download_epub(app: AppHandle, url: String) -> Result<String, String> {
+    let dir = books_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        epub::download_epub(&dir, &url, epub::MAX_BYTES).map(|p| p.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The saved reading position (JSON text) of an EPUB book in the open vault (#489); `None` when
+/// there is none, the file is damaged or no vault is open.
+#[tauri::command]
+fn read_epub_position(state: State<'_, AppState>, key: String) -> Option<String> {
+    reading::read_position(&vault_root_of(&state).ok()?, &key)
+}
+
+/// Saves the reading position of an EPUB book in `.nixe/epub/` of the open vault.
+#[tauri::command]
+fn write_epub_position(
+    state: State<'_, AppState>,
+    key: String,
+    content: String,
+) -> Result<(), String> {
+    reading::write_position(&vault_root_of(&state)?, &key, &content)
 }
 
 #[tauri::command]
@@ -1483,6 +1538,10 @@ pub fn run() {
         read_data_uri,
         read_bundled_data_uri,
         read_text_file,
+        read_epub,
+        download_epub,
+        read_epub_position,
+        write_epub_position,
         write_text_file,
         create_file,
         create_dir,
@@ -1630,6 +1689,10 @@ pub fn run() {
         read_data_uri,
         read_bundled_data_uri,
         read_text_file,
+        read_epub,
+        download_epub,
+        read_epub_position,
+        write_epub_position,
         write_text_file,
         create_file,
         create_dir,

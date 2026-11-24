@@ -23,6 +23,7 @@ links and Mermaid rendering all at once.
 - [cutover.md](cutover.md) — the checklist for replacing Obsidian
 - [roadmap.md](roadmap.md) — milestones M000 to M009 of the vault app
 - [Portable workspaces](adr/0008-location-variables-and-own-root-names-for-portable-workspaces.md) — location variables in root paths, own root names
+- [EPUB reader](adr/0009-epub-reader-foliate-js-sandbox-and-storage.md) — foliate-js, the sandboxed iframe, files through the Rust core, books outside git
 - [adr/](adr/) — architecture decisions
 - [backend/README.md](backend/README.md) — the Rust core (`src-tauri/`)
   - [backend/tauri-commands.md](backend/tauri-commands.md) — the command surface
@@ -33,6 +34,7 @@ links and Mermaid rendering all at once.
   - [frontend/editor.md](frontend/editor.md) — CodeMirror editor and saving
   - [frontend/bookmarks.md](frontend/bookmarks.md) — bookmarks of notes, headings and searches
   - [frontend/state-management.md](frontend/state-management.md) — signals & navigation
+  - [frontend/epub.md](frontend/epub.md) — the EPUB reader tab
   - [frontend/terminal.md](frontend/terminal.md) — the terminal panel with xterm.js
   - [frontend/demo.md](frontend/demo.md) — the demo build, e2e tests and screenshots
 - [theming.md](theming.md) — themes, CSS snippets and the CSS variables

@@ -3,6 +3,7 @@
 // (`kit/backend.ts`), so a new feature shows up as a red e2e test, not as a silent empty panel.
 import { DemoBackend } from "../kit/backend";
 import type { OwnLocations, Workspace } from "../../app/core/file/backend";
+import { DEMO_BOOK } from "./book";
 import { NOTES, TIME, VAULT } from "./data";
 import { DemoGit } from "./git";
 import { DemoVault } from "./vault";
@@ -54,6 +55,7 @@ export function createNixeDemo(): NixeDemo {
   let settings: string | null = JSON.stringify({ lastFolder: VAULT, recentVaults: [VAULT] });
   let bookmarks: string | null = null;
   let folds: string | null = null;
+  const positions = new Map<string, string>();
   // The folder roles of `.nixe/config.json`, in memory (#446).
   const roles = new Map<string, { path: string; description: string | null }>();
   const layout = () => ({
@@ -105,6 +107,8 @@ export function createNixeDemo(): NixeDemo {
     write_app_settings: (a) => void (settings = str(a, "content")),
     read_app_bookmarks: () => bookmarks,
     write_app_bookmarks: (a) => void (bookmarks = str(a, "content")),
+    read_epub_position: (a) => positions.get(str(a, "key")) ?? null,
+    write_epub_position: (a) => void positions.set(str(a, "key"), str(a, "content")),
     read_folds: () => folds,
     write_folds: (a) => void (folds = str(a, "content")),
     vault_layout: () => layout(),
@@ -125,6 +129,23 @@ export function createNixeDemo(): NixeDemo {
     list_dir: (a) => vault.listDir(str(a, "path")),
     list_vault_files: () => vault.relativeFiles(),
     read_text_file: (a) => vault.read(str(a, "path")),
+    // No book is stored in the demo vault; the answer keeps the refusals of the Rust command
+    // (extension, root) and returns the bytes of the sample book for any other path.
+    // The demo has no network: a link to a book on the web "downloads" the sample book.
+    download_epub: (a) => {
+      const url = str(a, "url");
+      if (!/^https:\/\//i.test(url)) throw `only https URLs are downloaded: ${url}`;
+      return `${vault.root}/.downloads/books/web.epub`;
+    },
+    read_epub: (a) => {
+      const path = str(a, "path");
+      const roots = [vault.root, ...strings(a, "roots")];
+      if (!path.toLowerCase().endsWith(".epub")) throw `not an EPUB file: ${path}`;
+      if (!roots.some((r) => path === r || path.startsWith(`${r.replace(/\/$/, "")}/`))) {
+        throw `outside the open roots and the vault: ${path}`;
+      }
+      return [...DEMO_BOOK];
+    },
     write_text_file: (a) => vault.write(str(a, "path"), str(a, "content")),
     create_file: (a) => {
       if (vault.exists(str(a, "path"))) throw "already exists";

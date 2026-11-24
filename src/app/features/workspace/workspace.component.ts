@@ -13,7 +13,7 @@ import { TabsService } from "../../core/tabs/tabs.service";
 import { PaneComponent } from "./pane.component";
 
 const KEY_STEP = 0.02;
-const VIEW_TITLES: Record<Exclude<TabView, "compare" | "review" | "log">, string> = {
+const VIEW_TITLES: Record<Exclude<TabView, "compare" | "review" | "log" | "epub">, string> = {
   settings: "Settings",
   health: "Vault health",
 };
@@ -61,6 +61,7 @@ export class WorkspaceComponent {
     const view = tab.view();
     if (view === "compare")
       return `Compare ${basename(tab.compare()?.path ?? "").replace(/\.(md|markdown|mdown|mkd)$/i, "")}`.trim();
+    if (view === "epub") return tab.epub()?.title ?? "Book";
     if (view === "review") return "Review a suggestion";
     if (view === "log") return "Log";
     if (view) return VIEW_TITLES[view];
