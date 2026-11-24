@@ -47,7 +47,7 @@ mod capture_app {
 pub mod cli;
 #[cfg(desktop)]
 pub mod cli_export;
-#[cfg(target_os = "macos")]
+#[cfg(desktop)]
 mod cli_install;
 #[cfg(desktop)]
 mod cli_write;
@@ -68,6 +68,8 @@ mod logging;
 pub mod mcp;
 #[cfg(desktop)]
 mod menu;
+#[cfg(desktop)]
+mod native_host;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
 mod reading;
@@ -1528,6 +1530,9 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             if event.id().as_ref() == menu::INSTALL_CLI_ID {
                 return cli_install::run(app);
+            }
+            if event.id().as_ref() == menu::INSTALL_BROWSER_ID {
+                return cli_install::run_browser_support(app);
             }
             menu::forward_event(app, event.id().as_ref())
         });

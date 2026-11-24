@@ -221,7 +221,7 @@ impl VaultServer {
 }
 
 /// Refuses absolute paths and `..`: a path argument names a place inside the vault.
-fn refuse_outside(name: &str) -> Result<(), String> {
+pub(crate) fn refuse_outside(name: &str) -> Result<(), String> {
     let path = Path::new(name);
     let escapes = path.is_absolute()
         || name.starts_with(['/', '\\'])
@@ -424,7 +424,7 @@ struct Clipped {
 
 /// The `folder` of a clip, normalised, when it is the links folder or below it.
 #[cfg(desktop)]
-fn links_subfolder(folder: &str, links: &str) -> Result<String, String> {
+pub(crate) fn links_subfolder(folder: &str, links: &str) -> Result<String, String> {
     refuse_outside(folder)?;
     let clean = |s: &str| {
         s.replace('\\', "/")

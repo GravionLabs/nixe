@@ -17,7 +17,7 @@ use crate::vault::resolve::Resolver;
 use crate::vault::{self, find_vault_root};
 
 /// Folder of the saved workspaces inside the app data directory.
-const DIR: &str = "workspaces";
+pub(crate) const DIR: &str = "workspaces";
 /// Upper bound for a workspace file.
 const MAX_BYTES: u64 = 1024 * 1024;
 

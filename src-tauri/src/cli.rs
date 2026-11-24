@@ -25,6 +25,7 @@ const SUBCOMMANDS: &[&str] = &[
     "import-links",
     "daily",
     "mcp",
+    "native-host",
 ];
 
 /// Matches `identifier` of `tauri.conf.json`: the app data directory holds the index.
@@ -47,6 +48,7 @@ usage: nixe <path>|-                       open the viewer
        nixe daily [--append <text>] [--vault <dir>]   open today's daily note, or append to it
        nixe export <note> --format html|pdf [--out <file>] [--dark|--light] [--page-size A4] [--vault <dir>]
        nixe export <folder> --site <out> [--exclude <dir>]... [--vault <dir>]   a folder as a static website
+       nixe native-host                           Native Messaging host of the browser extension (started by the browser)
        nixe mcp [--vault <dir>]...                MCP server over stdio (read-only)
 
 search, notes and tags also take several --vault <dir> or --workspace <name> (a saved
@@ -69,6 +71,16 @@ pub fn try_run() -> Option<i32> {
         eprintln!("nixe: cannot locate the application data directory");
         return Some(1);
     };
+    if args[0] == "native-host" {
+        // The browser may add arguments (the origin of the extension); stdout is for frames only.
+        return Some(match crate::native_host::run(&data) {
+            Ok(()) => 0,
+            Err(CliError::Usage(msg) | CliError::Failed(msg)) => {
+                eprintln!("nixe: {msg}");
+                1
+            }
+        });
+    }
     if args[0] == "mcp" {
         return Some(match crate::mcp::run(&args[1..], &cwd, &data) {
             Ok(()) => 0,
