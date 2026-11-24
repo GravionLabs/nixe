@@ -57,8 +57,8 @@ test("a pid-named directory that is only removed before it is created is a leak"
 
 test("a TestDir or tempfile guard is not a leak", () => {
   assert.equal(leaksTempDirs(guarded), false);
-  assert.equal(leaksTempDirs(leak.replace("PathBuf {", "TempDir {").replace("p\n", "p\n")), false);
-  assert.equal(leaksTempDirs(leak + "\nuse tempfile::tempdir;\n"), false);
+  assert.equal(leaksTempDirs(leak.replace("PathBuf {", "TempDir {")), false);
+  assert.equal(leaksTempDirs(`${leak}\nuse tempfile::tempdir;\n`), false);
 });
 
 test("a removal after the use is not a leak", () => {
