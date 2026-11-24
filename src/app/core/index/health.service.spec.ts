@@ -82,4 +82,25 @@ describe("HealthService", () => {
     await a;
     expect(health.report()).toEqual(empty);
   });
+
+  it("checks the links on request and keeps the dead ones", async () => {
+    exclude.set(["templates"]);
+    const dead = [
+      { source: "a.md", url: "https://x.example/", reason: "404", snapshot: null, checked: "t" },
+    ];
+    const spy = vi.spyOn(backend, "checkDeadLinks").mockResolvedValue(dead);
+    expect(health.deadLinks()).toBeNull();
+    await health.checkLinks("/vault", true);
+    expect(spy).toHaveBeenCalledWith("/vault", ["templates"], true);
+    expect(health.deadLinks()).toEqual(dead);
+    expect(health.checkingLinks()).toBe(false);
+  });
+
+  it("reports a failed link check", async () => {
+    vi.spyOn(backend, "checkDeadLinks").mockRejectedValue(new Error("x"));
+    await health.checkLinks("/vault");
+    expect(health.linkCheckFailed()).toBe(true);
+    expect(health.deadLinks()).toBeNull();
+    expect(health.checkingLinks()).toBe(false);
+  });
 });

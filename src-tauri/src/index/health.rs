@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use rusqlite::Connection;
 use serde::Serialize;
 
+use crate::links::dead::LinkNote;
 use crate::vault::resolve::is_markdown_path;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -153,6 +154,43 @@ pub fn report(conn: &Connection, exclude: &[String]) -> rusqlite::Result<HealthR
         }
     }
     Ok(out)
+}
+
+/// The `type: link` notes with their `url` property (see `docs/links.md`), outside the
+/// `exclude` folders, sorted by path. A note without a URL is left out.
+pub fn link_notes(conn: &Connection, exclude: &[String]) -> rusqlite::Result<Vec<LinkNote>> {
+    let mut stmt = conn.prepare(
+        "SELECT n.path, t.value, u.value FROM notes n
+         JOIN properties t ON t.note_id = n.id AND lower(t.key) = 'type'
+         JOIN properties u ON u.note_id = n.id AND lower(u.key) = 'url'
+         ORDER BY n.path, u.rowid",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+        ))
+    })?;
+    let mut out: Vec<LinkNote> = Vec::new();
+    for row in rows {
+        let (path, kind, raw) = row?;
+        let text = |raw: &str| serde_json::from_str::<String>(raw).unwrap_or_default();
+        let url = text(&raw).trim().to_string();
+        if text(&kind) != "link"
+            || url.is_empty()
+            || excluded_path(&path, exclude)
+            || out.last().is_some_and(|l| l.path == path)
+        {
+            continue;
+        }
+        out.push(LinkNote { path, url });
+    }
+    Ok(out)
+}
+
+fn excluded_path(path: &str, exclude: &[String]) -> bool {
+    exclude.iter().any(|f| in_folder(path, f))
 }
 
 #[cfg(test)]

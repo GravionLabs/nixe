@@ -58,6 +58,7 @@ mod gitclone;
 mod gitprovider;
 mod gitsync;
 mod index;
+mod links;
 mod logging;
 #[cfg(desktop)]
 pub mod mcp;
@@ -1614,6 +1615,7 @@ pub fn run() {
         index::commands::search_workspace,
         index::commands::workspace_notes,
         index::commands::vault_health,
+        index::commands::check_dead_links,
         watch_file,
         git_vault_status,
         git_gitignore_missing,
@@ -1761,6 +1763,7 @@ pub fn run() {
         index::commands::search_workspace,
         index::commands::workspace_notes,
         index::commands::vault_health,
+        index::commands::check_dead_links,
         watch_file,
         git_vault_status,
         git_gitignore_missing,

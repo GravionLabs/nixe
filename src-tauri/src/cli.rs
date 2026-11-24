@@ -36,7 +36,7 @@ usage: nixe <path>|-                       open the viewer
        nixe tags [--vault <dir>] [--json]
        nixe notes [--tag <tag>]... [--path <prefix>] [--vault <dir>] [--json]
        nixe props <note> [--vault <dir>] [--json]
-       nixe check [--exclude <dir>]... [--vault <dir>] [--json]   exit 1 on broken links
+       nixe check [--exclude <dir>]... [--links [--force]] [--vault <dir>] [--json]   exit 1 on broken or dead links
        nixe new <title> [--folder <dir>] [--open] [--vault <dir>]
        nixe append <note> [text] [--vault <dir>]   text from stdin when omitted
        nixe append --inbox [text] [--vault <dir>]
@@ -231,6 +231,8 @@ pub(crate) struct Parsed {
     json: bool,
     tags: Vec<String>,
     exclude: Vec<String>,
+    links: bool,
+    force: bool,
     path: String,
     folder: Option<String>,
     open: bool,
@@ -261,6 +263,8 @@ pub(crate) fn parse(args: &[String]) -> Result<Parsed, CliError> {
         match flag {
             "--json" => p.json = true,
             "--open" => p.open = true,
+            "--links" => p.links = true,
+            "--force" => p.force = true,
             "--inbox" => p.inbox = true,
             "--dark" => p.dark = Some(true),
             "--light" => p.dark = Some(false),
@@ -413,6 +417,9 @@ pub fn execute_with(
     if command == "check" {
         if !p.positional.is_empty() {
             return Err(CliError::Usage("`check` takes no arguments".into()));
+        }
+        if p.force && !p.links {
+            return Err(CliError::Usage("`--force` needs `--links`".into()));
         }
         return check(&p, cwd, app_data, out);
     }
@@ -568,19 +575,60 @@ fn check(p: &Parsed, cwd: &Path, app_data: &Path, out: &mut dyn Write) -> Result
     let mut conn = index::open(&index::index_path(app_data, &root))?;
     scan(&mut conn, &root, |_| {})?;
     let report = index::health::report(&conn, &p.exclude)?;
+    // Opt-in: the only part of `check` that uses the network.
+    let dead = if p.links {
+        let notes = index::health::link_notes(&conn, &p.exclude)?;
+        Some(
+            crate::links::dead::check(
+                &notes,
+                &crate::links::dead::cache_path(app_data, &root),
+                p.force,
+                &crate::links::dead::Settings::default(),
+                chrono::Local::now().fixed_offset(),
+            )
+            .map_err(CliError::Failed)?,
+        )
+    } else {
+        None
+    };
     let text = if p.json {
+        let mut value =
+            serde_json::to_value(&report).map_err(|e| CliError::Failed(e.to_string()))?;
+        if let (Some(dead), Some(map)) = (&dead, value.as_object_mut()) {
+            map.insert(
+                "deadLinks".into(),
+                serde_json::to_value(dead).map_err(|e| CliError::Failed(e.to_string()))?,
+            );
+        }
         let mut s =
-            serde_json::to_string_pretty(&report).map_err(|e| CliError::Failed(e.to_string()))?;
+            serde_json::to_string_pretty(&value).map_err(|e| CliError::Failed(e.to_string()))?;
         s.push('\n');
         s
     } else {
-        health_text(&report)
+        let mut s = health_text(&report);
+        if let Some(dead) = &dead {
+            s.push_str(&format!("Dead links ({})\n", dead.len()));
+            for d in dead {
+                s.push_str(&format!("  {}  {}  ({})", d.source, d.url, d.reason));
+                if let Some(snap) = &d.snapshot {
+                    s.push_str(&format!("  archive: {snap}"));
+                }
+                s.push('\n');
+            }
+        }
+        s
     };
     out.write_all(text.as_bytes())
         .map_err(|e| CliError::Failed(e.to_string()))?;
-    match report.broken_links.len() {
-        0 => Ok(()),
-        n => Err(CliError::Failed(format!("{n} broken link(s)"))),
+    let broken = report.broken_links.len();
+    let dead = dead.map_or(0, |d| d.len());
+    match (broken, dead) {
+        (0, 0) => Ok(()),
+        (b, 0) => Err(CliError::Failed(format!("{b} broken link(s)"))),
+        (0, d) => Err(CliError::Failed(format!("{d} dead link(s)"))),
+        (b, d) => Err(CliError::Failed(format!(
+            "{b} broken link(s), {d} dead link(s)"
+        ))),
     }
 }
 

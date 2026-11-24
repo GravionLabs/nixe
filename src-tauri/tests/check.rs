@@ -213,3 +213,70 @@ fn the_report_of_2000_notes_takes_under_a_second_from_the_index() {
     assert_eq!(r["unusedAttachments"].as_array().unwrap().len(), 50);
     assert!(elapsed.as_millis() < 1000, "took {elapsed:?}");
 }
+
+/// A server that answers 404 to everything but `/ok`; returns its base URL.
+fn serve_404() -> String {
+    use std::io::{BufRead, BufReader, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut stream) = stream else { continue };
+            std::thread::spawn(move || {
+                let mut line = String::new();
+                BufReader::new(stream.try_clone().unwrap())
+                    .read_line(&mut line)
+                    .unwrap();
+                let status = if line.contains(" /ok ") {
+                    "200 OK"
+                } else {
+                    "404 Not Found"
+                };
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+            });
+        }
+    });
+    base
+}
+
+#[test]
+fn links_flag_reports_dead_links_and_plain_check_stays_offline() {
+    let base = serve_404();
+    let vault = temp("dead-vault");
+    for (name, path) in [("alive", "ok"), ("dead", "missing")] {
+        fs::write(
+            vault.join(format!("{name}.md")),
+            format!("---\ntype: link\nurl: {base}/{path}\n---\n"),
+        )
+        .unwrap();
+    }
+    let app_data = temp("dead-data");
+    let run = |extra: &[&str]| {
+        let mut args: Vec<String> = ["check", "--vault"].map(String::from).to_vec();
+        args.push(vault.display().to_string());
+        args.extend(extra.iter().map(|a| a.to_string()));
+        let mut out = Vec::new();
+        let result = execute(&args, &vault, &app_data, &mut out);
+        (String::from_utf8(out).unwrap(), result)
+    };
+
+    let (text, result) = run(&[]);
+    assert!(result.is_ok());
+    assert!(!text.contains("Dead links"));
+
+    let (text, result) = run(&["--links"]);
+    assert!(text.contains("Dead links (1)"), "{text}");
+    assert!(text.contains("dead.md"));
+    assert!(!text[text.find("Dead links").unwrap()..].contains("alive.md"));
+    assert!(matches!(result, Err(CliError::Failed(m)) if m == "1 dead link(s)"));
+
+    let (json, _) = run(&["--links", "--json"]);
+    let json: Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(json["deadLinks"][0]["source"], "dead.md");
+    assert_eq!(json["deadLinks"][0]["reason"], "404");
+
+    assert!(matches!(run(&["--force"]).1, Err(CliError::Usage(_))));
+}

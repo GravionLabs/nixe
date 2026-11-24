@@ -126,6 +126,18 @@ export interface HealthReport {
   unusedAttachments: string[];
 }
 
+/** A `type: link` note whose address is dead (see `docs/links.md`). */
+export interface DeadLink {
+  source: string;
+  url: string;
+  /** `404`, `410`, `dns` or `timeout`. */
+  reason: string;
+  /** The closest Wayback Machine snapshot, when there is one. */
+  snapshot: string | null;
+  /** RFC 3339 time of the check. */
+  checked: string;
+}
+
 export interface NoteSummary {
   /** Vault-relative path. */
   path: string;
@@ -663,6 +675,9 @@ export const backend = {
   workspaceNotes: (roots: RootArg[]) => invoke<WorkspaceNote[]>("workspace_notes", { roots }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
+  /** Requests the address of every link note (network); `force` ignores results of the last 7 days. */
+  checkDeadLinks: (root: string, exclude: string[], force: boolean) =>
+    invoke<DeadLink[]>("check_dead_links", { root, exclude, force }),
   /** Git state of the vault; null when the vault is not a Git repository. */
   gitVaultStatus: () => invoke<GitStatus | null>("git_vault_status"),
   /** The standard `.gitignore` entries the vault lacks (empty once dismissed); null without Git. */

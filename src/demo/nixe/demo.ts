@@ -173,6 +173,7 @@ export function createNixeDemo(): NixeDemo {
     capture_hide: () => null,
     capture_apply: () => null,
     capture_link_title: () => null,
+    check_dead_links: () => [],
     vault_health: () => ({ brokenLinks: [], orphans: [], duplicates: [], unusedAttachments: [] }),
 
     // Git: a seeded history (`git.ts`), the open changes and a branch to review.
