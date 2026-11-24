@@ -86,3 +86,5 @@ role `links` of `.nixe/config.json`, else `Links/`).
 - The index is updated after the write, so the next `search` finds the note.
 - `vault` names the vault when the server covers several (as `root` does for the other tools).
   The tool is not available on mobile.
+- `clip_link` fetches the page from the network. When the vault's `links.archive` asks for it, the
+  archive files go to `.archive` inside the links folder, next to the note.
