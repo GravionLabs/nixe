@@ -21,6 +21,16 @@ A link to a file with the extension `.epub` opens the reader tab instead of the 
 
 The viewer and the editor do the same. A book that does not exist shows `File not found: <target>`, as a missing Markdown link does, and a wikilink to a missing book creates no note. A book that cannot be read shows the error of the reader. Every other file that is not Markdown keeps opening in the system app. Specs: `features/epub/epub-links.spec.ts` and `features/sidebar/sidebar.component.spec.ts`.
 
+## Books from the web
+
+A link to `https://…/book.epub` (a Markdown link or a plain URL; the path must end in `.epub`, `isRemoteEpubUrl`) opens the reader as well, in the viewer and the editor. `TabsService.openEpub` hands the URL to the Rust command `download_epub` (`epub.rs`, `ureq`), which saves the book in `books/` of the app data directory and returns that path; the tab then shows the local file. The CSP `connect-src` stays closed: the WebView never fetches the book.
+
+- **Where:** `books/` of the app data directory, never a vault or a git folder. The file is `<name>-<hash of the URL>.epub`, so a URL maps to one file. `read_epub` accepts this folder as a further root.
+- **Reuse:** a book that is there is opened without a request, so the second open does not download. Delete the file to fetch it again.
+- **Limits:** only `https` (redirects too, `https_only`), 60 s in total, 50 MB (`Content-Length` and the bytes read). A response that is no EPUB (a ZIP whose first entry is not the stored `mimetype` `application/epub+zip`) is refused. The file is written under a temporary name and renamed, so a failed download leaves nothing. A refusal shows its message like any book error and opens no tab.
+- **Position:** a downloaded book is outside every root, so its reading position is not saved.
+- Tests: `epub.rs` (a local test server), `core/tabs/tabs.service.spec.ts`, `features/epub/epub-links.spec.ts`. The demo build answers `download_epub` with the sample book.
+
 ## Reading position
 
 The CFI of the visible text is saved per book and restored when the book opens again (`position`, `savePosition`, `flushPosition` of `EpubService`).

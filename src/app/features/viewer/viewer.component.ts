@@ -33,7 +33,7 @@ import {
   imageNaturalSize,
   revealLabel,
 } from "../../core/markdown/image-zoom";
-import { isEpubPath, isMarkdownPath, joinPath } from "../../core/markdown/paths";
+import { isEpubPath, isMarkdownPath, isRemoteEpubUrl, joinPath } from "../../core/markdown/paths";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { setTaskState, taskShape } from "../../core/markdown/task-toggle";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
@@ -639,7 +639,8 @@ export class ViewerComponent {
         this.jumpToAnchor(href.anchor);
         break;
       case "external":
-        await openUrl(href.url);
+        if (isRemoteEpubUrl(href.url)) await this.openBook(href.url);
+        else await openUrl(href.url);
         break;
       case "local": {
         const currentFile = this.doc.path();

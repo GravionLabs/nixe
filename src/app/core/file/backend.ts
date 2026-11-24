@@ -472,6 +472,11 @@ export const backend = {
    */
   readEpub: async (path: string, roots: string[]) =>
     new Uint8Array(await invoke<ArrayBuffer | number[]>("read_epub", { path, roots })),
+  /**
+   * Downloads the EPUB book at an `https` URL into `books/` of the app data directory (outside
+   * every vault) and returns its path; a book downloaded before is reused (#491).
+   */
+  downloadEpub: (url: string) => invoke<string>("download_epub", { url }),
   /** The saved reading position (JSON text) of a book in `.nixe/epub/` of the vault; null when there is none (#489). */
   readEpubPosition: (key: string) => invoke<string | null>("read_epub_position", { key }),
   /** Saves the reading position of a book in `.nixe/epub/` of the vault. */
