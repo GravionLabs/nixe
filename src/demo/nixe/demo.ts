@@ -55,6 +55,7 @@ export function createNixeDemo(): NixeDemo {
   let settings: string | null = JSON.stringify({ lastFolder: VAULT, recentVaults: [VAULT] });
   let bookmarks: string | null = null;
   let folds: string | null = null;
+  const positions = new Map<string, string>();
   // The folder roles of `.nixe/config.json`, in memory (#446).
   const roles = new Map<string, { path: string; description: string | null }>();
   const layout = () => ({
@@ -106,6 +107,8 @@ export function createNixeDemo(): NixeDemo {
     write_app_settings: (a) => void (settings = str(a, "content")),
     read_app_bookmarks: () => bookmarks,
     write_app_bookmarks: (a) => void (bookmarks = str(a, "content")),
+    read_epub_position: (a) => positions.get(str(a, "key")) ?? null,
+    write_epub_position: (a) => void positions.set(str(a, "key"), str(a, "content")),
     read_folds: () => folds,
     write_folds: (a) => void (folds = str(a, "content")),
     vault_layout: () => layout(),

@@ -1,12 +1,12 @@
 # EPUB reader
 
-A book opens as a tab with the view `epub` (ADR [0009](../adr/0009-epub-reader-foliate-js-sandbox-and-storage.md)). The tab shows the table of contents at the side and the book, paged or scrolled. Opening a book from a link and the file tree is described below; the reading position, the theme and zoom come with later issues.
+A book opens as a tab with the view `epub` (ADR [0009](../adr/0009-epub-reader-foliate-js-sandbox-and-storage.md)). The tab shows the table of contents at the side and the book, paged or scrolled. Opening a book from a link and the file tree is described below; the theme and zoom come with later issues.
 
 ## Parts
 
 | Part | What it does |
 | --- | --- |
-| `core/epub/epub.service.ts` | `load(path)` reads the bytes with the Rust command `read_epub` (vault or open roots only) and parses them with foliate-js `makeBook`. It also keeps the reading mode (`paginated` or `scrolled`) in `localStorage`. |
+| `core/epub/epub.service.ts` | `load(path)` reads the bytes with the Rust command `read_epub` (vault or open roots only) and parses them with foliate-js `makeBook`. It also keeps the reading mode (`paginated` or `scrolled`) in `localStorage` and the reading position (see below). |
 | `core/epub/epub.ts` | The book type, the title of a book and the table of contents as a flat list. |
 | `TabsService.openEpub(path)` | Reads the book first (a book that cannot be read opens no tab), then opens a tab with the view `epub`; the tab that shows the book already is focused. The tab title is the book title. The tab is not stored with the layout. |
 | `features/epub/` | `EpubComponent`: the header with the title and the mode switch, the table of contents, the `<foliate-view>` and the page buttons. |
@@ -20,6 +20,15 @@ A link to a file with the extension `.epub` opens the reader tab instead of the 
 - a click in the file tree (also with Alt; a double click has nothing more to do).
 
 The viewer and the editor do the same. A book that does not exist shows `File not found: <target>`, as a missing Markdown link does, and a wikilink to a missing book creates no note. A book that cannot be read shows the error of the reader. Every other file that is not Markdown keeps opening in the system app. Specs: `features/epub/epub-links.spec.ts` and `features/sidebar/sidebar.component.spec.ts`.
+
+## Reading position
+
+The CFI of the visible text is saved per book and restored when the book opens again (`position`, `savePosition`, `flushPosition` of `EpubService`).
+
+- **Where:** one small JSON file per book in `.nixe/epub/` of the vault (`src-tauri/src/reading.rs`, commands `read_epub_position` and `write_epub_position`), so it travels with git; nothing is written next to the book. A book outside the vault (a further root) uses the vault of the window.
+- **Format:** plain JSON `{"root": "<root name>", "path": "<path relative to the root>", "cfi": "epubcfi(…)"}`. The file name is the last part of the key and a hash of it (`<name>-<hash>.json`); the content names the book, so a file of another book is never used.
+- **Write:** debounced (1 s after the last page turn) and at once when the tab closes. It never blocks reading; a failed write shows no dialog and the next position change writes again. The relocation that restores a position writes nothing.
+- **Read:** a missing or damaged file, or a position of a book that moved or was deleted, is ignored and the book opens at its start. Specs: `core/epub/epub.service.spec.ts`, `features/epub/epub.component.spec.ts` and the tests of `reading.rs`.
 
 ## Keys
 

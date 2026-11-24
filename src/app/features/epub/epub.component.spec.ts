@@ -68,6 +68,9 @@ async function settle(fixture: ComponentFixture<EpubComponent>): Promise<void> {
 }
 
 describe("EpubComponent", () => {
+  const position = vi.fn();
+  const savePosition = vi.fn();
+  const flushPosition = vi.fn();
   const flow = signal<EpubFlow>("paginated");
   const setFlow = vi.fn((value: EpubFlow) => flow.set(value));
 
@@ -80,6 +83,9 @@ describe("EpubComponent", () => {
     view.setAttribute.mockReset();
     flow.set("paginated");
     setFlow.mockClear();
+    position.mockReset().mockResolvedValue(null);
+    savePosition.mockReset();
+    flushPosition.mockReset();
   });
 
   async function render(book: EpubBook | null) {
@@ -88,7 +94,10 @@ describe("EpubComponent", () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: CURRENT_TAB, useValue: tab },
-        { provide: EpubService, useValue: { flow, setFlow } },
+        {
+          provide: EpubService,
+          useValue: { flow, setFlow, position, savePosition, flushPosition },
+        },
       ],
     });
     TestBed.overrideComponent(EpubComponent, { set: { styleUrl: undefined } });
@@ -111,9 +120,43 @@ describe("EpubComponent", () => {
 
     expect(el.querySelector("foliate-view")).not.toBeNull();
     expect(view.open).toHaveBeenCalledWith(book.book);
-    expect(view.init).toHaveBeenCalledWith({ showTextStart: true });
+    expect(view.init).toHaveBeenCalledWith({ lastLocation: null, showTextStart: true });
     expect(view.setAttribute).toHaveBeenCalledWith("flow", "paginated");
     expect(el.querySelector("h1")?.textContent).toBe("Nixe Sample Book");
+  });
+
+  it("returns to the saved position", async () => {
+    position.mockResolvedValue("epubcfi(/6/4!/4/2)");
+
+    await render(await sample());
+
+    expect(position).toHaveBeenCalledWith("/v/sample.epub");
+    expect(view.init).toHaveBeenCalledWith({
+      lastLocation: "epubcfi(/6/4!/4/2)",
+      showTextStart: false,
+    });
+  });
+
+  it("saves the position when the page changes, but not the one it restored", async () => {
+    position.mockResolvedValue("epubcfi(/6/2)");
+    const { el } = await render(await sample());
+    const view = el.querySelector("foliate-view")!;
+
+    view.dispatchEvent(new CustomEvent("relocate", { detail: { cfi: "epubcfi(/6/2)" } }));
+    expect(savePosition).not.toHaveBeenCalled();
+    view.dispatchEvent(new CustomEvent("relocate", { detail: { cfi: "epubcfi(/6/4)" } }));
+    view.dispatchEvent(new CustomEvent("relocate", { detail: {} }));
+
+    expect(savePosition).toHaveBeenCalledTimes(1);
+    expect(savePosition).toHaveBeenCalledWith("/v/sample.epub", "epubcfi(/6/4)");
+  });
+
+  it("writes the waiting position when the tab closes", async () => {
+    const { fixture } = await render(await sample());
+
+    fixture.destroy();
+
+    expect(flushPosition).toHaveBeenCalledWith("/v/sample.epub");
   });
 
   it("lists the chapters and jumps to the one that is clicked", async () => {

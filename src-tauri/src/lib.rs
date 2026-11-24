@@ -65,6 +65,7 @@ pub mod mcp;
 mod menu;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
+mod reading;
 mod review;
 mod settings;
 mod site;
@@ -265,6 +266,23 @@ fn read_epub(
     let mut allowed: Vec<PathBuf> = roots.into_iter().map(PathBuf::from).collect();
     allowed.extend(state.vault_root.lock().unwrap().clone());
     epub::read_epub(&allowed, Path::new(&path)).map(tauri::ipc::Response::new)
+}
+
+/// The saved reading position (JSON text) of an EPUB book in the open vault (#489); `None` when
+/// there is none, the file is damaged or no vault is open.
+#[tauri::command]
+fn read_epub_position(state: State<'_, AppState>, key: String) -> Option<String> {
+    reading::read_position(&vault_root_of(&state).ok()?, &key)
+}
+
+/// Saves the reading position of an EPUB book in `.nixe/epub/` of the open vault.
+#[tauri::command]
+fn write_epub_position(
+    state: State<'_, AppState>,
+    key: String,
+    content: String,
+) -> Result<(), String> {
+    reading::write_position(&vault_root_of(&state)?, &key, &content)
 }
 
 #[tauri::command]
@@ -1498,6 +1516,8 @@ pub fn run() {
         read_bundled_data_uri,
         read_text_file,
         read_epub,
+        read_epub_position,
+        write_epub_position,
         write_text_file,
         create_file,
         create_dir,
@@ -1646,6 +1666,8 @@ pub fn run() {
         read_bundled_data_uri,
         read_text_file,
         read_epub,
+        read_epub_position,
+        write_epub_position,
         write_text_file,
         create_file,
         create_dir,

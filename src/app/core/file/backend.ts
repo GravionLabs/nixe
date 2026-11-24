@@ -472,6 +472,11 @@ export const backend = {
    */
   readEpub: async (path: string, roots: string[]) =>
     new Uint8Array(await invoke<ArrayBuffer | number[]>("read_epub", { path, roots })),
+  /** The saved reading position (JSON text) of a book in `.nixe/epub/` of the vault; null when there is none (#489). */
+  readEpubPosition: (key: string) => invoke<string | null>("read_epub_position", { key }),
+  /** Saves the reading position of a book in `.nixe/epub/` of the vault. */
+  writeEpubPosition: (key: string, content: string) =>
+    invoke<void>("write_epub_position", { key, content }),
   /** Atomic write; the Rust side only accepts the open note or a note inside the vault. */
   writeTextFile: (path: string, content: string) =>
     invoke<void>("write_text_file", { path, content }),
