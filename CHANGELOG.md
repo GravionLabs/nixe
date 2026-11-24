@@ -5,6 +5,35 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.14.0] — 2026-11-24
+
+### Bug Fixes
+- A click on a link in live preview still starts editing instead of opening it (#550) (#560)
+
+
+### Documentation
+- ADR 0009 EPUB reader: foliate-js, sandbox and storage (#484) (#551)
+
+
+### Features
+- **epub**: Rust command reads a book from a root or the vault (#486) (#553)
+- **epub**: Links to .epub and the file tree open the reader (#488) (#556)
+- **epub**: Reading position remembered per book, stored as text in the vault (#489) (#557)
+- **epub**: Light and dark theme and the app zoom in the reader (#490) (#558)
+- **epub**: Remote EPUB URLs are downloaded to a folder outside git (#491) (#559)
+
+
+### Reverts
+- **epub**: Links to .epub and the file tree open the reader (#488) (#556)
+- A click on a link in live preview still starts editing instead of opening it (#550) (#560)
+
+
+## [1.12.3] — 2026-11-23
+
+### Documentation
+- Update CHANGELOG.md for v1.12.3 [skip ci]
+
+
 ## [1.13.0] — 2026-11-23
 
 ### Bug Fixes
