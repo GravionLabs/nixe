@@ -360,6 +360,7 @@ pub(crate) fn select_roots(
 fn clip(
     p: &Parsed,
     root: &Path,
+    app_data: &Path,
     cwd: &Path,
     input: &mut dyn std::io::Read,
     out: &mut dyn Write,
@@ -386,6 +387,7 @@ fn clip(
     };
     let result = links::clip(
         root,
+        app_data,
         links::ClipRequest {
             url: url.clone(),
             html,
@@ -401,8 +403,10 @@ fn clip(
     if p.json {
         let json = serde_json::to_string(&result).map_err(|e| CliError::Failed(e.to_string()))?;
         writeln!(out, "{json}")
-    } else {
+    } else if result.created {
         writeln!(out, "{}", result.path.display())
+    } else {
+        writeln!(out, "exists: {}", result.path.display())
     }
     .map_err(|e| CliError::Failed(e.to_string()))?;
     if p.open {
@@ -414,6 +418,7 @@ fn clip(
 #[cfg(not(desktop))]
 fn clip(
     _: &Parsed,
+    _: &Path,
     _: &Path,
     _: &Path,
     _: &mut dyn std::io::Read,
@@ -476,7 +481,7 @@ pub fn execute_with(
     }
     if command == "clip" {
         let root = one_root(command, &p, cwd, app_data)?;
-        return clip(&p, &root, cwd, input, out);
+        return clip(&p, &root, app_data, cwd, input, out);
     }
     if command == "daily" {
         if !p.positional.is_empty() {

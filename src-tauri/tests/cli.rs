@@ -833,6 +833,58 @@ mod clip {
     }
 
     #[test]
+    fn clip_of_a_saved_url_prints_exists_and_json_says_not_created() {
+        let root = scratch("clip-twice");
+        let file = page("article.html");
+        let first = write_cmd(
+            "clip-twice",
+            &root,
+            &[
+                "clip",
+                "https://example.com/a?utm_source=x",
+                "--html",
+                &file,
+            ],
+            "",
+        )
+        .unwrap();
+        let path = root.join("Links/Keeping notes as plain files.md");
+        assert_eq!(first.trim(), path.to_str().unwrap());
+        // The page names its own canonical address: clip of another page that has the same one.
+        let text = std::fs::read_to_string(&path).unwrap();
+        let url = text
+            .lines()
+            .find_map(|l| l.strip_prefix("url: "))
+            .unwrap()
+            .to_string();
+        let out = write_cmd(
+            "clip-twice",
+            &root,
+            &[
+                "clip",
+                &format!("{}/#top", url.to_uppercase().replace("HTTPS", "https")),
+                "--html",
+                &file,
+            ],
+            "",
+        )
+        .unwrap();
+        assert_eq!(out.trim(), format!("exists: {}", path.display()));
+        let json = write_cmd(
+            "clip-twice",
+            &root,
+            &["clip", &url, "--html", &file, "--json"],
+            "",
+        )
+        .unwrap();
+        let json: Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            json,
+            json!({"path": path.to_str().unwrap(), "created": false})
+        );
+    }
+
+    #[test]
     fn clip_json_names_path_and_created_and_takes_folder_title_and_file() {
         let root = scratch("clip-json");
         let out = write_cmd(

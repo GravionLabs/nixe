@@ -66,6 +66,17 @@ and the characters `\ / : * ? " < > | # ^ [ ]` and control characters are not al
 a note of that name exists in the folder, ` 2`, ` 3`, … is appended to the name before `.md`
 (`Example Article 2.md`). The frontmatter `title` keeps the original title.
 
+### One note per URL
+
+Before a note is written, the URL (the one given, then the canonical one of the page) is
+normalized by `links::url::normalize` and looked up among the `type: link` notes through the
+index (`url` property). The normal form lowercases scheme and host, drops the default port, the
+fragment and the trailing slash of the path, sorts the query parameters and removes the tracking
+parameters (`utm_*`, `fbclid`, `gclid`, `mc_cid`, `mc_eid`, `ref`, `igshid`; the constant
+`TRACKING_PARAMS`). The note stores the normalized URL in `url`. On a match nothing is fetched or
+written: `clip` returns `created: false` with the path of the existing note, and `nixe clip`
+prints `exists: <path>` (exit code 0; `--open` opens that note).
+
 ## Folders
 
 - **Role `links`:** `.nixe/config.json` → `folders.links`; without an entry the folder is `Links/`
