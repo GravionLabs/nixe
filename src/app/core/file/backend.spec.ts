@@ -50,7 +50,11 @@ describe("read_epub", () => {
   });
 
   it("passes on the refusal of the backend", async () => {
-    invoke.mockRejectedValue("outside the open roots and the vault: /x.epub");
-    await expect(backend.readEpub("/x.epub", [])).rejects.toThrow("outside");
+    invoke.mockImplementation((command: string) =>
+      command === "read_epub"
+        ? Promise.reject("outside the open roots and the vault: /x.epub")
+        : Promise.resolve(),
+    );
+    await expect(backend.readEpub("/x.epub", [])).rejects.toMatch("outside");
   });
 });
