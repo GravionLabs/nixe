@@ -330,6 +330,15 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(jsdom@31.0.1)(vite@8.3.8(esbuild@0.28.2)(sass-embedded@1.108.2)(sass@1.108.2)(yaml@2.9.1))
 
+  extension:
+    devDependencies:
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(jsdom@31.0.1)(vite@8.3.8(esbuild@0.28.2)(sass-embedded@1.108.2)(sass@1.108.2)(yaml@2.9.1))
+
 packages:
 
   '@ampproject/remapping@2.3.0':

@@ -9,7 +9,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "tauri": "tauri",
-    "test": "vitest run",
+    "test": "vitest run && pnpm --filter nixe-extension test",
     "test:watch": "vitest",
     "lint": "oxlint --deny-warnings --ignore-pattern \"src/testing/lint-probe/**\" --ignore-pattern \"e2e/lint/*.probe.ts\" && eslint --max-warnings 0 \"src/**/*.html\"",
     "lint:fix": "oxlint --fix --ignore-pattern \"src/testing/lint-probe/**\" --ignore-pattern \"e2e/lint/*.probe.ts\" && eslint --fix \"src/**/*.html\"",

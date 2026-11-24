@@ -11,6 +11,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist/**",
+      "extension/dist/**",
       "coverage/**",
       "node_modules/**",
       ".angular/**",

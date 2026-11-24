@@ -1,0 +1,6 @@
+{
+  "manifest_version": 3,
+  "name": "Nixe",
+  "version": "0.1.0",
+  "description": "Save web pages as link notes in Nixe."
+}
