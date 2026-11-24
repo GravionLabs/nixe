@@ -29,7 +29,7 @@ pub const HOST_NAME: &str = "app.gravionlabs.nixe";
 pub const MAX_MESSAGE_BYTES: usize = 8 * 1024 * 1024;
 
 /// Chromium extension IDs (Chrome, Edge, Brave) that may start the host.
-pub const ALLOWED_CHROMIUM_EXTENSIONS: &[&str] = &["nixeclipperextensionidplaceholder"];
+pub const ALLOWED_CHROMIUM_EXTENSIONS: &[&str] = &["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];
 
 /// The Firefox extension ID(s) that may start the host.
 pub const ALLOWED_FIREFOX_EXTENSIONS: &[&str] = &["clipper@nixe.gravionlabs.app"];
@@ -731,6 +731,14 @@ mod tests {
         let known = known_vaults(&data);
         assert_eq!(known.len(), 1);
         assert_eq!(known[0].name, "v");
+    }
+
+    #[test]
+    fn chromium_extension_ids_have_the_chromium_format() {
+        for id in ALLOWED_CHROMIUM_EXTENSIONS {
+            assert_eq!(id.len(), 32, "{id}");
+            assert!(id.bytes().all(|b| (b'a'..=b'p').contains(&b)), "{id}");
+        }
     }
 
     #[test]
