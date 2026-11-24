@@ -30,3 +30,34 @@ fn script_src_keeps_the_automatic_hashes() {
         .expect("an array of directives");
     assert!(!disabled.iter().any(|d| d == "script-src"));
 }
+
+/// ADR 0009: the EPUB reader renders a book in a sandboxed `blob:` iframe; no other frame source.
+#[test]
+fn frame_src_allows_only_blob() {
+    let config = config();
+    let csp = &config["app"]["security"]["csp"];
+    assert_eq!(csp["frame-src"], "blob:");
+    assert_eq!(
+        csp["script-src"], "'self'",
+        "the reader adds no script source"
+    );
+}
+
+/// The CSP widened by `frame-src blob:` only: every other directive is as before #485.
+#[test]
+fn csp_directives_are_unchanged_besides_frame_src() {
+    let config = config();
+    let csp = config["app"]["security"]["csp"]
+        .as_object()
+        .expect("the CSP is an object of directives");
+    let expected = serde_json::json!({
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' asset: http://asset.localhost https: data: blob:",
+        "font-src": "'self' data:",
+        "frame-src": "blob:",
+        "connect-src": "ipc: http://ipc.localhost"
+    });
+    assert_eq!(&serde_json::Value::Object(csp.clone()), &expected);
+}

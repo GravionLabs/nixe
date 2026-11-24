@@ -29,7 +29,7 @@ The reader uses [foliate-js](https://github.com/johnfactotum/foliate-js) (MIT) a
 - **Size:** small, plain ES modules without a build step or large dependencies.
 
 foliate-js relies on features of the WebView (CSS columns, `Range`, `ShadowRoot`). WebKitGTK, the
-WebView on Linux, is checked in p2 of the feature (#460) and the result is added to this ADR.
+WebView on Linux, was checked in #485; see [WebKitGTK check](#webkitgtk-check-485).
 
 ### Sandbox
 
@@ -60,6 +60,29 @@ books.
   The position is stored as a CFI.
 - **Remote URLs** are downloaded to a folder outside git (the library folder or the app data
   directory), never into the vault.
+
+## WebKitGTK check (#485)
+
+foliate-js 1.0.1 in WebKitGTK 2.52.6 (Linux), on a page with the CSP of `tauri.conf.json` set as a
+`<meta>` policy (`frame-src blob:`, `script-src 'self'`), outside the Tauri shell:
+
+- **Rendering works.** `makeBook` opens `fixtures/books/sample.epub` (title, spine, table of
+  contents); `<foliate-view>` renders the first chapter in paginated layout (CSS columns) and in
+  scrolled layout, and paging forward fires `relocate`.
+- **The CSP holds inside the book frame.** A test book with an inline `<script>`, a `<script src>`
+  from the book and an `onclick` attribute ran none of them: the `blob:` document inherits the
+  policy of the app.
+- **Finding: foliate-js sets `sandbox="allow-same-origin allow-scripts"` itself** on its iframes
+  (`paginator.js`, `fixed-layout.js`), because events do not reach a sandboxed frame without
+  `allow-scripts` in WebKit ([WebKit bug 218086](https://bugs.webkit.org/show_bug.cgi?id=218086)).
+  The [Sandbox](#sandbox) decision above (no `allow-scripts`) does not hold with the library as it
+  is; what keeps book scripts out is the CSP (`script-src 'self'`, no `'unsafe-inline'`, no
+  `blob:`), which foliate-js also names as required. The Sandbox section has to be revised before
+  the reader tab (#487).
+- **Finding: the stylesheets of a book are blocked.** foliate-js loads them as `blob:` URLs, and
+  `style-src` allows only `'self' 'unsafe-inline'`; with `blob:` added to `style-src` the book CSS
+  applies. Images load (`img-src` already allows `blob:`). Whether `style-src` gets `blob:` is open
+  for #487; #485 changes only `frame-src`.
 
 ## Alternatives
 
