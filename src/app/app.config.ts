@@ -29,7 +29,7 @@ export const appConfig: ApplicationConfig = {
     // The open note is saved before an update is installed; the app version is provided in `main.ts`.
     { provide: HX_UPDATE_BEFORE_INSTALL, useFactory: saveBeforeInstall },
     // The demo build and `ng serve` (never the release build) offer the e2e tests and the
-    // screenshots a way to open a book until the links of #488 do.
+    // screenshots a way to open a book without a link.
     provideAppInitializer(() => {
       if (!isDevMode()) return;
       const tabs = inject(TabsService);

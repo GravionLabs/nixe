@@ -66,6 +66,11 @@ export function joinPath(base: string, ...parts: string[]): string {
 
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown", ".mdown", ".mkd", ".mdx"]);
 
+/** An EPUB book opens in the reader tab, not in the system app. */
+export function isEpubPath(p: string): boolean {
+  return extname(p) === ".epub";
+}
+
 export function isMarkdownPath(p: string): boolean {
   return MARKDOWN_EXTENSIONS.has(extname(p));
 }

@@ -1,6 +1,6 @@
 # EPUB reader
 
-A book opens as a tab with the view `epub` (ADR [0009](../adr/0009-epub-reader-foliate-js-sandbox-and-storage.md)). The tab shows the table of contents at the side and the book, paged or scrolled. Opening a book from a link, the reading position, the theme and zoom come with later issues.
+A book opens as a tab with the view `epub` (ADR [0009](../adr/0009-epub-reader-foliate-js-sandbox-and-storage.md)). The tab shows the table of contents at the side and the book, paged or scrolled. Opening a book from a link and the file tree is described below; the reading position, the theme and zoom come with later issues.
 
 ## Parts
 
@@ -10,6 +10,16 @@ A book opens as a tab with the view `epub` (ADR [0009](../adr/0009-epub-reader-f
 | `core/epub/epub.ts` | The book type, the title of a book and the table of contents as a flat list. |
 | `TabsService.openEpub(path)` | Reads the book first (a book that cannot be read opens no tab), then opens a tab with the view `epub`; the tab that shows the book already is focused. The tab title is the book title. The tab is not stored with the layout. |
 | `features/epub/` | `EpubComponent`: the header with the title and the mode switch, the table of contents, the `<foliate-view>` and the page buttons. |
+
+## Opening a book
+
+A link to a file with the extension `.epub` opens the reader tab instead of the system app (`isEpubPath` in `core/markdown/paths.ts`):
+
+- a wikilink, `[[Books:Title.epub]]`: the root prefix and the vault are resolved as for a note (`WorkspacesService.resolveLink`, so a link into another root works);
+- a Markdown link, `[Title](Books/Title.epub)`, relative to the note as for every local link;
+- a click in the file tree (also with Alt; a double click has nothing more to do).
+
+The viewer and the editor do the same. A book that does not exist shows `File not found: <target>`, as a missing Markdown link does, and a wikilink to a missing book creates no note. A book that cannot be read shows the error of the reader. Every other file that is not Markdown keeps opening in the system app. Specs: `features/epub/epub-links.spec.ts` and `features/sidebar/sidebar.component.spec.ts`.
 
 ## Keys
 
@@ -26,4 +36,4 @@ foliate-js renders each chapter in an `iframe` with a `blob:` URL. Upstream give
 
 ## Demo and tests
 
-The demo build answers `read_epub` with `fixtures/books/sample.epub` (`src/demo/nixe/book.ts`). With `ng serve` and the demo build `window.__nixeDev.openEpub(path)` opens a book (until links do, #488); the release build has no such function. Specs: `core/epub/*.spec.ts`, `core/tabs/tabs.service.spec.ts`, `features/epub/*.spec.ts` and the e2e test.
+The demo build answers `read_epub` with `fixtures/books/sample.epub` (`src/demo/nixe/book.ts`). With `ng serve` and the demo build `window.__nixeDev.openEpub(path)` opens a book (the links and the file tree open books as well); the release build has no such function. Specs: `core/epub/*.spec.ts`, `core/tabs/tabs.service.spec.ts`, `features/epub/*.spec.ts` and the e2e test.
