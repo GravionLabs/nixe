@@ -34,6 +34,25 @@ every section, for example `templates` or `archive`. In the app the folders are 
 excluded-folders field of the view (setting `healthExclude`). The report is computed from the
 index with a few queries: under a second for 2000 notes.
 
+### Dead links
+
+`nixe check --links [--force]` also requests the `url` of every `type: link` note
+([links.md](links.md)) and lists the dead ones as a fifth section, `Dead links`, with the
+closest [Wayback Machine](https://archive.org/wayback/available) snapshot when there is one. It
+exits with `1` when a link is dead. The plain `nixe check` never touches the network. The
+`Vault health` view has the same check behind its "Check links" button.
+
+- A request is HEAD, then GET when the server answers 405 or 403. A link is dead on 404, 410, a
+  DNS failure or 3 timeouts (10 s each). Every other answer, such as 5xx or a refused connection,
+  does not count as dead.
+- At most 4 requests run at the same time and requests to one host are 1 s apart (constants in
+  `src-tauri/src/links/dead.rs`).
+- Results are cached with their check date in the app data directory (`link-check/`), never in the
+  vault. A link checked within 7 days is not requested again; `--force` (the "Check all again"
+  button) requests every link.
+- With `--json` the object gets a `deadLinks` array of `{source, url, reason, snapshot, checked}`
+  (`reason`: `404`, `410`, `dns` or `timeout`).
+
 With `--json` the report is one object:
 
 ```json

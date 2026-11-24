@@ -17,6 +17,7 @@ use super::search;
 use super::{
     index_path, open, scan, Backlink, NoteRecord, NoteSummary, RelatedNote, SearchHit, TagCount,
 };
+use crate::links::dead::{self, DeadLink};
 
 /// Event carrying the `IndexStatus` whenever it changes.
 pub const INDEX_EVENT: &str = "index-status";
@@ -363,6 +364,32 @@ pub fn vault_health(
     exclude: Vec<String>,
 ) -> Result<HealthReport, String> {
     health::report(&state.conn()?, &exclude).map_err(|e| e.to_string())
+}
+
+/// The dead links of the link notes in the vault at `root` (requests the network; see
+/// `links::dead`). `force` requests links again that were checked within a week.
+#[tauri::command]
+pub async fn check_dead_links(
+    app: AppHandle,
+    state: State<'_, IndexState>,
+    root: String,
+    exclude: Vec<String>,
+    force: bool,
+) -> Result<Vec<DeadLink>, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let notes = health::link_notes(&state.conn()?, &exclude).map_err(|e| e.to_string())?;
+    let cache = dead::cache_path(&data_dir, Path::new(&root));
+    tauri::async_runtime::spawn_blocking(move || {
+        dead::check(
+            &notes,
+            &cache,
+            force,
+            &dead::Settings::default(),
+            chrono::Local::now().fixed_offset(),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

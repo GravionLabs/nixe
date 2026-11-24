@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
-import type { HealthReport } from "../file/backend";
+import type { DeadLink, HealthReport } from "../file/backend";
 import { backend } from "../file/backend";
 import { SettingsService } from "../settings/settings.service";
 import { IndexService } from "./index.service";
@@ -14,6 +14,10 @@ export class HealthService {
   private readonly settings = inject(SettingsService);
 
   readonly report = signal<HealthReport | null>(null);
+  /** Dead links of the last "Check links" run; null before one ran. */
+  readonly deadLinks = signal<DeadLink[] | null>(null);
+  readonly checkingLinks = signal(false);
+  readonly linkCheckFailed = signal(false);
   private readonly failed = signal(false);
   private request = 0;
 
@@ -56,6 +60,20 @@ export class HealthService {
       if (request !== this.request) return;
       this.report.set(null);
       this.failed.set(true);
+    }
+  }
+
+  /** Opt-in: requests the address of every link note of the vault at `root`. */
+  async checkLinks(root: string, force = false): Promise<void> {
+    if (this.checkingLinks()) return;
+    this.checkingLinks.set(true);
+    this.linkCheckFailed.set(false);
+    try {
+      this.deadLinks.set(await backend.checkDeadLinks(root, this.settings.healthExclude(), force));
+    } catch {
+      this.linkCheckFailed.set(true);
+    } finally {
+      this.checkingLinks.set(false);
     }
   }
 }

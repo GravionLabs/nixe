@@ -997,3 +997,39 @@ fn a_root_operand_alone_selects_nothing_in_a_single_vault() {
         .unwrap()
         .is_empty());
 }
+
+#[test]
+fn link_notes_lists_the_urls_of_link_notes_only() {
+    let (root, mut conn) = setup("link-notes");
+    write(
+        &root,
+        "Links/a.md",
+        "---\ntype: link\nurl: https://a.example/\n---\n",
+    );
+    write(&root, "Links/b.md", "---\ntype: link\n---\n");
+    write(
+        &root,
+        "Notes/c.md",
+        "---\ntype: note\nurl: https://c.example/\n---\n",
+    );
+    write(
+        &root,
+        "archive/d.md",
+        "---\ntype: link\nurl: https://d.example/\n---\n",
+    );
+    run(&mut conn, &root);
+    let all = health::link_notes(&conn, &[]).unwrap();
+    let pairs: Vec<(&str, &str)> = all
+        .iter()
+        .map(|l| (l.path.as_str(), l.url.as_str()))
+        .collect();
+    assert_eq!(
+        pairs,
+        [
+            ("Links/a.md", "https://a.example/"),
+            ("archive/d.md", "https://d.example/")
+        ]
+    );
+    let left = health::link_notes(&conn, &["archive".to_string()]).unwrap();
+    assert_eq!(left.len(), 1);
+}

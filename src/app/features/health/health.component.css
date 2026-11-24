@@ -137,3 +137,27 @@ h2 {
 .group button {
   padding-left: 0;
 }
+
+.actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 4px;
+}
+
+.actions button {
+  width: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+}
+
+.actions button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.snapshot {
+  display: block;
+  padding: 0 12px 4px;
+  font-size: 11px;
+}
