@@ -114,7 +114,10 @@ export class EpubComponent implements OnDestroy {
         const detail = (event as CustomEvent<FoliateRelocate>).detail;
         this.current.set(detail.tocItem?.href ?? null);
         // The relocation that restores the saved position writes nothing.
-        if (detail.cfi && detail.cfi !== saved) this.epub.savePosition(path, detail.cfi);
+        if (!detail.cfi) return;
+        const restored = detail.cfi === saved;
+        saved = null;
+        if (!restored) this.epub.savePosition(path, detail.cfi);
       });
       // The keys of a focused book frame do not reach the page: the frame's document tells them.
       view.addEventListener("load", (event) => {

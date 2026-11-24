@@ -151,6 +151,18 @@ describe("EpubComponent", () => {
     expect(savePosition).toHaveBeenCalledWith("/v/sample.epub", "epubcfi(/6/4)");
   });
 
+  it("saves the restored page when the reader pages back to it", async () => {
+    position.mockResolvedValue("epubcfi(/6/2)");
+    const { el } = await render(await sample());
+    const view = el.querySelector("foliate-view")!;
+
+    for (const cfi of ["epubcfi(/6/2)", "epubcfi(/6/4)", "epubcfi(/6/2)"]) {
+      view.dispatchEvent(new CustomEvent("relocate", { detail: { cfi } }));
+    }
+
+    expect(savePosition).toHaveBeenLastCalledWith("/v/sample.epub", "epubcfi(/6/2)");
+  });
+
   it("writes the waiting position when the tab closes", async () => {
     const { fixture } = await render(await sample());
 
