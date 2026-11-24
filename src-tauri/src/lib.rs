@@ -83,6 +83,8 @@ const OPEN_FILE_EVENT: &str = "open-file-requested";
 /// Event telling the frontend that a `nixe export` waits in `take_pending_export`.
 const EXPORT_EVENT: &str = "export-requested";
 const FILE_CHANGED_EVENT: &str = "file-changed";
+/// A file or folder appeared, went or moved in a further root of the workspace (#568).
+const ROOTS_CHANGED_EVENT: &str = "roots-changed";
 
 #[derive(Default)]
 struct AppState {
@@ -93,6 +95,8 @@ struct AppState {
     /// The process runs only for a `nixe export` to HTML: `finish_export` ends it.
     headless_export: std::sync::atomic::AtomicBool,
     watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
+    /// Watches the further roots of the workspace so the file tree follows the disk (#568).
+    roots_watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
     /// Vault root last returned by `find_vault_root`; notes below it may be written.
     vault_root: Mutex<Option<PathBuf>>,
     /// Note last passed to `watch_file` (the open one); it and its siblings may be written.
@@ -1321,6 +1325,52 @@ async fn workspace_resolve_links(
     .map_err(|e| e.to_string())
 }
 
+/// True when a change at `path` below one of the watched `roots` shows in the file tree: not
+/// inside a hidden or skipped folder (judged by the part below the root).
+fn shows_in_tree(roots: &[PathBuf], path: &Path) -> bool {
+    let rel = roots
+        .iter()
+        .find_map(|r| path.strip_prefix(r).ok())
+        .unwrap_or(path);
+    !rel.components().any(|c| {
+        let name = c.as_os_str().to_string_lossy();
+        name.starts_with('.') || name == "node_modules" || name == "target"
+    })
+}
+
+/// Watches the further roots of the workspace (recursively) and emits `roots-changed` when a file
+/// or folder appears, goes or is renamed, so the file tree follows (#568). An empty list stops it.
+#[tauri::command]
+fn watch_roots(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<(), String> {
+    if paths.is_empty() {
+        *state.roots_watcher.lock().unwrap() = None;
+        return Ok(());
+    }
+    let roots: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
+    let watched = roots.clone();
+    let mut debouncer = new_debouncer(
+        Duration::from_millis(250),
+        move |res: DebounceEventResult| {
+            if let Ok(events) = res {
+                if events.iter().any(|e| shows_in_tree(&watched, &e.path)) {
+                    let _ = app.emit(ROOTS_CHANGED_EVENT, ());
+                }
+            }
+        },
+    )
+    .map_err(|e| e.to_string())?;
+    for root in &roots {
+        // A root that is gone is skipped; the others still watch.
+        let _ = debouncer.watcher().watch(root, RecursiveMode::Recursive);
+    }
+    *state.roots_watcher.lock().unwrap() = Some(debouncer);
+    Ok(())
+}
+
 /// Watches a single file. The parent directory is watched (non-recursively) so
 /// that editors saving via "write temp file + rename" are detected as well.
 #[tauri::command]
@@ -1617,6 +1667,7 @@ pub fn run() {
         index::commands::vault_health,
         index::commands::check_dead_links,
         watch_file,
+        watch_roots,
         git_vault_status,
         git_gitignore_missing,
         git_gitignore_add,
@@ -1765,6 +1816,7 @@ pub fn run() {
         index::commands::vault_health,
         index::commands::check_dead_links,
         watch_file,
+        watch_roots,
         git_vault_status,
         git_gitignore_missing,
         git_gitignore_add,
@@ -1843,6 +1895,26 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_change_in_a_hidden_or_skipped_folder_is_not_in_the_tree() {
+        let roots = [PathBuf::from("/home/u/.books")];
+        assert!(super::shows_in_tree(
+            &roots,
+            Path::new("/home/u/.books/a.epub")
+        ));
+        assert!(super::shows_in_tree(
+            &roots,
+            Path::new("/home/u/.books/s/a.epub")
+        ));
+        assert!(!super::shows_in_tree(
+            &roots,
+            Path::new("/home/u/.books/.git/x")
+        ));
+        assert!(!super::shows_in_tree(
+            &roots,
+            Path::new("/home/u/.books/node_modules/x")
+        ));
+    }
     use super::*;
     use std::fs;
 

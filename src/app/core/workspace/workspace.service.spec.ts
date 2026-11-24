@@ -268,3 +268,61 @@ describe("vault changes made outside the app", () => {
     expect(reload).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("further roots follow the disk (#568)", () => {
+  let workspace: WorkspaceService;
+  let listDir: ReturnType<typeof vi.spyOn>;
+  let watchRoots: ReturnType<typeof vi.spyOn>;
+
+  beforeAll(() => {
+    try {
+      TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+    } catch {
+      // Initialised by an earlier suite of this file.
+    }
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn() });
+    watchRoots = vi.spyOn(backend, "watchRoots").mockResolvedValue(undefined);
+    listDir = vi
+      .spyOn(backend, "listDir")
+      .mockResolvedValue([
+        { name: "a.epub", path: "/books/a.epub", isDir: false, hasOrder: false, modified: 0 },
+      ] as never);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [{ provide: DocumentService, useValue: { path: signal(null), open: vi.fn() } }],
+    });
+    workspace = TestBed.inject(WorkspaceService);
+  });
+
+  it("watches the further roots and stops when they are cleared", () => {
+    workspace.addExtraRoot("/books", "Books");
+    expect(watchRoots).toHaveBeenLastCalledWith(["/books"]);
+    workspace.clearExtraRoots();
+    expect(watchRoots).toHaveBeenLastCalledWith([]);
+  });
+
+  it("shows a book that appears in a loaded further root, keeping open folders open", async () => {
+    workspace.addExtraRoot("/books", "Books");
+    const [root] = workspace.extraRoots();
+    await workspace.toggle(root, true);
+    expect(root.children()?.map((n) => n.name)).toEqual(["a.epub"]);
+    listDir.mockResolvedValue([
+      { name: "a.epub", path: "/books/a.epub", isDir: false, hasOrder: false, modified: 0 },
+      { name: "b.epub", path: "/books/b.epub", isDir: false, hasOrder: false, modified: 0 },
+    ] as never);
+    await workspace.reloadExtraRoots();
+    expect(root.children()?.map((n) => n.name)).toEqual(["a.epub", "b.epub"]);
+    expect(root.expanded()).toBe(true);
+  });
+
+  it("leaves a root that was never opened unlisted", async () => {
+    workspace.addExtraRoot("/books", "Books");
+    listDir.mockClear();
+    await workspace.reloadExtraRoots();
+    expect(listDir).not.toHaveBeenCalled();
+  });
+});

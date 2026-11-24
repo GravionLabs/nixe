@@ -984,6 +984,21 @@ mod tests {
     }
 
     #[test]
+    fn a_root_prefix_reaches_a_book_of_another_root() {
+        let (a, b, ws) = two_roots("prefix-book");
+        write(&b, "Shelf/Novel.epub", "x");
+        let links = WorkspaceLinks::new(&ws);
+        let (pa, pb) = (slashes(&a), slashes(&b));
+        let hit = Some(ResolvedLink {
+            root: pb.clone(),
+            path: "Shelf/Novel.epub".to_string(),
+        });
+        assert_eq!(links.resolve(&pa, "beta:Novel.epub"), hit);
+        assert_eq!(links.resolve(&pa, "beta:Shelf/Novel.epub"), hit);
+        assert_eq!(links.resolve(&pb, "Novel.epub"), hit);
+    }
+
+    #[test]
     fn the_resolver_turns_a_leading_variable_into_the_folder_of_the_device() {
         let loc = device(Path::new("/dev"));
         assert_eq!(loc.resolve("$Home/x/y").unwrap(), "/dev/home/x/y");

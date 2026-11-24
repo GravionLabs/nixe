@@ -5,6 +5,8 @@ use std::path::Path;
 use serde::Serialize;
 
 const MARKDOWN_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx"];
+/// Books the reader opens (ADR 0009); they are listed next to the notes.
+const BOOK_EXTENSIONS: &[&str] = &["epub"];
 const SKIPPED_DIRS: &[&str] = &["node_modules", "target"];
 /// Upper bound of directory entries inspected when checking whether a folder
 /// contains markdown at all; beyond that the folder is simply shown.
@@ -36,11 +38,22 @@ fn is_markdown(path: &Path) -> bool {
         .is_some_and(|e| MARKDOWN_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
 }
 
+fn is_book(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| BOOK_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
+}
+
+/// A file the tree shows: a note or a book.
+fn is_listed(path: &Path) -> bool {
+    is_markdown(path) || is_book(path)
+}
+
 fn is_visible_dir(name: &str) -> bool {
     !name.starts_with('.') && !SKIPPED_DIRS.contains(&name)
 }
 
-/// True if `dir` (recursively) contains a markdown file.
+/// True if `dir` (recursively) contains a markdown file or a book.
 fn contains_markdown(dir: &Path, budget: &mut usize) -> bool {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return false;
@@ -57,14 +70,14 @@ fn contains_markdown(dir: &Path, budget: &mut usize) -> bool {
             if is_visible_dir(&name) {
                 subdirs.push(path);
             }
-        } else if is_markdown(&path) {
+        } else if is_listed(&path) {
             return true;
         }
     }
     subdirs.iter().any(|d| contains_markdown(d, budget))
 }
 
-/// Folders (that contain markdown) and markdown files of `dir`.
+/// Folders (that contain markdown or books), markdown files and `.epub` books of `dir`.
 ///
 /// Sorted like the Azure DevOps wiki: names listed in `.order` first (in that
 /// order), then the rest with folders before files, alphabetically.
@@ -87,7 +100,7 @@ pub fn list_dir(dir: &Path) -> Result<Vec<DirEntry>, String> {
             let mut budget = SCAN_BUDGET;
             is_visible_dir(&name) && contains_markdown(&path, &mut budget)
         } else {
-            !name.starts_with('.') && is_markdown(&path)
+            !name.starts_with('.') && is_listed(&path)
         };
         if visible {
             entries.push(DirEntry {
@@ -152,6 +165,30 @@ mod tests {
         let entries = list_dir(&root).unwrap();
         // After 2001-09-09 in milliseconds, so not seconds and not the 0 of an unknown time.
         assert!(entries[0].modified > 1_000_000_000_000);
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn lists_epub_books_and_folders_that_hold_only_books() {
+        let root = std::env::temp_dir().join(format!("nixe-tree-epub-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("Shelf/Sub")).unwrap();
+        fs::create_dir_all(root.join("Pictures")).unwrap();
+        fs::write(root.join("Shelf/Sub/Novel.EPUB"), "").unwrap();
+        fs::write(root.join("Book.epub"), "").unwrap();
+        fs::write(root.join("Pictures/a.png"), "").unwrap();
+        let names: Vec<String> = list_dir(&root)
+            .unwrap()
+            .into_iter()
+            .map(|e| e.name)
+            .collect();
+        assert_eq!(names, ["Shelf", "Book.epub"]);
+        let inner: Vec<String> = list_dir(&root.join("Shelf/Sub"))
+            .unwrap()
+            .into_iter()
+            .map(|e| e.name)
+            .collect();
+        assert_eq!(inner, ["Novel.EPUB"]);
         fs::remove_dir_all(&root).unwrap();
     }
 }

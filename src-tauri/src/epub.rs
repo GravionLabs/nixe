@@ -27,7 +27,7 @@ pub fn read_epub(roots: &[PathBuf], path: &Path) -> Result<Vec<u8>, String> {
         .any(|r| real.starts_with(r));
     if !inside {
         return Err(format!(
-            "outside the open roots and the vault: {}",
+            "outside the open roots and the vault: {}. Use \"Add folder to workspace…\" to add its folder.",
             path.display()
         ));
     }
@@ -217,6 +217,7 @@ mod tests {
         fs::write(base.join("other.epub"), b"x").unwrap();
         let err = read_epub(&[base.join("root")], &base.join("other.epub")).unwrap_err();
         assert!(err.contains("outside"), "{err}");
+        assert!(err.contains("Add folder to workspace"), "{err}");
         assert!(read_epub(&[], &base.join("other.epub")).is_err());
     }
 
