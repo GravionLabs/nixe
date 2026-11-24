@@ -35,7 +35,9 @@ works on the same plain `.md` files and folder layout as Obsidian, so both apps 
 | M004.3 | Git view and history for users without Git knowledge, terminal and agent panel | #291, #313, #314 |
 | M005 | Live preview | #55 |
 | M005.1 | Live preview polish: fixes for tables and frontmatter, text size, folded properties, view modes, table editing | #373 |
+| M005.8 | Links: a bookmark library in the vault, stage 1 ([ADR 0010](adr/0010-links-a-bookmark-library-in-the-vault.md), [links.md](links.md)) | #499 |
 | M006 | Bases | #56 |
+| after M006 | Links, stage 2: the link view and the unread inbox on Bases (after M006) | |
 | M007 | Plugin system, shaped like Obsidian's with partial compatibility | #57 |
 | M008 | German UI through i18n | #315 |
 | M009 | iOS MVP, sync on open and close | #54 |
@@ -68,7 +70,7 @@ planner when their milestone comes up; the Features and their sub-issues are on 
 ## After the MVP and later
 
 - **After the MVP:** daily use (M004), the Git view and history (M004.3), live preview (M005, M005.1),
-  Bases (M006), the plugin system (M007), the German UI (M008) and the iOS MVP (M009).
+  Links (M005.8), Bases (M006, then the link view), the plugin system (M007), the German UI (M008) and the iOS MVP (M009).
 - **Later or never:** graph view, canvas, a Claude API client in the app (AI changes come
   through Git branches, #90).
 
