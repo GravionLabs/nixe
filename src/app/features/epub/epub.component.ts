@@ -12,8 +12,9 @@ import {
 import type { FoliateBook, FoliateRelocate, FoliateView } from "foliate-js/view.js";
 
 import type { EpubFlow } from "../../core/epub/epub";
-import { flattenToc } from "../../core/epub/epub";
+import { bookCss, flattenToc } from "../../core/epub/epub";
 import { EpubService } from "../../core/epub/epub.service";
+import { SettingsService } from "../../core/settings/settings.service";
 import { CURRENT_TAB } from "../../core/tabs/tabs.service";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 
@@ -34,6 +35,7 @@ const PREV_KEYS = new Set(["ArrowLeft", "ArrowUp", "PageUp"]);
 export class EpubComponent implements OnDestroy {
   private readonly tab = inject(CURRENT_TAB);
   protected readonly epub = inject(EpubService);
+  private readonly settings = inject(SettingsService);
 
   protected readonly book = this.tab.epub;
   protected readonly toc = computed(() => flattenToc(this.book()?.book.toc));
@@ -45,6 +47,9 @@ export class EpubComponent implements OnDestroy {
   private view: FoliateView | null = null;
   private path: string | null = null;
   private generation = 0;
+  /** The position of the visible text, to stay on it when the styles change. */
+  private cfi: string | null = null;
+  private css = "";
 
   constructor() {
     // After the render: the stage is part of the template.
@@ -63,11 +68,30 @@ export class EpubComponent implements OnDestroy {
       const flow = this.epub.flow();
       this.view?.renderer?.setAttribute("flow", flow);
     });
+    // The theme and the zoom of the app restyle the open book; the position stays.
+    effect(() => {
+      this.css = bookCss(this.settings.dark(), this.settings.zoom());
+      untracked(() => void this.restyle());
+    });
   }
 
   ngOnDestroy(): void {
     this.generation++;
     this.unmount();
+  }
+
+  private async restyle(): Promise<void> {
+    const view = this.view;
+    if (!view?.renderer?.setStyles) return;
+    view.renderer.setStyles(this.css);
+    // The text reflows with the size: go back to the text that was in view.
+    const cfi = this.cfi;
+    if (cfi === null) return;
+    try {
+      await view.goTo(cfi);
+    } catch {
+      // The position stays where foliate-js left it.
+    }
   }
 
   protected setFlow(flow: EpubFlow): void {
@@ -113,6 +137,7 @@ export class EpubComponent implements OnDestroy {
       view.addEventListener("relocate", (event) => {
         const detail = (event as CustomEvent<FoliateRelocate>).detail;
         this.current.set(detail.tocItem?.href ?? null);
+        if (detail.cfi) this.cfi = detail.cfi;
         // The relocation that restores the saved position writes nothing.
         if (!detail.cfi) return;
         const restored = detail.cfi === saved;
@@ -130,6 +155,7 @@ export class EpubComponent implements OnDestroy {
       await view.open(book);
       if (run !== this.generation) return;
       view.renderer.setAttribute("flow", this.epub.flow());
+      view.renderer.setStyles?.(this.css);
       const last = await this.epub.position(path);
       if (run !== this.generation) return;
       saved = last;
@@ -144,6 +170,7 @@ export class EpubComponent implements OnDestroy {
     this.view = null;
     if (this.path !== null) this.epub.flushPosition(this.path);
     this.path = null;
+    this.cfi = null;
     if (!view) return;
     try {
       view.close();

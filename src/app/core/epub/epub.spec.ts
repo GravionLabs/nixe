@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FoliateBook } from "foliate-js/view.js";
 
-import { bookTitle, flattenToc } from "./epub";
+import { bookCss, bookTitle, flattenToc } from "./epub";
 
 const book = (title: FoliateBook["metadata"]["title"]): FoliateBook => ({
   metadata: { title },
@@ -43,5 +43,18 @@ describe("flattenToc", () => {
 
   it("is empty without a table of contents", () => {
     expect(flattenToc(undefined)).toEqual([]);
+  });
+});
+
+describe("bookCss", () => {
+  it("sets the colors of the light and the dark theme", () => {
+    expect(bookCss(false, 100)).toContain("color-scheme: light");
+    expect(bookCss(true, 100)).toContain("color-scheme: dark");
+    expect(bookCss(true, 100)).not.toBe(bookCss(false, 100));
+  });
+
+  it("scales the text with the zoom", () => {
+    expect(bookCss(false, 100)).toContain("font-size: 100% !important");
+    expect(bookCss(false, 150)).toContain("font-size: 150% !important");
   });
 });

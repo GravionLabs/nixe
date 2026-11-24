@@ -1,6 +1,6 @@
 # EPUB reader
 
-A book opens as a tab with the view `epub` (ADR [0009](../adr/0009-epub-reader-foliate-js-sandbox-and-storage.md)). The tab shows the table of contents at the side and the book, paged or scrolled. Opening a book from a link and the file tree is described below; the theme and zoom come with later issues.
+A book opens as a tab with the view `epub` (ADR [0009](../adr/0009-epub-reader-foliate-js-sandbox-and-storage.md)). The tab shows the table of contents at the side and the book, paged or scrolled. Opening a book from a link and the file tree is described below. The book follows the theme and the zoom of the app (see below).
 
 ## Parts
 
@@ -29,6 +29,10 @@ The CFI of the visible text is saved per book and restored when the book opens a
 - **Format:** plain JSON `{"root": "<root name>", "path": "<path relative to the root>", "cfi": "epubcfi(…)"}`. The file name is the last part of the key and a hash of it (`<name>-<hash>.json`); the content names the book, so a file of another book is never used.
 - **Write:** debounced (1 s after the last page turn) and at once when the tab closes. It never blocks reading; a failed write shows no dialog and the next position change writes again. The relocation that restores a position writes nothing.
 - **Read:** a missing or damaged file, or a position of a book that moved or was deleted, is ignored and the book opens at its start. Specs: `core/epub/epub.service.spec.ts`, `features/epub/epub.component.spec.ts` and the tests of `reading.rs`.
+
+## Theme and zoom
+
+The book follows the app: `bookCss(dark, zoom)` (`core/epub/epub.ts`) builds the CSS (page and text colors, link color, `color-scheme`, and the font size as `zoom` percent of the size of the book) and `EpubComponent` hands it to foliate-js (`renderer.setStyles`), which injects it as a `<style>` into every chapter frame. An effect on `SettingsService.dark()` and `zoom()` sets it again when either changes, then goes back to the last position (`goTo` with the CFI of the visible text), so the reader stays on the text it read although the pages reflow. The CSS is inline style, allowed by `style-src 'unsafe-inline'`; the stylesheets of a book stay blocked (no `blob:` in `style-src`). Specs: `core/epub/epub.spec.ts`, `features/epub/epub.component.spec.ts` and `e2e/epub.e2e.ts`; the picture is `epub-reader` of `pnpm screenshots`.
 
 ## Keys
 

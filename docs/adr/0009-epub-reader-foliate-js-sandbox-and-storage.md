@@ -115,3 +115,8 @@ foliate-js 1.0.1 in WebKitGTK 2.52.6 (Linux), on a page with the CSP of `tauri.c
   of a book do not run.
 - `style-src` keeps `'self' 'unsafe-inline'`: the stylesheets of a book stay blocked for now, the book is
   shown with the styles of the reader. Whether `blob:` joins `style-src` is left to the theme issue (#490).
+
+## Decision of #490
+
+- `style-src` stays `'self' 'unsafe-inline'`, without `blob:`: the theme and the zoom reach the book as
+  inline `<style>` (foliate-js `setStyles`), and the stylesheets of a book stay blocked.

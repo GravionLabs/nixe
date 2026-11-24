@@ -81,6 +81,15 @@ export const VIEWS = [
       await page.evaluate(() => window.__nixeDev.openEpub("/demo/Notes/Books/sample.epub"));
       await page.getByRole("navigation", { name: "Table of contents" }).waitFor();
       await page.waitForFunction(() => document.querySelector("foliate-view") !== null);
+      // The book follows the theme: wait until its frame is styled before the picture is taken.
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll("foliate-view")].some(
+          (v) =>
+            v.renderer?.getContents?.()[0]?.doc &&
+            getComputedStyle(v.renderer.getContents()[0].doc.documentElement).colorScheme !==
+              "normal",
+        ),
+      );
     },
   },
   {
