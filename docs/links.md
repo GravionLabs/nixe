@@ -164,6 +164,23 @@ On Linux and macOS a browser whose profile folder does not exist is skipped. The
 are the constants `ALLOWED_CHROMIUM_EXTENSIONS` and `ALLOWED_FIREFOX_EXTENSIONS` in
 `src-tauri/src/native_host.rs`; they still hold placeholders until the extension is published.
 
+## Browser extension
+
+The extension (`extension/`, one MV3 code base for Chromium and Firefox; `pnpm --filter
+nixe-extension build` writes `extension/dist/<browser>/`) saves the current tab through the
+native host above.
+
+- **Toolbar popup:** the title (editable), tags (comma separated), the folder (the links folder of
+  each vault and its sub folders, from `{type: "vaults"}`) and Save. It answers "Saved: <note>" or
+  "Already saved: <note>".
+- **Rendered HTML:** Save reads `document.documentElement.outerHTML` of the tab with
+  `scripting.executeScript`, so a page behind a login is saved as you see it. This happens only on
+  that click: the extension holds `activeTab`, no host permission.
+- **Context menu:** "Save link to Nixe" on a link saves that URL without HTML; the result shows as
+  a badge on the toolbar button.
+- **Host missing:** when the browser cannot find the native host, the popup says so and links to
+  this section; install it with "Install browser extension support…" (see above).
+
 ## Example notes
 
 `fixtures/vault/Links/` has two link notes that the Rust and TypeScript tests use: `Example

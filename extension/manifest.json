@@ -2,5 +2,7 @@
   "manifest_version": 3,
   "name": "Nixe",
   "version": "0.1.0",
-  "description": "Save web pages as link notes in Nixe."
+  "description": "Save web pages as link notes in Nixe.",
+  "permissions": ["activeTab", "scripting", "nativeMessaging", "contextMenus"],
+  "action": { "default_title": "Save to Nixe", "default_popup": "popup.html" }
 }
