@@ -125,6 +125,17 @@ export function createNixeDemo(): NixeDemo {
     list_dir: (a) => vault.listDir(str(a, "path")),
     list_vault_files: () => vault.relativeFiles(),
     read_text_file: (a) => vault.read(str(a, "path")),
+    // No book is stored in the demo vault; the answer keeps the refusals of the Rust command
+    // (extension, root) and returns the bytes of an empty ZIP archive for any other path.
+    read_epub: (a) => {
+      const path = str(a, "path");
+      const roots = [vault.root, ...((a["roots"] as string[] | undefined) ?? [])];
+      if (!path.toLowerCase().endsWith(".epub")) throw `not an EPUB file: ${path}`;
+      if (!roots.some((r) => path === r || path.startsWith(`${r.replace(/\/$/, "")}/`))) {
+        throw `outside the open roots and the vault: ${path}`;
+      }
+      return [0x50, 0x4b, 0x05, 0x06, ...Array.from({ length: 18 }, () => 0)];
+    },
     write_text_file: (a) => vault.write(str(a, "path"), str(a, "content")),
     create_file: (a) => {
       if (vault.exists(str(a, "path"))) throw "already exists";

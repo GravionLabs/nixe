@@ -50,6 +50,7 @@ mod cli_write;
 mod conflict;
 mod credentials;
 mod daily;
+mod epub;
 mod fileops;
 mod folds;
 mod git;
@@ -251,6 +252,19 @@ fn read_data_uri(path: String) -> Option<String> {
 fn read_bundled_data_uri(app: AppHandle, path: String) -> Option<String> {
     let asset = app.asset_resolver().get(path.clone())?;
     data_uri(Path::new(&path), &asset.bytes)
+}
+
+/// The bytes of an `.epub` book for the reader (#486). Only a book in the vault or in one of the
+/// `roots` of the open workspace is returned, up to `epub::MAX_BYTES`.
+#[tauri::command]
+fn read_epub(
+    state: State<'_, AppState>,
+    path: String,
+    roots: Vec<String>,
+) -> Result<tauri::ipc::Response, String> {
+    let mut allowed: Vec<PathBuf> = roots.into_iter().map(PathBuf::from).collect();
+    allowed.extend(state.vault_root.lock().unwrap().clone());
+    epub::read_epub(&allowed, Path::new(&path)).map(tauri::ipc::Response::new)
 }
 
 #[tauri::command]
@@ -1483,6 +1497,7 @@ pub fn run() {
         read_data_uri,
         read_bundled_data_uri,
         read_text_file,
+        read_epub,
         write_text_file,
         create_file,
         create_dir,
@@ -1630,6 +1645,7 @@ pub fn run() {
         read_data_uri,
         read_bundled_data_uri,
         read_text_file,
+        read_epub,
         write_text_file,
         create_file,
         create_dir,
