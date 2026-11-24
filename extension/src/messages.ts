@@ -116,9 +116,7 @@ export function isHostMissing(error: unknown): boolean {
   const text = error instanceof Error ? error.message : String(error);
   // Chromium: "Specified native messaging host not found." / "Access to the specified native
   // messaging host is forbidden."; Firefox: "No such native application app.gravionlabs.nixe".
-  return /native messaging host (not found|is forbidden)|no such native application|not found/i.test(
-    text,
-  );
+  return /native messaging host (not found|is forbidden)|no such native application/i.test(text);
 }
 
 export const hostMissingText =
