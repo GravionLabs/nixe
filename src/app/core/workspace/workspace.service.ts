@@ -160,6 +160,7 @@ export class WorkspaceService {
     if (switching) {
       this.tabs.reset();
       this.extraRoots.set([]);
+      this.watchExtraRoots();
     }
     if (openDefaultPage) {
       const layout = state?.layout;
@@ -309,6 +310,7 @@ export class WorkspaceService {
       children: signal<TreeNode[] | null>(null),
     };
     this.extraRoots.update((nodes) => [...nodes, node]);
+    this.watchExtraRoots();
   }
 
   /** Shows the further root at `path` under `name`; it keeps its place and its open state. */
@@ -319,6 +321,43 @@ export class WorkspaceService {
   /** Drops the further roots, keeping the first. */
   clearExtraRoots(): void {
     this.extraRoots.set([]);
+    this.watchExtraRoots();
+  }
+
+  /** Lets the core watch the further roots, so the tree follows the disk; a failure is not fatal. */
+  private watchExtraRoots(): void {
+    const paths = this.extraRoots()
+      .map((n) => n.dirPath)
+      .filter((p): p is string => p !== null);
+    void (async () => {
+      try {
+        await backend.watchRoots(paths);
+      } catch {
+        // Without the watcher the tree shows the new state after a reload.
+      }
+    })();
+  }
+
+  /** Re-reads the loaded folders of the further roots; open folders stay open. */
+  async reloadExtraRoots(): Promise<void> {
+    await Promise.all(
+      this.extraRoots().map(async (node) => {
+        if (!node.dirPath || node.children() === null) return;
+        const open = new Set<string>();
+        const collect = (nodes: TreeNode[]) => {
+          for (const n of nodes) {
+            if (n.dirPath && n.expanded()) open.add(n.dirPath);
+            collect(n.children() ?? []);
+          }
+        };
+        collect(node.children() ?? []);
+        try {
+          node.children.set(await this.loadOpen(node.dirPath, node.hasOrder, 1, open));
+        } catch {
+          // The folder is gone or unreadable: the old rows stay.
+        }
+      }),
+    );
   }
 
   /** Counts the requests to scroll the open note into view; the sidebar acts on it. */
