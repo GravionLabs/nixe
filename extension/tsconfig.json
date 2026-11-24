@@ -1,0 +1,19 @@
+{
+  // The browser code of the extension. scripts/ (build and its spec) run on Node with type stripping
+  // and are left out: @types/node is an optional peer of vite and vitest, and adding it re-types the
+  // root (setTimeout returns NodeJS.Timeout there).
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "WebWorker"],
+    "module": "preserve",
+    "types": []
+  },
+  "include": ["src/**/*.ts"]
+}

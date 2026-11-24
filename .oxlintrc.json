@@ -6,6 +6,7 @@
   "options": { "typeAware": true },
   "ignorePatterns": [
     "dist/**",
+    "extension/dist/**",
     "coverage/**",
     "node_modules/**",
     ".angular/**",

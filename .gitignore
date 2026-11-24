@@ -43,3 +43,7 @@ Thumbs.db
 
 /test-results
 /playwright-report
+
+# Browser extension (#499)
+/extension/dist
+/extension/node_modules
