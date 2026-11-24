@@ -130,6 +130,40 @@ still succeeds with a warning.
 | macOS | WKWebView | not wired yet (`takeSnapshot`) | not wired yet (`createPDF`) |
 | Windows | WebView2 | not wired yet (`CapturePreview`) | not wired yet (`PrintToPdf`) |
 
+## Browser extension host
+
+`nixe native-host` is the Native Messaging host of the browser extension. The browser starts it;
+it reads and writes frames on stdin and stdout: a 32-bit length in native byte order, then that
+many bytes of UTF-8 JSON. It is not meant to be run by hand.
+
+| Message | Answer |
+|---|---|
+| `{type: "clip", url, title?, html?, tags?, folder?, vault?}` | `{ok: true, path, created, vault}` (`path` is vault-relative) or `{ok: false, error}` |
+| `{type: "vaults"}` | `{ok: true, vaults: [{name, path, folder, folders}]}`: `folder` is the links folder, `folders` its sub folders |
+
+- `clip` does what `nixe clip` does: `html` is read like the file of `--html`, a URL that a link
+  note holds already gives that note (`created: false`).
+- The host writes only into the vaults of the saved workspaces (`vault` is a name or a path of one
+  of them; without it the first) and `folder` must be the links folder or below it.
+- A message over 8 MiB (`MAX_MESSAGE_BYTES`) is answered with an error and ends the session; an
+  unknown `type` answers an error.
+
+**Install:** the menu item "Install browser extension support…" (Nixe menu on macOS, Help menu
+elsewhere) writes a small launcher (`nixe-native-host`, `.cmd` on Windows) into the app data
+directory and the host manifest `app.gravionlabs.nixe` for each installed browser. Running it
+again rewrites the same files.
+
+| | Chrome, Edge, Brave | Firefox |
+|---|---|---|
+| Manifest field | `allowed_origins` (`chrome-extension://<id>/`) | `allowed_extensions` |
+| Linux | `~/.config/google-chrome`, `microsoft-edge`, `BraveSoftware/Brave-Browser` `/NativeMessagingHosts/` | `~/.mozilla/native-messaging-hosts/` |
+| macOS | `~/Library/Application Support/{Google/Chrome, Microsoft Edge, BraveSoftware/Brave-Browser}/NativeMessagingHosts/` | `~/Library/Application Support/Mozilla/NativeMessagingHosts/` |
+| Windows | manifest in the app data directory, key `HKCU\Software\{Google\Chrome, Microsoft\Edge, BraveSoftware\Brave-Browser}\NativeMessagingHosts\app.gravionlabs.nixe` | key `HKCU\Software\Mozilla\NativeMessagingHosts\app.gravionlabs.nixe` |
+
+On Linux and macOS a browser whose profile folder does not exist is skipped. The extension IDs
+are the constants `ALLOWED_CHROMIUM_EXTENSIONS` and `ALLOWED_FIREFOX_EXTENSIONS` in
+`src-tauri/src/native_host.rs`; they still hold placeholders until the extension is published.
+
 ## Example notes
 
 `fixtures/vault/Links/` has two link notes that the Rust and TypeScript tests use: `Example
