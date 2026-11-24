@@ -91,7 +91,12 @@ describe("SidebarComponent tree", () => {
     rootName: vi.fn((path: string) => (path === "/v" ? "Own" : path.split("/").pop())),
     renameRoot: vi.fn(async () => {}),
   };
-  const tabs = { openInNewTab: vi.fn(), openPreview: vi.fn(), openPinned: vi.fn() };
+  const tabs = {
+    openInNewTab: vi.fn(),
+    openPreview: vi.fn(),
+    openPinned: vi.fn(),
+    openEpub: vi.fn(),
+  };
   const doc = { path: signal<string | null>(null), open: vi.fn() };
   let sidebar: SidebarComponent & Record<string, any>;
   let host: HTMLElement;
@@ -119,6 +124,7 @@ describe("SidebarComponent tree", () => {
     doc.open.mockResolvedValue(undefined);
     tabs.openPreview.mockResolvedValue(undefined);
     tabs.openPinned.mockResolvedValue(undefined);
+    tabs.openEpub.mockResolvedValue(undefined);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -189,6 +195,24 @@ describe("SidebarComponent tree", () => {
     await sidebar.pin(rows[1], new MouseEvent("dblclick", { shiftKey: true }));
     await sidebar.pin(rows[3], new MouseEvent("dblclick"));
     expect(tabs.openPinned).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens an .epub in the reader, also with Alt, and reports a book that cannot be read", async () => {
+    const book = node("Title.epub", "file");
+    await sidebar.select(book, new MouseEvent("click"));
+    await sidebar.select(book, new MouseEvent("click", { altKey: true }));
+    await sidebar.pin(book, new MouseEvent("dblclick"));
+    expect(tabs.openEpub).toHaveBeenCalledTimes(2);
+    expect(tabs.openEpub).toHaveBeenCalledWith("/v/Title.epub");
+    expect(tabs.openPreview).not.toHaveBeenCalled();
+    expect(tabs.openInNewTab).not.toHaveBeenCalled();
+    expect(tabs.openPinned).not.toHaveBeenCalled();
+
+    const failed = vi.fn();
+    sidebar.failed.subscribe(failed);
+    tabs.openEpub.mockRejectedValueOnce(new Error("gone"));
+    await sidebar.select(book, new MouseEvent("click"));
+    expect(failed).toHaveBeenCalledWith("Error: gone");
   });
 
   it("selects several rows with Ctrl and Shift and does not open them", async () => {
