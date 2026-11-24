@@ -93,8 +93,7 @@ prints `exists: <path>` (exit code 0; `--open` opens that note).
 
 `links.archive` in `.nixe/config.json` is a list of the copies a clip stores besides the Markdown
 note: `html`, `screenshot`, `pdf`. The default is `[]` (Markdown only). An unknown entry is
-ignored with a warning in the log. Only `html` is implemented; `screenshot` and `pdf` follow in
-#506.
+ignored with a warning in the log. `screenshot` and `pdf` are made by the desktop app only (below).
 
 ```json
 { "links": { "archive": ["html"] } }
@@ -110,6 +109,26 @@ never fails the clip: the note is saved without `archive` and the clip prints a 
 Before the first file of a folder is written, `<folder>/.archive/` is appended to the `.gitignore`
 of the vault when Git does not ignore it yet (`git::gitignore_ensure`; the file is appended to,
 never rewritten, under the `# Nixe` comment of [vault-git.md](vault-git.md)).
+
+### Screenshot and PDF (desktop app)
+
+With `screenshot` or `pdf`, the app (command `clip_link`, `src-tauri/src/links/render.rs`) loads the
+page in a hidden webview, waits for the load event plus 1.5 s, and stores
+`<folder>/.archive/<note stem>.png` (viewport width 1280, the full page) and/or `.pdf` next to the
+HTML copy; the files are named in `archive`. The webview follows the rule of the web tab (#461): no
+capability file names its label (`link-render-*`), so the page has no IPC, and it runs in a private
+session without the cookies or storage of the app. A format that the platform cannot make, a page
+that does not load within 30 s or a file that cannot be written is logged and skipped; the clip
+still succeeds with a warning.
+
+`nixe clip` has no webview: it saves the note (and the `html` copy) and prints
+`the screenshot and pdf archive is made by the desktop app only; skipped` as a warning.
+
+| Platform | Engine | Screenshot | PDF |
+|---|---|---|---|
+| Linux | WebKitGTK | `webkit_web_view_get_snapshot`, full document | GTK print operation to a file |
+| macOS | WKWebView | not wired yet (`takeSnapshot`) | not wired yet (`createPDF`) |
+| Windows | WebView2 | not wired yet (`CapturePreview`) | not wired yet (`PrintToPdf`) |
 
 ## Example notes
 
