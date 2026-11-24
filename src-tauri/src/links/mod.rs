@@ -23,9 +23,10 @@ mod clip_impl {
     use super::url;
     use crate::capture::is_url;
     use crate::index::{self, read};
+    use crate::vault::config::Config;
     use crate::{cli_write, write};
 
-    /// The folder of the link notes until `.nixe/config.json` names one (#504).
+    /// The folder of the link notes until the role `links` of `.nixe/config.json` names one (#504).
     pub const DEFAULT_FOLDER: &str = "Links";
 
     #[derive(Debug, Clone, Default)]
@@ -36,7 +37,7 @@ mod clip_impl {
         /// Wins over every title of the page.
         pub title: Option<String>,
         pub tags: Vec<String>,
-        /// Vault-relative; without it [`DEFAULT_FOLDER`].
+        /// Vault-relative; without it the role `links` of `.nixe/config.json`, else [`DEFAULT_FOLDER`].
         pub folder: Option<String>,
     }
 
@@ -172,7 +173,13 @@ mod clip_impl {
             archive: archive.as_deref(),
         });
 
-        let folder = req.folder.as_deref().unwrap_or(DEFAULT_FOLDER);
+        // A role outside the vault is ignored with the warning of `Config` (#439).
+        let role = Config::load(&root).links_folder();
+        let folder = req
+            .folder
+            .as_deref()
+            .or(role.as_deref())
+            .unwrap_or(DEFAULT_FOLDER);
         let dir = cli_write::folder_path(&root, folder).map_err(|e| match e {
             crate::cli::CliError::Usage(m) | crate::cli::CliError::Failed(m) => ClipError::Write(m),
         })?;
@@ -491,6 +498,65 @@ mod clip_impl {
                     .unwrap()
                     .created
             );
+        }
+
+        fn clip_with_config(name: &str, config: Option<&str>) -> (PathBuf, ClipResult) {
+            let root = tmp(name);
+            if let Some(config) = config {
+                std::fs::create_dir_all(root.join(".nixe")).unwrap();
+                std::fs::write(root.join(".nixe/config.json"), config).unwrap();
+            }
+            let mut req = request("https://example.com/a");
+            req.html = Some("<title>T</title>".into());
+            let r = clip_with(&root, &data(&root), req, &at(), &no_network).unwrap();
+            (root, r)
+        }
+
+        #[test]
+        fn the_role_links_sets_the_folder_of_new_link_notes() {
+            let (root, r) =
+                clip_with_config("role-set", Some(r#"{"folders":{"links":"Web/Saved"}}"#));
+            assert_eq!(r.path, root.join("Web/Saved/T.md"));
+            assert!(!root.join("Links").exists());
+        }
+
+        #[test]
+        fn without_the_role_links_the_folder_is_links() {
+            for (name, config) in [
+                ("role-none", None),
+                ("role-other", Some(r#"{"folders":{"inbox":"In"}}"#)),
+            ] {
+                let (root, r) = clip_with_config(name, config);
+                assert_eq!(r.path, root.join("Links/T.md"), "{name}");
+            }
+        }
+
+        #[test]
+        fn a_role_outside_the_vault_is_ignored_and_the_folder_is_links() {
+            for (i, role) in ["../out", "/abs/../..", "C:/x", "a/../../b"]
+                .iter()
+                .enumerate()
+            {
+                let config = format!(r#"{{"folders":{{"links":"{role}"}}}}"#);
+                let (root, r) = clip_with_config(&format!("role-out{i}"), Some(&config));
+                assert_eq!(r.path, root.join("Links/T.md"), "{role}");
+            }
+        }
+
+        #[test]
+        fn the_given_folder_wins_over_the_role_links() {
+            let root = tmp("role-wins");
+            std::fs::create_dir_all(root.join(".nixe")).unwrap();
+            std::fs::write(
+                root.join(".nixe/config.json"),
+                r#"{"folders":{"links":"Web"}}"#,
+            )
+            .unwrap();
+            let mut req = request("https://example.com/a");
+            req.html = Some("<title>T</title>".into());
+            req.folder = Some("Mine".into());
+            let r = clip_with(&root, &data(&root), req, &at(), &no_network).unwrap();
+            assert_eq!(r.path, root.join("Mine/T.md"));
         }
 
         #[test]
