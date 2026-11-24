@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import type { Frame, Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { FAKE_VAULT } from "./fake-vault";
-import { ready } from "./steps";
+import { openPalette, ready } from "./steps";
 
 const BOOK = "/demo/Notes/Books/sample.epub";
 
@@ -97,4 +97,44 @@ test("a script in the book does not run", async ({ page }) => {
   expect(
     await frame.evaluate(() => document.documentElement.getAttribute("data-script-ran")),
   ).toBeNull();
+});
+
+test("the book follows the theme and the zoom of the app and keeps its place", async ({ page }) => {
+  await ready(page);
+  await openBook(page, BOOK);
+  const toc = page.getByRole("navigation", { name: "Table of contents" });
+  await toc.getByRole("button", { name: "Chapter 2" }).click();
+  await bookFrame(page, "This is chapter 2");
+  // A new style reloads the chapter, so the frame is looked up again every time.
+  const read = async <T>(fn: () => T): Promise<T | null> => {
+    try {
+      return await (await bookFrame(page, "This is chapter 2")).evaluate(fn);
+    } catch {
+      return null;
+    }
+  };
+  const scheme = () => read(() => getComputedStyle(document.documentElement).colorScheme);
+  const size = () => read(() => parseFloat(getComputedStyle(document.body).fontSize));
+  const run = async (title: string) => {
+    await openPalette(page);
+    await page.getByRole("combobox").fill(`>${title}`);
+    await page.keyboard.press("Enter");
+  };
+
+  // One round of the cycle (system, light, dark) shows both themes in the book.
+  const seen = new Set<string | null>();
+  for (let i = 0; i < 3; i++) {
+    await run("Cycle theme");
+    await expect.poll(scheme).not.toBeNull();
+    seen.add(await scheme());
+  }
+  expect(seen).toEqual(new Set(["light", "dark"]));
+
+  const before = await size();
+  await run("Zoom in");
+  await expect.poll(size).toBeGreaterThan(before!);
+  await expect(toc.getByRole("button", { name: "Chapter 2" })).toHaveAttribute(
+    "aria-current",
+    "location",
+  );
 });

@@ -15,6 +15,7 @@ const view = vi.hoisted(() => ({
   prev: vi.fn(),
   close: vi.fn(),
   setAttribute: vi.fn(),
+  setStyles: vi.fn(),
 }));
 
 // The real view renders in a browser (`e2e/epub.e2e.ts`); jsdom has no layout and loads no frames.
@@ -22,7 +23,7 @@ vi.mock("foliate-js/view.js", async () => {
   customElements.define(
     "foliate-view",
     class extends HTMLElement {
-      renderer = { setAttribute: view.setAttribute };
+      renderer = { setAttribute: view.setAttribute, setStyles: view.setStyles };
       open = view.open;
       init = view.init;
       goTo = view.goTo;
@@ -48,7 +49,9 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import type * as ViewModule from "foliate-js/view.js";
 import type { EpubBook, EpubFlow } from "../../core/epub/epub";
+import { bookCss } from "../../core/epub/epub";
 import { EpubService } from "../../core/epub/epub.service";
+import { SettingsService } from "../../core/settings/settings.service";
 import { CURRENT_TAB } from "../../core/tabs/tabs.service";
 import type { Tab } from "../../core/tabs/tabs.service";
 import { EpubComponent } from "./epub.component";
@@ -72,6 +75,8 @@ describe("EpubComponent", () => {
   const savePosition = vi.fn();
   const flushPosition = vi.fn();
   const flow = signal<EpubFlow>("paginated");
+  const dark = signal(false);
+  const zoom = signal(100);
   const setFlow = vi.fn((value: EpubFlow) => flow.set(value));
 
   beforeAll(() => {
@@ -81,6 +86,8 @@ describe("EpubComponent", () => {
   beforeEach(() => {
     for (const fn of Object.values(view)) fn.mockReset().mockResolvedValue(undefined);
     view.setAttribute.mockReset();
+    dark.set(false);
+    zoom.set(100);
     flow.set("paginated");
     setFlow.mockClear();
     position.mockReset().mockResolvedValue(null);
@@ -94,6 +101,7 @@ describe("EpubComponent", () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: CURRENT_TAB, useValue: tab },
+        { provide: SettingsService, useValue: { dark, zoom } },
         {
           provide: EpubService,
           useValue: { flow, setFlow, position, savePosition, flushPosition },
@@ -161,6 +169,35 @@ describe("EpubComponent", () => {
     }
 
     expect(savePosition).toHaveBeenLastCalledWith("/v/sample.epub", "epubcfi(/6/2)");
+  });
+
+  it("styles the book with the theme and the zoom of the app", async () => {
+    const { fixture } = await render(await sample());
+    expect(view.setStyles).toHaveBeenLastCalledWith(bookCss(false, 100));
+
+    dark.set(true);
+    await settle(fixture);
+    expect(view.setStyles).toHaveBeenLastCalledWith(bookCss(true, 100));
+
+    zoom.set(150);
+    await settle(fixture);
+    expect(view.setStyles).toHaveBeenLastCalledWith(bookCss(true, 150));
+  });
+
+  it("stays on the position when the theme or the zoom changes", async () => {
+    const { fixture, el } = await render(await sample());
+    el.querySelector("foliate-view")!.dispatchEvent(
+      new CustomEvent("relocate", { detail: { cfi: "epubcfi(/6/4)" } }),
+    );
+    view.goTo.mockClear();
+
+    dark.set(true);
+    await settle(fixture);
+    zoom.set(120);
+    await settle(fixture);
+
+    expect(view.goTo).toHaveBeenCalledTimes(2);
+    expect(view.goTo).toHaveBeenLastCalledWith("epubcfi(/6/4)");
   });
 
   it("writes the waiting position when the tab closes", async () => {

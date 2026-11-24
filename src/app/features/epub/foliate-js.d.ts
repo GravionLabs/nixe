@@ -28,6 +28,8 @@ declare module "foliate-js/view.js" {
   export interface FoliateRenderer extends HTMLElement {
     next(): Promise<void>;
     prev(): Promise<void>;
+    /** Replaces the CSS that is injected into the frames of the book. */
+    setStyles?(css: string): void;
   }
 
   export interface FoliateRelocate {

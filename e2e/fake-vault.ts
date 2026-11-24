@@ -15,6 +15,8 @@ export const FAKE_VAULT: Record<string, unknown> = {
   write_text_file: null,
   read_app_bookmarks: null,
   read_folds: null,
+  read_epub_position: null,
+  write_epub_position: null,
   read_vault_bookmarks: null,
   write_vault_bookmarks: null,
   appearance_dir: "/fake/config",

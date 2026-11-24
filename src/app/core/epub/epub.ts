@@ -59,3 +59,26 @@ export function parsePosition(text: string | null, root: string, relPath: string
     return null;
   }
 }
+
+/** The colors of the book in the light and the dark theme of the app. */
+const BOOK_COLORS = {
+  light: { background: "#ffffff", text: "#1f2328", link: "#0b57d0" },
+  dark: { background: "#1e1f22", text: "#dfe1e5", link: "#8ab4f8" },
+} as const;
+
+/**
+ * The CSS that the reader injects into every frame of the book (foliate-js `setStyles`): the colors
+ * of the app theme and the app zoom as the size of the text (100 = the size of the book).
+ * Inline style in a frame of a `blob:` URL falls under `style-src 'unsafe-inline'` of the app.
+ */
+export function bookCss(dark: boolean, zoom: number): string {
+  const c = BOOK_COLORS[dark ? "dark" : "light"];
+  const size = Math.round(zoom);
+  return `
+    html { color-scheme: ${dark ? "dark" : "light"}; background: ${c.background}; color: ${c.text}; }
+    body { background: ${c.background}; color: ${c.text}; }
+    a:link, a:visited { color: ${c.link}; }
+    html { font-size: ${size}% !important; }
+    body, p, li, dd, dt, td, th, blockquote { font-size: inherit; }
+  `;
+}
