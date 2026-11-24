@@ -466,6 +466,12 @@ export interface ResolvedLink {
 export const backend = {
   takePendingFile: () => invoke<string | null>("take_pending_file"),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
+  /**
+   * The bytes of an `.epub` book (#486). The Rust side returns it only from the vault or from one
+   * of `roots`, the roots of the open workspace, and refuses a book over its size limit.
+   */
+  readEpub: async (path: string, roots: string[]) =>
+    new Uint8Array(await invoke<ArrayBuffer | number[]>("read_epub", { path, roots })),
   /** Atomic write; the Rust side only accepts the open note or a note inside the vault. */
   writeTextFile: (path: string, content: string) =>
     invoke<void>("write_text_file", { path, content }),
