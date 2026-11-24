@@ -793,3 +793,96 @@ mod site {
         assert!(matches!(r, Err(CliError::Failed(_))));
     }
 }
+
+#[cfg(desktop)]
+mod clip {
+    use super::*;
+
+    fn page(name: &str) -> String {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures/web")
+            .join(name)
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn clip_reads_the_html_from_stdin_and_prints_the_path() {
+        let root = scratch("clip-stdin");
+        let html = std::fs::read_to_string(page("article.html")).unwrap();
+        let out = write_cmd(
+            "clip-stdin",
+            &root,
+            &[
+                "clip",
+                "https://example.com/a",
+                "--tag",
+                "reading",
+                "--tag=web",
+                "--html",
+                "-",
+            ],
+            &html,
+        )
+        .unwrap();
+        let path = root.join("Links/Keeping notes as plain files.md");
+        assert_eq!(out.trim(), path.to_str().unwrap());
+        let text = std::fs::read_to_string(path).unwrap();
+        assert!(text.contains("tags:\n  - reading\n  - web\n"));
+    }
+
+    #[test]
+    fn clip_json_names_path_and_created_and_takes_folder_title_and_file() {
+        let root = scratch("clip-json");
+        let out = write_cmd(
+            "clip-json",
+            &root,
+            &[
+                "clip",
+                "https://example.com/a",
+                "--html",
+                &page("article.html"),
+                "--folder",
+                "Reading/Later",
+                "--title",
+                "Mine",
+                "--json",
+            ],
+            "",
+        )
+        .unwrap();
+        let json: Value = serde_json::from_str(&out).unwrap();
+        let path = root.join("Reading/Later/Mine.md");
+        assert_eq!(
+            json,
+            json!({"path": path.to_str().unwrap(), "created": true})
+        );
+        assert!(path.is_file());
+    }
+
+    #[test]
+    fn clip_refuses_wrong_arguments_and_folders_outside_the_vault() {
+        let root = scratch("clip-bad");
+        let run = |args: &[&str]| write_cmd("clip-bad", &root, args, "<title>T</title>");
+        assert!(matches!(run(&["clip"]), Err(CliError::Usage(_))));
+        assert!(matches!(
+            run(&["clip", "a", "b", "--html", "-"]),
+            Err(CliError::Usage(_))
+        ));
+        assert!(matches!(
+            run(&["clip", "notaurl", "--html", "-"]),
+            Err(CliError::Failed(_))
+        ));
+        assert!(run(&[
+            "clip",
+            "https://x.test/",
+            "--html",
+            "-",
+            "--folder",
+            "../out"
+        ])
+        .is_err());
+        assert!(run(&["clip", "https://x.test/", "--html", "missing.html"]).is_err());
+    }
+}

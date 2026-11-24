@@ -83,6 +83,30 @@ the note picks the change up through its file watcher.
 `<note>` is a vault-relative path (with or without `.md`) or a unique note name, resolved
 like a `[[wikilink]]`. A missing or ambiguous note is an error.
 
+## Clip a web page
+
+`nixe clip <url> [--tag <t>]… [--folder <dir>] [--title <t>] [--html <file>|-] [--json] [--open] [--vault <dir>]`
+saves a web page as a link note ([links.md](links.md)) and prints the absolute path of the note.
+It needs no index.
+
+- Without `--html` the page is fetched (20 seconds, at most 5 MiB). `--html <file>` or `--html -`
+  (stdin) uses the HTML you already have, for example a page a browser rendered, and fetches
+  nothing. A page that is not UTF-8 is read as ISO-8859-1/windows-1252 when it says so or when
+  it is not valid UTF-8; other charsets lose their non-ASCII characters.
+- The title is `--title`, else `og:title`, else `<title>`, else the host of the URL. The note
+  keeps `description` (`og:description`, else the meta description), `image` (`og:image`) and
+  `site` (`og:site_name`, else the host). `url` is the canonical URL of the page when it names an
+  absolute `http(s)` one, else the given URL.
+- `## Archive` holds the reader text (Readability) as Markdown. A page without readable content
+  is saved without `## Archive`; the command warns on stderr and still exits `0`.
+- The folder is `--folder` (vault-relative, created if missing), else `Links/`. It must stay
+  inside the vault. A note of the same name is never replaced: ` 2`, ` 3`, … is appended.
+- `--tag` repeats; a leading `#` is dropped. `--open` opens the note in the viewer.
+- `--json` prints `{"path": "/vault/Links/Title.md", "created": true}`.
+
+Exit `1` for an address that is not `http(s)`, a page that cannot be fetched or a folder outside
+the vault; `2` for wrong arguments.
+
 ## Export
 
 `nixe export <note> --format html|pdf [--out <file>] [--dark|--light] [--page-size <size>]` does what

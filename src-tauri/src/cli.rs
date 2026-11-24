@@ -21,6 +21,7 @@ const SUBCOMMANDS: &[&str] = &[
     "check",
     "new",
     "append",
+    "clip",
     "daily",
     "mcp",
 ];
@@ -38,6 +39,7 @@ usage: nixe <path>|-                       open the viewer
        nixe props <note> [--vault <dir>] [--json]
        nixe check [--exclude <dir>]... [--links [--force]] [--vault <dir>] [--json]   exit 1 on broken or dead links
        nixe new <title> [--folder <dir>] [--open] [--vault <dir>]
+       nixe clip <url> [--tag <t>]... [--folder <dir>] [--title <t>] [--html <file>|-] [--json] [--open] [--vault <dir>]
        nixe append <note> [text] [--vault <dir>]   text from stdin when omitted
        nixe append --inbox [text] [--vault <dir>]
        nixe daily [--append <text>] [--vault <dir>]   open today's daily note, or append to it
@@ -235,6 +237,8 @@ pub(crate) struct Parsed {
     force: bool,
     path: String,
     folder: Option<String>,
+    title: Option<String>,
+    html: Option<String>,
     open: bool,
     inbox: bool,
     append: Option<String>,
@@ -273,6 +277,8 @@ pub(crate) fn parse(args: &[String]) -> Result<Parsed, CliError> {
             "--out" => p.out = Some(value(flag, inline, &mut it)?),
             "--page-size" => p.page_size = Some(value(flag, inline, &mut it)?),
             "--append" => p.append = Some(value(flag, inline, &mut it)?),
+            "--title" => p.title = Some(value(flag, inline, &mut it)?),
+            "--html" => p.html = Some(value(flag, inline, &mut it)?),
             "--folder" => p.folder = Some(value(flag, inline, &mut it)?),
             "--vault" => p.vaults.push(value(flag, inline, &mut it)?),
             "--workspace" => p.workspace = Some(value(flag, inline, &mut it)?),
@@ -349,6 +355,75 @@ pub(crate) fn select_roots(
     Ok(crate::workspace::name_roots(&paths))
 }
 
+/// `nixe clip <url>`: saves the page as a link note; prints its path (or `{path, created}`).
+#[cfg(desktop)]
+fn clip(
+    p: &Parsed,
+    root: &Path,
+    cwd: &Path,
+    input: &mut dyn std::io::Read,
+    out: &mut dyn Write,
+) -> Result<(), CliError> {
+    use crate::links::{self, fetch};
+    let [url] = p.positional.as_slice() else {
+        return Err(CliError::Usage("`clip` takes exactly one URL".into()));
+    };
+    let html = match p.html.as_deref() {
+        None => None,
+        Some(source) => {
+            let mut bytes = Vec::new();
+            if source == "-" {
+                input.read_to_end(&mut bytes)
+            } else {
+                std::fs::read(cwd.join(source)).map(|b| {
+                    bytes = b;
+                    bytes.len()
+                })
+            }
+            .map_err(|e| CliError::Failed(format!("{source}: {e}")))?;
+            Some(fetch::decode(&bytes, None))
+        }
+    };
+    let result = links::clip(
+        root,
+        links::ClipRequest {
+            url: url.clone(),
+            html,
+            title: p.title.clone(),
+            tags: p.tags.clone(),
+            folder: p.folder.clone(),
+        },
+    )
+    .map_err(|e| CliError::Failed(e.to_string()))?;
+    for warning in &result.warnings {
+        eprintln!("nixe: warning: {warning}");
+    }
+    if p.json {
+        let json = serde_json::to_string(&result).map_err(|e| CliError::Failed(e.to_string()))?;
+        writeln!(out, "{json}")
+    } else {
+        writeln!(out, "{}", result.path.display())
+    }
+    .map_err(|e| CliError::Failed(e.to_string()))?;
+    if p.open {
+        crate::cli_write::open_in_viewer(&result.path)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(desktop))]
+fn clip(
+    _: &Parsed,
+    _: &Path,
+    _: &Path,
+    _: &mut dyn std::io::Read,
+    _: &mut dyn Write,
+) -> Result<(), CliError> {
+    Err(CliError::Failed(
+        "`clip` is not available on this platform".into(),
+    ))
+}
+
 /// The one vault of a command that cannot cover several.
 fn one_root(command: &str, p: &Parsed, cwd: &Path, app_data: &Path) -> Result<PathBuf, CliError> {
     let roots = select_roots(&p.vaults, p.workspace.as_deref(), cwd, app_data)?;
@@ -398,6 +473,10 @@ pub fn execute_with(
             inbox: p.inbox,
         };
         return crate::cli_write::run(command, &request, &root, app_data, input, out);
+    }
+    if command == "clip" {
+        let root = one_root(command, &p, cwd, app_data)?;
+        return clip(&p, &root, cwd, input, out);
     }
     if command == "daily" {
         if !p.positional.is_empty() {
