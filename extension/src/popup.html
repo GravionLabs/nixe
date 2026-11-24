@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Nixe</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <form id="form">
+      <label>Title <input id="title" type="text" autocomplete="off" /></label>
+      <label
+        >Tags <input id="tags" type="text" placeholder="comma, separated" autocomplete="off"
+      /></label>
+      <label
+        >Folder
+        <select id="folder"></select
+      ></label>
+      <button id="save" type="submit">Save</button>
+    </form>
+    <p id="status" role="status"></p>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

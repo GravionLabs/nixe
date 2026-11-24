@@ -38,7 +38,13 @@ describe("build", () => {
   it("writes one MV3 package per browser", async () => {
     expect((await readdir(out)).sort()).toEqual(["chromium", "firefox"]);
     for (const target of ["chromium", "firefox"]) {
-      expect((await readdir(join(out, target))).sort()).toEqual(["background.js", "manifest.json"]);
+      expect((await readdir(join(out, target))).sort()).toEqual([
+        "background.js",
+        "manifest.json",
+        "popup.css",
+        "popup.html",
+        "popup.js",
+      ]);
       const manifest = JSON.parse(await readFile(join(out, target, "manifest.json"), "utf8"));
       expect(manifest.manifest_version).toBe(3);
     }

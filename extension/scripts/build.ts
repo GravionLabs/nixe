@@ -4,7 +4,7 @@
  * differ only in the manifest: Firefox needs a fixed add-on id (`browser_specific_settings.gecko.id`)
  * and runs the background as `scripts`, Chromium as a `service_worker`.
  */
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
@@ -18,6 +18,9 @@ export const geckoId = "extension@nixe.app";
 export type Manifest = Record<string, unknown>;
 
 const background = "background.js";
+
+/** Copied as they are from `src/`. */
+const staticFiles = ["popup.html", "popup.css"];
 
 /** The manifest of one target, built from the shared base manifest. */
 export function manifestFor(base: Manifest, target: Target): Manifest {
@@ -41,14 +44,18 @@ export async function build(outDir = join(root, "dist")): Promise<string[]> {
   for (const target of targets) {
     const dir = join(outDir, target);
     await esbuild({
-      entryPoints: [join(root, "src/background.ts")],
-      outfile: join(dir, background),
+      entryPoints: {
+        background: join(root, "src/background.ts"),
+        popup: join(root, "src/popup.ts"),
+      },
+      outdir: dir,
       bundle: true,
       format: "esm",
       target: target === "firefox" ? "firefox128" : "chrome120",
       logLevel: "warning",
     });
     await mkdir(dir, { recursive: true });
+    for (const file of staticFiles) await copyFile(join(root, "src", file), join(dir, file));
     await writeFile(
       join(dir, "manifest.json"),
       `${JSON.stringify(manifestFor(base, target), null, 2)}\n`,
