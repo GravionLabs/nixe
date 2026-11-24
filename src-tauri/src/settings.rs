@@ -152,13 +152,10 @@ pub fn obsidian_settings(root: &Path) -> Vec<ObsidianSetting> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use crate::test_dir::TestDir;
 
-    fn tmp(name: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-settings-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        p
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-settings-{name}-"))
     }
 
     fn value<'a>(list: &'a [ObsidianSetting], id: &str) -> &'a ObsidianSetting {
@@ -174,7 +171,8 @@ mod tests {
 
     #[test]
     fn settings_are_written_and_read_back() {
-        let dir = tmp("roundtrip").join("config");
+        let base = tmp("roundtrip");
+        let dir = base.join("config");
         write_settings(&dir, r#"{"theme":"dark"}"#).unwrap();
         assert_eq!(
             read_settings(&dir).unwrap().as_deref(),

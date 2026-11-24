@@ -58,13 +58,11 @@ pub fn commit_around<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::fs;
 
-    fn repo(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-ops-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        let dir = dunce::canonicalize(dir).unwrap();
+    fn repo(name: &str) -> TestDir {
+        let dir = TestDir::new(&format!("nixe-ops-{name}-"));
         let r = git2::Repository::init(&dir).unwrap();
         let mut cfg = r.config().unwrap();
         cfg.set_str("user.name", "T").unwrap();
@@ -193,9 +191,7 @@ mod tests {
 
     #[test]
     fn without_git_the_operation_just_runs() {
-        let dir = std::env::temp_dir().join(format!("nixe-ops-nogit-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
+        let dir = TestDir::new("nixe-ops-nogit-");
         fs::write(dir.join("a.md"), "x").unwrap();
         rename(&dir, "a.md", "b.md").unwrap();
         assert!(dir.join("b.md").exists());

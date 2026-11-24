@@ -239,11 +239,10 @@ fn import_bookmarks(root: &Path, report: &mut ImportReport) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use crate::test_dir::TestDir;
 
-    fn vault(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("nixe-import-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+    fn vault(name: &str) -> TestDir {
+        let root = TestDir::new(&format!("nixe-import-{name}-"));
         fs::create_dir_all(root.join(".obsidian")).unwrap();
         root
     }

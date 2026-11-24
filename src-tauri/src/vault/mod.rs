@@ -94,13 +94,11 @@ pub fn list_vault_files(root: &Path) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::fs;
 
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-vault-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dunce::canonicalize(dir).unwrap()
+    fn temp_dir(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-vault-{name}-"))
     }
 
     /// Sorted (path, content) pairs of everything below `root`, for before/after comparisons.
@@ -128,8 +126,11 @@ mod tests {
         let root = temp_dir("present");
         fs::create_dir_all(root.join(".obsidian")).unwrap();
         fs::create_dir_all(root.join("notes")).unwrap();
-        assert_eq!(find_vault_root(&root.join("notes")), root);
-        assert_eq!(find_vault_root(&root.join("notes/a.md")), root);
+        assert_eq!(find_vault_root(&root.join("notes")), root.to_path_buf());
+        assert_eq!(
+            find_vault_root(&root.join("notes/a.md")),
+            root.to_path_buf()
+        );
     }
 
     #[test]
@@ -144,7 +145,7 @@ mod tests {
         let root = temp_dir("nested");
         fs::create_dir_all(root.join(".obsidian")).unwrap();
         fs::create_dir_all(root.join("inner/.obsidian")).unwrap();
-        assert_eq!(find_vault_root(&root.join("inner")), root);
+        assert_eq!(find_vault_root(&root.join("inner")), root.to_path_buf());
     }
 
     #[test]

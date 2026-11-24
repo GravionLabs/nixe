@@ -668,6 +668,7 @@ fn apply(root: &Path, plan: Plan) -> Result<Vec<Change>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::collections::HashMap;
 
     fn files(list: &[&str]) -> Vec<String> {
@@ -1027,11 +1028,8 @@ mod tests {
         assert!(m("a.md", "b.md").is_ok());
     }
 
-    fn tmp(name: &str) -> std::path::PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-composer-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        dunce::canonicalize(p).unwrap()
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-composer-{name}-"))
     }
 
     #[test]

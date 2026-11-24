@@ -71,6 +71,8 @@ mod settings;
 mod site;
 #[cfg(desktop)]
 mod terminal;
+#[cfg(test)]
+mod test_dir;
 mod tree;
 mod vault;
 pub mod workspace;
@@ -1841,13 +1843,11 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::fs;
 
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-test-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dunce::canonicalize(dir).unwrap()
+    fn temp_dir(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-test-{name}-"))
     }
 
     #[test]
@@ -1915,6 +1915,7 @@ mod tests {
     #[test]
     fn dash_argument_resolves_to_captured_stdin() {
         let args = vec!["nixe".into(), "-".into()];
+        // A fixed path on purpose: the running app finds piped content only there. One file, no growth.
         let expected = stdin_file_path();
         fs::create_dir_all(expected.parent().unwrap()).unwrap();
         fs::write(&expected, "# piped").unwrap();
@@ -1926,7 +1927,8 @@ mod tests {
 
     #[test]
     fn bundled_fixture_contains_mermaid_and_math() {
-        let dir = temp_dir("fixture").join("cache");
+        let base = temp_dir("fixture");
+        let dir = base.join("cache");
         let path = write_bundled_fixture(&dir).unwrap();
         let text = fs::read_to_string(path).unwrap();
         assert!(text.contains("```mermaid"));
