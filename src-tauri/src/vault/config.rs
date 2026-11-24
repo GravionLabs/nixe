@@ -224,6 +224,11 @@ impl Config {
         self.role_folder("attachments")
     }
 
+    /// The folder of new link notes (#504): the role `links`; `None` leaves it to the caller.
+    pub fn links_folder(&self) -> Option<String> {
+        self.role_folder("links")
+    }
+
     /// The folder of new notes: `newNotes.folder`, else the role `inbox`; `None` leaves the
     /// decision to `.obsidian/` and then to the vault root.
     pub fn new_note_folder(&self) -> Option<String> {
@@ -263,6 +268,7 @@ pub const STANDARD_FOLDER_ROLES: &[&str] = &[
     "subjects",
     "sources",
     "exams",
+    "links",
 ];
 
 /// The `schemaVersion` this Nixe writes; a file with a newer one is not written.

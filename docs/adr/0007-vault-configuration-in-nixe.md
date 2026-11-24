@@ -48,7 +48,7 @@ the new files appear in the next Git commit. Nixe says so when it imports.
 ### Folder roles and file roles
 
 Folder roles: `inbox`, `journal`, `templates`, `attachments`, `projects`, `areas`, `resources`,
-`archive`, `clippings`, `subjects`, `sources`, `exams`. File roles: `profile`.
+`archive`, `clippings`, `subjects`, `sources`, `exams`, `links`. File roles: `profile`.
 
 - A role that is missing in `folders` (or `files`) resolves to its English default name (`Inbox`,
   `Templates`, `Exams`, …).

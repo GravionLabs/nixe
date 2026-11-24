@@ -19,6 +19,7 @@ export const STANDARD_FOLDER_ROLES = [
   "subjects",
   "sources",
   "exams",
+  "links",
 ] as const;
 
 /** A folder role with its name. */
