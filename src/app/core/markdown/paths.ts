@@ -71,6 +71,19 @@ export function isEpubPath(p: string): boolean {
   return extname(p) === ".epub";
 }
 
+/**
+ * A link to an EPUB book on the web: `https` and a path that ends in `.epub` (query and fragment
+ * do not count). Other schemes are not downloaded (#491).
+ */
+export function isRemoteEpubUrl(url: string): boolean {
+  try {
+    const u = new URL(url.trim());
+    return u.protocol === "https:" && u.pathname.toLowerCase().endsWith(".epub");
+  } catch {
+    return false;
+  }
+}
+
 export function isMarkdownPath(p: string): boolean {
   return MARKDOWN_EXTENSIONS.has(extname(p));
 }

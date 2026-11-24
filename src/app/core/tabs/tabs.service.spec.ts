@@ -36,8 +36,12 @@ describe("TabsService", () => {
       }
       if (cmd === "find_wiki_root") return "/v";
       if (cmd === "is_utf8_file") return true;
+      if (cmd === "download_epub") {
+        if (!String(args.url).startsWith("https://")) throw "only https URLs are downloaded";
+        return "/data/books/sample-1.epub";
+      }
       if (cmd === "read_epub") {
-        if (!args.path.endsWith("sample.epub")) throw "outside the open roots and the vault";
+        if (!/sample(-1)?\.epub$/.test(args.path)) throw "outside the open roots and the vault";
         return [...readFileSync("fixtures/books/sample.epub")];
       }
       return undefined;
@@ -680,6 +684,26 @@ describe("TabsService", () => {
       expect(tab.epub()?.title).toBe("Nixe Sample Book");
       expect(tabs.activeTab()).toBe(tab);
       expect(tabs.showWorkspace()).toBe(true);
+    });
+
+    it("downloads the book of an https link and opens the local file once", async () => {
+      const url = "https://example.org/books/sample.epub";
+      const tab = await tabs.openEpub(url);
+
+      expect(invoke).toHaveBeenCalledWith("download_epub", { url });
+      expect(tab.epub()?.path).toBe("/data/books/sample-1.epub");
+      const count = tabs.panes()[0].tabs.length;
+      expect(await tabs.openEpub(url)).toBe(tab);
+      expect(tabs.panes()[0].tabs.length).toBe(count);
+    });
+
+    it("opens no tab when the download is refused", async () => {
+      invoke.mockImplementation(async (cmd: string) => {
+        if (cmd === "download_epub") throw "book too large (limit 50 MB)";
+        return undefined;
+      });
+      await expect(tabs.openEpub("https://example.org/big.epub")).rejects.toMatch("too large");
+      expect(tabs.panes()[0].tabs.length).toBe(1);
     });
 
     it("focuses the tab that reads the book already", async () => {

@@ -131,6 +131,12 @@ export function createNixeDemo(): NixeDemo {
     read_text_file: (a) => vault.read(str(a, "path")),
     // No book is stored in the demo vault; the answer keeps the refusals of the Rust command
     // (extension, root) and returns the bytes of the sample book for any other path.
+    // The demo has no network: a link to a book on the web "downloads" the sample book.
+    download_epub: (a) => {
+      const url = str(a, "url");
+      if (!/^https:\/\//i.test(url)) throw `only https URLs are downloaded: ${url}`;
+      return `${vault.root}/.downloads/books/web.epub`;
+    },
     read_epub: (a) => {
       const path = str(a, "path");
       const roots = [vault.root, ...strings(a, "roots")];

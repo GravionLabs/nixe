@@ -14,7 +14,7 @@ import { backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { OutlineService } from "../outline/outline.service";
 import { SettingsService } from "../settings/settings.service";
-import { toSlashes } from "../markdown/paths";
+import { isRemoteEpubUrl, toSlashes } from "../markdown/paths";
 import type { CompareInput } from "../compare/compare";
 import type { EpubBook } from "../epub/epub";
 import { EpubService } from "../epub/epub.service";
@@ -202,6 +202,8 @@ export class TabsService {
    * book is read first, so a book that cannot be read opens no tab and the error reaches the caller.
    */
   async openEpub(path: string): Promise<Tab> {
+    // A link to a book on the web: the core downloads it once and the tab shows the local file.
+    if (isRemoteEpubUrl(path)) path = await backend.downloadEpub(path);
     path = toSlashes(path);
     const find = () =>
       this.allTabs().find((t) => t.view() === "epub" && t.epub()?.path === path) ?? null;

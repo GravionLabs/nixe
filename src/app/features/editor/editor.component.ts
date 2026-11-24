@@ -42,7 +42,7 @@ import { embedFor, pastedImageName } from "../../core/editor/attachment-core";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { MermaidRenderer } from "../../core/markdown/mermaid-renderer";
 import { insertTemplate } from "../../core/templates/template-core";
-import { isEpubPath, isMarkdownPath, joinPath } from "../../core/markdown/paths";
+import { isEpubPath, isMarkdownPath, isRemoteEpubUrl, joinPath } from "../../core/markdown/paths";
 import { WorkspacesService } from "../../core/workspace/workspaces.service";
 import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { fileLabel } from "../../core/switcher/fuzzy";
@@ -699,7 +699,8 @@ export class EditorComponent implements OnDestroy {
       const href = classifyHref(link.target);
       switch (href.kind) {
         case "external":
-          await openUrl(href.url);
+          if (isRemoteEpubUrl(href.url)) await this.openBook(href.url);
+          else await openUrl(href.url);
           break;
         case "local": {
           const current = this.session?.path;

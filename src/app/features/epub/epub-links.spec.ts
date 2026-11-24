@@ -10,14 +10,15 @@ vi.mock("@tauri-apps/api/core", () => ({
   ),
 }));
 const openPath = vi.fn();
+const openUrl = vi.fn();
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openPath: (p: string) => openPath(p),
-  openUrl: vi.fn(),
+  openUrl: (u: string) => openUrl(u),
   revealItemInDir: vi.fn(),
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn(), open: vi.fn() }));
 
-import { isEpubPath } from "../../core/markdown/paths";
+import { isEpubPath, isRemoteEpubUrl } from "../../core/markdown/paths";
 import { EditorComponent } from "../editor/editor.component";
 import { ViewerComponent } from "../viewer/viewer.component";
 
@@ -27,6 +28,18 @@ describe("isEpubPath", () => {
     expect(isEpubPath("/v/Books/A.EPUB")).toBe(true);
     expect(isEpubPath("/v/Books/A.pdf")).toBe(false);
     expect(isEpubPath("/v/Books/epub")).toBe(false);
+  });
+});
+
+describe("isRemoteEpubUrl", () => {
+  it("is true for an https URL whose path ends in .epub, query and fragment aside", () => {
+    expect(isRemoteEpubUrl("https://example.org/b/Book.epub")).toBe(true);
+    expect(isRemoteEpubUrl("https://example.org/b/Book.EPUB?dl=1#x")).toBe(true);
+    expect(isRemoteEpubUrl("http://example.org/Book.epub")).toBe(false);
+    expect(isRemoteEpubUrl("https://example.org/page?file=Book.epub")).toBe(false);
+    expect(isRemoteEpubUrl("https://example.org/Book.pdf")).toBe(false);
+    expect(isRemoteEpubUrl("ftp://example.org/Book.epub")).toBe(false);
+    expect(isRemoteEpubUrl("not a url")).toBe(false);
   });
 });
 
@@ -62,6 +75,7 @@ async function click(self: any, href: string): Promise<void> {
 beforeEach(() => {
   files.clear();
   openPath.mockClear();
+  openUrl.mockClear();
 });
 
 describe("a link to an .epub in the viewer", () => {
@@ -127,6 +141,42 @@ describe("a link to an .epub in the viewer", () => {
     });
     await (ViewerComponent.prototype as any).openBook.call(self, "/v/Books/Title.epub");
     expect(self.notify.emit).toHaveBeenCalledWith("Error: broken");
+  });
+});
+
+describe("a link to an https .epub", () => {
+  it("opens the book in the reader instead of the browser (viewer)", async () => {
+    const self = stand();
+    await click(self, "https://example.org/Book.epub");
+    expect(self.tabs.openEpub).toHaveBeenCalledWith("https://example.org/Book.epub");
+    expect(openUrl).not.toHaveBeenCalled();
+  });
+
+  it("leaves other web links to the browser (viewer)", async () => {
+    const self = stand();
+    await click(self, "https://example.org/page");
+    expect(self.tabs.openEpub).not.toHaveBeenCalled();
+    expect(openUrl).toHaveBeenCalledWith("https://example.org/page");
+  });
+
+  it("shows the refusal of the download (viewer)", async () => {
+    const self = stand();
+    self.tabs.openEpub = vi.fn(async () => {
+      throw "book too large";
+    });
+    await click(self, "https://example.org/Book.epub");
+    expect(self.notify.emit).toHaveBeenCalledWith("book too large");
+  });
+
+  it("opens the book in the reader (editor)", async () => {
+    const self = stand({}, EditorComponent);
+    await (EditorComponent.prototype as any).openLink.call(
+      self,
+      { kind: "link", target: "https://example.org/Book.epub" },
+      false,
+    );
+    expect(self.tabs.openEpub).toHaveBeenCalledWith("https://example.org/Book.epub");
+    expect(openUrl).not.toHaveBeenCalled();
   });
 });
 
