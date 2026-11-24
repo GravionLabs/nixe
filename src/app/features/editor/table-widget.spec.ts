@@ -4,6 +4,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { EditorLink } from "../../core/editor/editor-core";
 import { livePreview } from "./live-preview";
 
 const TABLE = ["| a | b |", "| --- | --- |", "| 1 | 2 |"].join("\n");
@@ -11,7 +12,7 @@ const DOC = `intro\n\n${TABLE}\n\noutro`;
 
 let view: EditorView | undefined;
 
-function mount(doc = DOC): EditorView {
+function mount(doc = DOC, openLink?: (link: EditorLink, newTab: boolean) => void): EditorView {
   const parent = document.createElement("div");
   document.body.append(parent);
   view = new EditorView({
@@ -22,6 +23,7 @@ function mount(doc = DOC): EditorView {
       extensions: [
         history(),
         livePreview({
+          openLink,
           render: (el, source) => {
             el.innerHTML = source.includes("**")
               ? `<p>${source.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</p>`
@@ -97,6 +99,66 @@ describe("table widget", () => {
     expect(td.textContent).toBe("**bold**");
     td.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     expect(td.querySelector("strong")?.textContent).toBe("bold");
+  });
+
+  describe("links", () => {
+    const LINKS = "| a | b |\n| --- | --- |\n| [x](https://example.com) | [[Note]] |";
+    const link = (v: EditorView, sel: string) =>
+      v.dom.querySelector<HTMLElement>(`.cm-live-table ${sel}`)!;
+    const down = (el: HTMLElement, init: MouseEventInit = {}) => {
+      const ev = new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        ...init,
+      });
+      el.dispatchEvent(ev);
+      return ev;
+    };
+    const render = (el: HTMLElement, source: string) => {
+      el.innerHTML = source.includes("[[")
+        ? '<p><a class="wikilink" data-target="Note" href="#">Note</a></p>'
+        : '<p><a href="https://example.com">x</a></p>';
+    };
+    function mountLinks(open: (l: EditorLink, n: boolean) => void): EditorView {
+      const parent = document.createElement("div");
+      document.body.append(parent);
+      view = new EditorView({
+        parent,
+        state: EditorState.create({
+          doc: `intro\n\n${LINKS}\n\noutro`,
+          selection: { anchor: 0 },
+          extensions: [livePreview({ render, openLink: open })],
+        }),
+      });
+      return view;
+    }
+
+    it("opens a URL on a plain click instead of editing the cell", () => {
+      const opened: [EditorLink, boolean][] = [];
+      const v = mountLinks((l, n) => opened.push([l, n]));
+      const ev = down(link(v, "a[href]"));
+      expect(ev.defaultPrevented).toBe(true);
+      expect(opened).toEqual([
+        [{ kind: "markdown", from: 0, to: 0, target: "https://example.com" }, false],
+      ]);
+    });
+
+    it("opens a wikilink, in a new tab with Ctrl", () => {
+      const opened: [EditorLink, boolean][] = [];
+      const v = mountLinks((l, n) => opened.push([l, n]));
+      down(link(v, "a.wikilink"), { ctrlKey: true });
+      expect(opened[0][0]).toMatchObject({ kind: "wikilink", target: "Note" });
+      expect(opened[0][1]).toBe(true);
+    });
+
+    it("leaves a click beside the link and a shift click to the cell", () => {
+      const opened: unknown[] = [];
+      const v = mountLinks((l) => opened.push(l));
+      expect(down(cells(v)[3]).defaultPrevented).toBe(false);
+      down(link(v, "a[href]"), { shiftKey: true });
+      expect(opened).toEqual([]);
+    });
   });
 
   it("is one undo step per edit", () => {
