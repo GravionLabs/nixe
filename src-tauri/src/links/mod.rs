@@ -7,6 +7,7 @@ pub mod dead;
 pub mod fetch;
 #[cfg(desktop)]
 pub mod note;
+pub mod url;
 
 /// The clip code lives in one module so that a single `cfg` keeps it off mobile.
 #[cfg(desktop)]
@@ -19,7 +20,9 @@ mod clip_impl {
 
     use super::fetch::{self, Fetcher};
     use super::note::{self, Note};
+    use super::url;
     use crate::capture::is_url;
+    use crate::index::{self, read};
     use crate::{cli_write, write};
 
     /// The folder of the link notes until `.nixe/config.json` names one (#504).
@@ -67,9 +70,12 @@ mod clip_impl {
     impl std::error::Error for ClipError {}
 
     /// Saves the page of `req.url` as a link note below `root`.
-    pub fn clip(root: &Path, req: ClipRequest) -> Result<ClipResult, ClipError> {
+    /// A URL that a link note of the vault holds already (after [`url::normalize`]) opens that
+    /// note instead of a second one. `app_data` holds the index the lookup goes through.
+    pub fn clip(root: &Path, app_data: &Path, req: ClipRequest) -> Result<ClipResult, ClipError> {
         clip_with(
             root,
+            app_data,
             req,
             &chrono::Local::now().fixed_offset(),
             &fetch::fetch,
@@ -79,6 +85,7 @@ mod clip_impl {
     /// [`clip`] with the clock and the fetch given; the tests pass saved pages.
     pub fn clip_with(
         root: &Path,
+        app_data: &Path,
         req: ClipRequest,
         now: &DateTime<FixedOffset>,
         fetcher: Fetcher,
@@ -89,6 +96,16 @@ mod clip_impl {
                 "{url}: not an http or https address"
             )));
         }
+        let root = dunce::canonicalize(root)
+            .map_err(|e| ClipError::Write(format!("{}: {e}", root.display())))?;
+        let mut warnings = Vec::new();
+        if let Some(path) = existing(&root, app_data, url, &mut warnings) {
+            return Ok(ClipResult {
+                path,
+                created: false,
+                warnings,
+            });
+        }
         let html = match req.html {
             Some(html) => html,
             None => {
@@ -96,10 +113,7 @@ mod clip_impl {
                 fetch::decode(&page.bytes, page.content_type.as_deref())
             }
         };
-        let root = dunce::canonicalize(root)
-            .map_err(|e| ClipError::Write(format!("{}: {e}", root.display())))?;
         let meta = note::extract_metadata(&html);
-        let mut warnings = Vec::new();
 
         // The canonical address replaces the given one only when it is an absolute http(s) URL.
         let url = meta
@@ -107,6 +121,16 @@ mod clip_impl {
             .as_deref()
             .filter(|c| is_url(c))
             .unwrap_or(url);
+        // The page may name another address than the one given: look again under that one.
+        if let Some(path) = existing(&root, app_data, url, &mut warnings) {
+            return Ok(ClipResult {
+                path,
+                created: false,
+                warnings,
+            });
+        }
+        let url = url::normalize(url);
+        let url = url.as_str();
         let host = host_of(url);
         let title = [
             req.title.as_deref(),
@@ -162,6 +186,31 @@ mod clip_impl {
         })
     }
 
+    /// The note (absolute path) that holds `url` already, found through the index of the vault.
+    /// An index that cannot be read is no reason to refuse the clip: it only costs a warning.
+    fn existing(
+        root: &Path,
+        app_data: &Path,
+        url: &str,
+        warnings: &mut Vec<String>,
+    ) -> Option<PathBuf> {
+        let wanted = url::normalize(url);
+        let found = (|| {
+            let mut conn = index::open(&index::index_path(app_data, root))?;
+            index::scan(&mut conn, root, |_| {})?;
+            read::link_notes_by_url(&conn, &wanted, url::normalize)
+        })();
+        match found {
+            Ok(paths) => paths.first().map(|p| root.join(p)),
+            Err(e) => {
+                warnings.push(format!(
+                    "{url}: index not readable ({e}); not checked for a saved copy"
+                ));
+                None
+            }
+        }
+    }
+
     /// `name` in `dir`, or with ` 2`, ` 3`, … before `.md` when a note of that name exists.
     fn free_path(dir: &Path, name: &str) -> PathBuf {
         let path = dir.join(name);
@@ -204,6 +253,10 @@ mod clip_impl {
             dunce::canonicalize(dir).unwrap()
         }
 
+        fn data(root: &Path) -> PathBuf {
+            root.with_extension("data")
+        }
+
         fn fixture(name: &str) -> Vec<u8> {
             std::fs::read(
                 Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -244,7 +297,7 @@ mod clip_impl {
                 " ".into(),
                 "web".into(),
             ];
-            let r = clip_with(&root, req, &at(), &serve("article.html")).unwrap();
+            let r = clip_with(&root, &data(&root), req, &at(), &serve("article.html")).unwrap();
             assert!(r.created);
             assert!(r.warnings.is_empty(), "{:?}", r.warnings);
             assert_eq!(r.path, root.join("Links/Keeping notes as plain files.md"));
@@ -273,7 +326,7 @@ mod clip_impl {
             req.html = Some(String::from_utf8(fixture("article.html")).unwrap());
             req.title = Some("My title".into());
             req.folder = Some("Links/Reading".into());
-            let r = clip_with(&root, req, &at(), &no_network).unwrap();
+            let r = clip_with(&root, &data(&root), req, &at(), &no_network).unwrap();
             assert_eq!(r.path, root.join("Links/Reading/My title.md"));
             assert!(std::fs::read_to_string(&r.path)
                 .unwrap()
@@ -285,6 +338,7 @@ mod clip_impl {
             let root = tmp("none");
             let r = clip_with(
                 &root,
+                &data(&root),
                 request("https://example.net/app"),
                 &at(),
                 &serve("no-article.html"),
@@ -304,6 +358,7 @@ mod clip_impl {
             let root = tmp("latin1");
             let r = clip_with(
                 &root,
+                &data(&root),
                 request("https://example.de/"),
                 &at(),
                 &serve("latin1.html"),
@@ -319,15 +374,123 @@ mod clip_impl {
         fn a_page_without_a_title_is_named_after_its_host() {
             let root = tmp("notitle");
             let url = "https://www.example.org:8080/x";
-            let r = clip_with(&root, request(url), &at(), &serve("no-title.html")).unwrap();
+            let r = clip_with(
+                &root,
+                &data(&root),
+                request(url),
+                &at(),
+                &serve("no-title.html"),
+            )
+            .unwrap();
             assert_eq!(r.path, root.join("Links/example.org.md"));
             let text = std::fs::read_to_string(&r.path).unwrap();
             assert!(text.contains("title: example.org\n"));
             assert!(text.contains("url: https://www.example.org:8080/x\n"));
-            // The same page again does not replace the note.
-            let again = clip_with(&root, request(url), &at(), &serve("no-title.html")).unwrap();
+            // Another page of the same name does not replace the note.
+            let again = clip_with(
+                &root,
+                &data(&root),
+                request("https://www.example.org:8080/y"),
+                &at(),
+                &serve("no-title.html"),
+            )
+            .unwrap();
             assert_eq!(again.path, root.join("Links/example.org 2.md"));
             assert!(r.path.exists());
+        }
+
+        #[test]
+        fn the_same_url_opens_the_existing_note() {
+            let root = tmp("twice");
+            let first = clip_with(
+                &root,
+                &data(&root),
+                request("https://Example.com/articles/vault-first?utm_source=a#top"),
+                &at(),
+                &serve("article.html"),
+            )
+            .unwrap();
+            assert!(first.created);
+            let text = std::fs::read_to_string(&first.path).unwrap();
+            assert!(
+                text.contains("url: https://example.com/articles/vault-first\n"),
+                "{text}"
+            );
+            // Another spelling of the address: no fetch, no second note.
+            let again = clip_with(
+                &root,
+                &data(&root),
+                request("https://example.com/articles/vault-first/?fbclid=x"),
+                &at(),
+                &no_network,
+            )
+            .unwrap();
+            assert!(!again.created);
+            assert_eq!(again.path, first.path);
+            assert_eq!(std::fs::read_dir(root.join("Links")).unwrap().count(), 1);
+            // Another page is a new note.
+            let other = clip_with(
+                &root,
+                &data(&root),
+                request("https://example.com/articles/other"),
+                &at(),
+                &serve("no-title.html"),
+            )
+            .unwrap();
+            assert!(other.created);
+            assert_ne!(other.path, first.path);
+        }
+
+        #[test]
+        fn the_canonical_address_of_the_page_is_looked_up_too() {
+            let root = tmp("canonical");
+            let first = clip_with(
+                &root,
+                &data(&root),
+                request("https://example.com/articles/vault-first"),
+                &at(),
+                &serve("article.html"),
+            )
+            .unwrap();
+            let again = clip_with(
+                &root,
+                &data(&root),
+                request("https://example.com/share/123"),
+                &at(),
+                &serve("article.html"),
+            )
+            .unwrap();
+            assert!(!again.created);
+            assert_eq!(again.path, first.path);
+        }
+
+        #[test]
+        fn an_old_note_with_an_unnormalized_url_and_a_non_link_note_with_the_url() {
+            let root = tmp("old");
+            std::fs::create_dir_all(root.join("Links")).unwrap();
+            std::fs::write(
+                root.join("Links/Old.md"),
+                "---\ntype: link\nurl: https://X.test/p/?utm_medium=m\n---\n",
+            )
+            .unwrap();
+            std::fs::write(root.join("Plain.md"), "---\nurl: https://y.test/p\n---\n").unwrap();
+            let old = clip_with(
+                &root,
+                &data(&root),
+                request("https://x.test/p"),
+                &at(),
+                &no_network,
+            )
+            .unwrap();
+            assert!(!old.created);
+            assert_eq!(old.path, root.join("Links/Old.md"));
+            let mut req = request("https://y.test/p");
+            req.html = Some("<title>Y</title>".into());
+            assert!(
+                clip_with(&root, &data(&root), req, &at(), &no_network)
+                    .unwrap()
+                    .created
+            );
         }
 
         #[test]
@@ -335,7 +498,7 @@ mod clip_impl {
             let root = tmp("refuse");
             for url in ["ftp://x.test/", "example.com", "https://a b"] {
                 assert!(matches!(
-                    clip_with(&root, request(url), &at(), &no_network),
+                    clip_with(&root, &data(&root), request(url), &at(), &no_network),
                     Err(ClipError::Url(_))
                 ));
             }
@@ -345,7 +508,7 @@ mod clip_impl {
                 req.folder = Some(folder.into());
                 assert!(
                     matches!(
-                        clip_with(&root, req.clone(), &at(), &no_network),
+                        clip_with(&root, &data(&root), req.clone(), &at(), &no_network),
                         Err(ClipError::Write(_))
                     ),
                     "{folder}"
@@ -353,7 +516,13 @@ mod clip_impl {
             }
             let fail = |_: &str| Err(ClipError::Fetch("boom".into()));
             assert_eq!(
-                clip_with(&root, request("https://x.test/"), &at(), &fail),
+                clip_with(
+                    &root,
+                    &data(&root),
+                    request("https://x.test/"),
+                    &at(),
+                    &fail
+                ),
                 Err(ClipError::Fetch("boom".into()))
             );
             assert!(!root.join("Links").exists());

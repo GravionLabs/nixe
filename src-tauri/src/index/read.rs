@@ -453,6 +453,25 @@ pub fn notes_by_property(
     Ok(out)
 }
 
+/// The paths of the `type: link` notes whose `url`, run through `normalize`, equals `wanted`
+/// (already normalized), sorted. Notes saved before the normal form existed match as well.
+pub fn link_notes_by_url(
+    conn: &Connection,
+    wanted: &str,
+    normalize: impl Fn(&str) -> String,
+) -> rusqlite::Result<Vec<String>> {
+    let links: std::collections::BTreeSet<String> = notes_by_property(conn, "type", Some("link"))?
+        .into_iter()
+        .map(|m| m.path)
+        .collect();
+    Ok(notes_by_property(conn, "url", None)?
+        .into_iter()
+        .filter(|m| links.contains(&m.path))
+        .filter(|m| m.value.as_str().is_some_and(|u| normalize(u) == wanted))
+        .map(|m| m.path)
+        .collect())
+}
+
 /// Every tag with the number of notes using it, most used first.
 pub fn tags(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
     let mut stmt = conn.prepare(
