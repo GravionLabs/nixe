@@ -159,6 +159,88 @@ pub fn capture_save(app: AppHandle, text: String) -> Result<String, String> {
     capture::save(&root, &config, &text, &now).map(|p| path_to_string(&p))
 }
 
+/// What saving the capture text as a link note (#507) did.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkSaved {
+    pub path: String,
+    /// False when a link note of the URL existed already.
+    pub created: bool,
+    /// The page could not be fetched (or read): the note holds the URL as title.
+    pub warning: Option<String>,
+}
+
+/// Saves `url` as a link note. A page that cannot be fetched still becomes a note, titled with
+/// the URL, and the failure comes back as `warning`.
+pub fn save_link(
+    root: &Path,
+    app_data: &Path,
+    url: &str,
+    now: &chrono::DateTime<chrono::FixedOffset>,
+    fetcher: crate::links::fetch::Fetcher,
+    renderer: Option<&dyn crate::links::render::Renderer>,
+) -> Result<LinkSaved, String> {
+    use crate::links::{clip_rendered, ClipError, ClipRequest};
+    let url = url.trim();
+    let request = |html: Option<String>, title: Option<String>| ClipRequest {
+        url: url.to_string(),
+        html,
+        title,
+        ..ClipRequest::default()
+    };
+    let (result, mut warning) =
+        match clip_rendered(root, app_data, request(None, None), now, fetcher, renderer) {
+            Ok(result) => (result, None),
+            Err(ClipError::Fetch(why)) => {
+                let result = clip_rendered(
+                    root,
+                    app_data,
+                    request(Some(String::new()), Some(url.to_string())),
+                    now,
+                    fetcher,
+                    None,
+                )
+                .map_err(|e| e.to_string())?;
+                (result, Some(why))
+            }
+            Err(e) => return Err(e.to_string()),
+        };
+    if warning.is_none() {
+        warning = result.warnings.first().cloned();
+    }
+    Ok(LinkSaved {
+        path: path_to_string(&result.path),
+        created: result.created,
+        warning,
+    })
+}
+
+/// Saves the capture text, one URL, as a link note (`nixe clip`, with the archive of the app).
+#[tauri::command]
+pub async fn capture_save_link(app: AppHandle, url: String) -> Result<LinkSaved, String> {
+    let root = config(&app)?
+        .vault
+        .clone()
+        .ok_or("no vault: open a folder in Nixe first")?;
+    if !capture::is_url(&url) {
+        return Err("not an http or https address".into());
+    }
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let renderer = crate::links::render::AppRenderer::new(app);
+        save_link(
+            &root,
+            &data_dir,
+            &url,
+            &chrono::Local::now().fixed_offset(),
+            &crate::links::fetch::fetch,
+            Some(&renderer),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Note names of the vault for the `[[` completion; empty without a vault.
 #[tauri::command]
 pub fn capture_note_names(app: AppHandle) -> Result<Vec<String>, String> {
@@ -191,4 +273,71 @@ pub fn capture_hide(app: AppHandle) {
 #[tauri::command]
 pub fn capture_apply(app: AppHandle) -> Result<(), String> {
     apply(&app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::links::fetch::Page;
+    use crate::links::ClipError;
+    use chrono::TimeZone;
+
+    fn at() -> chrono::DateTime<chrono::FixedOffset> {
+        chrono::FixedOffset::east_opt(0)
+            .unwrap()
+            .with_ymd_and_hms(2026, 11, 20, 9, 30, 0)
+            .unwrap()
+    }
+
+    fn tmp(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("nixe-capl-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dunce::canonicalize(dir).unwrap()
+    }
+
+    fn page(_: &str) -> Result<Page, ClipError> {
+        Ok(Page {
+            bytes: b"<html><head><title>Example Domain</title></head><body><p>Hello there, this is a page.</p></body></html>".to_vec(),
+            content_type: Some("text/html".into()),
+        })
+    }
+
+    fn down(_: &str) -> Result<Page, ClipError> {
+        Err(ClipError::Fetch("connection refused".into()))
+    }
+
+    #[test]
+    fn saves_a_link_note_and_finds_it_again() {
+        let root = tmp("save");
+        let data = root.with_extension("data");
+        let first = save_link(&root, &data, " https://example.com/a ", &at(), &page, None).unwrap();
+        assert!(first.created);
+        assert!(first.path.contains("Links"));
+        let text = std::fs::read_to_string(&first.path).unwrap();
+        assert!(text.contains("Example Domain"));
+        let again = save_link(&root, &data, "https://example.com/a", &at(), &page, None).unwrap();
+        assert!(!again.created);
+        assert_eq!(again.path, first.path);
+    }
+
+    #[test]
+    fn a_failed_fetch_still_saves_the_url_as_title() {
+        let root = tmp("down");
+        let data = root.with_extension("data");
+        let saved =
+            save_link(&root, &data, "https://example.com/gone", &at(), &down, None).unwrap();
+        assert!(saved.created);
+        assert_eq!(saved.warning.as_deref(), Some("connection refused"));
+        let text = std::fs::read_to_string(&saved.path).unwrap();
+        assert!(text.contains("https://example.com/gone"));
+        assert!(text.contains("title:"));
+    }
+
+    #[test]
+    fn rejects_text_that_is_no_url() {
+        let root = tmp("bad");
+        let data = root.with_extension("data");
+        assert!(save_link(&root, &data, "see https://x.y", &at(), &page, None).is_err());
+    }
 }

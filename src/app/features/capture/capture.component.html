@@ -29,6 +29,12 @@
   @if (capture.error(); as error) {
     <p class="error" role="alert">{{ error }}</p>
   }
+  @if (capture.notice(); as notice) {
+    <p class="notice" role="status">{{ notice }}</p>
+  }
+  @if (capture.isLink()) {
+    <p class="hint link-hint">Alt+Enter: save as link</p>
+  }
   <p class="hint">
     Ctrl/Cmd+Shift+V inserts the clipboard · a URL becomes a link · [[ completes a note
   </p>

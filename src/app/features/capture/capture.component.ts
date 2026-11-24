@@ -10,7 +10,7 @@ import { CaptureService } from "../../core/capture/capture.service";
 export const CAPTURE_SHOWN_EVENT = "capture-shown";
 
 /**
- * The small always-on-top window of the global shortcut (#118). Enter saves, Escape discards,
+ * The small always-on-top window of the global shortcut (#118). Enter saves, Alt+Enter saves a URL as a link note, Escape discards,
  * `[[` completes note names and Ctrl/Cmd+Shift+V inserts the clipboard.
  */
 @Component({
@@ -89,6 +89,11 @@ export class CaptureComponent {
         break;
       case "Enter":
         if (event.shiftKey || event.isComposing) return;
+        if (event.altKey) {
+          // Alt+Enter on a URL saves a link note; on other text it does nothing.
+          if (this.capture.isLink()) void this.capture.saveLink();
+          break;
+        }
         if (completing) this.capture.complete();
         else void this.capture.save();
         break;

@@ -171,6 +171,11 @@ export function createNixeDemo(): NixeDemo {
       vault.write(path, `${before}\n${str(a, "text")}\n`);
       return path;
     },
+    capture_save_link: (a) => ({
+      path: `${VAULT}/Links/${str(a, "url")}.md`,
+      created: true,
+      warning: null,
+    }),
     capture_hide: () => null,
     capture_apply: () => null,
     capture_link_title: () => null,

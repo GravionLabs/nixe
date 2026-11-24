@@ -7,7 +7,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 import { backend } from "../file/backend";
-import { CaptureService } from "./capture.service";
+import { CaptureService, NOTICE_MS } from "./capture.service";
 
 describe("CaptureService", () => {
   let capture: CaptureService;
@@ -109,5 +109,77 @@ describe("CaptureService", () => {
     await capture.insertClipboard(() => Promise.resolve(null), 0, 0);
     await capture.insertClipboard(() => Promise.reject(new Error("denied")), 0, 0);
     expect(capture.text()).toBe("two words");
+  });
+
+  describe("saveLink", () => {
+    it("saves a URL and closes at once", async () => {
+      const link = vi
+        .spyOn(backend, "captureSaveLink")
+        .mockResolvedValue({ path: "/v/Links/a.md", created: true, warning: null });
+      capture.edit(" https://example.com ", 0);
+      expect(capture.isLink()).toBe(true);
+      expect(await capture.saveLink()).toBe(true);
+      expect(link).toHaveBeenCalledWith("https://example.com");
+      expect(backend.captureHide).toHaveBeenCalled();
+      expect(capture.text()).toBe("");
+    });
+
+    it("ignores text that is no URL", async () => {
+      const link = vi.spyOn(backend, "captureSaveLink");
+      capture.edit("see https://example.com", 0);
+      expect(capture.isLink()).toBe(false);
+      expect(await capture.saveLink()).toBe(false);
+      expect(link).not.toHaveBeenCalled();
+    });
+
+    it("shows the path of a duplicate before it closes", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.spyOn(backend, "captureSaveLink").mockResolvedValue({
+          path: "/v/Links/a.md",
+          created: false,
+          warning: null,
+        });
+        capture.edit("https://example.com", 0);
+        const done = capture.saveLink();
+        await vi.advanceTimersByTimeAsync(10);
+        expect(capture.notice()).toBe("already saved: /v/Links/a.md");
+        expect(backend.captureHide).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(NOTICE_MS);
+        expect(await done).toBe(true);
+        expect(backend.captureHide).toHaveBeenCalled();
+        expect(capture.notice()).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("tells a failed fetch, the note is saved with the URL as title", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.spyOn(backend, "captureSaveLink").mockResolvedValue({
+          path: "/v/Links/a.md",
+          created: true,
+          warning: "connection refused",
+        });
+        capture.edit("https://example.com", 0);
+        const done = capture.saveLink();
+        await vi.advanceTimersByTimeAsync(10);
+        expect(capture.notice()).toContain("connection refused");
+        await vi.advanceTimersByTimeAsync(NOTICE_MS);
+        expect(await done).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("keeps the window and the text when the save fails", async () => {
+      vi.spyOn(backend, "captureSaveLink").mockRejectedValue("no vault");
+      capture.edit("https://example.com", 0);
+      expect(await capture.saveLink()).toBe(false);
+      expect(capture.error()).toBe("no vault");
+      expect(capture.text()).toBe("https://example.com");
+      expect(capture.busy()).toBe(false);
+    });
   });
 });

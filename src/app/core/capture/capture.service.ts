@@ -11,6 +11,9 @@ import {
   wikilinkQueryAt,
 } from "./capture-core";
 
+/** How long the window stays open to show a notice of the link save. */
+export const NOTICE_MS = 1500;
+
 /** The state of the capture window (#118): the text, the `[[` completion, save and discard. */
 @Injectable({ providedIn: "root" })
 export class CaptureService {
@@ -18,11 +21,15 @@ export class CaptureService {
   readonly caret = signal(0);
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
+  /** What the link save reports before the window closes: a duplicate or a failed fetch. */
+  readonly notice = signal<string | null>(null);
   readonly names = signal<readonly string[]>([]);
   readonly selected = signal(0);
   /** Where the caret should go after the text changed through the service. */
   readonly pendingCaret = signal<number | null>(null);
 
+  /** The text is one URL, so Alt+Enter can save it as a link note. */
+  readonly isLink = computed(() => isUrl(this.text()));
   readonly link = computed<WikilinkQuery | null>(() => wikilinkQueryAt(this.text(), this.caret()));
   readonly suggestions = computed(() => {
     const link = this.link();
@@ -34,6 +41,7 @@ export class CaptureService {
     this.text.set("");
     this.caret.set(0);
     this.error.set(null);
+    this.notice.set(null);
     this.busy.set(false);
     this.selected.set(0);
     try {
@@ -100,6 +108,34 @@ export class CaptureService {
     this.busy.set(true);
     try {
       await backend.captureSave(text);
+    } catch (err) {
+      this.error.set(String(err));
+      this.busy.set(false);
+      return false;
+    }
+    await this.close();
+    return true;
+  }
+
+  /**
+   * Saves the URL as a link note (#507) and closes the window. A duplicate or a failed fetch
+   * (the note is saved with the URL as title) shows its notice for `NOTICE_MS` first.
+   */
+  async saveLink(): Promise<boolean> {
+    const text = this.text();
+    if (!isUrl(text) || this.busy()) return false;
+    this.busy.set(true);
+    try {
+      const saved = await backend.captureSaveLink(text.trim());
+      const notice = !saved.created
+        ? `already saved: ${saved.path}`
+        : saved.warning
+          ? `saved with the URL as title: ${saved.warning}`
+          : null;
+      if (notice) {
+        this.notice.set(notice);
+        await new Promise((resolve) => setTimeout(resolve, NOTICE_MS));
+      }
     } catch (err) {
       this.error.set(String(err));
       this.busy.set(false);

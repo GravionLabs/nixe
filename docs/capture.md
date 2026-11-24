@@ -27,6 +27,15 @@ The vault is the folder the app had open last (`lastFolder`).
 - **Ctrl/Cmd+Shift+V** inserts the clipboard. A URL becomes `[title](url)` when the page title
   can be fetched within two seconds, else the bare URL stays.
 
+- **Alt+Enter** saves a URL as a link note. When the text is one URL (`http` or `https`, nothing
+  else), the window shows "Alt+Enter: save as link"; Enter still saves the text as above. The
+  note is made like `nixe clip` makes it (see [links.md](links.md)), with the archive that
+  `links.archive` asks for. A URL that a link note holds already shows "already saved" with the
+  path of that note. A page that cannot be fetched still becomes a link note with the URL as
+  title, and the window says so. The window closes after the save, a moment later when it has
+  something to say. An error (no vault, a note that cannot be written) stays in the window with
+  the text.
+
 The window is a second webview of the same frontend (`index.html#capture`). It is created hidden
 when the shortcut is registered, so the shortcut only shows it; closing it hides it again.
 

@@ -58,6 +58,11 @@ li button:hover {
   color: var(--h-danger-color, #c62828);
 }
 
+.notice {
+  margin: 0;
+  font-size: 12px;
+}
+
 .hint {
   margin: 0;
   color: var(--h-text-muted-color);

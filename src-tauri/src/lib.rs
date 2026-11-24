@@ -25,6 +25,10 @@ mod capture_app {
         Err(UNSUPPORTED.into())
     }
     #[tauri::command]
+    pub fn capture_save_link(_url: String) -> Result<(), String> {
+        Err(UNSUPPORTED.into())
+    }
+    #[tauri::command]
     pub fn capture_note_names() -> Vec<String> {
         Vec::new()
     }
@@ -1706,6 +1710,7 @@ pub fn run() {
         gitprovider::git_provider_login,
         gitprovider::git_provider_cancel,
         capture_app::capture_save,
+        capture_app::capture_save_link,
         capture_app::capture_note_names,
         capture_app::capture_link_title,
         capture_app::capture_hide,
@@ -1857,6 +1862,7 @@ pub fn run() {
         gitprovider::git_provider_login,
         gitprovider::git_provider_cancel,
         capture_app::capture_save,
+        capture_app::capture_save_link,
         capture_app::capture_note_names,
         capture_app::capture_link_title,
         capture_app::capture_hide,
