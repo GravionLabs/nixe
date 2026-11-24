@@ -38,6 +38,8 @@ The book renders in an `iframe` whose `src` is a `blob:` URL made from the book 
 - The CSP gets `frame-src blob:`; no other frame source is allowed.
 - The `iframe` carries a `sandbox` attribute without `allow-scripts`: no script of the book runs.
   The reader itself (foliate-js) runs in the app and reads and styles the content from outside.
+  The frame gets `allow-same-origin` so that the reader can reach its document; this is safe only
+  because scripts stay off, and `allow-scripts` must never be added together with it.
 - The book has no access to the Tauri commands or to the origin of the app.
 
 ### Files are read through the Rust core
