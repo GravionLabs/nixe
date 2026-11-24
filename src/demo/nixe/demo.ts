@@ -3,6 +3,7 @@
 // (`kit/backend.ts`), so a new feature shows up as a red e2e test, not as a silent empty panel.
 import { DemoBackend } from "../kit/backend";
 import type { OwnLocations, Workspace } from "../../app/core/file/backend";
+import { DEMO_BOOK } from "./book";
 import { NOTES, TIME, VAULT } from "./data";
 import { DemoGit } from "./git";
 import { DemoVault } from "./vault";
@@ -126,15 +127,15 @@ export function createNixeDemo(): NixeDemo {
     list_vault_files: () => vault.relativeFiles(),
     read_text_file: (a) => vault.read(str(a, "path")),
     // No book is stored in the demo vault; the answer keeps the refusals of the Rust command
-    // (extension, root) and returns the bytes of an empty ZIP archive for any other path.
+    // (extension, root) and returns the bytes of the sample book for any other path.
     read_epub: (a) => {
       const path = str(a, "path");
-      const roots = [vault.root, ...((a["roots"] as string[] | undefined) ?? [])];
+      const roots = [vault.root, ...strings(a, "roots")];
       if (!path.toLowerCase().endsWith(".epub")) throw `not an EPUB file: ${path}`;
       if (!roots.some((r) => path === r || path.startsWith(`${r.replace(/\/$/, "")}/`))) {
         throw `outside the open roots and the vault: ${path}`;
       }
-      return [0x50, 0x4b, 0x05, 0x06, ...Array.from({ length: 18 }, () => 0)];
+      return [...DEMO_BOOK];
     },
     write_text_file: (a) => vault.write(str(a, "path"), str(a, "content")),
     create_file: (a) => {

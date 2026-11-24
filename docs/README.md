@@ -34,6 +34,7 @@ links and Mermaid rendering all at once.
   - [frontend/editor.md](frontend/editor.md) — CodeMirror editor and saving
   - [frontend/bookmarks.md](frontend/bookmarks.md) — bookmarks of notes, headings and searches
   - [frontend/state-management.md](frontend/state-management.md) — signals & navigation
+  - [frontend/epub.md](frontend/epub.md) — the EPUB reader tab
   - [frontend/terminal.md](frontend/terminal.md) — the terminal panel with xterm.js
   - [frontend/demo.md](frontend/demo.md) — the demo build, e2e tests and screenshots
 - [theming.md](theming.md) — themes, CSS snippets and the CSS variables

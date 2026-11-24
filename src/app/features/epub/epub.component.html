@@ -1,0 +1,56 @@
+@if (book(); as b) {
+  <header class="head">
+    <h1 class="title">{{ b.title }}</h1>
+    <span class="modes" role="group" aria-label="Reading mode">
+      <button
+        type="button"
+        class="mode-paginated"
+        [class.on]="epub.flow() === 'paginated'"
+        [attr.aria-pressed]="epub.flow() === 'paginated'"
+        (click)="setFlow('paginated')"
+      >
+        Paged
+      </button>
+      <button
+        type="button"
+        class="mode-scrolled"
+        [class.on]="epub.flow() === 'scrolled'"
+        [attr.aria-pressed]="epub.flow() === 'scrolled'"
+        (click)="setFlow('scrolled')"
+      >
+        Scrolled
+      </button>
+    </span>
+  </header>
+  <div class="main">
+    <nav class="toc" aria-label="Table of contents">
+      <ul>
+        @for (row of toc(); track $index) {
+          <li [style.padding-left.rem]="0.75 + row.depth * 0.9">
+            <button
+              type="button"
+              class="entry"
+              [class.on]="row.href === current()"
+              [attr.aria-current]="row.href === current() ? 'location' : null"
+              (click)="go(row.href)"
+            >
+              {{ row.label }}
+            </button>
+          </li>
+        }
+      </ul>
+    </nav>
+    <div class="reader" tabindex="0" aria-label="Book" (keydown)="onKey($event)">
+      @if (error(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+      <div class="stage" #stage></div>
+      <div class="pager">
+        <button type="button" class="prev" (click)="prev()">Previous page</button>
+        <button type="button" class="next" (click)="next()">Next page</button>
+      </div>
+    </div>
+  </div>
+} @else {
+  <app-empty-state text="No book" />
+}

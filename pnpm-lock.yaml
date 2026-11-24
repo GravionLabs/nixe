@@ -162,6 +162,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  foliate-js@1.0.1: 2900e7f4d799b94f5fe9ed9f89d010595af151725612e1e12c3162d76c4efd61
+
 importers:
 
   .:
@@ -243,7 +246,7 @@ importers:
         version: 3.4.17
       foliate-js:
         specifier: ^1.0.1
-        version: 1.0.1
+        version: 1.0.1(patch_hash=2900e7f4d799b94f5fe9ed9f89d010595af151725612e1e12c3162d76c4efd61)
       github-markdown-css:
         specifier: ^5.9.0
         version: 5.9.0
@@ -6397,7 +6400,7 @@ snapshots:
 
   flru@1.0.2: {}
 
-  foliate-js@1.0.1:
+  foliate-js@1.0.1(patch_hash=2900e7f4d799b94f5fe9ed9f89d010595af151725612e1e12c3162d76c4efd61):
     dependencies:
       construct-style-sheets-polyfill: 3.1.0
 

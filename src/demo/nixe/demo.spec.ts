@@ -100,6 +100,8 @@ describe("the demo backend of Nixe", () => {
       roots: [],
     });
     expect(bytes.slice(0, 2)).toEqual([0x50, 0x4b]);
+    // The demo reader shows the book of the fixtures (#487).
+    expect(bytes).toEqual([...readFileSync("fixtures/books/sample.epub")]);
     await backend.invoke("read_epub", { path: "/other/b.EPUB", roots: ["/other/"] });
     await expect(
       backend.invoke("read_epub", { path: "/elsewhere/c.epub", roots: [VAULT] }),

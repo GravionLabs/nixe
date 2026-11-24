@@ -30,4 +30,18 @@ describe("foliate-js", () => {
     ]);
     expect(book.toc?.map((item) => item.label)).toEqual(["Chapter 1", "Chapter 2"]);
   });
+
+  /**
+   * ADR 0009: a book never runs a script. foliate-js adds `allow-scripts` to the frames of the book
+   * itself; `patches/foliate-js@1.0.1.patch` takes it out. The frames only exist in a browser, where
+   * `e2e/epub.e2e.ts` proves that no script runs; this guards the patch itself.
+   */
+  it("creates the frames of a book without allow-scripts", () => {
+    const sandboxes = ["paginator.js", "fixed-layout.js"].flatMap((file) => {
+      const source = readFileSync(`node_modules/foliate-js/${file}`, "utf8");
+      return [...source.matchAll(/setAttribute\('sandbox', '([^']*)'\)/g)].map((m) => m[1]);
+    });
+
+    expect(sandboxes).toEqual(["allow-same-origin", "allow-same-origin"]);
+  });
 });

@@ -24,5 +24,27 @@ declare module "foliate-js/view.js" {
     sections: FoliateSection[];
   }
 
+  /** The `<foliate-paginator>` inside a view; `flow` is `paginated` or `scrolled`. */
+  export interface FoliateRenderer extends HTMLElement {
+    next(): Promise<void>;
+    prev(): Promise<void>;
+  }
+
+  export interface FoliateRelocate {
+    /** The table of contents entry that holds the position. */
+    tocItem?: { href: string; label: string };
+  }
+
+  /** The `<foliate-view>` element; `view.js` registers it. */
+  export interface FoliateView extends HTMLElement {
+    renderer: FoliateRenderer;
+    open(book: FoliateBook): Promise<void>;
+    init(options: { lastLocation?: string | null; showTextStart?: boolean }): Promise<void>;
+    goTo(target: string | number): Promise<unknown>;
+    next(): Promise<void>;
+    prev(): Promise<void>;
+    close(): void;
+  }
+
   export function makeBook(file: File): Promise<FoliateBook>;
 }

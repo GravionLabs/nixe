@@ -8,6 +8,7 @@ import { SettingsService } from "../../core/settings/settings.service";
 import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { CompareComponent } from "../compare/compare.component";
+import { EpubComponent } from "../epub/epub.component";
 import { ReviewTabComponent } from "../review/review-tab.component";
 import { EditorComponent } from "../editor/editor.component";
 import { LogComponent } from "../log/log.component";
@@ -27,6 +28,7 @@ import { ViewerComponent } from "../viewer/viewer.component";
     LogComponent,
     ReviewTabComponent,
     EditorComponent,
+    EpubComponent,
     HealthComponent,
     SettingsComponent,
     StartComponent,
