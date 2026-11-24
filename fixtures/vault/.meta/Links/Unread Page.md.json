@@ -1,0 +1,54 @@
+{
+  "aliases": [],
+  "blocks": [],
+  "headings": [
+    {
+      "level": 2,
+      "text": "Notes"
+    },
+    {
+      "level": 2,
+      "text": "Archive"
+    }
+  ],
+  "links": [],
+  "markdownLinks": [],
+  "properties": [
+    {
+      "key": "type",
+      "type": "text",
+      "value": "link"
+    },
+    {
+      "key": "url",
+      "type": "text",
+      "value": "https://example.org/unread"
+    },
+    {
+      "key": "title",
+      "type": "text",
+      "value": "Unread Page"
+    },
+    {
+      "key": "tags",
+      "type": "list",
+      "value": [
+        "later"
+      ]
+    },
+    {
+      "key": "saved",
+      "type": "date",
+      "value": "2026-11-21T18:05:00Z"
+    },
+    {
+      "key": "status",
+      "type": "text",
+      "value": "unread"
+    }
+  ],
+  "tags": [
+    "later"
+  ],
+  "warnings": []
+}
