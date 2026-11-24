@@ -137,6 +137,6 @@ Article.md` (read, with an archive) and `Unread Page.md` (unread, no archive).
 
 ## Import
 
-`nixe import-links <file>` creates link notes from a browser bookmark export or a Pocket export
+`nixe import-links <file>` creates link notes from a browser bookmark export, a Pocket export, a Raindrop CSV or a Linkwarden JSON backup
 (see [cli.md](cli.md)). Folders become subfolders, dates `saved`, tags tags; the code is in
 `src-tauri/src/links/import/` and the test files in `fixtures/import/`.

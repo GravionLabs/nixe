@@ -54,6 +54,10 @@ mod clip_impl {
         /// Fetches nothing and writes no archive: the note holds the URL and the given title.
         /// Imports use it; the new note has no `## Archive`.
         pub offline: bool,
+        /// Used when the page names no description (an export carries its own).
+        pub description: Option<String>,
+        /// The text under `## Notes` (an import keeps the note of the export).
+        pub note: Option<String>,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -206,11 +210,12 @@ mod clip_impl {
             } else {
                 "unread"
             },
-            description: meta.description.as_deref(),
+            description: meta.description.as_deref().or(req.description.as_deref()),
             image: meta.image.as_deref(),
             site: Some(&site),
             archive_files: &[],
             archive: archive.as_deref(),
+            notes: req.note.as_deref(),
         };
 
         // A role outside the vault is ignored with the warning of `Config` (#439).
