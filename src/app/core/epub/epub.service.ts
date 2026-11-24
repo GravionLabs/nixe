@@ -41,8 +41,9 @@ export class EpubService {
   }
 
   /**
-   * The root name and the path relative to it of the book: the open folder, a further root, else
-   * (a book the core let in by another way) the vault of the window.
+   * The root name and the path relative to it of the book: the vault of the window or a further
+   * root (the core reads no book from anywhere else). The file is always kept in the vault of the
+   * window, so a book of a further root is named by that root. `null` for any other path.
    */
   private locate(path: string): { root: string; rel: string } | null {
     const file = toSlashes(path);
