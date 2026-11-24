@@ -22,6 +22,7 @@ const SUBCOMMANDS: &[&str] = &[
     "new",
     "append",
     "clip",
+    "import-links",
     "daily",
     "mcp",
 ];
@@ -40,6 +41,7 @@ usage: nixe <path>|-                       open the viewer
        nixe check [--exclude <dir>]... [--links [--force]] [--vault <dir>] [--json]   exit 1 on broken or dead links
        nixe new <title> [--folder <dir>] [--open] [--vault <dir>]
        nixe clip <url> [--tag <t>]... [--folder <dir>] [--title <t>] [--html <file>|-] [--json] [--open] [--vault <dir>]
+       nixe import-links <file> [--folder <dir>] [--fetch] [--json] [--vault <dir>]   bookmarks (Netscape HTML) or Pocket export
        nixe append <note> [text] [--vault <dir>]   text from stdin when omitted
        nixe append --inbox [text] [--vault <dir>]
        nixe daily [--append <text>] [--vault <dir>]   open today's daily note, or append to it
@@ -235,6 +237,7 @@ pub(crate) struct Parsed {
     exclude: Vec<String>,
     links: bool,
     force: bool,
+    fetch: bool,
     path: String,
     folder: Option<String>,
     title: Option<String>,
@@ -269,6 +272,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Parsed, CliError> {
             "--open" => p.open = true,
             "--links" => p.links = true,
             "--force" => p.force = true,
+            "--fetch" => p.fetch = true,
             "--inbox" => p.inbox = true,
             "--dark" => p.dark = Some(true),
             "--light" => p.dark = Some(false),
@@ -394,6 +398,7 @@ fn clip(
             title: p.title.clone(),
             tags: p.tags.clone(),
             folder: p.folder.clone(),
+            ..links::ClipRequest::default()
         },
     )
     .map_err(|e| CliError::Failed(e.to_string()))?;
@@ -426,6 +431,79 @@ fn clip(
 ) -> Result<(), CliError> {
     Err(CliError::Failed(
         "`clip` is not available on this platform".into(),
+    ))
+}
+
+/// `nixe import-links <file>`: a bookmark or Pocket export becomes link notes. Prints the
+/// counts (or them as JSON); a page that failed makes the exit code 1.
+#[cfg(desktop)]
+fn import_links(
+    p: &Parsed,
+    root: &Path,
+    app_data: &Path,
+    cwd: &Path,
+    out: &mut dyn Write,
+) -> Result<(), CliError> {
+    use crate::links::{fetch, import};
+    let [file] = p.positional.as_slice() else {
+        return Err(CliError::Usage(
+            "`import-links` takes exactly one file".into(),
+        ));
+    };
+    let bytes =
+        std::fs::read(cwd.join(file)).map_err(|e| CliError::Failed(format!("{file}: {e}")))?;
+    let entries = import::parse(&fetch::decode(&bytes, None))
+        .map_err(|e| CliError::Failed(format!("{file}: {e}")))?;
+    let summary = import::import(
+        root,
+        app_data,
+        &entries,
+        p.folder.as_deref(),
+        p.fetch,
+        &chrono::Local::now().fixed_offset(),
+        &fetch::fetch,
+    );
+    for line in summary.warnings.iter().chain(&summary.failed) {
+        eprintln!("nixe: warning: {line}");
+    }
+    if p.json {
+        let json = serde_json::json!({
+            "created": summary.created,
+            "skipped": summary.skipped,
+            "failed": summary.failed,
+        });
+        writeln!(out, "{json}")
+    } else {
+        writeln!(
+            out,
+            "created {}, skipped {}, failed {}",
+            summary.created,
+            summary.skipped,
+            summary.failed.len()
+        )
+    }
+    .map_err(|e| CliError::Failed(e.to_string()))?;
+    if summary.failed.is_empty() {
+        Ok(())
+    } else {
+        Err(CliError::Failed(format!(
+            "{} of {} bookmarks could not be saved",
+            summary.failed.len(),
+            entries.len()
+        )))
+    }
+}
+
+#[cfg(not(desktop))]
+fn import_links(
+    _: &Parsed,
+    _: &Path,
+    _: &Path,
+    _: &Path,
+    _: &mut dyn Write,
+) -> Result<(), CliError> {
+    Err(CliError::Failed(
+        "`import-links` is not available on this platform".into(),
     ))
 }
 
@@ -482,6 +560,10 @@ pub fn execute_with(
     if command == "clip" {
         let root = one_root(command, &p, cwd, app_data)?;
         return clip(&p, &root, app_data, cwd, input, out);
+    }
+    if command == "import-links" {
+        let root = one_root(command, &p, cwd, app_data)?;
+        return import_links(&p, &root, app_data, cwd, out);
     }
     if command == "daily" {
         if !p.positional.is_empty() {

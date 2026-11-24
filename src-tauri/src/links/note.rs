@@ -180,6 +180,8 @@ pub struct Note<'a> {
     pub title: &'a str,
     pub tags: &'a [String],
     pub saved: &'a str,
+    /// `unread` or `read`.
+    pub status: &'a str,
     pub description: Option<&'a str>,
     pub image: Option<&'a str>,
     pub site: Option<&'a str>,
@@ -202,7 +204,11 @@ pub fn render(note: &Note) -> String {
             out.push_str(&format!("  - {}\n", yaml(tag)));
         }
     }
-    out.push_str(&format!("saved: {}\nstatus: unread\n", yaml(note.saved)));
+    out.push_str(&format!(
+        "saved: {}\nstatus: {}\n",
+        yaml(note.saved),
+        note.status
+    ));
     for (key, value) in [
         ("description", note.description),
         ("image", note.image),
@@ -304,6 +310,7 @@ mod tests {
             title: "Title: with colon",
             tags: &tags,
             saved: "2026-11-20T09:30:00+01:00",
+            status: "unread",
             description: Some("About it"),
             image: None,
             site: Some("x.test"),
@@ -321,6 +328,7 @@ mod tests {
             title: "T",
             tags: &[],
             saved: "s",
+            status: "unread",
             description: None,
             image: None,
             site: None,
