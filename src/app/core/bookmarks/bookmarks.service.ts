@@ -5,6 +5,7 @@ import type { VaultChange } from "../file/backend";
 import { VAULT_CHANGED_EVENT, backend } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { SearchService } from "../index/search.service";
+import { isBasePath } from "../markdown/paths";
 import { outlineOf } from "../outline/outline-core";
 import { OutlineService } from "../outline/outline.service";
 import { SettingsService } from "../settings/settings.service";
@@ -240,6 +241,11 @@ export class BookmarksService {
     const root = this.workspace.vaultRoot();
     if (!isFile(bookmark) || !root) return;
     const path = `${root}/${bookmark.path}`;
+    // A base opens in its table tab, never as text.
+    if (isBasePath(path)) {
+      this.tabs.openBase(path);
+      return;
+    }
     if (pin) await this.tabs.openPinned(path);
     else await this.tabs.openPreview(path);
     const line = headingLine(bookmark.subpath, outlineOf(this.doc.content()));

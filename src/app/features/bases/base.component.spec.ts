@@ -71,6 +71,7 @@ function render(previewTabs = true) {
   const base = signal<string | null>("/vault/Library.base");
   const index = { status: signal(status("ready")), revision: signal(0) };
   const tabs = {
+    notice: signal<string | null>(null),
     openPreview: vi.fn().mockResolvedValue(undefined),
     openInNewTab: vi.fn().mockResolvedValue(undefined),
   };
@@ -92,8 +93,6 @@ function render(previewTabs = true) {
     },
   });
   const fixture = TestBed.createComponent(BaseComponent);
-  const failed = vi.fn();
-  fixture.componentInstance.failed.subscribe(failed);
   const el = fixture.nativeElement as HTMLElement;
   const settle = async () => {
     for (let i = 0; i < 3; i++) {
@@ -107,7 +106,7 @@ function render(previewTabs = true) {
       [...tr.querySelectorAll("td")].map((td) => td.textContent!.trim()),
     );
   const alert = () => el.querySelector('[role="alert"]')?.textContent?.trim() ?? null;
-  return { base, index, tabs, el, failed, settle, cells, alert };
+  return { base, index, tabs, el, fixture, settle, cells, alert };
 }
 
 describe("BaseComponent", () => {
@@ -161,9 +160,21 @@ describe("BaseComponent", () => {
     await off.settle();
     off.tabs.openInNewTab.mockRejectedValue("gone");
     off.el.querySelector<HTMLButtonElement>("button.note-link")!.click();
-    await off.settle();
+    // Opening shows another tab, which destroys the table before the note was read.
+    off.fixture.destroy();
+    await new Promise((resolve) => setTimeout(resolve));
     expect(off.tabs.openInNewTab).toHaveBeenCalledWith("/vault/sub/Dune.md");
-    expect(off.failed).toHaveBeenCalledWith("gone");
+    expect(off.tabs.notice()).toBe("gone");
+  });
+
+  it("does not list the vault's notes for a base outside the vault", async () => {
+    fakeBackend(async () => table("Dune"));
+    const view = render();
+    view.base.set("/vault-other/Library.base");
+    await view.settle();
+
+    expect(view.alert()).toBe("Bases outside the open vault are not supported yet.");
+    expect(view.el.querySelector("table")).toBeNull();
   });
 
   it("reads the file again after a vault change", async () => {

@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, output, signal, untracked } from "@angular/core";
+import { Component, computed, effect, inject, signal, untracked } from "@angular/core";
 import type { HxColumn } from "@gravionlabs/helix-ui";
 import { HxDataTable, HxTableBody } from "@gravionlabs/helix-ui";
 
@@ -40,8 +40,6 @@ export class BaseComponent {
   private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
 
-  readonly failed = output<string>();
-
   protected readonly name = computed(() => basename(this.tab.base() ?? ""));
   /** The last answered table; null while loading and after a failure. */
   protected readonly result = signal<BaseResult | null>(null);
@@ -59,9 +57,17 @@ export class BaseComponent {
     }));
   });
 
-  /** Changes whenever the table must be read again: another file, index updates (vault changes). */
-  private readonly key = computed(
-    () => `${this.tab.base()}\n${this.index.status().state}\n${this.index.revision()}`,
+  /**
+   * Changes whenever the table must be read again: another file or vault, index updates (vault
+   * changes).
+   */
+  private readonly key = computed(() =>
+    [
+      this.tab.base(),
+      this.workspace.vaultRoot(),
+      this.index.status().state,
+      this.index.revision(),
+    ].join("\n"),
   );
   /** Counts the queries: only the answer of the newest one is shown. */
   private request = 0;
@@ -84,6 +90,13 @@ export class BaseComponent {
       this.shown = path;
     }
     if (path === null) return;
+    // Only the notes of the vault are indexed here: a base of another root would list the wrong ones.
+    const root = this.workspace.vaultRoot();
+    if (root === null || !path.startsWith(`${root.replace(/\/$/, "")}/`)) {
+      this.result.set(null);
+      this.error.set("Bases outside the open vault are not supported yet.");
+      return;
+    }
     const state = this.index.status().state;
     if (state !== "ready") {
       this.result.set(null);
@@ -114,7 +127,8 @@ export class BaseComponent {
       if (this.settings.previewTabs()) await this.tabs.openPreview(path);
       else await this.tabs.openInNewTab(path);
     } catch (err) {
-      this.failed.emit(String(err));
+      // Opening switches the tab, so this component may be gone: the notice goes to the app.
+      this.tabs.notice.set(String(err));
     }
   }
 }

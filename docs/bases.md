@@ -7,7 +7,7 @@ writes a `.base` file.
 ## Opening a base
 
 The file tree lists `.base` files, also in folders that contain nothing else that is listed. A click
-opens the base in a tab of its own; a second click focuses that tab. The tab is not restored with the
+(in the tree or on a bookmark) opens the base in a tab of its own; a second click focuses that tab. The tab is not restored with the
 layout. [Vault health](cli.md) does not count a base as an unused attachment.
 
 ## What is shown
@@ -52,8 +52,9 @@ supported.
 ## Errors
 
 The tab shows a message instead of the table for invalid YAML, a file whose keys have the wrong
-shape, a file without a view, a file without a `table` view and when the vault index is not
-available. The failure is written to the log.
+shape, a file without a view, a file without a `table` view, a base outside the open vault (in a
+further folder of the workspace) and when the vault index is not available. A failed read or query is
+written to the log.
 
 ## How it works
 
