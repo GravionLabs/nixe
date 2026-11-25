@@ -1476,12 +1476,18 @@ pub fn run() {
 
     let mut builder = tauri::Builder::default();
 
+    // A headless export stays in this process: it neither hands over to a running Nixe nor
+    // takes the capture shortcut and tray of it.
     #[cfg(desktop)]
-    {
+    let alone = cli_export::runs_alone(cli_export::REQUEST.get());
+
+    #[cfg(desktop)]
+    if !alone {
         // Must be the first plugin: forwards files from a second launch.
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             if argv.get(1).is_some_and(|a| a == "export") {
-                // A running window does the export; the new process ends at once.
+                // A running window opens the print dialog of a PDF; the new process ends at once.
+                // An HTML export never gets here (`cli_export::runs_alone`).
                 let request = cli::data_dir().and_then(|data| {
                     cli::parse_export(&argv[2..], Path::new(&cwd), &data, false)
                         .map_err(|e| log::warn!("export from a second launch refused: {e:?}"))
@@ -1543,7 +1549,7 @@ pub fn run() {
     #[cfg(desktop)]
     let builder = builder.plugin(log_plugin());
 
-    let builder = builder.setup(|app| {
+    let builder = builder.setup(move |app| {
         log_start(app.handle());
         let cwd = std::env::current_dir().unwrap_or_default();
         let args: Vec<String> = std::env::args().collect();
@@ -1568,8 +1574,10 @@ pub fn run() {
         }
         // A shortcut that cannot be registered leaves capture off; the settings page shows why.
         #[cfg(desktop)]
-        if let Err(e) = capture_app::apply(app.handle()) {
-            log::warn!("capture shortcut not registered: {e}");
+        if !alone {
+            if let Err(e) = capture_app::apply(app.handle()) {
+                log::warn!("capture shortcut not registered: {e}");
+            }
         }
         #[cfg(mobile)]
         if app

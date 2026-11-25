@@ -1,8 +1,10 @@
 //! `nixe export <note> --format html|pdf`: the command line side of "Export as HTML / PDF".
 //! The rendering (Markdown, Mermaid, KaTeX) lives in the app, so the command validates its
 //! arguments and resolves the note here, then starts the app with an export request: the window
-//! stays hidden, writes the HTML file and ends the process with the result. A PDF has no silent
-//! path in the system web views; the request opens the print dialog of the note ("Save as PDF").
+//! stays hidden, writes the HTML file and ends the process with the result, also next to a
+//! running Nixe. A PDF has no
+//! silent path in the system web views; the request opens the print dialog of the note ("Save as
+//! PDF").
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -45,6 +47,13 @@ pub struct Options {
     pub out: Option<String>,
     pub dark: Option<bool>,
     pub page_size: Option<String>,
+}
+
+/// True when the process of this request must not hand over to a running Nixe. A headless export
+/// writes the file itself, so the command returns when the file exists and carries the result of
+/// the export (#596). A PDF needs a window: the running one opens its print dialog.
+pub fn runs_alone(request: Option<&ExportRequest>) -> bool {
+    request.is_some_and(|r| r.headless)
 }
 
 /// The page size named by `value`, in the spelling the app knows.
@@ -164,6 +173,23 @@ mod tests {
         assert_eq!(r.dark, Some(true));
         assert!(r.headless);
         assert!(!resolve(&o, &cwd, &data, false).unwrap().headless);
+    }
+
+    #[test]
+    fn an_html_export_does_not_go_to_a_running_instance() {
+        let (_base, vault, data) = vault("running");
+        let v = vec![vault.to_string_lossy().into_owned()];
+        let mut html = opts(Some("html"), "A");
+        html.vaults = v.clone();
+        let mut pdf = opts(Some("pdf"), "A");
+        pdf.vaults = v;
+        // The command line asks for headless; a running instance would end the process at once.
+        let html = resolve(&html, &vault, &data, true).unwrap();
+        let pdf = resolve(&pdf, &vault, &data, true).unwrap();
+        assert!(runs_alone(Some(&html)));
+        assert!(!runs_alone(Some(&pdf)));
+        // A normal start of the viewer is still forwarded.
+        assert!(!runs_alone(None));
     }
 
     #[test]
