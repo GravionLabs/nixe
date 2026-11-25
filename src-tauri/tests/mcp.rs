@@ -10,28 +10,33 @@ use rmcp::{RoleClient, ServiceExt};
 use serde_json::{json, Value};
 use tokio::process::Command;
 
+// The same guard as the unit tests use: the directory is removed when it drops, also on a panic.
+#[allow(dead_code)]
+#[path = "../src/test_dir.rs"]
+mod test_dir;
+use test_dir::TestDir;
+
 fn vault() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/vault")
 }
 
 type Client = RunningService<RoleClient, ()>;
 
-async fn start(name: &str) -> Client {
-    let data = std::env::temp_dir().join(format!("nixe-mcp-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&data);
-    std::fs::create_dir_all(&data).unwrap();
+/// The client and the app data folder of its server; bind the folder first so the client drops first.
+async fn start(name: &str) -> (TestDir, Client) {
+    let data = TestDir::new(&format!("nixe-mcp-{name}-"));
     let transport =
         TokioChildProcess::new(Command::new(env!("CARGO_BIN_EXE_nixe")).configure(|cmd| {
             // Where the app data directory resolves to on each platform.
-            cmd.env("HOME", &data)
-                .env("XDG_DATA_HOME", &data)
-                .env("APPDATA", &data)
+            cmd.env("HOME", &*data)
+                .env("XDG_DATA_HOME", &*data)
+                .env("APPDATA", &*data)
                 .arg("mcp")
                 .arg("--vault")
                 .arg(vault());
         }))
         .unwrap();
-    ().serve(transport).await.unwrap()
+    (data, ().serve(transport).await.unwrap())
 }
 
 async fn call(client: &Client, tool: &'static str, args: Value) -> Result<Value, String> {
@@ -53,7 +58,7 @@ async fn call(client: &Client, tool: &'static str, args: Value) -> Result<Value,
 
 #[tokio::test(flavor = "multi_thread")]
 async fn lists_the_seven_read_only_tools() {
-    let client = start("list").await;
+    let (_data, client) = start("list").await;
     let tools = client.list_all_tools().await.unwrap();
     let mut names: Vec<String> = tools.iter().map(|t| t.name.to_string()).collect();
     names.sort();
@@ -77,7 +82,7 @@ async fn lists_the_seven_read_only_tools() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn every_tool_answers_against_the_fixture_vault() {
-    let client = start("calls").await;
+    let (_data, client) = start("calls").await;
 
     let hits = call(&client, "search", json!({"query": "body-tag"}))
         .await
@@ -150,7 +155,7 @@ async fn every_tool_answers_against_the_fixture_vault() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_path_outside_the_vault_is_refused() {
-    let client = start("outside").await;
+    let (_data, client) = start("outside").await;
     for (tool, args) in [
         ("read_note", json!({"note": "../Cargo.toml"})),
         ("read_note", json!({"note": "/etc/passwd"})),
@@ -165,7 +170,7 @@ async fn a_path_outside_the_vault_is_refused() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn results_hold_vault_relative_paths_only() {
-    let client = start("relative").await;
+    let (_data, client) = start("relative").await;
     let notes = call(&client, "notes_by_property", json!({"key": "title"}))
         .await
         .unwrap();
@@ -179,8 +184,7 @@ async fn results_hold_vault_relative_paths_only() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn several_vaults_are_searched_together() {
-    let base = std::env::temp_dir().join(format!("nixe-mcp-roots-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&base);
+    let base = TestDir::new("nixe-mcp-roots-");
     let (a, b) = (base.join("alpha"), base.join("beta"));
     for (dir, file, text) in [
         (&a, "One.md", "#red\nshared words"),
@@ -259,10 +263,10 @@ async fn several_vaults_are_searched_together() {
     assert!(err.contains("no such root"), "{err}");
 }
 
-/// A temp vault and a server over it, with `extra` arguments after `mcp --vault`.
-async fn start_clip(name: &str, extra: &[&str]) -> (Client, PathBuf) {
-    let base = std::env::temp_dir().join(format!("nixe-mcp-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&base);
+/// A temp vault and a server over it, with `extra` arguments after `mcp --vault`; bind the
+/// folder first so the client drops first.
+async fn start_clip(name: &str, extra: &[&str]) -> (TestDir, Client, PathBuf) {
+    let base = TestDir::new(&format!("nixe-mcp-{name}-"));
     let (vault, data) = (base.join("vault"), base.join("data"));
     std::fs::create_dir_all(&vault).unwrap();
     std::fs::create_dir_all(&data).unwrap();
@@ -278,7 +282,8 @@ async fn start_clip(name: &str, extra: &[&str]) -> (Client, PathBuf) {
                 .args(extra);
         }))
         .unwrap();
-    (().serve(transport).await.unwrap(), vault)
+    let client = ().serve(transport).await.unwrap();
+    (base, client, vault)
 }
 
 /// Serves one page on a local port for as many requests as come.
@@ -302,7 +307,7 @@ fn serve_page(html: &'static str) -> String {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn clip_link_exists_only_with_the_flag() {
-    let (without, _) = start_clip("clip-off", &[]).await;
+    let (_off, without, _) = start_clip("clip-off", &[]).await;
     let names: Vec<String> = without
         .list_all_tools()
         .await
@@ -320,7 +325,7 @@ async fn clip_link_exists_only_with_the_flag() {
     .unwrap_err();
     assert!(!err.is_empty());
 
-    let (with, _) = start_clip("clip-on", &["--allow-clip"]).await;
+    let (_on, with, _) = start_clip("clip-on", &["--allow-clip"]).await;
     let tools = with.list_all_tools().await.unwrap();
     let tool = tools.iter().find(|t| t.name == "clip_link").unwrap();
     let ann = tool.annotations.as_ref().unwrap();
@@ -331,7 +336,7 @@ async fn clip_link_exists_only_with_the_flag() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn clip_link_creates_a_note_then_returns_it_and_search_sees_it() {
-    let (client, vault) = start_clip("clip-new", &["--allow-clip"]).await;
+    let (_base, client, vault) = start_clip("clip-new", &["--allow-clip"]).await;
     let url = serve_page(
         "<html><head><title>Zebrafinch notes</title></head><body><article><p>Quokka facts \
          and some more readable words so that the reader keeps this text around.</p></article></body></html>",
@@ -369,7 +374,7 @@ async fn clip_link_creates_a_note_then_returns_it_and_search_sees_it() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn clip_link_refuses_a_folder_outside_the_links_folder() {
-    let (client, vault) = start_clip("clip-folder", &["--allow-clip"]).await;
+    let (_base, client, vault) = start_clip("clip-folder", &["--allow-clip"]).await;
     let url = "https://example.test/never-fetched";
     for folder in ["Notes", "../x", "/tmp", "Links2", "."] {
         let err = call(&client, "clip_link", json!({"url": url, "folder": folder}))

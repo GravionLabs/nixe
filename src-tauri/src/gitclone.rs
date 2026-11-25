@@ -132,18 +132,17 @@ pub fn git_clone_cancel(state: State<'_, crate::AppState>) {
 mod tests {
     use super::*;
     use crate::credentials::MemoryStore;
+    use crate::test_dir::TestDir;
     use std::fs;
 
-    fn tmp(name: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-gitclone-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        p
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-gitclone-{name}-"))
     }
 
     /// A repository with one commit; cloning it by path needs no token.
-    fn source(name: &str) -> String {
-        let dir = tmp(&format!("{name}-root")).join(format!("{name}-src.git"));
+    fn source(name: &str) -> (TestDir, String) {
+        let root = tmp(&format!("{name}-root"));
+        let dir = root.join(format!("{name}-src.git"));
         fs::create_dir_all(&dir).unwrap();
         let repo = git2::Repository::init(&dir).unwrap();
         fs::write(dir.join("a.md"), "one").unwrap();
@@ -154,7 +153,8 @@ mod tests {
         repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
             .unwrap();
         // file:// goes through the pack transport, which reports progress; a bare path does not.
-        format!("file://{}", dir.display())
+        let url = format!("file://{}", dir.display());
+        (root, url)
     }
 
     #[test]
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn clones_into_a_folder_named_after_the_repository() {
-        let url = source("ok");
+        let (_src, url) = source("ok");
         let parent = tmp("ok-parent");
         let mut seen = Vec::new();
         let dest = clone_vault(
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn a_cancelled_clone_removes_the_partial_folder() {
-        let url = source("cancel");
+        let (_src, url) = source("cancel");
         let parent = tmp("cancel-parent");
         let cancel = AtomicBool::new(false);
         // Cancel as soon as the first progress arrives.
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn an_existing_folder_is_never_touched() {
-        let url = source("exists");
+        let (_src, url) = source("exists");
         let parent = tmp("exists-parent");
         fs::create_dir_all(parent.join("exists-src")).unwrap();
         fs::write(parent.join("exists-src/keep.md"), "mine").unwrap();

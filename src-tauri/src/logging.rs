@@ -184,6 +184,7 @@ pub(crate) mod capture {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
     #[test]
     fn the_default_level_is_info() {
@@ -231,7 +232,8 @@ mod tests {
     #[test]
     fn the_text_of_a_note_does_not_reach_the_log() {
         capture::install();
-        let dir = std::env::temp_dir().join("nixe-log-t410");
+        // The write is refused before it touches the folder; the scratch folder only gives it a path.
+        let dir = TestDir::new("nixe-log-t410-");
         // Content that is no settings object is refused without echoing it.
         let note = "Dear diary, the launch code is 0451-t410";
         let err = crate::settings::write_settings(&dir, note).unwrap_err();
@@ -281,14 +283,12 @@ mod tests {
 
     #[test]
     fn the_log_file_is_read_whole_or_by_its_tail() {
-        let dir = std::env::temp_dir().join(format!("nixe-log-t412-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = TestDir::new("nixe-log-t412-");
         // No file yet is an empty log, not an error.
         assert_eq!(read_log(&dir, None).unwrap(), "");
         std::fs::write(log_file(&dir), "one\ntwo\nthree\n").unwrap();
         assert_eq!(read_log(&dir, None).unwrap(), "one\ntwo\nthree\n");
         assert_eq!(read_log(&dir, Some(2)).unwrap(), "two\nthree");
         assert!(log_file(&dir).ends_with("nixe.log"));
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

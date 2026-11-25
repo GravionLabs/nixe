@@ -490,11 +490,10 @@ pub fn rename_roles(root: &Path, from: &str, to: &str) -> Result<usize, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use crate::test_dir::TestDir;
 
-    fn vault(name: &str, config: Option<&str>) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("nixe-config-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+    fn vault(name: &str, config: Option<&str>) -> TestDir {
+        let root = TestDir::new(&format!("nixe-config-{name}-"));
         fs::create_dir_all(root.join(".nixe")).unwrap();
         if let Some(text) = config {
             fs::write(root.join(SOURCE), text).unwrap();

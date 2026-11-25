@@ -172,12 +172,10 @@ pub fn resolve(root: &Path, path: &Path, keep: Keep) -> Result<PathBuf, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
-    fn tmp(name: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-conflict-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        dunce::canonicalize(p).unwrap()
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-conflict-{name}-"))
     }
 
     #[test]
@@ -236,7 +234,7 @@ mod tests {
         assert_eq!(find_pair(&c), Some(pair));
     }
 
-    fn setup(name: &str) -> (PathBuf, PathBuf, PathBuf) {
+    fn setup(name: &str) -> (TestDir, PathBuf, PathBuf) {
         let root = tmp(name);
         let o = root.join("Note.md");
         let c = root.join("Note (conflict 2026-11-16 mac).md");

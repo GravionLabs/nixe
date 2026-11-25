@@ -487,15 +487,13 @@ pub fn review_state_save(root: &Path, name: &str, state: Option<&str>) -> Result
 mod tests {
     use super::*;
     use crate::credentials::MemoryStore;
+    use crate::test_dir::TestDir;
 
-    fn temp(name: &str) -> std::path::PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-review-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        p
+    fn temp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-review-{name}-"))
     }
 
-    fn init(name: &str) -> (std::path::PathBuf, Repository) {
+    fn init(name: &str) -> (TestDir, Repository) {
         let dir = temp(name);
         let repo = Repository::init(&dir).unwrap();
         let mut cfg = repo.config().unwrap();

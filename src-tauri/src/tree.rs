@@ -131,12 +131,12 @@ pub fn list_dir(dir: &Path) -> Result<Vec<DirEntry>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::fs;
 
     #[test]
     fn lists_markdown_sorted_by_order_file() {
-        let root = std::env::temp_dir().join(format!("nixe-tree-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+        let root = TestDir::new("nixe-tree-");
         fs::create_dir_all(root.join("Zeta")).unwrap();
         fs::create_dir_all(root.join("Empty")).unwrap();
         fs::create_dir_all(root.join(".attachments")).unwrap();
@@ -153,25 +153,20 @@ mod tests {
             .map(|e| e.name)
             .collect();
         assert_eq!(names, ["Home.md", "Zeta", "Alpha.md", "Beta.md"]);
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn reports_the_modified_time_in_milliseconds() {
-        let root = std::env::temp_dir().join(format!("nixe-tree-mtime-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap();
+        let root = TestDir::new("nixe-tree-mtime-");
         fs::write(root.join("Note.md"), "").unwrap();
         let entries = list_dir(&root).unwrap();
         // After 2001-09-09 in milliseconds, so not seconds and not the 0 of an unknown time.
         assert!(entries[0].modified > 1_000_000_000_000);
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn lists_epub_books_and_folders_that_hold_only_books() {
-        let root = std::env::temp_dir().join(format!("nixe-tree-epub-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+        let root = TestDir::new("nixe-tree-epub-");
         fs::create_dir_all(root.join("Shelf/Sub")).unwrap();
         fs::create_dir_all(root.join("Pictures")).unwrap();
         fs::write(root.join("Shelf/Sub/Novel.EPUB"), "").unwrap();
@@ -189,6 +184,5 @@ mod tests {
             .map(|e| e.name)
             .collect();
         assert_eq!(inner, ["Novel.EPUB"]);
-        fs::remove_dir_all(&root).unwrap();
     }
 }

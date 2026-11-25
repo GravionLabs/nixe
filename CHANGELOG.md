@@ -5,6 +5,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.14.1] — 2026-11-24
+
+### Bug Fixes
+- **tests**: Remove test directories when the test ends (#581)
+
+
 ## [1.14.0] — 2026-11-24
 
 ### Bug Fixes
@@ -13,6 +19,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Documentation
 - ADR 0009 EPUB reader: foliate-js, sandbox and storage (#484) (#551)
+- Update CHANGELOG.md for v1.14.0 [skip ci]
 
 
 ### Features

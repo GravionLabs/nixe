@@ -17,7 +17,8 @@
     "format:check": "oxfmt --check",
     "start:demo": "ng serve --configuration demo",
     "e2e": "playwright test",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "check:temp-dirs": "node --test scripts/check-test-temp-dirs.test.mjs && node scripts/check-test-temp-dirs.mjs"
   },
   "private": true,
   "dependencies": {
