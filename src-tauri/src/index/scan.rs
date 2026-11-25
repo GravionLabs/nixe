@@ -87,8 +87,9 @@ pub fn scan(
     for file in &changed {
         if !is_markdown_path(&file.path) || extracted_paths.contains(file.path.as_str()) {
             tx.execute(
-                "INSERT OR REPLACE INTO files (path, size, mtime_ns) VALUES (?1, ?2, ?3)",
-                params![file.path, file.size as i64, file.mtime_ns],
+                "INSERT OR REPLACE INTO files (path, size, mtime_ns, ctime_ns)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![file.path, file.size as i64, file.mtime_ns, file.ctime_ns],
             )?;
         }
     }

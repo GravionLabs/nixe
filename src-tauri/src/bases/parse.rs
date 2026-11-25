@@ -1,6 +1,7 @@
 //! The YAML of a `.base` file (<https://obsidian.md/help/bases/syntax>). The keys `filters`,
 //! `formulas`, `properties`, `summaries` and `views` are read, every other key is ignored. What is
-//! read but not applied yet is only checked for being there, so the query can name it.
+//! read but not applied yet is only checked for being there, so the query can name it. Filters are
+//! kept as written and compiled (`filter`) for the shown view only.
 
 use std::collections::HashMap;
 
@@ -9,8 +10,8 @@ use serde_yaml_ng::{Mapping, Value};
 /// A parsed `.base` file.
 #[derive(Debug, Default, PartialEq)]
 pub struct Base {
-    /// Filters of every view; not applied yet.
-    pub filters: bool,
+    /// Filters of every view, as written.
+    pub filters: Option<Value>,
     /// Formula definitions; not evaluated yet.
     pub formulas: bool,
     /// Custom summary formulas; not evaluated yet.
@@ -28,13 +29,14 @@ pub struct View {
     pub name: Option<String>,
     /// The columns, as property ids; empty when the view has no `order`.
     pub order: Vec<String>,
+    /// The filters of this view, as written.
+    pub filters: Option<Value>,
     /// The keys of the view that are there but not applied yet.
     pub unsupported: Vec<&'static str>,
 }
 
 /// View keys that change which rows show or how, with the name the message gives them.
 const UNSUPPORTED_VIEW_KEYS: &[(&str, &str)] = &[
-    ("filters", "view filters"),
     ("sort", "sort"),
     ("groupBy", "groupBy"),
     ("limit", "limit"),
@@ -57,7 +59,7 @@ pub fn parse(source: &str) -> Result<Base, String> {
         Some(_) => return Err("Invalid base: `views` must be a list.".into()),
     };
     Ok(Base {
-        filters: is_set(map.get("filters")),
+        filters: map.get("filters").cloned(),
         formulas: is_set(map.get("formulas")),
         summaries: is_set(map.get("summaries")),
         display_names: display_names(map.get("properties"))?,
@@ -85,6 +87,7 @@ fn view(value: &Value) -> Result<View, String> {
         kind,
         name: text(map, "name"),
         order,
+        filters: map.get("filters").cloned(),
         unsupported: UNSUPPORTED_VIEW_KEYS
             .iter()
             .filter(|(key, _)| is_set(map.get(*key)))
@@ -160,7 +163,7 @@ unknown: { nested: true }
     #[test]
     fn reads_every_key_and_ignores_unknown_ones() {
         let base = parse(FULL).unwrap();
-        assert!(base.filters && base.formulas && base.summaries);
+        assert!(base.filters.is_some() && base.formulas && base.summaries);
         assert_eq!(base.display_names.len(), 2);
         assert_eq!(base.display_names["status"], "Status");
         assert_eq!(base.display_names["file.name"], "Note");
@@ -171,8 +174,9 @@ unknown: { nested: true }
         assert_eq!(table.order, ["file.name", "note.age"]);
         assert_eq!(
             table.unsupported,
-            ["view filters", "sort", "groupBy", "limit", "view summaries"]
+            ["sort", "groupBy", "limit", "view summaries"]
         );
+        assert_eq!(table.filters, Some(Value::from("status != \"done\"")));
         assert_eq!(base.views[1].kind, "cards");
         assert!(base.views[1].order.is_empty() && base.views[1].unsupported.is_empty());
     }
@@ -182,7 +186,8 @@ unknown: { nested: true }
         assert_eq!(parse("").unwrap(), Base::default());
         assert_eq!(parse("# only a comment\n").unwrap(), Base::default());
         let base = parse("\u{feff}filters:\nformulas: {}\nsummaries: []\nviews:\n").unwrap();
-        assert_eq!(base, Base::default());
+        assert_eq!(base.filters, Some(Value::Null));
+        assert!(!base.formulas && !base.summaries && base.views.is_empty());
     }
 
     #[test]

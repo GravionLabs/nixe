@@ -1,13 +1,20 @@
 //! Bases: a `.base` file shows the notes of the vault as a table. The file is parsed (`parse`) and
-//! its view is answered from the vault index; the frontend only renders the result.
+//! its view is answered from the vault index; the frontend only renders the result. The rows are
+//! the notes that match the filters (`filter`, `expr`, `eval`) of the base and of the view.
 
+mod eval;
+mod expr;
+mod filter;
 mod parse;
 
 use rusqlite::Connection;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::index::read::{self, NoteProperties};
+use crate::index::read;
+use crate::vault::resolve::Resolver;
+use eval::Context;
+use expr::Field;
 use parse::{Base, View};
 
 /// The view type that can be shown.
@@ -52,17 +59,23 @@ pub struct BaseResult {
 
 /// What a column shows.
 enum Source {
+    /// The name of the note without its extension.
     FileName,
+    /// Any other `file.` field.
+    File(Field),
     /// A note property, by name.
     Note(String),
 }
 
-/// `file.name`, `note.x`, `note["x"]` or a bare `x`; `None` for what is not supported yet.
+/// `file.x`, `note.x`, `note["x"]` or a bare `x`; `None` for what is not supported yet.
 fn source_of(id: &str) -> Option<Source> {
     if id == FILE_NAME {
         return Some(Source::FileName);
     }
-    if id.starts_with("file.") || id.starts_with("formula.") {
+    if let Some(field) = id.strip_prefix("file.") {
+        return Field::from_name(field).map(Source::File);
+    }
+    if id.starts_with("formula.") {
         return None;
     }
     let quoted = id
@@ -103,7 +116,7 @@ fn pick<'a>(base: &'a Base, name: Option<&str>) -> Result<&'a View, String> {
 
 fn label(base: &Base, id: &str, source: &Source) -> String {
     let plain = match source {
-        Source::FileName => FILE_NAME,
+        Source::FileName | Source::File(_) => id,
         Source::Note(name) => name,
     };
     // `properties` may name a note property with or without the `note.` prefix.
@@ -115,45 +128,92 @@ fn label(base: &Base, id: &str, source: &Source) -> String {
         .unwrap_or_else(|| plain.to_string())
 }
 
-fn cell(note: &NoteProperties, source: &Source) -> BaseCell {
+fn typed(kind: &str, value: Value) -> BaseCell {
+    BaseCell {
+        kind: Some(kind.into()),
+        value,
+    }
+}
+
+fn cell(context: &Context, source: &Source) -> BaseCell {
     match source {
-        Source::FileName => BaseCell {
-            kind: Some("text".into()),
-            value: Value::String(note.title.clone()),
-        },
-        Source::Note(name) => {
-            let wanted = name.to_lowercase();
-            // The exact key wins over one that differs in case only.
-            note.properties
-                .iter()
-                .find(|p| p.key == *name)
-                .or_else(|| {
-                    note.properties
-                        .iter()
-                        .find(|p| p.key.to_lowercase() == wanted)
+        Source::FileName => typed("text", Value::String(context.note.title.clone())),
+        Source::File(field) => file_cell(context.field(*field)),
+        Source::Note(name) => context
+            .property(name)
+            .map_or_else(BaseCell::default, |p| typed(&p.kind, p.value.clone())),
+    }
+}
+
+/// The cell of the value of a `file.` field.
+fn file_cell(value: eval::Value) -> BaseCell {
+    match value {
+        eval::Value::Text(s) => typed("text", s.into()),
+        eval::Value::Number(n) => typed("number", (n as u64).into()),
+        eval::Value::Date(millis) => {
+            chrono::DateTime::from_timestamp_millis(millis).map_or_else(BaseCell::default, |date| {
+                let local = date.with_timezone(&chrono::Local);
+                typed("date", local.format("%Y-%m-%d %H:%M:%S").to_string().into())
+            })
+        }
+        eval::Value::List(items) => typed(
+            "list",
+            items.into_iter().map(plain).collect::<Vec<_>>().into(),
+        ),
+        // `file.properties`, one `key: value` per item.
+        eval::Value::Object(entries) => typed(
+            "list",
+            entries
+                .into_iter()
+                .map(|(key, value)| {
+                    let text = match plain(value) {
+                        Value::String(s) => s,
+                        Value::Null => String::new(),
+                        other => other.to_string(),
+                    };
+                    Value::String(format!("{key}: {text}"))
                 })
-                .map_or_else(BaseCell::default, |p| BaseCell {
-                    kind: Some(p.kind.clone()),
-                    value: p.value.clone(),
-                })
+                .collect::<Vec<_>>()
+                .into(),
+        ),
+        eval::Value::Null | eval::Value::Bool(_) => BaseCell::default(),
+    }
+}
+
+/// A value inside a list or a mapping as JSON.
+fn plain(value: eval::Value) -> Value {
+    match value {
+        eval::Value::Null => Value::Null,
+        eval::Value::Bool(b) => b.into(),
+        // Whole numbers without a fraction, as they are written.
+        eval::Value::Number(n) if n.fract() == 0.0 && n.abs() < 1e15 => (n as i64).into(),
+        eval::Value::Number(n) => n.into(),
+        eval::Value::Text(s) => s.into(),
+        eval::Value::Date(millis) => millis.into(),
+        eval::Value::List(items) => items.into_iter().map(plain).collect::<Vec<_>>().into(),
+        eval::Value::Object(entries) => {
+            Value::Object(entries.into_iter().map(|(k, v)| (k, plain(v))).collect())
         }
     }
 }
 
 /// Answers the view `view` (default: the first table view) of the base `source` from the index.
+/// An error in the filters of the base or of the view is an error of the query: no row is ever
+/// hidden or shown by a filter that could not be read.
 pub fn query(conn: &Connection, source: &str, view: Option<&str>) -> Result<BaseResult, String> {
     let base = parse::parse(source)?;
     let view = pick(&base, view)?;
+    // The global filters and those of the view both have to match.
+    let filters = [
+        filter::compile(base.filters.as_ref(), "filters")?,
+        filter::compile(view.filters.as_ref(), "view filters")?,
+    ];
 
-    let mut unsupported: Vec<String> = [
-        (base.filters, "filters"),
-        (base.formulas, "formulas"),
-        (base.summaries, "summaries"),
-    ]
-    .iter()
-    .filter(|(set, _)| *set)
-    .map(|(_, name)| name.to_string())
-    .collect();
+    let mut unsupported: Vec<String> = [(base.formulas, "formulas"), (base.summaries, "summaries")]
+        .iter()
+        .filter(|(set, _)| *set)
+        .map(|(_, name)| name.to_string())
+        .collect();
     unsupported.extend(view.unsupported.iter().map(|s| s.to_string()));
 
     let mut columns = Vec::new();
@@ -179,12 +239,19 @@ pub fn query(conn: &Connection, source: &str, view: Option<&str>) -> Result<Base
         sources.push(Source::FileName);
     }
 
-    let rows = read::notes_with_properties(conn)
-        .map_err(|e| e.to_string())?
+    let index = read::base_notes(conn).map_err(|e| e.to_string())?;
+    let resolver = Resolver::new(&index.files);
+    let rows = index
+        .notes
         .iter()
-        .map(|note| BaseRow {
-            path: note.path.clone(),
-            cells: sources.iter().map(|s| cell(note, s)).collect(),
+        .map(|note| Context {
+            note,
+            resolver: &resolver,
+        })
+        .filter(|context| filters.iter().flatten().all(|f| context.matches(f)))
+        .map(|context| BaseRow {
+            path: context.note.path.clone(),
+            cells: sources.iter().map(|s| cell(&context, s)).collect(),
         })
         .collect();
     Ok(BaseResult {
