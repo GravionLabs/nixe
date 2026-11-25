@@ -65,6 +65,10 @@ export class BaseCellComponent {
 
   protected toggle(input: HTMLInputElement): void {
     const checked = input.checked;
+    // The box shows the value again until the edit is taken: a write that fails at once changes
+    // nothing that would reset it.
+    input.checked = this.value === true;
+    input.indeterminate = this.value === null;
     this.changed.emit(() => checked);
   }
 

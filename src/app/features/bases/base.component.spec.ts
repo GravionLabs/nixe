@@ -835,6 +835,20 @@ Body
     log.mockRestore();
   });
 
+  it("unchecks a box again when its write is refused at once", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const view = await shown();
+    view.fixture.autoDetectChanges();
+    view.tabs.tabsOf.mockImplementation(() => {
+      throw new Error("refused");
+    });
+    view.control("done of Dune").click();
+    await view.settle();
+    expect(view.control("done of Dune").checked).toBe(false);
+    expect(view.tabs.notice()).toContain("refused");
+    vi.restoreAllMocks();
+  });
+
   it("keeps the value of an earlier write when a later one fails, until the table is read", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const view = await shown();

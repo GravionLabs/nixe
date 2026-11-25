@@ -13,6 +13,8 @@ describe("cellEditor", () => {
     ["done", false, "checkbox"],
     ["due", "2024-01-31", "date"],
     ["at", "2024-01-31 10:00", "text"],
+    ["typo", "2024-02-30", "text"],
+    ["month", "2024-13-01", "text"],
     ["authors", ["a"], "list"],
     ["tags", ["a"], "tags"],
     ["Aliases", "a", "tags"],

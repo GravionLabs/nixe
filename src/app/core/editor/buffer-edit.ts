@@ -21,7 +21,8 @@ export interface EditedBuffer {
 
 /**
  * Applies `change` to the text in the editor, with its unsaved changes, and saves it at once.
- * Rejects, without the change, when the note changed on disk or cannot be saved.
+ * Rejects, without the change, when the note changed on disk or cannot be saved; only when the
+ * user typed during a failed write does the change stay in the editor, which the message says.
  */
 export async function editAndSave(
   buffer: EditedBuffer,
@@ -48,10 +49,11 @@ export async function editAndSave(
   // Still dirty without a reason: the user typed on, which the autosave takes care of.
   const reason = buffer.refusal() ?? buffer.failure();
   if (!buffer.saver.dirty || reason === null) return;
+  // Text typed during the write cannot be told apart from the edit: both stay.
+  if (buffer.text() !== next)
+    throw new Error(`The note could not be saved, the change stays in the editor: ${reason}`);
   // The edit is taken back, so that the editor does not write it later.
-  if (buffer.text() === next) {
-    buffer.apply(before);
-    if (!dirty) buffer.saver.discard();
-  }
+  buffer.apply(before);
+  if (!dirty) buffer.saver.discard();
   throw new Error(`The note could not be saved: ${reason}`);
 }

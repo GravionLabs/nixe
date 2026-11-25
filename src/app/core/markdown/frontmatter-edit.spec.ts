@@ -75,9 +75,28 @@ describe("editFrontmatter set", () => {
     );
   });
 
-  it("empties a block list", () => {
-    const out = set("---\ntags:\n  - a\nx: 1\n---\n", "tags", []);
+  it("empties a block list and keeps its comment lines", () => {
+    const out = set("---\ntags: # t\n  # first\n  - a\nx: 1\n---\n", "tags", []);
+    expect(out).toBe("---\ntags: [] # t\n  # first\nx: 1\n---\n");
     expect(splitFrontmatter(out).data).toEqual({ tags: [], x: 1 });
+  });
+
+  it.each([
+    ["an anchored item an alias points to", "---\nl:\n  - &x a\n  - b\nm: *x\n---\n", "l", ["b"]],
+    ["the only anchored item", "---\nl:\n  - &x a\nm: *x\n---\n", "l", []],
+    ["an anchored item of a flow list", "---\nl: [&x a, b]\nm: *x\n---\n", "l", ["b"]],
+    ["a comment that would join the value", "---\na: foo\n\n  bar # c\n---\n", "a", "a\nb"],
+    ["a key behind an indented mapping", "---\n  a: x\n  z: 1\n---\n", "n", "v"],
+  ])("refuses to damage the frontmatter: %s", (_, text, key, value) => {
+    expect(() => set(text, key, value)).toThrow(/damaging/);
+  });
+
+  it("refuses a flow list with comments inside", () => {
+    expect(() => set("---\nl: [a, # q\n  b]\n---\n", "l", ["a"])).toThrow(/comments/);
+  });
+
+  it("changes a key that is a number instead of adding a second one", () => {
+    expect(set("---\n2024: a\n---\n", "2024", "b")).toBe('---\n"2024": b\n---\n');
   });
 
   it("writes a value for a key without one", () => {

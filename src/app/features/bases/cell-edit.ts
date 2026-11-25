@@ -23,11 +23,18 @@ function editable(value: unknown): boolean {
   return Array.isArray(value) ? value.every(isScalar) : isScalar(value);
 }
 
+/** A date control empties a day that does not exist (`2024-02-30`): that stays a text. */
+function isCalendarDate(value: unknown): boolean {
+  if (!isDateOnly(value)) return false;
+  const time = Date.parse(`${value as string}T00:00:00Z`);
+  return !Number.isNaN(time) && new Date(time).toISOString().startsWith(value as string);
+}
+
 function editorOf(property: string, value: unknown): CellEditor {
   const type: PropertyType = detectType(property, value);
   if (type === "link") return "text";
   // A date with a time has no native control that keeps it as it is written.
-  if (type === "date") return isDateOnly(value) ? "date" : "text";
+  if (type === "date") return isCalendarDate(value) ? "date" : "text";
   return type;
 }
 

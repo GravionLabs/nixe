@@ -125,7 +125,7 @@ the value, Escape drops it.
 | Text and links | A text field with the value as written (`[[Note]]`); several lines in a text area |
 | Number | A number field; an empty or invalid entry changes nothing |
 | Checkbox | A checkbox, undetermined while the property is missing |
-| Date | A date picker; a date with a time is a text field |
+| Date | A date picker; a date with a time, and a day that does not exist, is a text field |
 | List, `tags`, `aliases` | The items with a button to remove each, and a field that adds one with Enter or `,` |
 
 The type is that of the value; `tags` and `aliases` are always lists. An empty cell takes the type
@@ -135,7 +135,8 @@ read-only.
 Only the lines of the edited property change: comments, the order and the other lines stay as they
 are. The key that differs in case only is the one that is changed. A quoted text stays quoted, a
 `[a, b]` list stays on one line, and a list of `- item` lines keeps its comment lines. A note
-without frontmatter gets one.
+without frontmatter gets one. A change that cannot be written without damaging the frontmatter
+(a list item that an alias points to, a `[a, b]` list with comments inside) is refused.
 
 - A note that is **open in an editor** takes the change in the editor, together with its unsaved
   changes, and is saved at once. The change is refused while the editor asks what to do with a
@@ -146,7 +147,8 @@ without frontmatter gets one.
 
 The cell shows the new value while it is written. When it cannot be written (a change on disk,
 invalid frontmatter, a file that is not UTF-8, a failed write), the old value comes back, a message
-says why and the log has it.
+says why and the log has it. Only when you type in the note while its save fails does the change
+stay in the editor; the message says so.
 
 Renaming or deleting properties and creating notes from a base are not supported.
 

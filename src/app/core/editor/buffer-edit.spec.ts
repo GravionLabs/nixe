@@ -83,6 +83,19 @@ describe("editAndSave", () => {
     e.saver.discard();
   });
 
+  it("says that the change stays when the user typed during the failed write", async () => {
+    const e = editor();
+    e.disk.error = "denied";
+    const flush = e.saver.flush.bind(e.saver);
+    vi.spyOn(e.saver, "flush").mockImplementation(async () => {
+      await flush();
+      e.type("a: 1\nb: 2\ntyped\n");
+    });
+    await expect(editAndSave(e.buffer, add)).rejects.toThrow("stays in the editor: denied");
+    expect(e.buffer.text()).toBe("a: 1\nb: 2\ntyped\n");
+    e.saver.discard();
+  });
+
   it("leaves the text alone when the change throws", async () => {
     const e = editor();
     await expect(
