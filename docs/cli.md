@@ -137,11 +137,14 @@ the commands "Export as HTML", "Export as PDF" and "Print" do in the app (see
 the app for the export.
 
 - `--format html` writes one self-contained file to `--out` (default: `<note name>.html` in the
-  current directory) and prints its path. No window shows; the command ends when the file is written.
+  current directory) and prints its path. No window shows; the command ends when the file is written,
+  so a script can use the file at once. A failed export exits `1` with the error on stderr. This is
+  the same when Nixe is already running: the command exports in its own process.
 - `--format pdf` opens the note with the print dialog: the system web views have no silent print,
   so the PDF is saved from that dialog ("Save as PDF"). `--out` is refused.
 - `--dark` / `--light` and `--page-size A3|A4|A5|Letter|Legal` override the export settings.
-- When Nixe is already running, its window does the export and the command returns at once.
+- When Nixe is already running, its window opens the print dialog of a `--format pdf` export and the
+  command returns at once.
 
 ### Export a folder as a site
 
