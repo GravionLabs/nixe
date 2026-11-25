@@ -38,6 +38,12 @@ pub struct View {
     pub group_by: Option<Value>,
     pub group_order: Option<Value>,
     pub limit: Option<Value>,
+    /// `image`, `imageFit`, `imageAspectRatio` and `cardSize` as written; read (`cards`) for a
+    /// shown `cards` view only.
+    pub image: Option<Value>,
+    pub image_fit: Option<Value>,
+    pub image_aspect_ratio: Option<Value>,
+    pub card_size: Option<Value>,
     /// The keys of the view that are there but not applied yet.
     pub unsupported: Vec<&'static str>,
 }
@@ -91,6 +97,10 @@ fn view(value: &Value) -> Result<View, String> {
         group_by: map.get("groupBy").cloned(),
         group_order: map.get("groupOrder").cloned(),
         limit: map.get("limit").cloned(),
+        image: map.get("image").cloned(),
+        image_fit: map.get("imageFit").cloned(),
+        image_aspect_ratio: map.get("imageAspectRatio").cloned(),
+        card_size: map.get("cardSize").cloned(),
         unsupported: is_set(map.get("summaries"))
             .then_some("view summaries")
             .into_iter()

@@ -1,6 +1,6 @@
 # Bases
 
-A `.base` file shows the notes of the vault as a table. The format is the one of
+A `.base` file shows the notes of the vault as a table or as [cards](#cards). The format is the one of
 [Obsidian Bases](https://obsidian.md/help/bases/syntax); Nixe supports a first part of it and never
 writes a `.base` file.
 
@@ -12,7 +12,7 @@ layout. [Vault health](cli.md) does not count a base as an unused attachment.
 
 ## What is shown
 
-The tab shows one view at a time, at first the first view of type `table`. A view has one row per
+The tab shows one view at a time, at first the first view of type `table`, without one the first\nview. A view has one row (or [card](#cards)) per
 indexed note that matches the [filters](#filters), sorted by path unless the view
 [sorts](#sorting) them. The columns are the entries of the view's `order`:
 
@@ -43,8 +43,8 @@ The table follows changes in the vault, those of the `.base` file included.
 ## Views
 
 The switcher in the header lists all views of the base by `name`, in the order of the file (a view
-without a name as `View 2`, by its place). Only `table` views can be shown; another type shows a
-message and the switcher stays. The chosen view belongs to the tab and follows the view by its name
+without a name as `View 2`, by its place). `table` and [`cards`](#cards) views can be shown; another
+type shows a message and the switcher stays. The chosen view belongs to the tab and follows the view by its name
 when the file changes; when it is gone, the first table view shows again, without the sort of a
 clicked header.
 
@@ -110,6 +110,58 @@ A click on a column header sorts by that column: ascending, a second click desce
 returns to the sort of the view, which also decides between equal rows meanwhile. `limit` applies
 to the rows in this order. A formula that fails sorts like a missing value here. This sort belongs
 to the tab: switching the view drops it, and nothing is written to the file.
+
+## Cards
+
+A view of `type: cards` shows one card per note: the cover image, the name of the note and below it
+every other entry of `order` with its header and value, written as in a [table cell](#what-is-shown).
+[Filters](#filters), `sort`, `groupBy`, `groupOrder` and `limit` apply as in a table; a group has its
+heading above its cards. Cards have no headers to click, so only the saved sort applies.
+
+A click on a card opens the note, a click on a link in a value opens its target. The cards fill the
+width of the tab in columns; in a pane narrower than a card there is one column as wide as the pane.
+
+```yaml
+views:
+  - type: cards
+    name: Library
+    image: note.cover
+    imageFit: contain
+    imageAspectRatio: 1.5
+    cardSize: 180
+    order: [file.name, author, rating]
+```
+
+| Key of the view | Meaning |
+| --- | --- |
+| `image` | The property the cover comes from (a note property, a formula or a `file.` field), written like an entry of `order`. Without it the cards have no cover |
+| `imageFit` | `cover` (also when empty or left out): the image fills the cover and is cut where it does not fit; `contain`: the whole image shows |
+| `imageAspectRatio` | The height of the cover as a multiple of its width: `1` (default) is a square, `1.5` is taller, `0.5` flatter. Kept between 0.1 and 10 |
+| `cardSize` | The width of a card in pixels, at least; the cards of a row share the space that is left. Default 200, kept between 50 and 800 |
+
+The [cards page](https://obsidian.md/help/bases/views/cards) names the four settings, the kinds of
+image values, the two fits and the square default, but not the keys of the file. The keys and the
+meaning of the ratio (height by width) were checked against bases saved by Obsidian, for example
+[this one](https://github.com/sapegin/dotfiles/blob/08d5eb8f15fd80ffc5a959c392a3175327ee3ea5/obsidian/zz-bases/Recipes.base),
+and a [comparison with Obsidian 1.15.0](https://github.com/quartz-community/dev-mode/tree/8c93bd4cb9643a3c61b460f6ab2e45bc76bcb8e8/e2e/repros/bases-cards-obsidian).
+The default width and the ranges are Nixe's own.
+
+### Cover images
+
+The value of the `image` property names the cover; it is resolved like an image in the note:
+
+| Value | Cover |
+| --- | --- |
+| `"[[photo.png]]"`, `"![[photo.png\|300]]"` | The file of the vault the [link](#links) names; the size is ignored |
+| `img/photo.png`, `/art/photo.png` | The file at that path, seen from the folder of the note (with a leading `/` from the vault root); else resolved like a link. `%20` and the like are read |
+| `https://…`, `http://…` | The web image. As in notes, the app's content policy loads `https:` only |
+| `"#ff8800"` | The color |
+| a [link](#links) from a formula | Its file or web address |
+
+Images are the files notes embed as images (`png`, `jpg`, `jpeg`, `gif`, `svg`, `webp`, `bmp`,
+`avif`). A card with no value, a list, another kind of value or file, a file that is not in the
+vault, a failing formula or an image that cannot be loaded shows a placeholder. Files outside the
+vault and `data:` addresses are not loaded.
 
 ## Formulas
 
@@ -351,7 +403,7 @@ These parts are read but not applied; the tab names the ones the file uses, so t
 silently sorted or cut wrongly:
 
 - `summaries` of the base and of the view
-- columns of unknown `file.` fields, and a `sort` or `groupBy` by one
+- columns of unknown `file.` fields, and a `sort`, `groupBy` or `image` by one
 
 In filters and formulas, `this`, other functions (the list functions `filter`, `map` and `reduce`,
 `html`, `image`, `icon`, `random`, object functions), regular expressions and other fields of values
@@ -363,8 +415,9 @@ are not supported.
 ## Errors
 
 The tab shows a message instead of the table for invalid YAML, a file whose keys have the wrong
-shape (also a wrong `sort`, `groupBy`, `groupOrder` or `limit` of the shown view), a file without a
-view, a view that is no `table`, a base outside the open vault (in a
+shape (also a wrong `sort`, `groupBy`, `groupOrder` or `limit` of the shown view, and a wrong
+`image`, `imageFit`, `imageAspectRatio` or `cardSize` of a cards view), a file without a view, a view
+that is no `table` or `cards`, a base outside the open vault (in a
 further folder of the workspace) and when the vault index is not available. A failed read or query is
 written to the log.
 
@@ -380,5 +433,5 @@ An error in the formula of a column stays in its cell; the other cells and rows 
 
 The frontend reads the file and passes its text to the commands `base_views` and `base_query`
 ([Tauri commands](backend/tauri-commands.md)). The Rust core (`src-tauri/src/bases/`) parses the YAML
-and answers the view from the [vault index](architecture.md), sorted, grouped and limited; the
-frontend only renders the result. Only the answer of the newest query is shown.
+and answers the view from the [vault index](architecture.md), sorted, grouped and limited, with the
+cover of each card resolved; the frontend only renders the result. Only the answer of the newest query is shown.

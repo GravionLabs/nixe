@@ -6,7 +6,10 @@ import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(),
+  convertFileSrc: (path: string) => `asset://${path}`,
+}));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
@@ -34,6 +37,7 @@ const table = (name: string, unsupported: string[] = []): BaseResult => ({
   rows: [
     {
       path: `sub/${name}.md`,
+      cover: null,
       cells: [
         { type: "text", value: name },
         { type: "number", value: 3 },
@@ -43,6 +47,7 @@ const table = (name: string, unsupported: string[] = []): BaseResult => ({
     },
     {
       path: "Empty.md",
+      cover: null,
       cells: [
         { type: "text", value: "Empty" },
         { type: null, value: null },
@@ -52,6 +57,7 @@ const table = (name: string, unsupported: string[] = []): BaseResult => ({
     },
   ],
   grouping: null,
+  cards: null,
   unsupported,
 });
 
@@ -508,5 +514,131 @@ describe("BaseComponent views", () => {
     );
     expect(headings).toEqual(["State: read 1", "State: wish 0", "State: No value 1"]);
     expect(view.el.querySelector("tbody th")!.getAttribute("colspan")).toBe("4");
+  });
+});
+
+describe("BaseComponent cards", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  const gallery = (image = true): BaseResult => ({
+    view: "Gallery",
+    columns: [
+      { id: "file.name", label: "file.name" },
+      { id: "author", label: "Author" },
+      { id: "source", label: "Source" },
+    ],
+    rows: [
+      { path: "books/Dune.md", cover: { type: "path", value: "art/dune.png" } },
+      { path: "books/Emma.md", cover: { type: "url", value: "https://example.com/e.png" } },
+      { path: "Red.md", cover: { type: "color", value: "#ff0000" } },
+      { path: "None.md", cover: null },
+    ].map(({ path, cover }) => ({
+      path,
+      cover: cover as BaseResult["rows"][number]["cover"],
+      cells: [
+        { type: "text", value: path },
+        { type: "text", value: "Herbert" },
+        {
+          type: "link",
+          value: { text: "web", path: null, url: "https://example.com/source" },
+        },
+      ],
+    })),
+    grouping: null,
+    cards: { image, imageFit: "contain", imageAspectRatio: 0.5, cardSize: 230 },
+    unsupported: [],
+  });
+
+  async function shownCards(result: () => BaseResult) {
+    fakeBackend(
+      async () => result(),
+      () => [{ name: "Gallery", type: "cards" }],
+    );
+    const view = render();
+    await view.settle();
+    const cards = () => [...view.el.querySelectorAll<HTMLElement>("article.card")];
+    const covers = () => cards().map((card) => card.querySelector<HTMLElement>(".cover"));
+    return { ...view, cards, covers };
+  }
+
+  const text = (el: Element) => el.textContent!.replace(/\s+/g, " ").trim();
+
+  it("shows one card per note with its title and the properties of the view", async () => {
+    const view = await shownCards(gallery);
+
+    expect(view.el.querySelector("table")).toBeNull();
+    expect(view.cards()).toHaveLength(4);
+    const first = view.cards()[0]!;
+    expect(text(first.querySelector(".card-title")!)).toBe("Dune");
+    expect([...first.querySelectorAll("dt")].map(text)).toEqual(["Author", "Source"]);
+    expect([...first.querySelectorAll("dd")].map(text)).toEqual(["Herbert", "web"]);
+    const grid = view.el.querySelector<HTMLElement>(".cards")!;
+    expect(grid.style.getPropertyValue("--card-size")).toBe("230px");
+  });
+
+  it("shows images, colors and the placeholder in covers of the given shape and fit", async () => {
+    const view = await shownCards(gallery);
+    const [dune, emma, red, none] = view.covers();
+
+    const image = dune!.querySelector("img")!;
+    expect(image.getAttribute("src")).toBe("asset:///vault/art/dune.png");
+    expect(image.style.objectFit).toBe("contain");
+    expect(dune!.style.aspectRatio.replace(/\s/g, "")).toMatch(/^2(\/1)?$/);
+    expect(emma!.querySelector("img")!.getAttribute("src")).toBe("https://example.com/e.png");
+    expect(red!.querySelector("img")).toBeNull();
+    expect(red!.style.backgroundColor).toBe("rgb(255, 0, 0)");
+    expect(text(red!)).toBe("");
+    expect(none!.querySelector("img")).toBeNull();
+    expect(text(none!)).toBe("No image");
+  });
+
+  it("leaves a placeholder for an image that cannot be loaded, until the next read", async () => {
+    const view = await shownCards(gallery);
+
+    view.covers()[0]!.querySelector("img")!.dispatchEvent(new Event("error"));
+    await view.settle();
+    expect(view.covers()[0]!.querySelector("img")).toBeNull();
+    expect(text(view.covers()[0]!)).toBe("No image");
+    expect(view.covers()[1]!.querySelector("img")).not.toBeNull();
+
+    view.index.revision.set(1);
+    await view.settle();
+    expect(view.covers()[0]!.querySelector("img")).not.toBeNull();
+  });
+
+  it("has no cover without an image property", async () => {
+    const view = await shownCards(() => gallery(false));
+    expect(view.covers()).toEqual([null, null, null, null]);
+  });
+
+  it("opens the note on a click on a card and an address on a click on its link", async () => {
+    const view = await shownCards(gallery);
+    const first = view.cards()[0]!;
+
+    // The title is stretched over the card (CSS).
+    first.querySelector<HTMLButtonElement>(".card-title")!.click();
+    expect(view.tabs.openPreview).toHaveBeenCalledWith("/vault/books/Dune.md");
+
+    first.querySelector<HTMLButtonElement>("dd button")!.click();
+    expect(openUrl).toHaveBeenCalledWith("https://example.com/source");
+    expect(view.tabs.openPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("heads the groups of the cards and says when there is no note", async () => {
+    const result = gallery();
+    let shown: BaseResult = {
+      ...result,
+      grouping: { label: "State", groups: [{ value: { type: "text", value: "read" }, rows: 4 }] },
+    };
+    const view = await shownCards(() => shown);
+    expect([...view.el.querySelectorAll(".cards > h3")].map(text)).toEqual(["State: read 4"]);
+
+    shown = { ...result, rows: [] };
+    view.index.revision.set(1);
+    await view.settle();
+    expect(view.cards()).toHaveLength(0);
+    expect(text(view.el.querySelector(".cards")!)).toBe("No notes");
   });
 });

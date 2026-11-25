@@ -472,6 +472,25 @@ export interface BaseRow {
   path: string;
   /** One cell per column, in their order. */
   cells: BaseCell[];
+  /** The cover of the card; null in a table and without an image that can be shown. */
+  cover: BaseCover | null;
+}
+
+/** A cover image: a vault-relative `path`, a web address (`url`) or a hex `color`. */
+export interface BaseCover {
+  type: "path" | "url" | "color";
+  value: string;
+}
+
+/** The settings of a `cards` view (bases/cards.rs `BaseCards`). */
+export interface BaseCards {
+  /** Whether the cards have a cover. */
+  image: boolean;
+  imageFit: "cover" | "contain";
+  /** The height of the cover as a multiple of its width. */
+  imageAspectRatio: number;
+  /** The width of a card in pixels. */
+  cardSize: number;
 }
 
 /** One group of a grouped base table. */
@@ -501,13 +520,15 @@ export interface BaseSort {
   direction: "ASC" | "DESC";
 }
 
-/** The table of a view of a `.base` file (bases/mod.rs `BaseResult`). */
+/** The answer to a view of a `.base` file (bases/mod.rs `BaseResult`). */
 export interface BaseResult {
   view: string | null;
   columns: BaseColumn[];
   /** In the order they show: group by group when the view groups them. */
   rows: BaseRow[];
   grouping: BaseGrouping | null;
+  /** Set for a view of type `cards`. */
+  cards: BaseCards | null;
   /** Parts of the file that are not supported yet and therefore not applied. */
   unsupported: string[];
 }
