@@ -65,6 +65,11 @@ describe("defaultPage", () => {
     expect(defaultPage(buildTreeItems([dir("x"), file("b.md")], false))).toBe("/w/b.md");
     expect(defaultPage([])).toBeNull();
   });
+
+  it("never picks a base, which does not open as text", () => {
+    expect(defaultPage(buildTreeItems([file("A.base"), file("b.md")], false))).toBe("/w/b.md");
+    expect(defaultPage(buildTreeItems([file("A.base")], false))).toBeNull();
+  });
 });
 
 describe("conflict copies", () => {

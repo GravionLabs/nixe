@@ -96,6 +96,7 @@ describe("SidebarComponent tree", () => {
     openPreview: vi.fn(),
     openPinned: vi.fn(),
     openEpub: vi.fn(),
+    openBase: vi.fn(),
   };
   const doc = { path: signal<string | null>(null), open: vi.fn() };
   let sidebar: SidebarComponent & Record<string, any>;
@@ -213,6 +214,18 @@ describe("SidebarComponent tree", () => {
     tabs.openEpub.mockRejectedValueOnce(new Error("gone"));
     await sidebar.select(book, new MouseEvent("click"));
     expect(failed).toHaveBeenCalledWith("Error: gone");
+  });
+
+  it("opens a .base file in its table tab, never as a note", async () => {
+    const base = node("Library.base", "file");
+    await sidebar.select(base, new MouseEvent("click"));
+    await sidebar.select(base, new MouseEvent("click", { altKey: true }));
+    await sidebar.pin(base, new MouseEvent("dblclick"));
+    expect(tabs.openBase).toHaveBeenCalledTimes(2);
+    expect(tabs.openBase).toHaveBeenCalledWith("/v/Library.base");
+    expect(tabs.openPreview).not.toHaveBeenCalled();
+    expect(tabs.openInNewTab).not.toHaveBeenCalled();
+    expect(tabs.openPinned).not.toHaveBeenCalled();
   });
 
   it("selects several rows with Ctrl and Shift and does not open them", async () => {

@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 mod appearance;
 mod attachments;
+mod bases;
 mod bookmarks;
 #[cfg(desktop)]
 mod capture;
@@ -1739,6 +1740,7 @@ pub fn run() {
         index::commands::unlinked_mentions,
         link_mention,
         index::commands::tags,
+        index::commands::base_query,
         index::commands::search_notes,
         index::commands::workspace_index,
         index::commands::search_workspace,
@@ -1894,6 +1896,7 @@ pub fn run() {
         index::commands::unlinked_mentions,
         link_mention,
         index::commands::tags,
+        index::commands::base_query,
         index::commands::search_notes,
         index::commands::workspace_index,
         index::commands::search_workspace,

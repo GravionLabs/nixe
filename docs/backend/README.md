@@ -49,6 +49,7 @@ any thread:
 | `lib.rs`    | App setup, `AppState`, all `#[tauri::command]` functions, CLI/file-assoc glue. |
 | `menu.rs`   | Builds the native `Menu` (File/Edit/View, +App/Window on macOS) and forwards custom item clicks as a `"menu"` event. |
 | `tree.rs`   | `list_dir()`: turns a directory into the sidebar's `DirEntry[]`, `.order`-aware. |
+| `bases/`    | Parses `.base` files and answers a table view from the vault index ([bases](../bases.md)). |
 
 Continue with [tauri-commands.md](tauri-commands.md) for the full IPC surface, or
 [file-watching.md](file-watching.md) for how disk changes reach the UI.

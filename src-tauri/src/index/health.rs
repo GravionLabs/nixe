@@ -44,7 +44,7 @@ pub struct HealthReport {
     /// Notes without any link to or from another note. Daily notes never count.
     pub orphans: Vec<NoteRef>,
     pub duplicates: Vec<DuplicateGroup>,
-    /// Vault-relative paths of non-Markdown files no note links or embeds.
+    /// Vault-relative paths of non-Markdown files no note links or embeds; `.base` files are left out.
     pub unused_attachments: Vec<String>,
 }
 
@@ -70,6 +70,12 @@ fn is_daily_note(title: &str) -> bool {
                 c.is_ascii_digit()
             }
         })
+}
+
+/// A `.base` file is opened itself, like a note: nothing has to link to it.
+fn is_base(path: &str) -> bool {
+    path.rsplit_once('.')
+        .is_some_and(|(_, ext)| ext.eq_ignore_ascii_case("base"))
 }
 
 fn is_hidden(path: &str) -> bool {
@@ -149,7 +155,7 @@ pub fn report(conn: &Connection, exclude: &[String]) -> rusqlite::Result<HealthR
     )?;
     for row in stmt.query_map([], |r| r.get::<_, String>(0))? {
         let path = row?;
-        if !is_markdown_path(&path) && !is_hidden(&path) && !excluded(&path) {
+        if !is_markdown_path(&path) && !is_base(&path) && !is_hidden(&path) && !excluded(&path) {
             out.unused_attachments.push(path);
         }
     }

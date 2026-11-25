@@ -1,0 +1,48 @@
+<header>
+  <span>{{ name() }}</span>
+  @if (result()?.view; as view) {
+    <span class="view-name">{{ view }}</span>
+  }
+</header>
+
+@if (error(); as message) {
+  <p class="message error" role="alert">{{ message }}</p>
+} @else if (result(); as table) {
+  @if (table.unsupported.length) {
+    <p class="message" role="status">
+      Not supported yet, so not applied: {{ table.unsupported.join(", ") }}.
+    </p>
+  }
+  <div class="table">
+    <hx-data-table
+      [value]="rows()"
+      [columns]="columns()"
+      dataKey="path"
+      [ariaLabel]="name()"
+      emptyMessage="No notes"
+    >
+      <ng-template hxTableBody let-row>
+        @for (cell of row.cells; track $index) {
+          <td>
+            @if (cell.opens) {
+              <button type="button" class="note-link" [title]="row.path" (click)="open(row.path)">
+                {{ cell.text }}
+              </button>
+            } @else if (cell.checked !== null) {
+              <input
+                type="checkbox"
+                disabled
+                [checked]="cell.checked"
+                [attr.aria-label]="cell.checked ? 'Yes' : 'No'"
+              />
+            } @else {
+              {{ cell.text }}
+            }
+          </td>
+        }
+      </ng-template>
+    </hx-data-table>
+  </div>
+} @else {
+  <p class="message" role="status">Loading…</p>
+}

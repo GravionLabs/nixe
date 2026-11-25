@@ -1,0 +1,19 @@
+# A base of the fixture vault: the notes with some of their properties (docs/bases.md).
+filters:
+  and:
+    - file.hasTag("project/nixe")
+properties:
+  title:
+    displayName: Title
+  note.count:
+    displayName: Count
+views:
+  - type: table
+    name: All notes
+    order:
+      - file.name
+      - title
+      - note.count
+      - published
+      - created
+      - tags

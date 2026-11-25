@@ -32,6 +32,12 @@ export const FAKE_VAULT: Record<string, unknown> = {
   tags: [],
   backlinks: [],
   note_meta: null,
+  base_query: {
+    view: "All",
+    columns: [{ id: "file.name", label: "file.name" }],
+    rows: [{ path: "Home.md", cells: [{ type: "text", value: "Home" }] }],
+    unsupported: [],
+  },
   conflict_pair: null,
   git_review_branches: [],
   workspace_list: [],

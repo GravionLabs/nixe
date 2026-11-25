@@ -1,8 +1,12 @@
 // An in-memory vault for the demo backend (#400): the files, a listing like `list_dir`, and the little
 // index the side panels need (links, backlinks, tags, search). It is no port of the Rust index, only
 // enough of it to show what the app does with the answers.
+import { parse } from "yaml";
+
 import type {
   Backlink,
+  BaseCell,
+  BaseResult,
   DirEntry,
   IndexedLink,
   NoteRecord,
@@ -17,6 +21,21 @@ const TAG = /(?:^|\s)#([A-Za-z][\w/-]*)/g;
 const dirname = (path: string): string => path.slice(0, Math.max(0, path.lastIndexOf("/")));
 const basename = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 const stem = (path: string): string => basename(path).replace(/\.md$/, "");
+
+interface DemoBase {
+  filters?: unknown;
+  formulas?: unknown;
+  properties?: Record<string, { displayName?: string }>;
+  views?: { type?: string; name?: string; order?: string[] }[];
+}
+
+function demoCell(value: unknown): BaseCell {
+  if (value === undefined || value === null) return { type: null, value: null };
+  if (Array.isArray(value)) return { type: "list", value };
+  if (typeof value === "number") return { type: "number", value };
+  if (typeof value === "boolean") return { type: "checkbox", value };
+  return { type: "text", value };
+}
 
 export class DemoVault {
   /** Absolute path → text. */
@@ -172,6 +191,36 @@ export class DemoVault {
     return [...counts]
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  }
+
+  /** The table of the first table view: `file.name` and note properties, nothing is filtered. */
+  baseQuery(source: string): BaseResult {
+    const base = (parse(source) ?? {}) as DemoBase;
+    const view = base.views?.find((v) => v.type === "table");
+    if (!view) throw "The base defines no table view.";
+    const ids = (view.order ?? []).filter((id) => !/^(formula\.|file\.(?!name$))/.test(id));
+    if (ids.length === 0) ids.push("file.name");
+    const key = (id: string) => id.replace(/^note\./, "");
+    return {
+      view: view.name ?? null,
+      columns: ids.map((id) => ({
+        id,
+        label: base.properties?.[id]?.displayName ?? key(id),
+      })),
+      rows: this.notePaths().map((path) => {
+        const frontmatter = /^---\n([\s\S]*?)\n---\n/.exec(this.read(`${this.root}/${path}`));
+        const values = (frontmatter ? parse(frontmatter[1]!) : null) ?? {};
+        return {
+          path,
+          cells: ids.map((id): BaseCell =>
+            id === "file.name"
+              ? { type: "text", value: stem(path) }
+              : demoCell((values as Record<string, unknown>)[key(id)]),
+          ),
+        };
+      }),
+      unsupported: (["filters", "formulas"] as const).filter((k) => base[k] !== undefined),
+    };
   }
 
   search(query: string): SearchHit[] {
