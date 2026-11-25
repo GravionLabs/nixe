@@ -1,10 +1,16 @@
 use std::fs;
 
+use chrono::TimeZone;
 use serde_json::json;
 
 use super::*;
 use crate::index;
 use crate::test_dir::TestDir;
+
+/// The query with the real clock, for what does not depend on the time.
+fn query_now(conn: &Connection, source: &str, view: Option<&str>) -> Result<BaseResult, String> {
+    query(conn, source, view, chrono::Utc::now().timestamp_millis())
+}
 
 /// A scanned index of a small vault; the directory must outlive the connection.
 fn indexed() -> (TestDir, Connection) {
@@ -42,7 +48,7 @@ fn the_base_of_the_fixture_vault_shows_its_notes() {
     index::scan(&mut conn, &vault, |_| {}).unwrap();
     let source = fs::read_to_string(vault.join("Notes.base")).unwrap();
 
-    let result = query(&conn, &source, None).unwrap();
+    let result = query_now(&conn, &source, None).unwrap();
 
     assert!(result.unsupported.is_empty());
     let labels: Vec<&str> = result.columns.iter().map(|c| c.label.as_str()).collect();
@@ -70,7 +76,7 @@ fn the_base_of_the_fixture_vault_shows_its_notes() {
 #[test]
 fn without_order_every_note_is_a_row_with_its_name() {
     let (_dir, conn) = indexed();
-    let result = query(&conn, "views:\n  - type: table\n    name: All\n", None).unwrap();
+    let result = query_now(&conn, "views:\n  - type: table\n    name: All\n", None).unwrap();
     assert_eq!(result.view.as_deref(), Some("All"));
     assert_eq!(ids(&result), ["file.name"]);
     let rows: Vec<(&str, &BaseCell)> = result
@@ -106,7 +112,7 @@ views:
       - tags
       - missing
 "#;
-    let result = query(&conn, source, None).unwrap();
+    let result = query_now(&conn, source, None).unwrap();
     let labels: Vec<&str> = result.columns.iter().map(|c| c.label.as_str()).collect();
     assert_eq!(
         labels,
@@ -145,7 +151,7 @@ views:
     limit: 1
     order: [file.unknown, rating]
 "#;
-    let result = query(&conn, source, None).unwrap();
+    let result = query_now(&conn, source, None).unwrap();
     assert_eq!(
         result.unsupported,
         ["summaries", "limit", "column file.unknown"]
@@ -158,7 +164,7 @@ views:
 fn a_view_with_unsupported_columns_only_shows_the_name() {
     let (_dir, conn) = indexed();
     let source = "views:\n  - type: table\n    order: [file.unknown]\n";
-    let result = query(&conn, source, None).unwrap();
+    let result = query_now(&conn, source, None).unwrap();
     assert_eq!(ids(&result), ["file.name"]);
     assert_eq!(result.unsupported, ["column file.unknown"]);
 }
@@ -198,7 +204,7 @@ const SHOP: &str = "booksellers/Shop.md";
 const ALL: [&str; 4] = [HOME, DUNE, EMMA, SHOP];
 
 fn paths(conn: &Connection, source: &str) -> Vec<String> {
-    let result = query(conn, source, None).unwrap_or_else(|e| panic!("{source}: {e}"));
+    let result = query_now(conn, source, None).unwrap_or_else(|e| panic!("{source}: {e}"));
     assert!(result.unsupported.is_empty(), "{source}");
     result.rows.into_iter().map(|r| r.path).collect()
 }
@@ -232,13 +238,13 @@ views:
     filters: status ==
 "#;
     let rows = |view: &str| {
-        let result = query(&conn, source, Some(view)).unwrap();
+        let result = query_now(&conn, source, Some(view)).unwrap();
         result.rows.into_iter().map(|r| r.path).collect::<Vec<_>>()
     };
     assert_eq!(rows("Read"), [DUNE]);
     assert_eq!(rows("All"), [DUNE, EMMA]);
     // The filters of another view are not read.
-    assert!(query(&conn, source, Some("Broken")).is_err());
+    assert!(query_now(&conn, source, Some("Broken")).is_err());
 }
 
 #[test]
@@ -381,7 +387,7 @@ views:
     order: [file.name, file.basename, file.path, file.folder, file.ext, file.size, file.ctime,
             file.mtime, file.tags, file.links, file.embeds, file.backlinks, file.properties]
 "#;
-    let result = query(&conn, source, None).unwrap();
+    let result = query_now(&conn, source, None).unwrap();
     assert!(result.unsupported.is_empty());
     assert_eq!(result.columns[0].label, "file.name");
     assert_eq!(result.columns[5].label, "Bytes");
@@ -431,8 +437,8 @@ fn a_broken_filter_names_the_expression_and_shows_no_rows() {
         ),
         (
             // No short circuit hides an error.
-            "filters: false && today() > 1",
-            "Invalid filters: unknown function `today` in `false && today() > 1`.",
+            "filters: false && html(\"x\") > 1",
+            "Invalid filters: unknown function `html` in `false && html(\"x\") > 1`.",
         ),
         (
             "filters: { xor: [true] }",
@@ -448,10 +454,10 @@ fn a_broken_filter_names_the_expression_and_shows_no_rows() {
         ("filters: !done", "expected an expression"),
     ] {
         let base = format!("{source}\nviews:\n  - type: table\n");
-        let error = query(&conn, &base, None).unwrap_err();
+        let error = query_now(&conn, &base, None).unwrap_err();
         assert!(error.contains(wanted), "{source}: {error}");
     }
-    let error = query(&conn, &filtered("nope()"), None).unwrap_err();
+    let error = query_now(&conn, &filtered("nope()"), None).unwrap_err();
     assert_eq!(
         error,
         "Invalid view filters: unknown function `nope` in `nope()`."
@@ -463,29 +469,29 @@ fn the_first_table_view_or_the_named_one_is_shown() {
     let (_dir, conn) = indexed();
     let source = "views:\n  - { type: cards, name: C }\n  - { type: table, name: A }\n  - { type: table, name: B }\n";
     assert_eq!(
-        query(&conn, source, None).unwrap().view.as_deref(),
+        query_now(&conn, source, None).unwrap().view.as_deref(),
         Some("A")
     );
     assert_eq!(
-        query(&conn, source, Some("B")).unwrap().view.as_deref(),
+        query_now(&conn, source, Some("B")).unwrap().view.as_deref(),
         Some("B")
     );
-    let cards = query(&conn, source, Some("C")).unwrap_err();
+    let cards = query_now(&conn, source, Some("C")).unwrap_err();
     assert!(cards.contains("\"cards\" are not supported"), "{cards}");
-    let missing = query(&conn, source, Some("D")).unwrap_err();
+    let missing = query_now(&conn, source, Some("D")).unwrap_err();
     assert!(missing.contains("no view named \"D\""), "{missing}");
 }
 
 #[test]
 fn a_base_without_a_table_view_and_invalid_yaml_are_errors() {
     let (_dir, conn) = indexed();
-    let list = query(&conn, "views:\n  - type: list\n", None).unwrap_err();
+    let list = query_now(&conn, "views:\n  - type: list\n", None).unwrap_err();
     assert!(list.contains("\"list\""), "{list}");
     assert_eq!(
-        query(&conn, "", None).unwrap_err(),
+        query_now(&conn, "", None).unwrap_err(),
         "The base defines no view."
     );
-    assert!(query(&conn, "views: [", None)
+    assert!(query_now(&conn, "views: [", None)
         .unwrap_err()
         .starts_with("Invalid YAML"));
 }
@@ -496,7 +502,7 @@ fn evaluated(conn: &Connection, path: &str, expression: &str) -> BaseCell {
         "formulas": { "x": expression },
         "views": [{ "type": "table", "order": ["formula.x"] }],
     });
-    let result = query(conn, &source.to_string(), None).unwrap();
+    let result = query_now(conn, &source.to_string(), None).unwrap();
     let row = result.rows.into_iter().find(|r| r.path == path).unwrap();
     row.cells.into_iter().next().unwrap()
 }
@@ -531,7 +537,7 @@ views:
   - type: table
     order: [formula.double, formula.label, 'formula["my flag"]', formula.status, status]
 "#;
-    let result = query(&conn, source, None).unwrap();
+    let result = query_now(&conn, source, None).unwrap();
     assert!(result.unsupported.is_empty());
     let labels: Vec<&str> = result.columns.iter().map(|c| c.label.as_str()).collect();
     assert_eq!(labels, ["Twice", "label", "my flag", "status", "State"]);
@@ -576,7 +582,7 @@ fn formulas_are_values_in_filters() {
             "Invalid view filters: unknown formula `nope` in `false && formula.nope`.",
         ),
     ] {
-        assert_eq!(query(&conn, &base(filter), None).unwrap_err(), wanted);
+        assert_eq!(query_now(&conn, &base(filter), None).unwrap_err(), wanted);
     }
 }
 
@@ -588,7 +594,7 @@ fn a_cycle_is_an_error_in_its_column_and_in_filters() {
     let columns = format!(
         "{formulas}views:\n  - type: table\n    order: [formula.a, formula.ok, formula.nope]\n"
     );
-    let result = query(&conn, &columns, None).unwrap();
+    let result = query_now(&conn, &columns, None).unwrap();
     assert_eq!(result.rows.len(), 4);
     for row in &result.rows {
         assert_eq!(
@@ -602,7 +608,7 @@ fn a_cycle_is_an_error_in_its_column_and_in_filters() {
     }
     let filtered = format!("{formulas}filters: formula.a\nviews:\n  - type: table\n");
     assert_eq!(
-        query(&conn, &filtered, None).unwrap_err(),
+        query_now(&conn, &filtered, None).unwrap_err(),
         format!("Invalid filters: {cycle} in `formula.a`.")
     );
 }
@@ -619,7 +625,7 @@ views:
   - type: table
     order: [formula.number, formula.after, formula.guarded, file.name]
 "#;
-    let result = query(&conn, source, None).unwrap();
+    let result = query_now(&conn, source, None).unwrap();
     let row = |path: &str| &result.rows.iter().find(|r| r.path == path).unwrap().cells;
     assert_eq!(result.rows.len(), 4);
     // `rating` of Home is the text "high".
@@ -636,7 +642,7 @@ views:
 fn an_error_of_a_note_in_a_filter_names_it_and_shows_no_rows() {
     let (_dir, conn) = library();
     assert_eq!(
-        query(&conn, &filtered("rating.abs() > 1"), None).unwrap_err(),
+        query_now(&conn, &filtered("rating.abs() > 1"), None).unwrap_err(),
         "Error in view filters: `abs` is not available on a string in `rating.abs() > 1` for the \
          note `Home.md`."
     );
@@ -648,10 +654,10 @@ fn an_error_of_a_note_in_a_filter_names_it_and_shows_no_rows() {
             &[DUNE, EMMA],
         )],
     );
-    let lists = query(&conn, &filtered("file.tags.contains('book')"), None).unwrap_err();
+    let numbers = query_now(&conn, &filtered("rating.contains('5')"), None).unwrap_err();
     assert!(
-        lists.contains("`contains` is not available on a list"),
-        "{lists}"
+        numbers.contains("`contains` is not available on a number"),
+        "{numbers}"
     );
 }
 
@@ -769,8 +775,8 @@ fn wrong_values_and_huge_results_are_errors_of_the_cell() {
     for (expression, wanted) in [
         ("rating.lower()", "`lower` is not available on a number"),
         ("status.abs()", "`abs` is not available on a string"),
-        ("authors.isEmpty()", "`isEmpty` is not available on a list"),
-        ("authors.length", "`length` is not available on a list"),
+        ("owned.isEmpty()", "`isEmpty` is not available on a boolean"),
+        ("rating.length", "`length` is not available on a number"),
         (
             "status.contains(1)",
             "`contains` takes a text, found a number",
@@ -817,7 +823,7 @@ fn long_expressions_and_chains_of_formulas_are_evaluated() {
         .collect();
     formulas.push_str("  f5000: '0'\n");
     let source = format!("formulas:\n{formulas}views:\n  - type: table\n    order: [formula.f0]\n");
-    let result = query(&conn, &source, None).unwrap();
+    let result = query_now(&conn, &source, None).unwrap();
     assert_eq!(result.rows[0].cells[0], cell("number", json!(0)));
     // Lists inside lists stop at a depth.
     let mut formulas: String = (0..100)
@@ -825,7 +831,7 @@ fn long_expressions_and_chains_of_formulas_are_evaluated() {
         .collect();
     formulas.push_str("  f100: '0'\n");
     let source = format!("formulas:\n{formulas}views:\n  - type: table\n    order: [formula.f0]\n");
-    let result = query(&conn, &source, None).unwrap();
+    let result = query_now(&conn, &source, None).unwrap();
     assert_eq!(
         result.rows[0].cells[0],
         cell("error", json!("the value is too large"))
@@ -889,7 +895,7 @@ fn the_formula_values_of_a_note_and_of_the_table_are_limited() {
         "formulas:\n{formulas}  one: '1'\nviews:\n  - type: table\n    \
          order: [formula.f0, formula.f30, formula.one]\n"
     );
-    let result = query(&conn, &source, None).unwrap();
+    let result = query_now(&conn, &source, None).unwrap();
     assert_eq!(result.rows.len(), 4);
     for row in &result.rows {
         assert_eq!(
@@ -905,7 +911,7 @@ fn the_formula_values_of_a_note_and_of_the_table_are_limited() {
     let source = format!(
         "formulas:\n  big: '\"x\".repeat(90000)'\nviews:\n  - type: table\n    order: [{order}]\n"
     );
-    let result = query(&conn, &source, None).unwrap();
+    let result = query_now(&conn, &source, None).unwrap();
     let cells: Vec<&BaseCell> = result.rows.iter().flat_map(|r| &r.cells).collect();
     let shown = cells.iter().filter(|c| c.kind.as_deref() == Some("text"));
     assert_eq!(shown.count(), 10_000_000 / 90_000);
@@ -925,7 +931,357 @@ fn the_message_of_an_unknown_formula_is_cut() {
         "views:\n  - type: table\n    order: ['formula.{}']\n",
         "x".repeat(10_000)
     );
-    let result = query(&conn, &source, None).unwrap();
+    let result = query_now(&conn, &source, None).unwrap();
     let message = format!("unknown formula `{}…`", "x".repeat(40));
     assert_eq!(result.rows[0].cells[0], cell("error", json!(message)));
+}
+
+/// The clock of the tests: a local time, so they hold in every time zone.
+fn clock() -> i64 {
+    chrono::Local
+        .with_ymd_and_hms(2026, 6, 15, 13, 45, 30)
+        .unwrap()
+        .timestamp_millis()
+}
+
+/// A vault with dates and lists in its properties.
+fn calendar() -> (TestDir, Connection) {
+    let dir = TestDir::new("nixe-bases-dates-");
+    let vault = dir.join("vault");
+    fs::create_dir_all(&vault).unwrap();
+    for (path, text) in [
+        (
+            "Done.md",
+            "---\ndue: 2026-06-10\nstarted: 2026-06-01 08:30\nwrong: 2026-02-30\n\
+             marks: [3, 1, 2, 3, 1]\nwords: [c, a, b, a]\nnested: [1, [2, [3]]]\nempty: []\n\
+             days: [2026-06-10]\n---\n",
+        ),
+        ("Open.md", "---\ndue: 2026-06-20\n---\n"),
+        ("Today.md", "---\ndue: 2026-06-15\n---\n"),
+    ] {
+        fs::write(vault.join(path), text).unwrap();
+    }
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    (dir, conn)
+}
+
+/// The cell of the formula `expression` for `Done.md`, at the time of `clock`.
+fn at_clock(conn: &Connection, expression: &str) -> BaseCell {
+    let source = serde_json::json!({
+        "formulas": { "x": expression },
+        "views": [{ "type": "table", "order": ["formula.x"] }],
+    });
+    let result = query(conn, &source.to_string(), None, clock()).unwrap();
+    let row = result.rows.into_iter().find(|r| r.path == "Done.md");
+    row.unwrap().cells.into_iter().next().unwrap()
+}
+
+#[track_caller]
+fn assert_cells(conn: &Connection, kind: &str, cases: &[(&str, serde_json::Value)]) {
+    for (expression, wanted) in cases {
+        assert_eq!(
+            at_clock(conn, expression),
+            cell(kind, wanted.clone()),
+            "{expression}"
+        );
+    }
+}
+
+#[test]
+fn date_functions_and_fields() {
+    let (_dir, conn) = calendar();
+    assert_cells(
+        &conn,
+        "date",
+        &[
+            ("now()", json!("2026-06-15 13:45:30")),
+            ("today()", json!("2026-06-15")),
+            ("now().date()", json!("2026-06-15")),
+            (
+                "date(\"2025-01-01 12:00:00\")",
+                json!("2025-01-01 12:00:00"),
+            ),
+            ("date(\"2025-01-01\")", json!("2025-01-01")),
+            ("date(due)", json!("2026-06-10")),
+            ("due", json!("2026-06-10")),
+            ("started", json!("2026-06-01 08:30:00")),
+            ("started.date()", json!("2026-06-01")),
+        ],
+    );
+    assert_cells(
+        &conn,
+        "number",
+        &[
+            ("now().year", json!(2026)),
+            ("now().month", json!(6)),
+            ("now().day", json!(15)),
+            ("now().hour", json!(13)),
+            ("now().minute", json!(45)),
+            ("now().second", json!(30)),
+            ("now().millisecond", json!(0)),
+            ("date(\"2026-06-15 13:45:30.250\").millisecond", json!(250)),
+            ("due.day", json!(10)),
+        ],
+    );
+    assert_cells(
+        &conn,
+        "text",
+        &[
+            ("due.format(\"DD.MM.YYYY\")", json!("10.06.2026")),
+            (
+                "now().format(\"dddd, MMM D [at] HH:mm\")",
+                json!("Monday, Jun 15 at 13:45"),
+            ),
+            ("now().time()", json!("13:45:30")),
+            ("due.relative()", json!("6 days ago")),
+            (
+                "date(\"2026-06-18 13:45:30\").relative()",
+                json!("in 3 days"),
+            ),
+            ("due.toString()", json!("2026-06-10")),
+            ("\"Due \" + due", json!("Due 2026-06-10")),
+            // A date that does not exist stays a text.
+            ("wrong", json!("2026-02-30")),
+        ],
+    );
+    assert_cells(
+        &conn,
+        "checkbox",
+        &[
+            ("due.isEmpty()", json!(false)),
+            ("due.isType(\"date\")", json!(true)),
+            ("wrong.isType(\"string\")", json!(true)),
+            ("missing.isEmpty()", json!(true)),
+            ("due.isTruthy()", json!(true)),
+        ],
+    );
+    for expression in [
+        "date(missing)",
+        "missing.year",
+        "missing.format(\"YYYY\")",
+        "due.format(missing)",
+        "missing.relative()",
+        "duration(missing)",
+    ] {
+        assert_eq!(
+            at_clock(&conn, expression),
+            BaseCell::default(),
+            "{expression}"
+        );
+    }
+}
+
+#[test]
+fn date_arithmetic() {
+    let (_dir, conn) = calendar();
+    assert_cells(
+        &conn,
+        "date",
+        &[
+            (
+                "date(\"2024-12-01\") + \"1M\" + \"4h\" + \"3m\"",
+                json!("2025-01-01 04:03:00"),
+            ),
+            ("now() + \"1 day\"", json!("2026-06-16 13:45:30")),
+            ("now() - \"2h\"", json!("2026-06-15 11:45:30")),
+            ("today() + \"1 week\"", json!("2026-06-22")),
+            ("due - \"1y\"", json!("2025-06-10")),
+            ("due + \"1 month\"", json!("2026-07-10")),
+            ("now() + duration(\"1d\") * 2", json!("2026-06-17 13:45:30")),
+            ("due + (today() - due)", json!("2026-06-15")),
+        ],
+    );
+    assert_cells(
+        &conn,
+        "text",
+        &[
+            ("today() - due", json!("5 days")),
+            ("now() - today()", json!("13 hours 45 minutes 30 seconds")),
+            ("duration(\"5h\") * 2", json!("10 hours")),
+            ("duration(\"1d\") / 2", json!("12 hours")),
+            ("duration(\"1d\") + \"2h\"", json!("1 day 2 hours")),
+            ("duration(\"1w\") - duration(\"1d\")", json!("6 days")),
+            ("duration(\"1y\").toString()", json!("1 year")),
+        ],
+    );
+    assert_cells(
+        &conn,
+        "number",
+        &[
+            ("number(today() - due) / 86400000", json!(5)),
+            ("number(duration(\"2s\"))", json!(2000)),
+        ],
+    );
+    for expression in [
+        "due + \"soon\"",
+        "due + 1",
+        "due * 2",
+        "\"1d\" - due",
+        "duration(\"1d\") / 0",
+        "2 * duration(\"1d\")",
+        "due + \"999999999y\"",
+        "missing + \"1d\"",
+    ] {
+        assert_eq!(
+            at_clock(&conn, expression),
+            BaseCell::default(),
+            "{expression}"
+        );
+    }
+}
+
+#[test]
+fn dates_compare_in_filters() {
+    let (_dir, conn) = calendar();
+    let matching = |filter: &str| -> Vec<String> {
+        let result = query(&conn, &filtered(filter), None, clock()).unwrap();
+        result.rows.into_iter().map(|r| r.path).collect()
+    };
+    let cases: [(&str, &[&str]); 11] = [
+        ("due < today()", &["Done.md"]),
+        ("due <= today()", &["Done.md", "Today.md"]),
+        ("due == today()", &["Today.md"]),
+        ("due != today()", &["Done.md", "Open.md"]),
+        ("due > now()", &["Open.md"]),
+        ("due >= date(\"2026-06-15\")", &["Open.md", "Today.md"]),
+        (
+            "due > now() - \"1 week\"",
+            &["Done.md", "Open.md", "Today.md"],
+        ),
+        ("due == \"2026-06-20\"", &["Open.md"]),
+        ("today() - due > \"4d\"", &["Done.md"]),
+        (
+            "duration(\"1w\") == duration(\"7d\") && due.day == 20",
+            &["Open.md"],
+        ),
+        (
+            "file.mtime > date(\"2000-01-01\")",
+            &["Done.md", "Open.md", "Today.md"],
+        ),
+    ];
+    for (filter, wanted) in cases {
+        assert_eq!(matching(filter), wanted, "{filter}");
+    }
+}
+
+#[test]
+fn list_functions() {
+    let (_dir, conn) = calendar();
+    assert_cells(
+        &conn,
+        "checkbox",
+        &[
+            ("[1,2,3].contains(2)", json!(true)),
+            ("marks.contains(9)", json!(false)),
+            ("marks.contains(\"3\")", json!(false)),
+            ("[1,2,3].containsAll(2,3)", json!(true)),
+            ("[1,2,3].containsAll(2,4)", json!(false)),
+            ("[1,2,3].containsAny(3,4)", json!(true)),
+            ("[1,2,3].containsAny(4,5)", json!(false)),
+            ("days.contains(date(\"2026-06-10\"))", json!(true)),
+            ("[1,2,3].isEmpty()", json!(false)),
+            ("empty.isEmpty()", json!(true)),
+        ],
+    );
+    assert_cells(
+        &conn,
+        "list",
+        &[
+            ("[1,[2,3]].flat()", json!([1, 2, 3])),
+            // One level.
+            ("nested.flat()", json!([1, 2, [3]])),
+            ("[1,2,2,3].unique()", json!([1, 2, 3])),
+            ("words.unique()", json!(["c", "a", "b"])),
+            ("[1, \"1\", 1].unique()", json!([1, "1"])),
+            (
+                "[link(\"Open\"), link(\"Open.md\")].unique()",
+                json!(["Open"]),
+            ),
+            ("marks.sort()", json!([1, 1, 2, 3, 3])),
+            ("[\"c\", \"a\", \"b\"].sort()", json!(["a", "b", "c"])),
+            ("[10, 9, -1].sort()", json!([-1, 9, 10])),
+            ("[today(), due].sort()", json!(["2026-06-10", "2026-06-15"])),
+            (
+                "[missing, \"a\", 2, true].sort()",
+                json!([true, 2, "a", null]),
+            ),
+            ("[1,2,3].reverse()", json!([3, 2, 1])),
+            ("[1,2,3,4].slice(1,3)", json!([2, 3])),
+            ("[1,2,3,4].slice(2)", json!([3, 4])),
+            ("[1,2,3,4].slice(-2)", json!([3, 4])),
+            ("[1,2,3,4].slice(3,1)", json!([])),
+            ("[1,2,3,4].slice(-9,9)", json!([1, 2, 3, 4])),
+            ("empty.sort().reverse().unique().flat()", json!([])),
+        ],
+    );
+    assert_cells(
+        &conn,
+        "text",
+        &[
+            ("[1,2,3].join(\",\")", json!("1,2,3")),
+            ("words.join(\" / \")", json!("c / a / b / a")),
+            ("empty.join(\",\")", json!("")),
+        ],
+    );
+    assert_cells(
+        &conn,
+        "number",
+        &[("marks.length", json!(5)), ("empty.length", json!(0))],
+    );
+    // The property itself is not changed.
+    assert_cells(
+        &conn,
+        "text",
+        &[(
+            "marks.sort().join(\"\") + \" \" + marks.join(\"\")",
+            json!("11233 31231"),
+        )],
+    );
+    for expression in [
+        "missing.join(\",\")",
+        "missing.sort()",
+        "marks.contains(missing)",
+        "marks.join(missing)",
+        "marks.slice(missing)",
+    ] {
+        assert_eq!(
+            at_clock(&conn, expression),
+            BaseCell::default(),
+            "{expression}"
+        );
+    }
+}
+
+#[test]
+fn wrong_dates_and_lists_are_errors_of_the_cell() {
+    let (_dir, conn) = calendar();
+    for (expression, wanted) in [
+        ("date(\"tomorrow\")", "`date` cannot read \"tomorrow\""),
+        ("date(1)", "`date` is not available on a number"),
+        ("duration(\"1 eon\")", "`duration` cannot read \"1 eon\""),
+        ("duration(1)", "`duration` is not available on a number"),
+        ("marks.year", "`year` is not available on a list"),
+        ("marks.format(\"Y\")", "`format` is not available on a list"),
+        ("due.format(1)", "`format` takes a text, found a number"),
+        (
+            "due.contains(\"6\")",
+            "`contains` is not available on a date",
+        ),
+        ("due.sort()", "`sort` is not available on a date"),
+        ("wrong.flat()", "`flat` is not available on a string"),
+        ("marks.lower()", "`lower` is not available on a list"),
+        ("marks.join(1)", "`join` takes a text, found a number"),
+        (
+            "marks.slice(\"1\")",
+            "`slice` takes a number, found a string",
+        ),
+        ("marks.join(\"x\".repeat(90000))", "too large"),
+        ("due.format(\"dddd\".repeat(20000))", "too large"),
+    ] {
+        let cell = at_clock(&conn, expression);
+        assert_eq!(cell.kind.as_deref(), Some("error"), "{expression}");
+        let message = cell.value.as_str().unwrap();
+        assert!(message.contains(wanted), "{expression}: {message}");
+    }
 }

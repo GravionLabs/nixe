@@ -20,7 +20,7 @@ The tab shows the first view of type `table`, one row per indexed note that matc
 | `file.name` | The name of the note without its extension; a click opens the note |
 | every other [`file.` field](#file-fields) | The value of the field; dates in local time as `YYYY-MM-DD hh:mm:ss`, lists separated by commas, `file.properties` as `key: value` items |
 | `status`, `note.status`, `note["status"]` | The note property `status` (the name ignores case) |
-| `formula.total`, `formula["total"]` | The value of the [formula](#formulas) `total`. A `true` or `false` shows as a checkbox, a [link](#links) can be clicked, an error shows in the cell |
+| `formula.total`, `formula["total"]` | The value of the [formula](#formulas) `total`. A `true` or `false` shows as a checkbox, a [date](#dates-and-durations) as `YYYY-MM-DD`, with ` hh:mm:ss` when it has a time, a duration in words (`1 day 2 hours`), a [link](#links) can be clicked, an error shows in the cell |
 
 Without `order` the only column is `file.name`; the same column is shown when no entry of `order` is
 supported. `properties.<id>.displayName` sets the header of a column. A checkbox property shows as a
@@ -101,7 +101,8 @@ An entry is a text. Quote an expression that YAML would read as something else: 
 - Literals: text in `"…"` or `'…'` (`\` escapes the next character, `\n` and `\t` are a line break
   and a tab), numbers (`3`, `1.5`), `true`, `false`, lists (`[1, "a"]`).
 - Note properties: `status`, `note.status`, `note["my status"]`; the name ignores case. A name with
-  spaces or `-` needs the bracket form.
+  spaces or `-` needs the bracket form. A property written as `YYYY-MM-DD`, optionally with a time,
+  is a [date](#dates-and-durations).
 - [Formulas](#formulas): `formula.total`, `formula["my total"]`.
 - [Functions](#functions), global ones (`max(a, b)`) and those of a value (`title.lower()`).
 - Operators, tightest first: `!` and unary `-`; `*` `/` `%`; `+` `-`; `<` `<=` `>` `>=`;
@@ -145,15 +146,18 @@ negative (`(-5).abs()`).
 | --- | --- |
 | `if(condition, then, [else])` | `then` when the condition is true, else `else` (no value when left out). Only the chosen one is evaluated |
 | `list(x)` | `x` when it is a list, else a list of `x`; empty for no value |
-| `number(x)` | `x` as a number: a text is read (an error when it holds no number), `true` is 1, `false` 0, a date its milliseconds since 1970 |
+| `number(x)` | `x` as a number: a text is read (an error when it holds no number), `true` is 1, `false` 0, a date its milliseconds since 1970, a duration its length in milliseconds |
+| `date(x)` | The [date](#dates-and-durations) a text names (`YYYY-MM-DD`, optionally `hh:mm[:ss]` and a zone); a date stays as it is. Any other text is an error |
+| `duration(x)` | The [duration](#dates-and-durations) a text names (`"1 week"`); a duration stays as it is. Any other text is an error |
+| `now()`, `today()` | The current date and time; the current day without a time. All rows of a table see the same moment |
 | `min(a, b, …)`, `max(a, b, …)` | The smallest or largest of the numbers |
 | `link(path, [text])` | A [link](#links) |
 
 | Any value | Value |
 | --- | --- |
 | `x.isTruthy()` | Whether `x` counts as true ([values](#values)) |
-| `x.isType(type)` | Whether `x` has the type `"null"`, `"boolean"`, `"number"`, `"string"`, `"date"`, `"list"`, `"object"` or `"link"` |
-| `x.toString()` | `x` as text: lists joined by commas, dates in local time, a link as `[[target]]`, empty for no value |
+| `x.isType(type)` | Whether `x` has the type `"null"`, `"boolean"`, `"number"`, `"string"`, `"date"`, `"duration"`, `"list"`, `"object"` or `"link"` |
+| `x.toString()` | `x` as text: lists joined by commas, dates in local time, durations in words, a link as `[[target]]`, empty for no value |
 
 | Text | Value |
 | --- | --- |
@@ -176,13 +180,74 @@ negative (`(-5).abs()`).
 | `n.toFixed(digits)` | A text with exactly `digits` decimal places |
 | `n.isEmpty()` | Whether there is no number |
 
+| Date | Value |
+| --- | --- |
+| `d.year`, `d.month`, `d.day` | The year, the month (1–12) and the day of the month, in local time |
+| `d.hour`, `d.minute`, `d.second`, `d.millisecond` | The parts of the time (0–23, 0–59, 0–59, 0–999) |
+| `d.date()` | The day without the time |
+| `d.time()` | The time as `hh:mm:ss` |
+| `d.format(format)` | The date written with [Moment.js tokens](https://momentjs.com/docs/#/displaying/format/) in English (`"DD.MM.YYYY"`); text in `[brackets]` stays |
+| `d.relative()` | The distance from now in words (`3 days ago`, `in a month`) |
+| `d.isEmpty()` | `false` |
+
+| List | Value |
+| --- | --- |
+| `l.length` | The number of items |
+| `l.contains(a)` | Whether an item equals `a` (as `==` does) |
+| `l.containsAll(a, b, …)`, `l.containsAny(a, b, …)` | Whether it contains all of them, or at least one |
+| `l.join(separator)` | The items as one text with the separator between them |
+| `l.flat()` | The items of lists inside the list in their place, one level deep |
+| `l.unique()` | Without repeated items; the first one stays |
+| `l.sort()` | Smallest first. Items of different types are grouped: booleans, numbers, dates, durations, texts, links, lists and mappings, missing values |
+| `l.reverse()` | Backwards |
+| `l.slice(start, [end])` | The items from `start` (counted from 0) up to before `end`; a negative position counts from the end |
+| `l.isEmpty()` | Whether it has no item |
+
+The functions of a list give a new list; the property or formula keeps its items.
+
 - On a missing value, or with a missing argument, a function has no value. Exceptions: `isTruthy` is
   false, `isEmpty` true, `isType("null")` true, `toString` empty, `list` empty, and `if` takes a
-  missing condition as false.
-- A function on a value of a type it does not take (`rating.lower()` on a number, any text function on
-  a list or a date) is an error, as is an argument of the wrong type and a result of more than 100 000
+  missing condition as false. `now()` and `today()` take no argument and always have a value.
+- A function on a value of a type it does not take (`rating.lower()` on a number, `lower` on a list,
+  `contains` on a date) is an error, as is an argument of the wrong type and a result of more than 100 000
   characters and items together. Guard a property of mixed types with `isType`:
   `if(rating.isType("number"), rating.round())`.
+
+#### Dates and durations
+
+A date is a day (`2026-06-10`) or a point in time; without a zone it is local. Dates are the date
+properties of the notes, `file.ctime`, `file.mtime` and what `date`, `now` and `today` give. A text
+property that only looks like a date (`2026-02-30`) and the items of a list property stay texts.
+
+A duration is a number and a unit, with or without a space:
+
+| Unit | Written |
+| --- | --- |
+| Year, month | `y`, `year`, `years`; `M`, `month`, `months`; whole numbers only |
+| Week, day | `w`, `week`, `weeks`; `d`, `day`, `days` |
+| Hour, minute, second | `h`, `hour`, `hours`; `m`, `minute`, `minutes`; `s`, `second`, `seconds` |
+
+| Expression | Value |
+| --- | --- |
+| `date + "1M"`, `date - "2h"` | The date moved by the duration, a text or `duration(…)`. Chains add one after the other: `date("2024-12-01") + "1M" + "4h"` |
+| `date - date` | The duration between them; between two days without a time, whole days |
+| `duration + duration`, `duration - duration` | Their sum or difference; the right side can be a text |
+| `duration * n`, `duration / n` | `n` times as long, or a part of it; the duration stands on the left |
+| `<` `<=` `>` `>=` `==` `!=` | Dates compare by their moment, also with a text that names a date; durations by their length, also with a text |
+
+- Years and months follow the calendar: one month after January 31 is the last day of February. A
+  day is 24 hours; added to a date without a time, whole days and weeks give a date without a time,
+  also across a change of the clock. Hours, minutes and seconds give the date a time.
+- Where durations are compared or turned into a number, a month counts 30 days and a year 365. The
+  days between two dates as a number: `number(today() - due) / 86400000`.
+- Anything else (`date + 1`, a text that is no duration, a result out of range) has no value.
+
+```yaml
+formulas:
+  overdue: if(due < today(), today() - due)
+  recent: file.mtime > now() - "1 week"
+  next: (date(last) + "2w").format("DD.MM.YYYY")
+```
 
 #### Links
 
@@ -197,13 +262,14 @@ where there is no file, the same text ignoring case. `file.hasLink` takes a link
 - A missing property has no value. It equals only another missing one, is in no order (`<`, `>`, …
   are false) and counts as false.
 - False are: no value, `false`, `0`, an empty text, list or mapping. Everything else is true.
-- `==` needs the same type: `"5"` is not `5`, texts compare with case, lists item by item.
-- Order exists between numbers, between texts (so ISO dates in properties sort as dates) and
-  between `file.ctime` or `file.mtime` and a text `YYYY-MM-DD`, optionally with a time
-  (`file.mtime > "2026-01-01"`). Without a zone the time is local.
-- `+` adds numbers and joins texts (also a text and a number); `-` `*` `/` `%` take numbers only.
-  Anything else, a division by zero included, has no value. Joined texts have the size limit of the
-  [functions](#functions).
+- `==` needs the same type: `"5"` is not `5`, texts compare with case, lists item by item. A date
+  or a duration also equals a text that names it.
+- Order exists between numbers, between texts, between [dates and durations](#dates-and-durations)
+  and between one of those and a text that names one (`file.mtime > "2026-01-01"`).
+- `+` adds numbers and joins texts (also a text and a number, and a date or duration after a text);
+  `-` `*` `/` `%` take numbers; dates and durations have the
+  [operations above](#dates-and-durations). Anything else, a division by zero included, has no value.
+  Joined texts have the size limit of the [functions](#functions).
 
 ## Not supported yet
 
@@ -214,9 +280,9 @@ silently sorted or cut wrongly:
 - `sort`, `groupBy` and `limit` of the view
 - columns of unknown `file.` fields
 
-In filters and formulas, `this`, other functions (date, duration and list functions like `date()`,
-`html`, `image`, `icon`, `random`, object functions), regular expressions, other fields of values and
-date arithmetic are not supported: they are [errors](#errors).
+In filters and formulas, `this`, other functions (the list functions `filter`, `map` and `reduce`,
+`html`, `image`, `icon`, `random`, object functions), regular expressions and other fields of values
+are not supported: they are [errors](#errors).
 
 Other keys are ignored. Switching views, other view types, editing and the CLI and MCP are not
 supported.
