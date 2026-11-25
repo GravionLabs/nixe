@@ -20,6 +20,7 @@ The tab shows the first view of type `table`, one row per indexed note that matc
 | `file.name` | The name of the note without its extension; a click opens the note |
 | every other [`file.` field](#file-fields) | The value of the field; dates in local time as `YYYY-MM-DD hh:mm:ss`, lists separated by commas, `file.properties` as `key: value` items |
 | `status`, `note.status`, `note["status"]` | The note property `status` (the name ignores case) |
+| `formula.total`, `formula["total"]` | The value of the [formula](#formulas) `total`. A `true` or `false` shows as a checkbox, a [link](#links) can be clicked, an error shows in the cell |
 
 Without `order` the only column is `file.name`; the same column is shown when no entry of `order` is
 supported. `properties.<id>.displayName` sets the header of a column. A checkbox property shows as a
@@ -37,6 +38,34 @@ views:
 ```
 
 The table follows changes in the vault, those of the `.base` file included.
+
+## Formulas
+
+`formulas` of the base maps names to [expressions](#expressions). Each is evaluated per note and used
+as `formula.<name>` (or `formula["my name"]`) in `order`, in filters and in other formulas. The order
+of the definitions does not matter; the name is matched exactly. `properties.formula.<name>.displayName`
+sets the header of its column.
+
+```yaml
+formulas:
+  price_text: if(price, price.toFixed(2) + " €")
+  per_page: if(pages, (price / pages).toFixed(3))
+  cheap: price.isTruthy() && price < 10
+views:
+  - type: table
+    filters: formula.cheap
+    order: [file.name, formula.price_text, formula.per_page]
+```
+
+A formula cannot be evaluated when it has a syntax error or an unknown function, refers to an unknown
+formula, is part of a cycle (formulas that refer back to each other, also in a branch of `if` that is
+never taken) or refers to such a formula. Every cell of its column then shows the message, for example
+``the formulas form a cycle: `a` → `b` → `a` ``; a filter that refers to it is an
+[error](#errors). A formula that nothing uses does no harm.
+Long messages are shortened.
+
+The formula values of one note are limited to 1 000 000 characters and items together, those of all
+formula cells of a table to 10 000 000; what goes beyond shows an error.
 
 ## Filters
 
@@ -73,6 +102,8 @@ An entry is a text. Quote an expression that YAML would read as something else: 
   and a tab), numbers (`3`, `1.5`), `true`, `false`, lists (`[1, "a"]`).
 - Note properties: `status`, `note.status`, `note["my status"]`; the name ignores case. A name with
   spaces or `-` needs the bracket form.
+- [Formulas](#formulas): `formula.total`, `formula["my total"]`.
+- [Functions](#functions), global ones (`max(a, b)`) and those of a value (`title.lower()`).
 - Operators, tightest first: `!` and unary `-`; `*` `/` `%`; `+` `-`; `<` `<=` `>` `>=`;
   `==` `!=`; `&&`; `||`. Parentheses group.
 
@@ -104,6 +135,63 @@ Links inside frontmatter values are not indexed and count in none of these.
 | `file.hasLink("Note")` | the note links to or embeds that file; a name, a path or `[[…]]`, resolved like a link. A target that is no file matches links written the same way |
 | `file.hasProperty("name")` | the frontmatter has the property; the name ignores case |
 
+### Functions
+
+They follow [Obsidian](https://obsidian.md/help/bases/functions) and JavaScript. Square brackets mark
+an argument that can be left out. A number written before a dot needs no parentheses unless it is
+negative (`(-5).abs()`).
+
+| Global | Value |
+| --- | --- |
+| `if(condition, then, [else])` | `then` when the condition is true, else `else` (no value when left out). Only the chosen one is evaluated |
+| `list(x)` | `x` when it is a list, else a list of `x`; empty for no value |
+| `number(x)` | `x` as a number: a text is read (an error when it holds no number), `true` is 1, `false` 0, a date its milliseconds since 1970 |
+| `min(a, b, …)`, `max(a, b, …)` | The smallest or largest of the numbers |
+| `link(path, [text])` | A [link](#links) |
+
+| Any value | Value |
+| --- | --- |
+| `x.isTruthy()` | Whether `x` counts as true ([values](#values)) |
+| `x.isType(type)` | Whether `x` has the type `"null"`, `"boolean"`, `"number"`, `"string"`, `"date"`, `"list"`, `"object"` or `"link"` |
+| `x.toString()` | `x` as text: lists joined by commas, dates in local time, a link as `[[target]]`, empty for no value |
+
+| Text | Value |
+| --- | --- |
+| `s.length` | The number of characters |
+| `s.contains(a)` | Whether `s` holds the text `a`; case counts, here and below |
+| `s.containsAll(a, b, …)`, `s.containsAny(a, b, …)` | Whether it holds all of them, or at least one |
+| `s.startsWith(a)`, `s.endsWith(a)` | Whether it starts or ends with `a` |
+| `s.isEmpty()` | Whether there is no text: empty or no value |
+| `s.lower()`, `s.title()` | In lower case; every word with a capital first letter and the rest lower |
+| `s.trim()`, `s.reverse()` | Without white space at both ends; backwards |
+| `s.replace(a, b)` | Every `a` replaced by `b` |
+| `s.slice(start, [end])` | The characters from `start` (counted from 0) up to before `end`; a negative position counts from the end |
+| `s.split(separator, [n])` | The parts between the separator, at most the first `n`; an empty separator splits into characters |
+| `s.repeat(n)` | `s`, `n` times |
+
+| Number | Value |
+| --- | --- |
+| `n.abs()`, `n.ceil()`, `n.floor()` | Without sign; rounded up; rounded down |
+| `n.round([digits])` | Rounded to a whole number or to `digits` decimal places; a half goes up |
+| `n.toFixed(digits)` | A text with exactly `digits` decimal places |
+| `n.isEmpty()` | Whether there is no number |
+
+- On a missing value, or with a missing argument, a function has no value. Exceptions: `isTruthy` is
+  false, `isEmpty` true, `isType("null")` true, `toString` empty, `list` empty, and `if` takes a
+  missing condition as false.
+- A function on a value of a type it does not take (`rating.lower()` on a number, any text function on
+  a list or a date) is an error, as is an argument of the wrong type and a result of more than 100 000
+  characters and items together. Guard a property of mixed types with `isType`:
+  `if(rating.isType("number"), rating.round())`.
+
+#### Links
+
+`link("Note")` takes a path, a name or `[[…]]`, resolved like a link in a note; `link("https://…")`
+(also `http`, `mailto`, `tel`) is a web address. The second argument is the text shown. A click on the
+cell opens the note in a tab or the address outside the app; a link to another kind of file or to no
+file is plain text, as is a link inside a list. Two links are equal when they name the same file, or,
+where there is no file, the same text ignoring case. `file.hasLink` takes a link too.
+
 ### Values
 
 - A missing property has no value. It equals only another missing one, is in no order (`<`, `>`, …
@@ -114,19 +202,21 @@ Links inside frontmatter values are not indexed and count in none of these.
   between `file.ctime` or `file.mtime` and a text `YYYY-MM-DD`, optionally with a time
   (`file.mtime > "2026-01-01"`). Without a zone the time is local.
 - `+` adds numbers and joins texts (also a text and a number); `-` `*` `/` `%` take numbers only.
-  Anything else, a division by zero included, has no value.
+  Anything else, a division by zero included, has no value. Joined texts have the size limit of the
+  [functions](#functions).
 
 ## Not supported yet
 
 These parts are read but not applied; the tab names the ones the file uses, so the table is never
 silently sorted or cut wrongly:
 
-- `formulas`, `summaries` (both)
+- `summaries` of the base and of the view
 - `sort`, `groupBy` and `limit` of the view
-- columns of unknown `file.` fields and of `formula.` properties
+- columns of unknown `file.` fields
 
-In filters, `formula.` properties, `this`, other functions (`date()`, `.contains()`, …), fields of
-values and date arithmetic are not supported: they are [errors](#errors).
+In filters and formulas, `this`, other functions (date, duration and list functions like `date()`,
+`html`, `image`, `icon`, `random`, object functions), regular expressions, other fields of values and
+date arithmetic are not supported: they are [errors](#errors).
 
 Other keys are ignored. Switching views, other view types, editing and the CLI and MCP are not
 supported.
@@ -138,10 +228,13 @@ shape, a file without a view, a file without a `table` view, a base outside the 
 further folder of the workspace) and when the vault index is not available. A failed read or query is
 written to the log.
 
-A syntax error, an unknown function or field and a wrong group in the filters of the base or of the
-shown view are errors too: the message names the expression, for example
-``Invalid filters: unknown function `file.hasTags` in `file.hasTags("book")`.`` No row is ever
-hidden by a filter that could not be read.
+A syntax error, an unknown function or field, a formula that cannot be evaluated and a wrong group in
+the filters of the base or of the shown view are errors too: the message names the expression, for
+example ``Invalid filters: unknown function `file.hasTags` in `file.hasTags("book")`.`` The same holds
+for an error that a note causes in a filter (`rating.abs()` on a text); the message names the note as
+well. No row is ever hidden by a filter that could not be applied.
+
+An error in the formula of a column stays in its cell; the other cells and rows are shown.
 
 ## How it works
 

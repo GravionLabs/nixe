@@ -1,7 +1,8 @@
-import type { BaseCell } from "../../core/file/backend";
+import type { BaseCell, BaseLink } from "../../core/file/backend";
 
 /** A value of a base table as text; empty for a missing or empty property. */
 export function cellText(cell: BaseCell): string {
+  if (cell.type === "link") return (cell.value as BaseLink).text;
   return valueText(cell.value);
 }
 

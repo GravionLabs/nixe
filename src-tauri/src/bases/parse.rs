@@ -12,8 +12,9 @@ use serde_yaml_ng::{Mapping, Value};
 pub struct Base {
     /// Filters of every view, as written.
     pub filters: Option<Value>,
-    /// Formula definitions; not evaluated yet.
-    pub formulas: bool,
+    /// The `formulas`, name and expression in the order of the file; `None` for an entry that is
+    /// not a text.
+    pub formulas: Vec<(String, Option<String>)>,
     /// Custom summary formulas; not evaluated yet.
     pub summaries: bool,
     /// `displayName` of `properties`, by property id as written in the file.
@@ -60,7 +61,7 @@ pub fn parse(source: &str) -> Result<Base, String> {
     };
     Ok(Base {
         filters: map.get("filters").cloned(),
-        formulas: is_set(map.get("formulas")),
+        formulas: formulas(map.get("formulas"))?,
         summaries: is_set(map.get("summaries")),
         display_names: display_names(map.get("properties"))?,
         views,
@@ -107,6 +108,28 @@ fn display_names(value: Option<&Value>) -> Result<HashMap<String, String>, Strin
         .filter_map(|(id, config)| {
             let name = text(config.as_mapping()?, "displayName")?;
             Some((id.as_str()?.to_string(), name))
+        })
+        .collect())
+}
+
+fn formulas(value: Option<&Value>) -> Result<Vec<(String, Option<String>)>, String> {
+    let map = match value {
+        None | Some(Value::Null) => return Ok(Vec::new()),
+        Some(Value::Mapping(map)) => map,
+        Some(_) => return Err("Invalid base: `formulas` must be a mapping.".into()),
+    };
+    Ok(map
+        .iter()
+        .filter_map(|(name, source)| {
+            let source = match source {
+                Value::String(s) => Some(s.clone()),
+                // YAML reads `5` and `true` as values; they are expressions too.
+                Value::Number(n) => Some(n.to_string()),
+                Value::Bool(b) => Some(b.to_string()),
+                Value::Null => Some(String::new()),
+                _ => None,
+            };
+            Some((name.as_str()?.to_string(), source))
         })
         .collect())
 }
@@ -163,7 +186,11 @@ unknown: { nested: true }
     #[test]
     fn reads_every_key_and_ignores_unknown_ones() {
         let base = parse(FULL).unwrap();
-        assert!(base.filters.is_some() && base.formulas && base.summaries);
+        assert!(base.filters.is_some() && base.summaries);
+        assert_eq!(
+            base.formulas,
+            [("ppu".into(), Some("(price / age).toFixed(2)".into()))]
+        );
         assert_eq!(base.display_names.len(), 2);
         assert_eq!(base.display_names["status"], "Status");
         assert_eq!(base.display_names["file.name"], "Note");
@@ -187,7 +214,27 @@ unknown: { nested: true }
         assert_eq!(parse("# only a comment\n").unwrap(), Base::default());
         let base = parse("\u{feff}filters:\nformulas: {}\nsummaries: []\nviews:\n").unwrap();
         assert_eq!(base.filters, Some(Value::Null));
-        assert!(!base.formulas && !base.summaries && base.views.is_empty());
+        assert!(base.formulas.is_empty() && !base.summaries && base.views.is_empty());
+    }
+
+    #[test]
+    fn formulas_keep_their_order_and_scalars_are_expressions() {
+        let base = parse("formulas: { b: 'a + 1', a: 5, c: true, d: , e: [1] }").unwrap();
+        let formulas: Vec<(&str, Option<&str>)> = base
+            .formulas
+            .iter()
+            .map(|(n, s)| (n.as_str(), s.as_deref()))
+            .collect();
+        assert_eq!(
+            formulas,
+            [
+                ("b", Some("a + 1")),
+                ("a", Some("5")),
+                ("c", Some("true")),
+                ("d", Some("")),
+                ("e", None),
+            ]
+        );
     }
 
     #[test]
@@ -206,6 +253,7 @@ unknown: { nested: true }
             ),
             ("views: [{ type: table, order: [1] }]", "`order` must be"),
             ("properties: [a]", "`properties` must be a mapping"),
+            ("formulas: [a]", "`formulas` must be a mapping"),
         ] {
             let error = parse(source).unwrap_err();
             assert!(error.contains(wanted), "{source}: {error}");

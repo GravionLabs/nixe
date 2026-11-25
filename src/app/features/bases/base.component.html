@@ -24,10 +24,16 @@
       <ng-template hxTableBody let-row>
         @for (cell of row.cells; track $index) {
           <td>
-            @if (cell.opens) {
-              <button type="button" class="note-link" [title]="row.path" (click)="open(row.path)">
+            @if (cell.note; as note) {
+              <button type="button" class="note-link" [title]="note" (click)="open(note)">
                 {{ cell.text }}
               </button>
+            } @else if (cell.url; as url) {
+              <button type="button" class="note-link" [title]="url" (click)="openExternal(url)">
+                {{ cell.text }}
+              </button>
+            } @else if (cell.failed) {
+              <span class="error">Error: {{ cell.text }}</span>
             } @else if (cell.checked !== null) {
               <input
                 type="checkbox"
