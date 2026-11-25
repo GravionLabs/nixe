@@ -1,6 +1,14 @@
 import { loggedInvoke as invoke } from "../log/logged-invoke";
 import type { CssFile } from "../appearance/appearance-core";
 
+/** Place of a web view in the window, in CSS pixels. */
+export interface WebViewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface DirEntry {
   name: string;
   path: string;
@@ -802,6 +810,14 @@ export const backend = {
     invoke<string>("git_clone_vault", { url, parent }),
   /** Stops the running clone. */
   gitCloneCancel: () => invoke<void>("git_clone_cancel"),
+  /** Spike (#567): shows an http(s) page in a child webview over the `main` window. */
+  webViewOpen: (id: string, url: string, bounds: WebViewBounds) =>
+    invoke<void>("web_view_open", { id, url, bounds }),
+  webViewSetBounds: (id: string, bounds: WebViewBounds) =>
+    invoke<void>("web_view_set_bounds", { id, bounds }),
+  webViewSetVisible: (id: string, visible: boolean) =>
+    invoke<void>("web_view_set_visible", { id, visible }),
+  webViewClose: (id: string) => invoke<void>("web_view_close", { id }),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
   /** Watches the further roots of the workspace; `ROOTS_CHANGED_EVENT` follows a change. */
   watchRoots: (paths: string[]) => invoke<void>("watch_roots", { paths }),

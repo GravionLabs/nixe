@@ -7,6 +7,8 @@ const REWRITE = "rewrites links across notes in the Rust core; the demo vault on
 const DISK = "writes to a disk the browser does not have";
 const NETWORK = "needs a network, a remote and the GitHub CLI; the browser build has none";
 
+const WEB_VIEW = "opens a native child webview; a development spike the browser build cannot run";
+
 export const EXCLUDED: Readonly<Record<string, string>> = {
   rename_path: REWRITE,
   trash_path: REWRITE,
@@ -25,6 +27,10 @@ export const EXCLUDED: Readonly<Record<string, string>> = {
   import_attachment: DISK,
   write_export_file: DISK,
   export_site: DISK,
+  web_view_open: WEB_VIEW,
+  web_view_set_bounds: WEB_VIEW,
+  web_view_set_visible: WEB_VIEW,
+  web_view_close: WEB_VIEW,
   git_clone_vault: NETWORK,
   git_clone_cancel: NETWORK,
   git_provider_login: NETWORK,

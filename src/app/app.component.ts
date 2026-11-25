@@ -1,7 +1,9 @@
+import { WebViewService } from "./core/web/web-view.service";
 import { CaptureShortcutService } from "./core/capture/capture-shortcut.service";
 import {
   Component,
   Directive,
+  ElementRef,
   TemplateRef,
   computed,
   effect,
@@ -171,6 +173,8 @@ export class AppComponent {
 
   protected readonly gitSpike = isDevMode();
   private readonly messages = inject(HxMessageService);
+  private readonly webView = inject(WebViewService);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
 
   private readonly icons = viewChildren(NavIconDirective);
 
@@ -190,6 +194,44 @@ export class AppComponent {
 
   protected onResize(): void {
     this.windowWidth.set(window.innerWidth);
+    const area = this.tabArea();
+    if (area) void this.run(() => this.webView.moveTo(area));
+  }
+
+  /** The element the tabs are shown in. */
+  private tabArea(): Element | null {
+    return this.element.nativeElement.querySelector("main");
+  }
+
+  /** Spike (#567): development commands that show a web page over the tab area. */
+  private webViewCommands(): Command[] {
+    const open = () => this.webView.status() !== "closed";
+    return [
+      {
+        id: "web-view-spike-open",
+        group: "View",
+        title: "Web view spike: open the page over the tabs",
+        run: () =>
+          this.run(async () => {
+            const area = this.tabArea();
+            if (area) await this.webView.open(area);
+          }),
+      },
+      {
+        id: "web-view-spike-toggle",
+        group: "View",
+        title: "Web view spike: hide or show the page",
+        when: open,
+        run: () => this.run(() => this.webView.toggle()),
+      },
+      {
+        id: "web-view-spike-close",
+        group: "View",
+        title: "Web view spike: close the page",
+        when: open,
+        run: () => this.run(() => this.webView.close()),
+      },
+    ];
   }
 
   /** Width the sidebar takes right now. */
@@ -976,6 +1018,7 @@ export class AppComponent {
         run: () => this.settings.resetZoom(),
       },
     ];
+    if (isDevMode()) commands.push(...this.webViewCommands());
     for (const command of commands) this.commands.register(command);
   }
 

@@ -80,6 +80,8 @@ mod site;
 mod terminal;
 mod tree;
 mod vault;
+#[cfg(desktop)]
+mod web_view;
 pub mod workspace;
 mod write;
 
@@ -1732,6 +1734,14 @@ pub fn run() {
         notes::spike_external_read,
         notes::spike_external_write,
         #[cfg(desktop)]
+        web_view::web_view_open,
+        #[cfg(desktop)]
+        web_view::web_view_set_bounds,
+        #[cfg(desktop)]
+        web_view::web_view_set_visible,
+        #[cfg(desktop)]
+        web_view::web_view_close,
+        #[cfg(desktop)]
         terminal::terminal_preset_check,
         #[cfg(desktop)]
         terminal::terminal_open,
@@ -1872,6 +1882,14 @@ pub fn run() {
         capture_app::capture_link_title,
         capture_app::capture_hide,
         capture_app::capture_apply,
+        #[cfg(desktop)]
+        web_view::web_view_open,
+        #[cfg(desktop)]
+        web_view::web_view_set_bounds,
+        #[cfg(desktop)]
+        web_view::web_view_set_visible,
+        #[cfg(desktop)]
+        web_view::web_view_close,
         #[cfg(desktop)]
         terminal::terminal_preset_check,
         #[cfg(desktop)]
