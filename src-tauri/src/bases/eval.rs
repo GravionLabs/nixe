@@ -376,7 +376,7 @@ impl<'a> Context<'a> {
 }
 
 /// The value of a note property: a date or a date with a time is a date.
-fn property_value(property: &IndexedProperty) -> Value {
+pub fn property_value(property: &IndexedProperty) -> Value {
     if property.kind == "date" {
         if let Some(date) = property.value.as_str().and_then(Date::parse) {
             return Value::Date(date);

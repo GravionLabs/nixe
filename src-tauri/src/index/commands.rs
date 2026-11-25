@@ -17,7 +17,7 @@ use super::search;
 use super::{
     index_path, open, scan, Backlink, NoteRecord, NoteSummary, RelatedNote, SearchHit, TagCount,
 };
-use crate::bases::{self, BaseResult};
+use crate::bases::{self, BaseResult, BaseView, SortKey};
 use crate::links::dead::{self, DeadLink};
 
 /// Event carrying the `IndexStatus` whenever it changes.
@@ -233,19 +233,28 @@ pub async fn unlinked_mentions(
     .map_err(|e| e.to_string())?
 }
 
-/// The table of a view (default: the first table view) of the `.base` file with the text
-/// `source`, answered from the index.
+/// The views of the `.base` file with the text `source`, in the order of the file.
+#[tauri::command]
+pub fn base_views(source: String) -> Result<Vec<BaseView>, String> {
+    bases::views(&source)
+}
+
+/// The table of a view (index in `base_views`; default: the first table view) of the `.base` file
+/// with the text `source`, answered from the index. `sort` comes before the sort of the view.
 #[tauri::command]
 pub async fn base_query(
     state: State<'_, IndexState>,
     source: String,
-    view: Option<String>,
+    view: Option<usize>,
+    sort: Option<SortKey>,
 ) -> Result<BaseResult, String> {
     let conn = state.conn()?;
     let now = chrono::Utc::now().timestamp_millis();
-    tauri::async_runtime::spawn_blocking(move || bases::query(&conn, &source, view.as_deref(), now))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        bases::query(&conn, &source, view, sort.as_ref(), now)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

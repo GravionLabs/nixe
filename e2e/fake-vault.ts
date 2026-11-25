@@ -32,10 +32,12 @@ export const FAKE_VAULT: Record<string, unknown> = {
   tags: [],
   backlinks: [],
   note_meta: null,
+  base_views: [{ name: "All", type: "table" }],
   base_query: {
     view: "All",
     columns: [{ id: "file.name", label: "file.name" }],
     rows: [{ path: "Home.md", cells: [{ type: "text", value: "Home" }] }],
+    grouping: null,
     unsupported: [],
   },
   conflict_pair: null,

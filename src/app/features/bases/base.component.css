@@ -21,7 +21,18 @@ header {
   font-weight: 600;
 }
 
-.view-name {
+.views {
+  min-width: 0;
+  overflow-x: auto;
+  font-weight: 400;
+}
+
+.group {
+  text-align: left;
+}
+
+.count {
+  margin-left: 4px;
   color: var(--h-text-muted-color);
   font-weight: 400;
 }

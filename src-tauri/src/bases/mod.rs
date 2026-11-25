@@ -2,8 +2,10 @@
 //! its view is answered from the vault index; the frontend only renders the result. The rows are
 //! the notes that match the filters (`filter`, `expr`, `eval`) of the base and of the view. The
 //! `formulas` of the base (`formula`) are columns and values in filters and other formulas. Dates
-//! and durations are in `date`; the current time is given to the query.
+//! and durations are in `date`; the current time is given to the query. `arrange` sorts, groups
+//! and cuts the rows as the view says.
 
+mod arrange;
 mod date;
 mod eval;
 mod expr;
@@ -16,8 +18,10 @@ use rusqlite::Connection;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::index::read;
+use crate::index::read::{self, NoteFile};
 use crate::vault::resolve::Resolver;
+pub use arrange::SortKey;
+use arrange::{Arrangement, Direction, Groups};
 use eval::Context;
 use expr::Field;
 use formula::Formulas;
@@ -27,6 +31,8 @@ use parse::{Base, View};
 const TABLE: &str = "table";
 /// Most size of the values of all formula cells of one table.
 const MAX_FORMULA_CELLS: usize = 10_000_000;
+/// Most size of the formula values all rows are sorted and grouped by.
+const MAX_FORMULA_KEYS: usize = 10_000_000;
 /// The property id of the column with the name of the note.
 const FILE_NAME: &str = "file.name";
 
@@ -56,12 +62,40 @@ pub struct BaseRow {
     pub cells: Vec<BaseCell>,
 }
 
+/// One group of a grouped table.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct BaseGroup {
+    /// The value the rows of the group share.
+    pub value: BaseCell,
+    /// How many of the rows belong to it; they follow those of the groups before it.
+    pub rows: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct BaseGrouping {
+    /// The header of the property the rows are grouped by.
+    pub label: String,
+    /// The groups in the order they show.
+    pub groups: Vec<BaseGroup>,
+}
+
+/// A view as the view switcher lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BaseView {
+    pub name: Option<String>,
+    /// `type`: `table`, `cards`, …
+    #[serde(rename = "type")]
+    pub kind: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BaseResult {
     /// The name of the shown view.
     pub view: Option<String>,
     pub columns: Vec<BaseColumn>,
+    /// In the order they show: group by group when the view groups them.
     pub rows: Vec<BaseRow>,
+    pub grouping: Option<BaseGrouping>,
     /// The parts of the file that are not supported yet and therefore not applied.
     pub unsupported: Vec<String>,
 }
@@ -107,14 +141,14 @@ fn source_of(id: &str) -> Option<Source> {
     Some(Source::Note(name.to_string()))
 }
 
-/// The view `name`, else the first table view; the error is the message the tab shows.
-fn pick<'a>(base: &'a Base, name: Option<&str>) -> Result<&'a View, String> {
-    let view = match name {
-        Some(name) => base
+/// The view at `index` of `views`, else the first table view; the error is the message the tab
+/// shows.
+fn pick(base: &Base, index: Option<usize>) -> Result<&View, String> {
+    let view = match index {
+        Some(index) => base
             .views
-            .iter()
-            .find(|v| v.name.as_deref() == Some(name))
-            .ok_or_else(|| format!("The base has no view named \"{name}\"."))?,
+            .get(index)
+            .ok_or("The base no longer has this view.")?,
         None => base
             .views
             .iter()
@@ -129,6 +163,18 @@ fn pick<'a>(base: &'a Base, name: Option<&str>) -> Result<&'a View, String> {
         ));
     }
     Ok(view)
+}
+
+/// All views of the base `source`, in the order of the file.
+pub fn views(source: &str) -> Result<Vec<BaseView>, String> {
+    Ok(parse::parse(source)?
+        .views
+        .into_iter()
+        .map(|view| BaseView {
+            name: view.name,
+            kind: view.kind,
+        })
+        .collect())
 }
 
 fn label(base: &Base, id: &str, source: &Source) -> String {
@@ -248,15 +294,102 @@ fn plain(value: eval::Value) -> Value {
     }
 }
 
-/// Answers the view `view` (default: the first table view) of the base `source` from the index.
+/// What the rows are sorted or grouped by.
+struct Key {
+    source: Source,
+    /// The property id as written.
+    id: String,
+    direction: Direction,
+    /// A formula that fails for a note is an error of the query, so that its row is never silently
+    /// moved or cut. False for a sort by a click: such rows come last and show their error.
+    strict: bool,
+}
+
+impl Key {
+    /// `None`, and the part is named in `unsupported`, for a property that is not supported yet.
+    fn new(
+        key: &SortKey,
+        place: &str,
+        strict: bool,
+        formulas: &Formulas,
+        unsupported: &mut Vec<String>,
+    ) -> Result<Option<Key>, String> {
+        let Some(source) = source_of(&key.property) else {
+            unsupported.push(format!("{place} {}", key.property));
+            return Ok(None);
+        };
+        if let (Source::Formula(name), true) = (&source, strict) {
+            formulas
+                .index(name)
+                .and_then(|i| formulas.get(i).map(|_| ()).map_err(str::to_string))
+                .map_err(|e| format!("Invalid {place}: {e} in `{}`.", key.property))?;
+        }
+        Ok(Some(Key {
+            source,
+            id: key.property.clone(),
+            direction: key.direction,
+            strict,
+        }))
+    }
+
+    /// The value of the note; `room` is what is left of `MAX_FORMULA_KEYS`.
+    fn value(
+        &self,
+        context: &Context,
+        place: &str,
+        room: &mut usize,
+    ) -> Result<eval::Value, String> {
+        Ok(match &self.source {
+            Source::FileName => eval::Value::Text(context.note.title.clone()),
+            Source::File(field) => context.field(*field),
+            Source::Note(name) => context
+                .property(name)
+                .map_or(eval::Value::Null, eval::property_value),
+            Source::Formula(name) => match context.formula(name) {
+                Ok(value) => match room.checked_sub(functions::size(&value)?) {
+                    Some(left) => {
+                        *room = left;
+                        value
+                    }
+                    // A sort by a click never takes the table away.
+                    None if !self.strict => eval::Value::Null,
+                    None => return Err("The values to sort and group by are too large.".into()),
+                },
+                Err(e) if self.strict => {
+                    return Err(format!(
+                        "Error in {place}: {e} in `{}` for the note `{}`.",
+                        self.id, context.note.path
+                    ))
+                }
+                Err(_) => eval::Value::Null,
+            },
+        })
+    }
+}
+
+/// A note that matches the filters, with what places its row.
+struct Match<'a> {
+    note: &'a NoteFile,
+    /// One value per sort key.
+    keys: Vec<eval::Value>,
+    /// The number of its group; 0 without groups.
+    group: usize,
+}
+
+/// Answers the view at index `view` of `views` (default: the first table view) of the base `source`
+/// from the index. `clicked` is a sort chosen in the tab: it comes before the sort of the view.
 /// An error in the filters of the base or of the view, also one a note causes, is an error of the
 /// query: no row is ever hidden or shown by a filter that could not be applied. An error in the
 /// formula of a column shows in its cell. `now` is the current time of `now()`, `today()` and
 /// `relative()`, in milliseconds since the Unix epoch: one for the whole table.
+///
+/// The rows of groups that `groupOrder` hides are dropped, the others are sorted (equal ones stay
+/// sorted by path), `limit` keeps the first of them and these are put into their groups.
 pub fn query(
     conn: &Connection,
     source: &str,
-    view: Option<&str>,
+    view: Option<usize>,
+    clicked: Option<&SortKey>,
     now: i64,
 ) -> Result<BaseResult, String> {
     let base = parse::parse(source)?;
@@ -272,6 +405,12 @@ pub fn query(
         filter::compile(value, place, &formulas).map(|filter| filter.map(|f| (place, f)))
     })
     .collect::<Result<Vec<_>, _>>()?;
+    let Arrangement {
+        sort,
+        group_by,
+        group_order,
+        limit,
+    } = arrange::compile(view)?;
 
     let mut unsupported: Vec<String> = Vec::new();
     if base.summaries {
@@ -302,10 +441,25 @@ pub fn query(
         sources.push(Source::FileName);
     }
 
+    let mut sort_keys = Vec::new();
+    let clicked = clicked.map(|key| (key, false));
+    for (key, strict) in clicked.into_iter().chain(sort.iter().map(|k| (k, true))) {
+        sort_keys.extend(Key::new(key, "sort", strict, &formulas, &mut unsupported)?);
+    }
+    let group_key = match &group_by {
+        Some(key) => Key::new(key, "groupBy", true, &formulas, &mut unsupported)?,
+        None => None,
+    };
+    let mut groups = group_key
+        .as_ref()
+        .map(|key| Groups::new(key.direction, group_order.as_deref()));
+
     let index = read::base_notes(conn).map_err(|e| e.to_string())?;
     let resolver = Resolver::new(&index.files);
-    let mut rows = Vec::new();
-    let mut room = MAX_FORMULA_CELLS;
+    let mut matches: Vec<Match> = Vec::new();
+    let mut key_room = MAX_FORMULA_KEYS;
+    // A sort by a click has its own, so it takes nothing from the keys of the view.
+    let mut click_room = MAX_FORMULA_KEYS;
     'notes: for note in &index.notes {
         let context = Context::new(note, &resolver, &formulas, now);
         for (place, filter) in filters.iter().flatten() {
@@ -319,18 +473,86 @@ pub fn query(
                 continue 'notes;
             }
         }
-        rows.push(BaseRow {
-            path: note.path.clone(),
-            cells: sources
-                .iter()
-                .map(|s| cell(&context, s, &mut room))
-                .collect(),
-        });
+        let group = match (&group_key, &mut groups) {
+            (Some(key), Some(groups)) => {
+                match groups.assign(key.value(&context, "groupBy", &mut key_room)?) {
+                    Some(group) => group,
+                    None => continue,
+                }
+            }
+            _ => 0,
+        };
+        let keys = sort_keys
+            .iter()
+            .map(|key| {
+                let room = if key.strict {
+                    &mut key_room
+                } else {
+                    &mut click_room
+                };
+                key.value(&context, "sort", room)
+            })
+            .collect::<Result<_, _>>()?;
+        matches.push(Match { note, keys, group });
     }
+    // Stable, so equal rows stay sorted by path.
+    matches.sort_by(|a, b| {
+        sort_keys
+            .iter()
+            .zip(a.keys.iter().zip(&b.keys))
+            .map(|(key, (a, b))| arrange::compare(a, b, key.direction))
+            .find(|order| order.is_ne())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    matches.truncate(limit.unwrap_or(usize::MAX));
+
+    let grouping = match (&group_key, groups) {
+        (Some(key), Some(groups)) => {
+            let mut sizes = std::collections::HashMap::<usize, usize>::new();
+            for m in &matches {
+                *sizes.entry(m.group).or_default() += 1;
+            }
+            let ordered = groups.ordered(|group| sizes.contains_key(&group));
+            let places: std::collections::HashMap<usize, usize> = ordered
+                .iter()
+                .enumerate()
+                .map(|(place, (group, _))| (*group, place))
+                .collect();
+            // Stable, so the rows of a group keep their order.
+            matches.sort_by_key(|m| places.get(&m.group).copied());
+            Some(BaseGrouping {
+                label: label(&base, &key.id, &key.source),
+                groups: ordered
+                    .into_iter()
+                    .map(|(group, value)| BaseGroup {
+                        value: value_cell(value),
+                        rows: sizes.get(&group).copied().unwrap_or(0),
+                    })
+                    .collect(),
+            })
+        }
+        _ => None,
+    };
+
+    let mut room = MAX_FORMULA_CELLS;
+    let rows = matches
+        .into_iter()
+        .map(|m| {
+            let context = Context::new(m.note, &resolver, &formulas, now);
+            BaseRow {
+                path: m.note.path.clone(),
+                cells: sources
+                    .iter()
+                    .map(|s| cell(&context, s, &mut room))
+                    .collect(),
+            }
+        })
+        .collect();
     Ok(BaseResult {
         view: view.name.clone(),
         columns,
         rows,
+        grouping,
         unsupported,
     })
 }

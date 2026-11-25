@@ -3,10 +3,13 @@
 // enough of it to show what the app does with the answers.
 import { parse } from "yaml";
 
+import { cellText } from "../../app/features/bases/cell-text";
 import type {
   Backlink,
   BaseCell,
   BaseResult,
+  BaseSort,
+  BaseView,
   DirEntry,
   IndexedLink,
   NoteRecord,
@@ -193,15 +196,23 @@ export class DemoVault {
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
   }
 
-  /** The table of the first table view: `file.name` and note properties, nothing is filtered. */
-  baseQuery(source: string): BaseResult {
+  baseViews(source: string): BaseView[] {
     const base = (parse(source) ?? {}) as DemoBase;
-    const view = base.views?.find((v) => v.type === "table");
-    if (!view) throw "The base defines no table view.";
+    return (base.views ?? []).map((v) => ({ name: v.name ?? null, type: v.type ?? "" }));
+  }
+
+  /**
+   * The table of a table view (default: the first): `file.name` and note properties; nothing is
+   * filtered, grouped or limited, and only a clicked column sorts.
+   */
+  baseQuery(source: string, index: number | null, sort: BaseSort | null): BaseResult {
+    const base = (parse(source) ?? {}) as DemoBase;
+    const view = index === null ? base.views?.find((v) => v.type === "table") : base.views?.[index];
+    if (view?.type !== "table") throw "The base defines no table view.";
     const ids = (view.order ?? []).filter((id) => !/^(formula\.|file\.(?!name$))/.test(id));
     if (ids.length === 0) ids.push("file.name");
     const key = (id: string) => id.replace(/^note\./, "");
-    return {
+    const result: BaseResult = {
       view: view.name ?? null,
       columns: ids.map((id) => ({
         id,
@@ -219,8 +230,16 @@ export class DemoVault {
           ),
         };
       }),
+      grouping: null,
       unsupported: (["filters", "formulas"] as const).filter((k) => base[k] !== undefined),
     };
+    const column = sort ? ids.indexOf(sort.property) : -1;
+    if (column >= 0) {
+      const text = (row: BaseResult["rows"][number]) => cellText(row.cells[column]!);
+      const direction = sort?.direction === "DESC" ? -1 : 1;
+      result.rows.sort((a, b) => direction * text(a).localeCompare(text(b)));
+    }
+    return result;
   }
 
   search(query: string): SearchHit[] {

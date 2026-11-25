@@ -1,7 +1,17 @@
 <header>
   <span>{{ name() }}</span>
-  @if (result()?.view; as view) {
-    <span class="view-name">{{ view }}</span>
+  @if (viewOptions().length) {
+    <hx-select-button
+      class="views"
+      size="small"
+      ariaLabel="View"
+      optionLabel="label"
+      optionValue="index"
+      [options]="viewOptions()"
+      [allowEmpty]="false"
+      [value]="active()"
+      (valueChange)="show($any($event))"
+    />
   }
 </header>
 
@@ -17,34 +27,45 @@
     <hx-data-table
       [value]="rows()"
       [columns]="columns()"
-      dataKey="path"
+      dataKey="key"
+      [lazy]="true"
+      [lazyLoadOnInit]="false"
+      [sortField]="sortField()"
+      [sortOrder]="sortOrder()"
+      (lazyLoad)="sortBy($event)"
       [ariaLabel]="name()"
       emptyMessage="No notes"
     >
       <ng-template hxTableBody let-row>
-        @for (cell of row.cells; track $index) {
-          <td>
-            @if (cell.note; as note) {
-              <button type="button" class="note-link" [title]="note" (click)="open(note)">
+        @if (row.group; as group) {
+          <th class="group" scope="rowgroup" [attr.colspan]="columns().length">
+            {{ group.label }}: {{ group.value }} <span class="count">{{ group.count }}</span>
+          </th>
+        } @else {
+          @for (cell of row.cells; track $index) {
+            <td>
+              @if (cell.note; as note) {
+                <button type="button" class="note-link" [title]="note" (click)="open(note)">
+                  {{ cell.text }}
+                </button>
+              } @else if (cell.url; as url) {
+                <button type="button" class="note-link" [title]="url" (click)="openExternal(url)">
+                  {{ cell.text }}
+                </button>
+              } @else if (cell.failed) {
+                <span class="error">Error: {{ cell.text }}</span>
+              } @else if (cell.checked !== null) {
+                <input
+                  type="checkbox"
+                  disabled
+                  [checked]="cell.checked"
+                  [attr.aria-label]="cell.checked ? 'Yes' : 'No'"
+                />
+              } @else {
                 {{ cell.text }}
-              </button>
-            } @else if (cell.url; as url) {
-              <button type="button" class="note-link" [title]="url" (click)="openExternal(url)">
-                {{ cell.text }}
-              </button>
-            } @else if (cell.failed) {
-              <span class="error">Error: {{ cell.text }}</span>
-            } @else if (cell.checked !== null) {
-              <input
-                type="checkbox"
-                disabled
-                [checked]="cell.checked"
-                [attr.aria-label]="cell.checked ? 'Yes' : 'No'"
-              />
-            } @else {
-              {{ cell.text }}
-            }
-          </td>
+              }
+            </td>
+          }
         }
       </ng-template>
     </hx-data-table>

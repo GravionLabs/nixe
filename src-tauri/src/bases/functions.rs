@@ -398,7 +398,7 @@ fn list_method(mut items: Vec<Value>, method: Method, args: &[Value]) -> Result<
 }
 
 /// What two items that are the same have in common: `unique` keeps the first of them.
-fn identity(value: &Value) -> String {
+pub fn identity(value: &Value) -> String {
     match value {
         Value::Date(date) => format!("date {}", date.millis),
         Value::Duration(duration) => format!("duration {}", duration.total()),
@@ -417,7 +417,7 @@ fn identity(value: &Value) -> String {
 
 /// The order of `sort`: smallest first. Different types are grouped (booleans, numbers, dates,
 /// durations, texts, links, the rest, missing values); what has no order keeps its place.
-fn ascending(a: &Value, b: &Value) -> Ordering {
+pub fn ascending(a: &Value, b: &Value) -> Ordering {
     let rank = |value: &Value| match value {
         Value::Bool(_) => 0,
         Value::Number(_) => 1,

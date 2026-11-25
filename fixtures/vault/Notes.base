@@ -17,3 +17,17 @@ views:
       - published
       - created
       - tags
+  - type: table
+    name: By publication
+    groupBy:
+      property: published
+      direction: DESC
+    sort:
+      - property: note.count
+        direction: DESC
+      - property: file.name
+        direction: ASC
+    limit: 5
+    order:
+      - file.name
+      - note.count

@@ -32,17 +32,15 @@ pub struct View {
     pub order: Vec<String>,
     /// The filters of this view, as written.
     pub filters: Option<Value>,
+    /// `sort`, `groupBy`, `groupOrder` and `limit` as written; read (`arrange`) for the shown
+    /// view only.
+    pub sort: Option<Value>,
+    pub group_by: Option<Value>,
+    pub group_order: Option<Value>,
+    pub limit: Option<Value>,
     /// The keys of the view that are there but not applied yet.
     pub unsupported: Vec<&'static str>,
 }
-
-/// View keys that change which rows show or how, with the name the message gives them.
-const UNSUPPORTED_VIEW_KEYS: &[(&str, &str)] = &[
-    ("sort", "sort"),
-    ("groupBy", "groupBy"),
-    ("limit", "limit"),
-    ("summaries", "view summaries"),
-];
 
 /// Reads the source of a `.base` file; the error is the message the tab shows.
 pub fn parse(source: &str) -> Result<Base, String> {
@@ -89,10 +87,13 @@ fn view(value: &Value) -> Result<View, String> {
         name: text(map, "name"),
         order,
         filters: map.get("filters").cloned(),
-        unsupported: UNSUPPORTED_VIEW_KEYS
-            .iter()
-            .filter(|(key, _)| is_set(map.get(*key)))
-            .map(|(_, label)| *label)
+        sort: map.get("sort").cloned(),
+        group_by: map.get("groupBy").cloned(),
+        group_order: map.get("groupOrder").cloned(),
+        limit: map.get("limit").cloned(),
+        unsupported: is_set(map.get("summaries"))
+            .then_some("view summaries")
+            .into_iter()
             .collect(),
     })
 }
@@ -173,6 +174,7 @@ views:
     name: My table
     limit: 10
     groupBy: { property: note.age, direction: DESC }
+    groupOrder: [1, null]
     filters: 'status != "done"'
     sort:
       - { property: note.age, direction: ASC }
@@ -199,10 +201,9 @@ unknown: { nested: true }
         assert_eq!(table.kind, "table");
         assert_eq!(table.name.as_deref(), Some("My table"));
         assert_eq!(table.order, ["file.name", "note.age"]);
-        assert_eq!(
-            table.unsupported,
-            ["sort", "groupBy", "limit", "view summaries"]
-        );
+        assert_eq!(table.unsupported, ["view summaries"]);
+        assert_eq!(table.limit, Some(Value::from(10)));
+        assert!(table.sort.is_some() && table.group_by.is_some() && table.group_order.is_some());
         assert_eq!(table.filters, Some(Value::from("status != \"done\"")));
         assert_eq!(base.views[1].kind, "cards");
         assert!(base.views[1].order.is_empty() && base.views[1].unsupported.is_empty());
