@@ -7,6 +7,8 @@ properties:
     displayName: Title
   note.count:
     displayName: Count
+formulas:
+  cover: '"assets/image.svg"'
 views:
   - type: table
     name: All notes
@@ -30,4 +32,14 @@ views:
     limit: 5
     order:
       - file.name
+      - note.count
+  - type: cards
+    name: Gallery
+    image: formula.cover
+    imageFit: contain
+    imageAspectRatio: 0.6
+    cardSize: 220
+    order:
+      - file.name
+      - title
       - note.count

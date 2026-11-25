@@ -1,4 +1,4 @@
-//! Bases: a `.base` file shows the notes of the vault as a table. The file is parsed (`parse`) and
+//! Bases: a `.base` file shows the notes of the vault as a table or as cards (`cards`). The file is parsed (`parse`) and
 //! its view is answered from the vault index; the frontend only renders the result. The rows are
 //! the notes that match the filters (`filter`, `expr`, `eval`) of the base and of the view. The
 //! `formulas` of the base (`formula`) are columns and values in filters and other formulas. Dates
@@ -6,6 +6,7 @@
 //! and cuts the rows as the view says.
 
 mod arrange;
+mod cards;
 mod date;
 mod eval;
 mod expr;
@@ -22,13 +23,15 @@ use crate::index::read::{self, NoteFile};
 use crate::vault::resolve::Resolver;
 pub use arrange::SortKey;
 use arrange::{Arrangement, Direction, Groups};
+pub use cards::{BaseCards, BaseCover};
 use eval::Context;
 use expr::Field;
 use formula::Formulas;
 use parse::{Base, View};
 
-/// The view type that can be shown.
+/// The view types that can be shown.
 const TABLE: &str = "table";
+const CARDS: &str = "cards";
 /// Most size of the values of all formula cells of one table.
 const MAX_FORMULA_CELLS: usize = 10_000_000;
 /// Most size of the formula values all rows are sorted and grouped by.
@@ -60,6 +63,8 @@ pub struct BaseRow {
     pub path: String,
     /// One cell per column, in their order.
     pub cells: Vec<BaseCell>,
+    /// The cover image of the card; `None` in a table and without an image that can be shown.
+    pub cover: Option<BaseCover>,
 }
 
 /// One group of a grouped table.
@@ -96,6 +101,8 @@ pub struct BaseResult {
     /// In the order they show: group by group when the view groups them.
     pub rows: Vec<BaseRow>,
     pub grouping: Option<BaseGrouping>,
+    /// Set for a view of type `cards`.
+    pub cards: Option<BaseCards>,
     /// The parts of the file that are not supported yet and therefore not applied.
     pub unsupported: Vec<String>,
 }
@@ -156,9 +163,9 @@ fn pick(base: &Base, index: Option<usize>) -> Result<&View, String> {
             .or_else(|| base.views.first())
             .ok_or("The base defines no view.")?,
     };
-    if view.kind != TABLE {
+    if view.kind != TABLE && view.kind != CARDS {
         return Err(format!(
-            "Views of type \"{}\" are not supported yet; only \"table\" is.",
+            "Views of type \"{}\" are not supported yet; only \"table\" and \"cards\" are.",
             view.kind
         ));
     }
@@ -432,6 +439,9 @@ pub fn query(
             None => unsupported.push(format!("column {id}")),
         }
     }
+    let cards = (view.kind == CARDS)
+        .then(|| cards::compile(view, &mut unsupported))
+        .transpose()?;
     // Without a column no note could be seen or opened.
     if columns.is_empty() {
         columns.push(BaseColumn {
@@ -539,12 +549,17 @@ pub fn query(
         .into_iter()
         .map(|m| {
             let context = Context::new(m.note, &resolver, &formulas, now);
+            let cells = sources
+                .iter()
+                .map(|s| cell(&context, s, &mut room))
+                .collect();
+            let cover = cards
+                .as_ref()
+                .and_then(|cards| cards.cover(&context, &resolver, &index.files));
             BaseRow {
                 path: m.note.path.clone(),
-                cells: sources
-                    .iter()
-                    .map(|s| cell(&context, s, &mut room))
-                    .collect(),
+                cells,
+                cover,
             }
         })
         .collect();
@@ -553,6 +568,7 @@ pub fn query(
         columns,
         rows,
         grouping,
+        cards: cards.map(|cards| cards.settings),
         unsupported,
     })
 }

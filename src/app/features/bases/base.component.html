@@ -23,53 +23,119 @@
       Not supported yet, so not applied: {{ table.unsupported.join(", ") }}.
     </p>
   }
-  <div class="table">
-    <hx-data-table
-      [value]="rows()"
-      [columns]="columns()"
-      dataKey="key"
-      [lazy]="true"
-      [lazyLoadOnInit]="false"
-      [sortField]="sortField()"
-      [sortOrder]="sortOrder()"
-      (lazyLoad)="sortBy($event)"
-      [ariaLabel]="name()"
-      emptyMessage="No notes"
-    >
-      <ng-template hxTableBody let-row>
-        @if (row.group; as group) {
-          <th class="group" scope="rowgroup" [attr.colspan]="columns().length">
-            {{ group.label }}: {{ group.value }} <span class="count">{{ group.count }}</span>
-          </th>
-        } @else {
-          @for (cell of row.cells; track $index) {
-            <td>
-              @if (cell.note; as note) {
-                <button type="button" class="note-link" [title]="note" (click)="open(note)">
-                  {{ cell.text }}
-                </button>
-              } @else if (cell.url; as url) {
-                <button type="button" class="note-link" [title]="url" (click)="openExternal(url)">
-                  {{ cell.text }}
-                </button>
-              } @else if (cell.failed) {
-                <span class="error">Error: {{ cell.text }}</span>
-              } @else if (cell.checked !== null) {
-                <input
-                  type="checkbox"
-                  disabled
-                  [checked]="cell.checked"
-                  [attr.aria-label]="cell.checked ? 'Yes' : 'No'"
-                />
-              } @else {
-                {{ cell.text }}
+  @if (table.cards; as cards) {
+    <div class="cards-scroll">
+      <div
+        class="cards"
+        role="region"
+        [attr.aria-label]="name()"
+        [style.--card-size]="cards.cardSize + 'px'"
+      >
+        @for (row of rows(); track row.key) {
+          @if (row.group; as group) {
+            <h3 class="group">
+              {{ group.label }}: {{ group.value }} <span class="count">{{ group.count }}</span>
+            </h3>
+          } @else {
+            <article class="card">
+              @if (cards.image) {
+                @let cover = coverOf(row.cover);
+                <div
+                  class="cover"
+                  [style.aspect-ratio]="1 / cards.imageAspectRatio"
+                  [style.background-color]="cover.color"
+                >
+                  @if (cover.image; as image) {
+                    <img
+                      alt=""
+                      loading="lazy"
+                      [src]="image"
+                      [style.object-fit]="cards.imageFit"
+                      (error)="coverFailed(image)"
+                    />
+                  } @else if (!cover.color) {
+                    <span class="placeholder">No image</span>
+                  }
+                </div>
               }
-            </td>
+              <button type="button" class="card-title" [title]="row.path" (click)="open(row.path)">
+                {{ row.title }}
+              </button>
+              @if (row.properties.length) {
+                <dl>
+                  @for (property of row.properties; track $index) {
+                    <div>
+                      <dt>{{ property.label }}</dt>
+                      <dd>
+                        <ng-container
+                          *ngTemplateOutlet="value; context: { $implicit: property.cell }"
+                        />
+                      </dd>
+                    </div>
+                  }
+                </dl>
+              }
+            </article>
           }
+        } @empty {
+          <p class="message">No notes</p>
         }
-      </ng-template>
-    </hx-data-table>
-  </div>
+      </div>
+    </div>
+  } @else {
+    <div class="table">
+      <hx-data-table
+        [value]="rows()"
+        [columns]="columns()"
+        dataKey="key"
+        [lazy]="true"
+        [lazyLoadOnInit]="false"
+        [sortField]="sortField()"
+        [sortOrder]="sortOrder()"
+        (lazyLoad)="sortBy($event)"
+        [ariaLabel]="name()"
+        emptyMessage="No notes"
+      >
+        <ng-template hxTableBody let-row>
+          @if (row.group; as group) {
+            <th class="group" scope="rowgroup" [attr.colspan]="columns().length">
+              {{ group.label }}: {{ group.value }} <span class="count">{{ group.count }}</span>
+            </th>
+          } @else {
+            @for (cell of row.cells; track $index) {
+              <td>
+                <ng-container *ngTemplateOutlet="value; context: { $implicit: cell }" />
+              </td>
+            }
+          }
+        </ng-template>
+      </hx-data-table>
+    </div>
+  }
 } @else {
   <p class="message" role="status">Loading…</p>
 }
+
+<!-- A value of a note, in a cell of the table or in a card. -->
+<ng-template #value let-cell>
+  @if (cell.note; as note) {
+    <button type="button" class="note-link" [title]="note" (click)="open(note)">
+      {{ cell.text }}
+    </button>
+  } @else if (cell.url; as url) {
+    <button type="button" class="note-link" [title]="url" (click)="openExternal(url)">
+      {{ cell.text }}
+    </button>
+  } @else if (cell.failed) {
+    <span class="error">Error: {{ cell.text }}</span>
+  } @else if (cell.checked !== null) {
+    <input
+      type="checkbox"
+      disabled
+      [checked]="cell.checked"
+      [attr.aria-label]="cell.checked ? 'Yes' : 'No'"
+    />
+  } @else {
+    {{ cell.text }}
+  }
+</ng-template>

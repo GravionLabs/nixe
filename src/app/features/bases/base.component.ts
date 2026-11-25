@@ -1,9 +1,18 @@
+import { NgTemplateOutlet } from "@angular/common";
 import { Component, computed, effect, inject, signal, untracked } from "@angular/core";
 import type { HxColumn, HxLazyLoadEvent } from "@gravionlabs/helix-ui";
 import { HxDataTable, HxSelectButton, HxTableBody } from "@gravionlabs/helix-ui";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-import type { BaseCell, BaseGroup, BaseLink, BaseResult, BaseView } from "../../core/file/backend";
+import type {
+  BaseCell,
+  BaseCover,
+  BaseGroup,
+  BaseLink,
+  BaseResult,
+  BaseView,
+} from "../../core/file/backend";
 import { backend } from "../../core/file/backend";
 import { IndexService } from "../../core/index/index.service";
 import { basename, isMarkdownPath, joinPath } from "../../core/markdown/paths";
@@ -28,18 +37,31 @@ interface ViewCell {
   failed: boolean;
 }
 
-/** A row of the table: a note, or the heading of a group. */
+/** What the cover box of a card shows; both are null for the placeholder. */
+interface ViewCover {
+  image: string | null;
+  color: string | null;
+}
+
+/** A row of the table or a card: a note, or the heading of a group. */
 interface ViewRow {
   key: string;
   /** Set for the heading of a group. */
   group: { label: string; value: string; count: number } | null;
   cells: ViewCell[];
+  /** The note of the row, relative to the vault; empty for a heading. */
+  path: string;
+  /** The name of the note, the title of its card. */
+  title: string;
+  /** The values a card lists: every column but the name of the note, which is its title. */
+  properties: { label: string; cell: ViewCell }[];
+  cover: BaseCover | null;
 }
 
-/** The table tab of a `.base` file: the core reads the file's view from the index. */
+/** The tab of a `.base` file: the core reads the file's view from the index. */
 @Component({
   selector: "app-base",
-  imports: [HxDataTable, HxSelectButton, HxTableBody],
+  imports: [HxDataTable, HxSelectButton, HxTableBody, NgTemplateOutlet],
   templateUrl: "./base.component.html",
   styleUrl: "./base.component.css",
 })
@@ -79,16 +101,28 @@ export class BaseComponent {
   protected readonly sortOrder = computed(() =>
     this.tab.baseChoice().sort?.direction === "DESC" ? -1 : 1,
   );
+  /** The addresses of the cover images that could not be loaded in the shown result. */
+  private readonly failed = signal<ReadonlySet<string>>(new Set());
   protected readonly rows = computed<ViewRow[]>(() => {
     const result = this.result();
     if (!result) return [];
-    const rows: ViewRow[] = result.rows.map((row) => ({
-      key: `note ${row.path}`,
-      group: null,
-      cells: row.cells.map((cell, i) =>
+    const rows: ViewRow[] = result.rows.map((row) => {
+      const cells = row.cells.map((cell, i) =>
         viewCell(cell, result.columns[i]?.id === FILE_NAME ? row.path : null),
-      ),
-    }));
+      );
+      return {
+        key: `note ${row.path}`,
+        group: null,
+        cells,
+        path: row.path,
+        title: basename(row.path).replace(/\.[^.]*$/, ""),
+        properties: result.columns.flatMap((column, i) => {
+          const cell = cells[i];
+          return cell && column.id !== FILE_NAME ? [{ label: column.label, cell }] : [];
+        }),
+        cover: row.cover,
+      };
+    });
     const grouping = result.grouping;
     if (!grouping) return rows;
     let start = 0;
@@ -165,6 +199,8 @@ export class BaseComponent {
       this.active.set(index);
       const result = await backend.baseQuery(source, index, sort);
       if (request !== this.request) return;
+      // An image that was missing may be there now.
+      this.failed.set(new Set());
       this.result.set(result);
       this.error.set(null);
     } catch (err) {
@@ -173,6 +209,21 @@ export class BaseComponent {
       this.result.set(null);
       this.error.set(String(err));
     }
+  }
+
+  /** The cover of a card; an image of the vault loads like one in a note. */
+  protected coverOf(cover: BaseCover | null): ViewCover {
+    const root = this.workspace.vaultRoot();
+    if (cover?.type === "color") return { image: null, color: cover.value };
+    let image: string | null = null;
+    if (cover?.type === "url") image = cover.value;
+    else if (cover && root) image = convertFileSrc(joinPath(root, cover.value));
+    return { image: image && !this.failed().has(image) ? image : null, color: null };
+  }
+
+  /** A cover image that cannot be loaded leaves the placeholder. */
+  protected coverFailed(image: string): void {
+    this.failed.update((failed) => new Set(failed).add(image));
   }
 
   /** Shows another view in this tab, with its own sort. */
@@ -242,6 +293,10 @@ function groupRow(label: string, group: BaseGroup, index: number): ViewRow {
     key: `group ${index}`,
     group: { label, value: cellText(group.value) || "No value", count: group.rows },
     cells: [],
+    path: "",
+    title: "",
+    properties: [],
+    cover: null,
   };
 }
 

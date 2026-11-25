@@ -506,8 +506,11 @@ fn the_first_table_view_or_the_named_one_is_shown() {
         query_now(&conn, source, Some("B")).unwrap().view.as_deref(),
         Some("B")
     );
-    let cards = query_now(&conn, source, Some("C")).unwrap_err();
-    assert!(cards.contains("\"cards\" are not supported"), "{cards}");
+    let cards = query_now(&conn, source, Some("C")).unwrap();
+    assert!(cards.cards.is_some());
+    let list = "views:\n  - { type: list, name: L }\n";
+    let list = query_now(&conn, list, Some("L")).unwrap_err();
+    assert!(list.contains("\"list\" are not supported"), "{list}");
     let missing = query_now(&conn, source, Some("D")).unwrap_err();
     assert_eq!(missing, "The base no longer has this view.");
 }
@@ -1682,4 +1685,208 @@ fn a_clicked_sort_takes_no_room_from_the_keys_of_the_view() {
     let unsorted = source.replace("    sort: [{ property: formula.big }]\n", "");
     let result = query(&conn, &unsorted, None, Some(&clicked), 0).unwrap();
     assert_eq!(result.rows.len(), 120);
+}
+
+/// A scanned vault whose notes name their cover in the property `cover`.
+fn covers(notes: &[(&str, &str)]) -> (TestDir, Connection) {
+    let dir = TestDir::new("nixe-bases-cards-");
+    let vault = dir.join("vault");
+    fs::create_dir_all(vault.join("notes/img")).unwrap();
+    fs::create_dir_all(vault.join("art")).unwrap();
+    for image in ["notes/img/near.png", "art/Far Away.JPG", "root.svg"] {
+        fs::write(vault.join(image), "image").unwrap();
+    }
+    for (name, cover) in notes {
+        let text = format!("---\ncover: {cover}\n---\n");
+        fs::write(vault.join(format!("notes/{name}.md")), text).unwrap();
+    }
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    (dir, conn)
+}
+
+#[test]
+fn covers_are_vault_images_web_addresses_or_colors() {
+    let path = |p: &str| Some(BaseCover::Path(p.into()));
+    let url = |u: &str| Some(BaseCover::Url(u.into()));
+    let cases = [
+        // Seen from the note, as in a Markdown image.
+        ("a", "img/near.png", path("notes/img/near.png")),
+        ("b", "../root.svg", path("root.svg")),
+        ("c", "/root.svg", path("root.svg")),
+        // From the vault root, by name, percent-encoded.
+        ("d", "art/Far Away.JPG", path("art/Far Away.JPG")),
+        ("e", "far away.jpg", path("art/Far Away.JPG")),
+        ("f", "art/Far%20Away.JPG", path("art/Far Away.JPG")),
+        ("w", "img/near.png?v=2", path("notes/img/near.png")),
+        ("x", "\"/root.svg#top\"", path("root.svg")),
+        // Wikilinks and embeds, also with a size.
+        ("g", "\"[[near.png]]\"", path("notes/img/near.png")),
+        ("h", "\"![[Far Away.JPG|300]]\"", path("art/Far Away.JPG")),
+        ("i", "\"[[img/near.png]]\"", path("notes/img/near.png")),
+        (
+            "j",
+            "https://example.com/a.png",
+            url("https://example.com/a.png"),
+        ),
+        ("k", "HTTP://example.com/b", url("HTTP://example.com/b")),
+        ("l", "\"#ff8800\"", Some(BaseCover::Color("#ff8800".into()))),
+        // Nothing to show.
+        ("m", "\"[[missing.png]]\"", None),
+        ("n", "gone.png", None),
+        ("o", "\"../../root.svg\"", None),
+        ("p", "\"[[a]]\"", None),
+        ("q", "\"javascript:alert(1)\"", None),
+        ("r", "\"data:image/png;base64,AA==\"", None),
+        ("s", "\"#not-a-color\"", None),
+        ("t", "\"\"", None),
+        ("u", "42", None),
+        ("v", "[img/near.png]", None),
+    ];
+    let mut cases = cases;
+    // The rows come sorted by path.
+    cases.sort_by_key(|case| case.0);
+    let notes: Vec<(&str, &str)> = cases.iter().map(|(n, c, _)| (*n, *c)).collect();
+    let (_dir, conn) = covers(&notes);
+
+    let source = "views:\n  - type: cards\n    image: note.cover\n";
+    let result = query_now(&conn, source, None).unwrap();
+
+    assert_eq!(result.rows.len(), cases.len());
+    for (row, (name, cover, wanted)) in result.rows.iter().zip(cases) {
+        assert_eq!(row.path, format!("notes/{name}.md"));
+        assert_eq!(row.cover, wanted, "{cover}");
+    }
+}
+
+#[test]
+fn a_cover_can_come_from_a_formula_with_a_link() {
+    let (_dir, conn) = covers(&[("a", "root")]);
+    let base = |formula: &str| {
+        format!("formulas:\n  c: '{formula}'\nviews:\n  - type: cards\n    image: formula.c\n")
+    };
+    let cover = |formula: &str| {
+        let result = query_now(&conn, &base(formula), None).unwrap();
+        result.rows[0].cover.clone()
+    };
+    let root = Some(BaseCover::Path("root.svg".into()));
+    assert_eq!(cover("cover + \".svg\""), root);
+    assert_eq!(cover("link(\"root.svg\")"), root);
+    assert_eq!(
+        cover("link(\"https://example.com/c.png\")"),
+        Some(BaseCover::Url("https://example.com/c.png".into()))
+    );
+    assert_eq!(cover("link(\"mailto:a@example.com\")"), None);
+    assert_eq!(cover("link(\"a\")"), None);
+    // A formula that fails leaves the card without a cover.
+    assert_eq!(cover("cover.abs()"), None);
+}
+
+#[test]
+fn a_cards_view_gives_its_settings() {
+    let (_dir, conn) = covers(&[("a", "img/near.png")]);
+    let settings = |keys: &str| {
+        let source = format!("views:\n  - type: cards\n{keys}");
+        query_now(&conn, &source, None)
+    };
+    let defaults = settings("").unwrap();
+    assert_eq!(
+        serde_json::to_value(&defaults.cards).unwrap(),
+        json!({ "image": false, "imageFit": "cover", "imageAspectRatio": 1.0, "cardSize": 200.0 })
+    );
+    assert_eq!(defaults.rows[0].cover, None);
+    assert_eq!(ids(&defaults), ["file.name"]);
+
+    let all = settings(
+        "    image: cover\n    imageFit: contain\n    imageAspectRatio: 0.45\n    cardSize: 230\n    order: [file.name, cover]\n",
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(&all.cards).unwrap(),
+        json!({ "image": true, "imageFit": "contain", "imageAspectRatio": 0.45, "cardSize": 230.0 })
+    );
+    assert_eq!(ids(&all), ["file.name", "cover"]);
+    assert_eq!(
+        serde_json::to_value(&all.rows[0].cover).unwrap(),
+        json!({ "type": "path", "value": "notes/img/near.png" })
+    );
+
+    // Obsidian writes an empty `imageFit` for its default; sizes are kept in a range.
+    let wide =
+        settings("    image: ''\n    imageFit: ''\n    imageAspectRatio: 100\n    cardSize: 1\n")
+            .unwrap()
+            .cards
+            .unwrap();
+    assert!(!wide.image);
+    assert_eq!((wide.image_aspect_ratio, wide.card_size), (10.0, 50.0));
+}
+
+#[test]
+fn wrong_card_settings_are_errors_and_an_unknown_image_property_is_named() {
+    let (_dir, conn) = covers(&[("a", "img/near.png")]);
+    let query = |key: &str| {
+        let source = format!("views:\n  - type: cards\n    {key}\n");
+        query_now(&conn, &source, None)
+    };
+    for (key, wanted) in [
+        ("image: [cover]", "`image` of the view must be"),
+        ("imageFit: fill", "`imageFit` of the view must be"),
+        ("imageFit: 1", "`imageFit` of the view must be"),
+        (
+            "imageAspectRatio: tall",
+            "`imageAspectRatio` of the view must be",
+        ),
+        (
+            "imageAspectRatio: 0",
+            "`imageAspectRatio` of the view must be",
+        ),
+        ("cardSize: -5", "`cardSize` of the view must be"),
+    ] {
+        let error = query(key).unwrap_err();
+        assert!(error.contains(wanted), "{key}: {error}");
+    }
+    let unknown = query("image: file.file").unwrap();
+    assert_eq!(unknown.unsupported, ["image file.file"]);
+    assert!(!unknown.cards.unwrap().image);
+}
+
+#[test]
+fn a_table_ignores_the_card_keys_and_a_cards_view_is_filtered_and_grouped() {
+    let (_dir, conn) = covers(&[("a", "img/near.png"), ("b", "gone.png")]);
+    let source = r#"
+views:
+  - type: table
+    image: note.cover
+    imageFit: nonsense
+  - type: cards
+    image: note.cover
+    filters: file.name == "b.md"
+    groupBy: { property: note.cover }
+"#;
+    let table = query_now(&conn, source, None).unwrap();
+    assert!(table.cards.is_none());
+    assert!(table.rows.iter().all(|r| r.cover.is_none()));
+
+    let cards = query(&conn, source, Some(1), None, 0).unwrap();
+    assert_eq!(cards.rows.len(), 1);
+    assert_eq!(cards.rows[0].path, "notes/b.md");
+    assert_eq!(cards.grouping.unwrap().groups[0].rows, 1);
+}
+
+#[test]
+fn the_cards_view_of_the_fixture_base_shows_an_image_of_the_vault() {
+    let dir = TestDir::new("nixe-bases-fixture-cards-");
+    let vault = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/vault");
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    let source = fs::read_to_string(vault.join("Notes.base")).unwrap();
+
+    let result = query_now(&conn, &source, Some("Gallery")).unwrap();
+
+    assert!(result.unsupported.is_empty());
+    assert_eq!(result.cards.unwrap().card_size, 220.0);
+    assert_eq!(
+        result.rows[0].cover,
+        Some(BaseCover::Path("assets/image.svg".into()))
+    );
 }

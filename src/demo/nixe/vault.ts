@@ -223,6 +223,7 @@ export class DemoVault {
         const values = (frontmatter ? parse(frontmatter[1]!) : null) ?? {};
         return {
           path,
+          cover: null,
           cells: ids.map((id): BaseCell =>
             id === "file.name"
               ? { type: "text", value: stem(path) }
@@ -231,6 +232,7 @@ export class DemoVault {
         };
       }),
       grouping: null,
+      cards: null,
       unsupported: (["filters", "formulas"] as const).filter((k) => base[k] !== undefined),
     };
     const column = sort ? ids.indexOf(sort.property) : -1;
