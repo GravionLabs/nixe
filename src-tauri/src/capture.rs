@@ -202,7 +202,7 @@ pub fn extract_title(html: &str) -> Option<String> {
     (!title.is_empty()).then_some(title)
 }
 
-fn decode_entities(text: &str) -> String {
+pub(crate) fn decode_entities(text: &str) -> String {
     let mut out = String::new();
     let mut rest = text;
     while let Some(amp) = rest.find('&') {

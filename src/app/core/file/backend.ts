@@ -126,6 +126,18 @@ export interface HealthReport {
   unusedAttachments: string[];
 }
 
+/** A `type: link` note whose address is dead (see `docs/links.md`). */
+export interface DeadLink {
+  source: string;
+  url: string;
+  /** `404`, `410`, `dns` or `timeout`. */
+  reason: string;
+  /** The closest Wayback Machine snapshot, when there is one. */
+  snapshot: string | null;
+  /** RFC 3339 time of the check. */
+  checked: string;
+}
+
 export interface NoteSummary {
   /** Vault-relative path. */
   path: string;
@@ -550,6 +562,11 @@ export const backend = {
   /** False when reading the file would replace invalid UTF-8 bytes (editing would lose them). */
   /** Writes the captured text to the daily note or the inbox (#118); returns the note. */
   captureSave: (text: string) => invoke<string>("capture_save", { text }),
+  /** Saves a URL as a link note (#507); `created` is false for a duplicate, `warning` names a failed fetch. */
+  captureSaveLink: (url: string) =>
+    invoke<{ path: string; created: boolean; warning: string | null }>("capture_save_link", {
+      url,
+    }),
   /** Note names of the vault for the `[[` completion of the capture window. */
   captureNoteNames: () => invoke<string[]>("capture_note_names"),
   /** The title of the page at a URL; null when it cannot be fetched within two seconds. */
@@ -663,6 +680,9 @@ export const backend = {
   workspaceNotes: (roots: RootArg[]) => invoke<WorkspaceNote[]>("workspace_notes", { roots }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
+  /** Requests the address of every link note (network); `force` ignores results of the last 7 days. */
+  checkDeadLinks: (root: string, exclude: string[], force: boolean) =>
+    invoke<DeadLink[]>("check_dead_links", { root, exclude, force }),
   /** Git state of the vault; null when the vault is not a Git repository. */
   gitVaultStatus: () => invoke<GitStatus | null>("git_vault_status"),
   /** The standard `.gitignore` entries the vault lacks (empty once dismissed); null without Git. */
@@ -783,6 +803,8 @@ export const backend = {
   /** Stops the running clone. */
   gitCloneCancel: () => invoke<void>("git_clone_cancel"),
   watchFile: (path: string) => invoke<void>("watch_file", { path }),
+  /** Watches the further roots of the workspace; `ROOTS_CHANGED_EVENT` follows a change. */
+  watchRoots: (paths: string[]) => invoke<void>("watch_roots", { paths }),
   /** Writes an exported file to the place the user (or `--out`) chose; any path, replaces a file. */
   writeExportFile: (path: string, content: string) =>
     invoke<void>("write_export_file", { path, content }),
@@ -822,6 +844,8 @@ export const STDIN_FILE_SUFFIX = "/nixe-stdin/stdin.md";
 /** Emitted with an `IndexStatus` while the vault index is built. */
 export const INDEX_EVENT = "index-status";
 export const FILE_CHANGED_EVENT = "file-changed";
+/** A file or folder appeared, went or moved in a further root of the workspace. */
+export const ROOTS_CHANGED_EVENT = "roots-changed";
 /** Emitted with a `VaultChange[]` after the index applied a batch of vault file changes. */
 export const VAULT_CHANGED_EVENT = "vault-changed";
 export type VaultChangeKind = "create" | "modify" | "remove" | "rename";

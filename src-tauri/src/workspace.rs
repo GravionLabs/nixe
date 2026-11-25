@@ -17,7 +17,7 @@ use crate::vault::resolve::Resolver;
 use crate::vault::{self, find_vault_root};
 
 /// Folder of the saved workspaces inside the app data directory.
-const DIR: &str = "workspaces";
+pub(crate) const DIR: &str = "workspaces";
 /// Upper bound for a workspace file.
 const MAX_BYTES: u64 = 1024 * 1024;
 
@@ -980,6 +980,21 @@ mod tests {
         write(&a, "Re: plan.md", "x");
         let links = WorkspaceLinks::new(&ws);
         assert_eq!(links.resolve(&pa, "Re: plan"), at(&pa, "Re: plan.md"));
+    }
+
+    #[test]
+    fn a_root_prefix_reaches_a_book_of_another_root() {
+        let (_dir, a, b, ws) = two_roots("prefix-book");
+        write(&b, "Shelf/Novel.epub", "x");
+        let links = WorkspaceLinks::new(&ws);
+        let (pa, pb) = (slashes(&a), slashes(&b));
+        let hit = Some(ResolvedLink {
+            root: pb.clone(),
+            path: "Shelf/Novel.epub".to_string(),
+        });
+        assert_eq!(links.resolve(&pa, "beta:Novel.epub"), hit);
+        assert_eq!(links.resolve(&pa, "beta:Shelf/Novel.epub"), hit);
+        assert_eq!(links.resolve(&pb, "Novel.epub"), hit);
     }
 
     #[test]

@@ -25,6 +25,7 @@ vault and what does not, and gives the `.gitignore` block that keeps the rest ou
 | `.nixe/local/` | state of one machine |
 | `.*.nixe-tmp` | temp file of an atomic save |
 | `.trash/` | deleted notes of this machine |
+| `Links/.archive/` | HTML copies of saved web pages; added when the first one is written (`links.archive`, [links.md](links.md)) |
 | `.DS_Store` | macOS folder metadata |
 | `.stfolder/` | marker folder of Syncthing |
 | `.stversions/` | file versions of Syncthing |

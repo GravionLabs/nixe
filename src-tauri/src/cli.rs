@@ -21,8 +21,11 @@ const SUBCOMMANDS: &[&str] = &[
     "check",
     "new",
     "append",
+    "clip",
+    "import-links",
     "daily",
     "mcp",
+    "native-host",
 ];
 
 /// Matches `identifier` of `tauri.conf.json`: the app data directory holds the index.
@@ -36,13 +39,16 @@ usage: nixe <path>|-                       open the viewer
        nixe tags [--vault <dir>] [--json]
        nixe notes [--tag <tag>]... [--path <prefix>] [--vault <dir>] [--json]
        nixe props <note> [--vault <dir>] [--json]
-       nixe check [--exclude <dir>]... [--vault <dir>] [--json]   exit 1 on broken links
+       nixe check [--exclude <dir>]... [--links [--force]] [--vault <dir>] [--json]   exit 1 on broken or dead links
        nixe new <title> [--folder <dir>] [--open] [--vault <dir>]
+       nixe clip <url> [--tag <t>]... [--folder <dir>] [--title <t>] [--html <file>|-] [--json] [--open] [--vault <dir>]
+       nixe import-links <file> [--folder <dir>] [--fetch] [--json] [--vault <dir>]   bookmarks (Netscape HTML), Pocket, Raindrop CSV or Linkwarden JSON
        nixe append <note> [text] [--vault <dir>]   text from stdin when omitted
        nixe append --inbox [text] [--vault <dir>]
        nixe daily [--append <text>] [--vault <dir>]   open today's daily note, or append to it
        nixe export <note> --format html|pdf [--out <file>] [--dark|--light] [--page-size A4] [--vault <dir>]
        nixe export <folder> --site <out> [--exclude <dir>]... [--vault <dir>]   a folder as a static website
+       nixe native-host                           Native Messaging host of the browser extension (started by the browser)
        nixe mcp [--vault <dir>]...                MCP server over stdio (read-only)
 
 search, notes and tags also take several --vault <dir> or --workspace <name> (a saved
@@ -65,6 +71,16 @@ pub fn try_run() -> Option<i32> {
         eprintln!("nixe: cannot locate the application data directory");
         return Some(1);
     };
+    if args[0] == "native-host" {
+        // The browser may add arguments (the origin of the extension); stdout is for frames only.
+        return Some(match crate::native_host::run(&data) {
+            Ok(()) => 0,
+            Err(CliError::Usage(msg) | CliError::Failed(msg)) => {
+                eprintln!("nixe: {msg}");
+                1
+            }
+        });
+    }
     if args[0] == "mcp" {
         return Some(match crate::mcp::run(&args[1..], &cwd, &data) {
             Ok(()) => 0,
@@ -231,8 +247,13 @@ pub(crate) struct Parsed {
     json: bool,
     tags: Vec<String>,
     exclude: Vec<String>,
+    links: bool,
+    force: bool,
+    fetch: bool,
     path: String,
     folder: Option<String>,
+    title: Option<String>,
+    html: Option<String>,
     open: bool,
     inbox: bool,
     append: Option<String>,
@@ -261,6 +282,9 @@ pub(crate) fn parse(args: &[String]) -> Result<Parsed, CliError> {
         match flag {
             "--json" => p.json = true,
             "--open" => p.open = true,
+            "--links" => p.links = true,
+            "--force" => p.force = true,
+            "--fetch" => p.fetch = true,
             "--inbox" => p.inbox = true,
             "--dark" => p.dark = Some(true),
             "--light" => p.dark = Some(false),
@@ -269,6 +293,8 @@ pub(crate) fn parse(args: &[String]) -> Result<Parsed, CliError> {
             "--out" => p.out = Some(value(flag, inline, &mut it)?),
             "--page-size" => p.page_size = Some(value(flag, inline, &mut it)?),
             "--append" => p.append = Some(value(flag, inline, &mut it)?),
+            "--title" => p.title = Some(value(flag, inline, &mut it)?),
+            "--html" => p.html = Some(value(flag, inline, &mut it)?),
             "--folder" => p.folder = Some(value(flag, inline, &mut it)?),
             "--vault" => p.vaults.push(value(flag, inline, &mut it)?),
             "--workspace" => p.workspace = Some(value(flag, inline, &mut it)?),
@@ -345,6 +371,154 @@ pub(crate) fn select_roots(
     Ok(crate::workspace::name_roots(&paths))
 }
 
+/// `nixe clip <url>`: saves the page as a link note; prints its path (or `{path, created}`).
+#[cfg(desktop)]
+fn clip(
+    p: &Parsed,
+    root: &Path,
+    app_data: &Path,
+    cwd: &Path,
+    input: &mut dyn std::io::Read,
+    out: &mut dyn Write,
+) -> Result<(), CliError> {
+    use crate::links::{self, fetch};
+    let [url] = p.positional.as_slice() else {
+        return Err(CliError::Usage("`clip` takes exactly one URL".into()));
+    };
+    let html = match p.html.as_deref() {
+        None => None,
+        Some(source) => {
+            let mut bytes = Vec::new();
+            if source == "-" {
+                input.read_to_end(&mut bytes)
+            } else {
+                std::fs::read(cwd.join(source)).map(|b| {
+                    bytes = b;
+                    bytes.len()
+                })
+            }
+            .map_err(|e| CliError::Failed(format!("{source}: {e}")))?;
+            Some(fetch::decode(&bytes, None))
+        }
+    };
+    let result = links::clip(
+        root,
+        app_data,
+        links::ClipRequest {
+            url: url.clone(),
+            html,
+            title: p.title.clone(),
+            tags: p.tags.clone(),
+            folder: p.folder.clone(),
+            ..links::ClipRequest::default()
+        },
+    )
+    .map_err(|e| CliError::Failed(e.to_string()))?;
+    for warning in &result.warnings {
+        eprintln!("nixe: warning: {warning}");
+    }
+    if p.json {
+        let json = serde_json::to_string(&result).map_err(|e| CliError::Failed(e.to_string()))?;
+        writeln!(out, "{json}")
+    } else if result.created {
+        writeln!(out, "{}", result.path.display())
+    } else {
+        writeln!(out, "exists: {}", result.path.display())
+    }
+    .map_err(|e| CliError::Failed(e.to_string()))?;
+    if p.open {
+        crate::cli_write::open_in_viewer(&result.path)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(desktop))]
+fn clip(
+    _: &Parsed,
+    _: &Path,
+    _: &Path,
+    _: &Path,
+    _: &mut dyn std::io::Read,
+    _: &mut dyn Write,
+) -> Result<(), CliError> {
+    Err(CliError::Failed(
+        "`clip` is not available on this platform".into(),
+    ))
+}
+
+/// `nixe import-links <file>`: a bookmark or Pocket export becomes link notes. Prints the
+/// counts (or them as JSON); a page that failed makes the exit code 1.
+#[cfg(desktop)]
+fn import_links(
+    p: &Parsed,
+    root: &Path,
+    app_data: &Path,
+    cwd: &Path,
+    out: &mut dyn Write,
+) -> Result<(), CliError> {
+    use crate::links::{fetch, import};
+    let [file] = p.positional.as_slice() else {
+        return Err(CliError::Usage(
+            "`import-links` takes exactly one file".into(),
+        ));
+    };
+    let bytes =
+        std::fs::read(cwd.join(file)).map_err(|e| CliError::Failed(format!("{file}: {e}")))?;
+    let entries = import::parse(&fetch::decode(&bytes, None))
+        .map_err(|e| CliError::Failed(format!("{file}: {e}")))?;
+    let summary = import::import(
+        root,
+        app_data,
+        &entries,
+        p.folder.as_deref(),
+        p.fetch,
+        &chrono::Local::now().fixed_offset(),
+        &fetch::fetch,
+    );
+    for line in summary.warnings.iter().chain(&summary.failed) {
+        eprintln!("nixe: warning: {line}");
+    }
+    if p.json {
+        let json = serde_json::json!({
+            "created": summary.created,
+            "skipped": summary.skipped,
+            "failed": summary.failed,
+        });
+        writeln!(out, "{json}")
+    } else {
+        writeln!(
+            out,
+            "created {}, skipped {}, failed {}",
+            summary.created,
+            summary.skipped,
+            summary.failed.len()
+        )
+    }
+    .map_err(|e| CliError::Failed(e.to_string()))?;
+    if summary.failed.is_empty() {
+        Ok(())
+    } else {
+        Err(CliError::Failed(format!(
+            "{} of {} bookmarks could not be saved",
+            summary.failed.len(),
+            entries.len()
+        )))
+    }
+}
+
+#[cfg(not(desktop))]
+fn import_links(
+    _: &Parsed,
+    _: &Path,
+    _: &Path,
+    _: &Path,
+    _: &mut dyn Write,
+) -> Result<(), CliError> {
+    Err(CliError::Failed(
+        "`import-links` is not available on this platform".into(),
+    ))
+}
+
 /// The one vault of a command that cannot cover several.
 fn one_root(command: &str, p: &Parsed, cwd: &Path, app_data: &Path) -> Result<PathBuf, CliError> {
     let roots = select_roots(&p.vaults, p.workspace.as_deref(), cwd, app_data)?;
@@ -395,6 +569,14 @@ pub fn execute_with(
         };
         return crate::cli_write::run(command, &request, &root, app_data, input, out);
     }
+    if command == "clip" {
+        let root = one_root(command, &p, cwd, app_data)?;
+        return clip(&p, &root, app_data, cwd, input, out);
+    }
+    if command == "import-links" {
+        let root = one_root(command, &p, cwd, app_data)?;
+        return import_links(&p, &root, app_data, cwd, out);
+    }
     if command == "daily" {
         if !p.positional.is_empty() {
             return Err(CliError::Usage("`daily` takes no arguments".into()));
@@ -413,6 +595,9 @@ pub fn execute_with(
     if command == "check" {
         if !p.positional.is_empty() {
             return Err(CliError::Usage("`check` takes no arguments".into()));
+        }
+        if p.force && !p.links {
+            return Err(CliError::Usage("`--force` needs `--links`".into()));
         }
         return check(&p, cwd, app_data, out);
     }
@@ -568,19 +753,60 @@ fn check(p: &Parsed, cwd: &Path, app_data: &Path, out: &mut dyn Write) -> Result
     let mut conn = index::open(&index::index_path(app_data, &root))?;
     scan(&mut conn, &root, |_| {})?;
     let report = index::health::report(&conn, &p.exclude)?;
+    // Opt-in: the only part of `check` that uses the network.
+    let dead = if p.links {
+        let notes = index::health::link_notes(&conn, &p.exclude)?;
+        Some(
+            crate::links::dead::check(
+                &notes,
+                &crate::links::dead::cache_path(app_data, &root),
+                p.force,
+                &crate::links::dead::Settings::default(),
+                chrono::Local::now().fixed_offset(),
+            )
+            .map_err(CliError::Failed)?,
+        )
+    } else {
+        None
+    };
     let text = if p.json {
+        let mut value =
+            serde_json::to_value(&report).map_err(|e| CliError::Failed(e.to_string()))?;
+        if let (Some(dead), Some(map)) = (&dead, value.as_object_mut()) {
+            map.insert(
+                "deadLinks".into(),
+                serde_json::to_value(dead).map_err(|e| CliError::Failed(e.to_string()))?,
+            );
+        }
         let mut s =
-            serde_json::to_string_pretty(&report).map_err(|e| CliError::Failed(e.to_string()))?;
+            serde_json::to_string_pretty(&value).map_err(|e| CliError::Failed(e.to_string()))?;
         s.push('\n');
         s
     } else {
-        health_text(&report)
+        let mut s = health_text(&report);
+        if let Some(dead) = &dead {
+            s.push_str(&format!("Dead links ({})\n", dead.len()));
+            for d in dead {
+                s.push_str(&format!("  {}  {}  ({})", d.source, d.url, d.reason));
+                if let Some(snap) = &d.snapshot {
+                    s.push_str(&format!("  archive: {snap}"));
+                }
+                s.push('\n');
+            }
+        }
+        s
     };
     out.write_all(text.as_bytes())
         .map_err(|e| CliError::Failed(e.to_string()))?;
-    match report.broken_links.len() {
-        0 => Ok(()),
-        n => Err(CliError::Failed(format!("{n} broken link(s)"))),
+    let broken = report.broken_links.len();
+    let dead = dead.map_or(0, |d| d.len());
+    match (broken, dead) {
+        (0, 0) => Ok(()),
+        (b, 0) => Err(CliError::Failed(format!("{b} broken link(s)"))),
+        (0, d) => Err(CliError::Failed(format!("{d} dead link(s)"))),
+        (b, d) => Err(CliError::Failed(format!(
+            "{b} broken link(s), {d} dead link(s)"
+        ))),
     }
 }
 

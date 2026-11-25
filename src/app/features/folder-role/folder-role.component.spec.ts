@@ -52,6 +52,7 @@ describe("FolderRoleComponent", () => {
     );
     expect(options).toContain("inbox");
     expect(options).toContain("exams");
+    expect(options).toContain("links");
     type(el, "input[list]", "inbox");
     type(el, "input[placeholder^='What']", "loose notes");
     fixture.detectChanges();

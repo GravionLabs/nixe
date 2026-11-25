@@ -1,13 +1,16 @@
 //! `nixe mcp`: a read-only MCP server over stdio. Agents ask the vault index instead of
 //! scanning files. Tools: `search`, `backlinks`, `outgoing_links`, `tags`, `notes_by_property`,
-//! `read_note` and `resolve_link`. Nothing writes; paths in and out are vault-relative, and a
-//! path outside the vault is refused. Protocol handling is the SDK's (`rmcp`).
+//! `read_note` and `resolve_link`. Nothing writes, except `clip_link` (#508) that only exists
+//! with `--allow-clip` and only creates new notes in the links folder; paths in and out are
+//! vault-relative, and a path outside the vault is refused. Protocol handling is the SDK's
+//! (`rmcp`).
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::{schemars, tool, tool_router, ServiceExt};
+use rmcp::{schemars, tool, tool_handler, tool_router, ServiceExt};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -17,10 +20,12 @@ use crate::vault::resolve::resolve_link;
 use crate::workspace::WorkspaceRoot;
 
 /// Runs the server on stdin/stdout until the client closes it. `args` are those after `mcp`:
-/// `--vault <dir>` (several times), or `--workspace <name>` for a saved workspace.
+/// `--vault <dir>` (several times), or `--workspace <name>` for a saved workspace, and
+/// `--allow-clip` to offer the write tool `clip_link`.
 pub fn run(args: &[String], cwd: &Path, app_data: &Path) -> Result<(), CliError> {
     let mut vaults = Vec::new();
     let mut workspace = None;
+    let mut allow_clip = false;
     let mut it = args.iter();
     while let Some(arg) = it.next() {
         let (flag, inline) = match arg.split_once('=') {
@@ -28,6 +33,7 @@ pub fn run(args: &[String], cwd: &Path, app_data: &Path) -> Result<(), CliError>
             _ => (arg.as_str(), None),
         };
         match flag {
+            "--allow-clip" if inline.is_none() => allow_clip = true,
             "--vault" | "--workspace" => {
                 let value = inline
                     .or_else(|| it.next().cloned())
@@ -42,7 +48,7 @@ pub fn run(args: &[String], cwd: &Path, app_data: &Path) -> Result<(), CliError>
         }
     }
     let roots = select_roots(&vaults, workspace.as_deref(), cwd, app_data)?;
-    let server = open_roots(&roots, app_data)?;
+    let server = open_roots(&roots, app_data)?.allow_clip(allow_clip)?;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -80,7 +86,11 @@ pub fn open_roots(roots: &[WorkspaceRoot], app_data: &Path) -> Result<VaultServe
             conn: Mutex::new(conn),
         }));
     }
-    Ok(VaultServer { roots: list })
+    Ok(VaultServer {
+        roots: list,
+        app_data: app_data.to_path_buf(),
+        tool_router: VaultServer::read_router(),
+    })
 }
 
 struct McpRoot {
@@ -92,6 +102,8 @@ struct McpRoot {
 #[derive(Clone)]
 pub struct VaultServer {
     roots: Vec<Arc<McpRoot>>,
+    app_data: PathBuf,
+    tool_router: ToolRouter<VaultServer>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -146,6 +158,20 @@ struct NoteContent {
 }
 
 impl VaultServer {
+    /// Adds the write tool `clip_link` when `allow` is set (`--allow-clip`); without it the
+    /// server stays read-only and the tool does not exist.
+    pub fn allow_clip(mut self, allow: bool) -> Result<Self, CliError> {
+        if allow {
+            #[cfg(desktop)]
+            self.tool_router.merge(VaultServer::clip_router());
+            #[cfg(not(desktop))]
+            return Err(CliError::Usage(
+                "--allow-clip is not available on this platform".into(),
+            ));
+        }
+        Ok(self)
+    }
+
     /// The root a tool works on: the named one, else the only one.
     fn pick(&self, name: Option<&str>) -> Result<&Arc<McpRoot>, String> {
         match (name, self.roots.as_slice()) {
@@ -195,7 +221,7 @@ impl VaultServer {
 }
 
 /// Refuses absolute paths and `..`: a path argument names a place inside the vault.
-fn refuse_outside(name: &str) -> Result<(), String> {
+pub(crate) fn refuse_outside(name: &str) -> Result<(), String> {
     let path = Path::new(name);
     let escapes = path.is_absolute()
         || name.starts_with(['/', '\\'])
@@ -213,7 +239,7 @@ fn db<T>(r: rusqlite::Result<T>) -> Result<T, String> {
     r.map_err(|e| format!("index: {e}"))
 }
 
-#[tool_router(server_handler)]
+#[tool_router(router = read_router)]
 impl VaultServer {
     #[tool(
         description = "Full-text search of the vault. Returns notes with matching lines, best first.",
@@ -371,6 +397,104 @@ impl VaultServer {
     }
 }
 
+#[tool_handler(router = self.tool_router.clone())]
+impl rmcp::ServerHandler for VaultServer {}
+
+#[cfg(desktop)]
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct ClipArgs {
+    /// The page to save: an `http` or `https` address.
+    url: String,
+    /// Title of the note; default: the title of the page.
+    title: Option<String>,
+    /// Tags of the note.
+    tags: Option<Vec<String>>,
+    /// Vault-relative folder; only the links folder or a folder below it. Default: the links folder.
+    folder: Option<String>,
+    /// Name of the vault, when the server covers several.
+    vault: Option<String>,
+}
+
+#[cfg(desktop)]
+#[derive(Serialize)]
+struct Clipped {
+    path: String,
+    created: bool,
+}
+
+/// The `folder` of a clip, normalised, when it is the links folder or below it.
+#[cfg(desktop)]
+pub(crate) fn links_subfolder(folder: &str, links: &str) -> Result<String, String> {
+    refuse_outside(folder)?;
+    let clean = |s: &str| {
+        s.replace('\\', "/")
+            .split('/')
+            .filter(|p| !p.is_empty() && *p != ".")
+            .collect::<Vec<_>>()
+            .join("/")
+    };
+    let (rel, links) = (clean(folder), clean(links));
+    if rel == links || rel.starts_with(&format!("{links}/")) {
+        Ok(rel)
+    } else {
+        Err(format!("{folder}: outside the links folder ({links})"))
+    }
+}
+
+#[cfg(desktop)]
+#[tool_router(router = clip_router)]
+impl VaultServer {
+    #[tool(
+        description = "Saves a web page as a link note in the links folder and returns {path, created}. A URL that a link note holds already returns that note (created: false); an existing note is never changed.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true
+        )
+    )]
+    fn clip_link(&self, Parameters(a): Parameters<ClipArgs>) -> Result<String, String> {
+        use crate::links::{self, ClipRequest, DEFAULT_FOLDER};
+        let root = self.pick(a.vault.as_deref())?;
+        let canonical = dunce::canonicalize(&root.path).map_err(|e| e.to_string())?;
+        let links_folder = crate::vault::config::Config::load(&canonical)
+            .links_folder()
+            .unwrap_or_else(|| DEFAULT_FOLDER.to_string());
+        let folder = match a.folder.as_deref() {
+            Some(f) => Some(links_subfolder(f, &links_folder)?),
+            None => None,
+        };
+        let result = links::clip(
+            &canonical,
+            &self.app_data,
+            ClipRequest {
+                url: a.url,
+                html: None,
+                title: a.title,
+                tags: a.tags.unwrap_or_default(),
+                folder,
+                ..ClipRequest::default()
+            },
+        )
+        .map_err(|e| e.to_string())?;
+        let path = result
+            .path
+            .strip_prefix(&canonical)
+            .map_err(|_| "the note is outside the vault".to_string())?
+            .to_string_lossy()
+            .replace('\\', "/");
+        // The next search sees the note.
+        {
+            let mut conn = root.conn.lock().map_err(|_| "index is unavailable")?;
+            scan(&mut conn, &root.path, |_| {}).map_err(|e| format!("index: {e}"))?;
+        }
+        serde_json::to_string_pretty(&Clipped {
+            path,
+            created: result.created,
+        })
+        .map_err(|e| e.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,6 +513,25 @@ mod tests {
         }
         for good in ["Note", "folder/Deep.md", "./Note.md", "a..b.md"] {
             assert!(refuse_outside(good).is_ok(), "{good}");
+        }
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn a_clip_folder_stays_in_the_links_folder() {
+        assert_eq!(links_subfolder("Links", "Links").unwrap(), "Links");
+        assert_eq!(links_subfolder("./Links/a/", "Links").unwrap(), "Links/a");
+        assert_eq!(links_subfolder("Links\\a", "Links").unwrap(), "Links/a");
+        for bad in [
+            "Notes",
+            "Links2",
+            "Link",
+            "",
+            "Links/../Notes",
+            "/Links",
+            ".",
+        ] {
+            assert!(links_subfolder(bad, "Links").is_err(), "{bad}");
         }
     }
 }

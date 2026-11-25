@@ -87,6 +87,7 @@ export function createNixeDemo(): NixeDemo {
     is_utf8_file: true,
     conflict_pair: null,
     watch_file: null,
+    watch_roots: null,
     read_data_uri: null,
     read_bundled_data_uri: null,
     index_start: null,
@@ -142,7 +143,7 @@ export function createNixeDemo(): NixeDemo {
       const roots = [vault.root, ...strings(a, "roots")];
       if (!path.toLowerCase().endsWith(".epub")) throw `not an EPUB file: ${path}`;
       if (!roots.some((r) => path === r || path.startsWith(`${r.replace(/\/$/, "")}/`))) {
-        throw `outside the open roots and the vault: ${path}`;
+        throw `outside the open roots and the vault: ${path}. Use "Add folder to workspace…" to add its folder.`;
       }
       return [...DEMO_BOOK];
     },
@@ -170,9 +171,15 @@ export function createNixeDemo(): NixeDemo {
       vault.write(path, `${before}\n${str(a, "text")}\n`);
       return path;
     },
+    capture_save_link: (a) => ({
+      path: `${VAULT}/Links/${str(a, "url")}.md`,
+      created: true,
+      warning: null,
+    }),
     capture_hide: () => null,
     capture_apply: () => null,
     capture_link_title: () => null,
+    check_dead_links: () => [],
     vault_health: () => ({ brokenLinks: [], orphans: [], duplicates: [], unusedAttachments: [] }),
 
     // Git: a seeded history (`git.ts`), the open changes and a branch to review.

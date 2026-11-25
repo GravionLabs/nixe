@@ -1,6 +1,6 @@
 name: CI
 
-# Checks of the frontend (src/) and the Tauri crate (src-tauri/) for pull requests and for pushes to a release branch.
+# Checks of the frontend (src/), the browser extension (extension/) and the Tauri crate (src-tauri/) for pull requests and for pushes to a release branch.
 # The `ci` job always runs last and is the single check to require on a branch.
 # The installers are built by release.yml (push to main and pull requests into main).
 on:
@@ -34,6 +34,7 @@ jobs:
       - run: pnpm test
       - run: pnpm check:temp-dirs
       - run: pnpm build
+      - run: pnpm --filter nixe-extension build
 
   # Advisory (#401): not in `needs` of the `ci` job, so a red run does not block a merge.
   e2e:

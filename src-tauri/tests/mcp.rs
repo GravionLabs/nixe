@@ -262,3 +262,132 @@ async fn several_vaults_are_searched_together() {
         .unwrap_err();
     assert!(err.contains("no such root"), "{err}");
 }
+
+/// A temp vault and a server over it, with `extra` arguments after `mcp --vault`; bind the
+/// folder first so the client drops first.
+async fn start_clip(name: &str, extra: &[&str]) -> (TestDir, Client, PathBuf) {
+    let base = TestDir::new(&format!("nixe-mcp-{name}-"));
+    let (vault, data) = (base.join("vault"), base.join("data"));
+    std::fs::create_dir_all(&vault).unwrap();
+    std::fs::create_dir_all(&data).unwrap();
+    std::fs::write(vault.join("Plain.md"), "plain").unwrap();
+    let transport =
+        TokioChildProcess::new(Command::new(env!("CARGO_BIN_EXE_nixe")).configure(|cmd| {
+            cmd.env("HOME", &data)
+                .env("XDG_DATA_HOME", &data)
+                .env("APPDATA", &data)
+                .arg("mcp")
+                .arg("--vault")
+                .arg(&vault)
+                .args(extra);
+        }))
+        .unwrap();
+    let client = ().serve(transport).await.unwrap();
+    (base, client, vault)
+}
+
+/// Serves one page on a local port for as many requests as come.
+fn serve_page(html: &'static str) -> String {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        for mut stream in listener.incoming().flatten() {
+            let mut buf = [0u8; 2048];
+            let _ = stream.read(&mut buf);
+            let _ = write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{html}",
+                html.len()
+            );
+        }
+    });
+    format!("http://127.0.0.1:{port}/page")
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn clip_link_exists_only_with_the_flag() {
+    let (_off, without, _) = start_clip("clip-off", &[]).await;
+    let names: Vec<String> = without
+        .list_all_tools()
+        .await
+        .unwrap()
+        .iter()
+        .map(|t| t.name.to_string())
+        .collect();
+    assert!(!names.contains(&"clip_link".to_string()), "{names:?}");
+    let err = call(
+        &without,
+        "clip_link",
+        json!({"url": "https://example.test/"}),
+    )
+    .await
+    .unwrap_err();
+    assert!(!err.is_empty());
+
+    let (_on, with, _) = start_clip("clip-on", &["--allow-clip"]).await;
+    let tools = with.list_all_tools().await.unwrap();
+    let tool = tools.iter().find(|t| t.name == "clip_link").unwrap();
+    let ann = tool.annotations.as_ref().unwrap();
+    assert_eq!(ann.read_only_hint, Some(false));
+    assert_eq!(ann.destructive_hint, Some(false));
+    assert_eq!(tools.len(), 8);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn clip_link_creates_a_note_then_returns_it_and_search_sees_it() {
+    let (_base, client, vault) = start_clip("clip-new", &["--allow-clip"]).await;
+    let url = serve_page(
+        "<html><head><title>Zebrafinch notes</title></head><body><article><p>Quokka facts \
+         and some more readable words so that the reader keeps this text around.</p></article></body></html>",
+    );
+    let made = call(&client, "clip_link", json!({"url": url, "tags": ["bird"]}))
+        .await
+        .unwrap();
+    assert_eq!(made["created"], true);
+    let path = made["path"].as_str().unwrap().to_string();
+    assert!(
+        path.starts_with("Links/") && !Path::new(&path).is_absolute(),
+        "{path}"
+    );
+    let text = std::fs::read_to_string(vault.join(&path)).unwrap();
+    assert!(text.contains("type: link"), "{text}");
+
+    let hits = call(&client, "search", json!({"query": "Zebrafinch"}))
+        .await
+        .unwrap();
+    assert!(hits
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|h| h["path"] == path.as_str()));
+
+    // The same URL again returns the note and changes nothing.
+    let again = call(&client, "clip_link", json!({"url": url, "title": "Other"}))
+        .await
+        .unwrap();
+    assert_eq!(again["created"], false);
+    assert_eq!(again["path"], path.as_str());
+    assert_eq!(std::fs::read_to_string(vault.join(&path)).unwrap(), text);
+    assert_eq!(std::fs::read_dir(vault.join("Links")).unwrap().count(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn clip_link_refuses_a_folder_outside_the_links_folder() {
+    let (_base, client, vault) = start_clip("clip-folder", &["--allow-clip"]).await;
+    let url = "https://example.test/never-fetched";
+    for folder in ["Notes", "../x", "/tmp", "Links2", "."] {
+        let err = call(&client, "clip_link", json!({"url": url, "folder": folder}))
+            .await
+            .unwrap_err();
+        assert!(
+            err.contains("outside the links folder") || err.contains("outside the vault"),
+            "{folder}: {err}"
+        );
+    }
+    assert!(!vault.join("Notes").exists());
+    let err = call(&client, "clip_link", json!({"url": "ftp://x"}))
+        .await
+        .unwrap_err();
+    assert!(err.contains("http"), "{err}");
+}

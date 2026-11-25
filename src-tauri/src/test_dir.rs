@@ -22,6 +22,15 @@ impl TestDir {
             _guard: guard,
         }
     }
+
+    /// Like `new`, but the directory is the sub directory `child`, so a test can keep files
+    /// next to it (`<dir>.data`) that are removed with it.
+    pub(crate) fn nested(prefix: &str, child: &str) -> Self {
+        let mut dir = Self::new(prefix);
+        dir.path.push(child);
+        std::fs::create_dir(&dir.path).unwrap();
+        dir
+    }
 }
 
 impl Deref for TestDir {
@@ -50,6 +59,17 @@ mod tests {
         assert!(path.is_dir());
         drop(dir);
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn removes_a_nested_directory_with_its_neighbours() {
+        let dir = TestDir::nested("nixe-testdir-", "vault");
+        let data = dir.with_extension("data");
+        std::fs::create_dir(&data).unwrap();
+        assert!(dir.ends_with("vault") && dir.is_dir());
+        drop(dir);
+        assert!(!data.exists());
+        assert!(!data.parent().unwrap().exists());
     }
 
     #[test]

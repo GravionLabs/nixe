@@ -11,6 +11,31 @@ There is no build provenance attestation: the repository is private.
 The release build also signs the update packages and uploads `latest.json` for the in-app updater; see
 [updater.md](updater.md).
 
+## Back-merge of `main` into `release/next`
+
+After a hotfix on `main`, merge `main` back into `release/next` through a pull request, with a **merge commit**. A
+squash drops the ancestry and the release pull request conflicts again. Before merging, check the commit message
+GitHub proposes: it must not hold the skip-CI marker of the changelog commits (`skip ci` in square brackets, also
+when it only quotes a commit title), else no check runs on `release/next` and the release pull request is not updated.
+
+## Browser extension
+
+The `extension` job of `release.yml` builds `extension/` with the version of the app and zips one package per browser:
+`nixe-extension-chromium-<version>.zip` and `nixe-extension-firefox-<version>.zip` (`manifest.json` at the root of the
+archive). A push to `main` attaches them to the release before `SHA256SUMS` is written; other runs only build them.
+The manifest holds the numeric version only (`1.2.0` for `1.2.0-rc.1`); Chromium shows the full one as
+`version_name`. The pull request checks (`ci.yml`) build and test the extension too.
+
+The store upload is manual; no store credentials are in CI:
+
+1. Download both zips from the published release.
+2. Chrome Web Store: in the [developer dashboard](https://chrome.google.com/webstore/devconsole), upload the Chromium
+   zip as a new package of the item and submit it for review.
+3. Firefox: on [addons.mozilla.org](https://addons.mozilla.org/developers/), upload the Firefox zip as a new version of
+   the add-on. The background script is bundled, so attach the source code (the release tag) when asked.
+4. After the first upload, enter the extension IDs of the stores in `src-tauri/src/native_host.rs`
+   ([links.md](links.md#browser-extension-host)).
+
 ## macOS signing and notarization
 
 Only the `build` job of a push to `main` gets the Apple secrets. Tauri signs with the hardened runtime, notarizes

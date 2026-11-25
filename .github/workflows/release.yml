@@ -228,8 +228,44 @@ jobs:
         shell: bash
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"
 
+  # The browser extension: built and zipped on every run, attached to the draft release on a push to main.
+  # The store upload is manual (docs/releasing.md).
+  extension:
+    needs: [determine-version, test, release]
+    if: ${{ !cancelled() && needs.determine-version.result == 'success' && needs.test.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.release.result) }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.determine-version.outputs.semver }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter nixe-extension build
+      - name: Zip the packages
+        run: |
+          set -euo pipefail
+          for browser in chromium firefox; do
+            # manifest.json is at the root of the archive, as both stores expect.
+            (cd "extension/dist/$browser" && zip -qr "$RUNNER_TEMP/nixe-extension-$browser-$VERSION.zip" .)
+          done
+      - name: Attach the packages to the release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v$VERSION" \
+            "$RUNNER_TEMP/nixe-extension-chromium-$VERSION.zip" \
+            "$RUNNER_TEMP/nixe-extension-firefox-$VERSION.zip" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
   checksums:
-    needs: [determine-version, build]
+    needs: [determine-version, build, extension]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -248,7 +284,7 @@ jobs:
           gh release upload "$tag" "$RUNNER_TEMP/assets/SHA256SUMS" --repo "${{ github.repository }}" --clobber
 
   publish-release:
-    needs: [determine-version, build, checksums]
+    needs: [determine-version, build, extension, checksums]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

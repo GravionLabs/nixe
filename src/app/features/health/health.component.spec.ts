@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
-import type { HealthReport } from "../../core/file/backend";
+import type { DeadLink, HealthReport } from "../../core/file/backend";
 import { TabsService } from "../../core/tabs/tabs.service";
 import type { HealthState } from "../../core/index/health.service";
 import { HealthService } from "../../core/index/health.service";
@@ -25,10 +25,32 @@ const report: HealthReport = {
   unusedAttachments: ["assets/old.png"],
 };
 
-function render(state: HealthState, value: HealthReport | null) {
+const dead: DeadLink[] = [
+  {
+    source: "Links/Gone.md",
+    url: "https://gone.example/",
+    reason: "404",
+    snapshot: "http://web.archive.org/web/2020/https://gone.example/",
+    checked: "2026-11-24T10:00:00+00:00",
+  },
+  {
+    source: "Links/NoCopy.md",
+    url: "https://nocopy.example/",
+    reason: "dns",
+    snapshot: null,
+    checked: "2026-11-24T10:00:00+00:00",
+  },
+];
+
+function render(
+  state: HealthState,
+  value: HealthReport | null,
+  deadLinks: DeadLink[] | null = null,
+) {
   const open = vi.fn().mockResolvedValue(undefined);
   const setExcluded = vi.fn();
   const refresh = vi.fn();
+  const checkLinks = vi.fn().mockResolvedValue(undefined);
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
@@ -40,6 +62,10 @@ function render(state: HealthState, value: HealthReport | null) {
           key: signal("k"),
           refresh,
           setExcluded,
+          deadLinks: signal(deadLinks),
+          checkingLinks: signal(false),
+          linkCheckFailed: signal(false),
+          checkLinks,
         },
       },
       { provide: SettingsService, useValue: { healthExclude: signal(["templates"]) } },
@@ -56,7 +82,7 @@ function render(state: HealthState, value: HealthReport | null) {
   });
   const fixture = TestBed.createComponent(HealthComponent);
   fixture.detectChanges();
-  return { el: fixture.nativeElement as HTMLElement, open, setExcluded, refresh };
+  return { el: fixture.nativeElement as HTMLElement, open, setExcluded, refresh, checkLinks };
 }
 
 describe("HealthComponent", () => {
@@ -81,7 +107,9 @@ describe("HealthComponent", () => {
 
   it("opens the note of each entry, a broken link at its line", () => {
     const { el, open } = render("ready", report);
-    const buttons = [...el.querySelectorAll<HTMLButtonElement>("section button")];
+    const buttons = [
+      ...el.querySelectorAll<HTMLButtonElement>("section:not([aria-label='Dead links']) button"),
+    ];
     buttons.forEach((b) => b.click());
     expect(open.mock.calls).toEqual([
       ["/vault/a.md", { line: 4 }],
@@ -104,5 +132,27 @@ describe("HealthComponent", () => {
   it("says so while indexing and when the index failed", () => {
     expect(render("loading", null).el.textContent).toContain("Indexing the vault");
     expect(render("error", null).el.textContent).toContain("not available");
+  });
+
+  it("checks the links only on request, the button runs the check", () => {
+    const { el, checkLinks } = render("ready", report);
+    expect(checkLinks).not.toHaveBeenCalled();
+    expect(el.querySelector("section[aria-label='Dead links'] .count")).toBeNull();
+    el.querySelector<HTMLButtonElement>(".check-links")!.click();
+    expect(checkLinks).toHaveBeenCalledWith("/vault", false);
+  });
+
+  it("lists the dead links with the snapshot next to them", () => {
+    const { el, open, checkLinks } = render("ready", report, dead);
+    const section = el.querySelector("section[aria-label='Dead links']")!;
+    expect(section.querySelector(".count")?.textContent).toBe("2");
+    expect(section.textContent).toContain("https://gone.example/ (404)");
+    const anchors = section.querySelectorAll<HTMLAnchorElement>("a.snapshot");
+    expect(anchors).toHaveLength(1);
+    expect(anchors[0].href).toBe("http://web.archive.org/web/2020/https://gone.example/");
+    section.querySelector<HTMLButtonElement>(".dead button")!.click();
+    expect(open).toHaveBeenCalledWith("/vault/Links/Gone.md", { line: null });
+    section.querySelector<HTMLButtonElement>(".recheck-links")!.click();
+    expect(checkLinks).toHaveBeenCalledWith("/vault", true);
   });
 });

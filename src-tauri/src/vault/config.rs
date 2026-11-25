@@ -224,6 +224,36 @@ impl Config {
         self.role_folder("attachments")
     }
 
+    /// The folder of new link notes (#504): the role `links`; `None` leaves it to the caller.
+    pub fn links_folder(&self) -> Option<String> {
+        self.role_folder("links")
+    }
+
+    /// The archive formats of `links.archive` (#505): `html`, `screenshot`, `pdf`. Default and
+    /// anything that is not a list: none (Markdown only). An unknown entry is a warning and dropped.
+    pub fn links_archive(&self) -> Vec<String> {
+        const KNOWN: [&str; 3] = ["html", "screenshot", "pdf"];
+        let Some(value) = self.section("links", "archive") else {
+            return Vec::new();
+        };
+        let Some(list) = value.as_array() else {
+            log::warn!("{SOURCE}: links.archive is not a list; ignored");
+            return Vec::new();
+        };
+        let mut out: Vec<String> = Vec::new();
+        for item in list {
+            match item.as_str().map(str::trim) {
+                Some(kind) if KNOWN.contains(&kind) => {
+                    if !out.iter().any(|k| k == kind) {
+                        out.push(kind.to_string());
+                    }
+                }
+                _ => log::warn!("{SOURCE}: links.archive entry {item} is not one of html, screenshot, pdf; ignored"),
+            }
+        }
+        out
+    }
+
     /// The folder of new notes: `newNotes.folder`, else the role `inbox`; `None` leaves the
     /// decision to `.obsidian/` and then to the vault root.
     pub fn new_note_folder(&self) -> Option<String> {
@@ -263,6 +293,7 @@ pub const STANDARD_FOLDER_ROLES: &[&str] = &[
     "subjects",
     "sources",
     "exams",
+    "links",
 ];
 
 /// The `schemaVersion` this Nixe writes; a file with a newer one is not written.
@@ -468,6 +499,21 @@ mod tests {
             fs::write(root.join(SOURCE), text).unwrap();
         }
         root
+    }
+
+    #[test]
+    fn links_archive_reads_the_known_formats() {
+        let archive =
+            |config: Option<&str>| Config::load(&vault("archive", config)).links_archive();
+        assert!(archive(None).is_empty());
+        assert!(archive(Some(r#"{"links":{}}"#)).is_empty());
+        assert!(archive(Some(r#"{"links":{"archive":"html"}}"#)).is_empty());
+        assert_eq!(
+            archive(Some(
+                r#"{"links":{"archive":["html","pdf","html","gif",3,"screenshot"]}}"#
+            )),
+            vec!["html", "pdf", "screenshot"]
+        );
     }
 
     #[test]

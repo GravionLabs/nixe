@@ -31,6 +31,11 @@ export class HealthComponent {
     this.health.setExcluded((event.target as HTMLInputElement).value);
   }
 
+  protected async checkLinks(force = false): Promise<void> {
+    const root = this.workspace.vaultRoot();
+    if (root) await this.health.checkLinks(root, force);
+  }
+
   protected async open(rel: string, line: number | null = null): Promise<void> {
     const root = this.workspace.vaultRoot();
     if (!root) return;

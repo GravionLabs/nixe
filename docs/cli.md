@@ -34,6 +34,25 @@ every section, for example `templates` or `archive`. In the app the folders are 
 excluded-folders field of the view (setting `healthExclude`). The report is computed from the
 index with a few queries: under a second for 2000 notes.
 
+### Dead links
+
+`nixe check --links [--force]` also requests the `url` of every `type: link` note
+([links.md](links.md)) and lists the dead ones as a fifth section, `Dead links`, with the
+closest [Wayback Machine](https://archive.org/wayback/available) snapshot when there is one. It
+exits with `1` when a link is dead. The plain `nixe check` never touches the network. The
+`Vault health` view has the same check behind its "Check links" button.
+
+- A request is HEAD, then GET when the server answers 405 or 403. A link is dead on 404, 410, a
+  DNS failure or 3 timeouts (10 s each). Every other answer, such as 5xx or a refused connection,
+  does not count as dead.
+- At most 4 requests run at the same time and requests to one host are 1 s apart (constants in
+  `src-tauri/src/links/dead.rs`).
+- Results are cached with their check date in the app data directory (`link-check/`), never in the
+  vault. A link checked within 7 days is not requested again; `--force` (the "Check all again"
+  button) requests every link.
+- With `--json` the object gets a `deadLinks` array of `{source, url, reason, snapshot, checked}`
+  (`reason`: `404`, `410`, `dns` or `timeout`).
+
 With `--json` the report is one object:
 
 ```json
@@ -63,6 +82,51 @@ the note picks the change up through its file watcher.
 
 `<note>` is a vault-relative path (with or without `.md`) or a unique note name, resolved
 like a `[[wikilink]]`. A missing or ambiguous note is an error.
+
+## Clip a web page
+
+`nixe clip <url> [--tag <t>]… [--folder <dir>] [--title <t>] [--html <file>|-] [--json] [--open] [--vault <dir>]`
+saves a web page as a link note ([links.md](links.md)) and prints the absolute path of the note.
+It needs no index.
+
+- Without `--html` the page is fetched (20 seconds, at most 5 MiB). `--html <file>` or `--html -`
+  (stdin) uses the HTML you already have, for example a page a browser rendered, and fetches
+  nothing. A page that is not UTF-8 is read as ISO-8859-1/windows-1252 when it says so or when
+  it is not valid UTF-8; other charsets lose their non-ASCII characters.
+- The title is `--title`, else `og:title`, else `<title>`, else the host of the URL. The note
+  keeps `description` (`og:description`, else the meta description), `image` (`og:image`) and
+  `site` (`og:site_name`, else the host). `url` is the canonical URL of the page when it names an
+  absolute `http(s)` one, else the given URL.
+- `## Archive` holds the reader text (Readability) as Markdown. A page without readable content
+  is saved without `## Archive`; the command warns on stderr and still exits `0`.
+- The folder is `--folder` (vault-relative, created if missing), else `Links/`. It must stay
+  inside the vault. A note of the same name is never replaced: ` 2`, ` 3`, … is appended.
+- `--tag` repeats; a leading `#` is dropped. `--open` opens the note in the viewer.
+- `--json` prints `{"path": "/vault/Links/Title.md", "created": true}`.
+
+Exit `1` for an address that is not `http(s)`, a page that cannot be fetched or a folder outside
+the vault; `2` for wrong arguments.
+
+## Import bookmarks, Pocket, Raindrop and Linkwarden exports
+
+`nixe import-links <file> [--folder <dir>] [--fetch] [--json] [--vault <dir>]` turns an export
+into link notes ([links.md](links.md)) and prints `created N, skipped N, failed N`.
+
+- **Formats**, found from the content: Netscape bookmark HTML (the export of Chrome, Firefox,
+  Edge and Safari), a Pocket CSV (`title,url,time_added,tags,status`), the older Pocket HTML, the Raindrop CSV
+  (`id,title,note,excerpt,url,folder,tags,created,…`) and the Linkwarden JSON backup.
+- Bookmark folders become subfolders of the links folder (`--folder`, else the role `links`,
+  else `Links/`). `ADD_DATE` / `time_added` becomes `saved`, `TAGS` / `tags` become tags. A Raindrop `folder` is the subfolder, `excerpt` the description,
+  `note` the text under `## Notes` and `created` the `saved` date. A Linkwarden collection with a
+  parent becomes a nested subfolder; `description` and `createdAt` carry over. A Pocket
+  item in the archive (`status` `archive`, or below `Read Archive`) is `status: read`, every other
+  note `unread`.
+- Without `--fetch` no page is downloaded: the title comes from the export (the host when it has
+  none) and the note has no `## Archive`. With `--fetch` every page goes through `nixe clip`
+  (reader text and the `links.archive` copies); a page that cannot be fetched is saved from the
+  export and reported as a warning on stderr.
+- A URL that a link note holds already, and an address that is not `http(s)` (`javascript:`,
+  `place:`), is skipped. Exit `1` when a bookmark could not be written.
 
 ## Export
 

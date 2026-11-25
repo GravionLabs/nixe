@@ -1,0 +1,56 @@
+{
+  "version": 2,
+  "collections": [
+    {
+      "id": 1,
+      "name": "Dev",
+      "parentId": null,
+      "links": [
+        {
+          "id": 10,
+          "name": "Linkwarden docs",
+          "url": "https://example.com/docs",
+          "description": "How the backup looks",
+          "createdAt": "2023-11-14T22:13:20.000Z",
+          "tags": [{ "name": "docs" }, { "name": "self-hosted" }]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Rust",
+      "parentId": 1,
+      "links": [
+        {
+          "id": 11,
+          "name": "",
+          "url": "https://example.org/rust",
+          "description": "",
+          "createdAt": "2023-11-15T10:00:00Z",
+          "tags": []
+        },
+        {
+          "id": 12,
+          "name": "Not a web page",
+          "url": "ftp://example.org/file",
+          "createdAt": "2023-11-15T11:00:00Z",
+          "tags": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Loose",
+      "parentId": null,
+      "links": [
+        {
+          "id": 13,
+          "name": "Top",
+          "url": "https://example.net/top",
+          "createdAt": "2023-11-16T10:00:00Z",
+          "tags": [{ "name": "x" }]
+        }
+      ]
+    }
+  ]
+}

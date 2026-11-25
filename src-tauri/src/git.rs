@@ -355,7 +355,6 @@ pub fn gitignore_missing(root: &Path) -> Result<Option<Vec<String>>, String> {
 /// Appends the missing entries under a `# Nixe` comment to `.gitignore`; existing lines stay as
 /// they are. Returns the entries that were added.
 pub fn gitignore_add(root: &Path) -> Result<Vec<String>, String> {
-    use std::io::Write;
     let missing = {
         let Some(backend) = Git2Backend::open(root) else {
             return Err("the vault is not a Git repository".to_string());
@@ -371,6 +370,14 @@ pub fn gitignore_add(root: &Path) -> Result<Vec<String>, String> {
     if missing.is_empty() {
         return Ok(missing);
     }
+    append_gitignore(root, &missing)?;
+    Ok(missing)
+}
+
+/// Appends `entries` under a `# Nixe` comment to the `.gitignore` of the vault; the lines that
+/// are there stay as they are.
+fn append_gitignore(root: &Path, entries: &[String]) -> Result<(), String> {
+    use std::io::Write;
     let path = root.join(".gitignore");
     let existing = std::fs::read_to_string(&path).unwrap_or_default();
     let mut block = String::new();
@@ -381,7 +388,7 @@ pub fn gitignore_add(root: &Path) -> Result<Vec<String>, String> {
         block.push('\n');
     }
     block.push_str("# Nixe\n");
-    for entry in &missing {
+    for entry in entries {
         block.push_str(entry);
         block.push('\n');
     }
@@ -390,8 +397,27 @@ pub fn gitignore_add(root: &Path) -> Result<Vec<String>, String> {
         .append(true)
         .open(&path)
         .and_then(|mut f| f.write_all(block.as_bytes()))
-        .map_err(|err| format!(".gitignore: {err}"))?;
-    Ok(missing)
+        .map_err(|err| format!(".gitignore: {err}"))
+}
+
+/// Makes sure the vault-relative folder `dir` (with a trailing `/`, like `Links/.archive/`) is
+/// ignored: appends it to `.gitignore` when Git does not ignore it yet (without a repository: when
+/// no line of the file names it). Returns whether a line was added. Never rewrites the file.
+pub fn gitignore_ensure(root: &Path, dir: &str) -> Result<bool, String> {
+    let dir = format!("{}/", dir.trim_matches('/'));
+    let covered = match Git2Backend::open(root) {
+        Some(backend) => backend.repo.is_path_ignored(format!("{dir}x")).map_err(e)?,
+        None => std::fs::read_to_string(root.join(".gitignore"))
+            .unwrap_or_default()
+            .lines()
+            .map(|l| l.trim().trim_start_matches('/'))
+            .any(|l| l == dir || l == dir.trim_end_matches('/')),
+    };
+    if covered {
+        return Ok(false);
+    }
+    append_gitignore(root, &[dir])?;
+    Ok(true)
 }
 
 /// Hides the `.gitignore` hint for this vault; the choice lives in `.nixe/local/`.
@@ -1742,6 +1768,36 @@ mod tests {
             "# Nixe\n.nixe/local/\n.*.nixe-tmp\n.trash/\n"
         );
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn gitignore_ensure_appends_once_and_keeps_the_file() {
+        let (dir, _b) = repo_with_commit("gitignore-ensure");
+        fs::write(dir.join(".gitignore"), "z.log").unwrap();
+        assert!(gitignore_ensure(&dir, "Links/.archive/").unwrap());
+        assert_eq!(
+            fs::read_to_string(dir.join(".gitignore")).unwrap(),
+            "z.log\n\n# Nixe\nLinks/.archive/\n"
+        );
+        assert!(!gitignore_ensure(&dir, "Links/.archive/").unwrap());
+        assert_eq!(
+            fs::read_to_string(dir.join(".gitignore"))
+                .unwrap()
+                .matches("Links/.archive/")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn gitignore_ensure_works_without_a_repository() {
+        let dir = temp("gitignore-ensure-plain");
+        assert!(gitignore_ensure(&dir, "Links/.archive").unwrap());
+        assert!(!gitignore_ensure(&dir, "Links/.archive/").unwrap());
+        assert_eq!(
+            fs::read_to_string(dir.join(".gitignore")).unwrap(),
+            "# Nixe\nLinks/.archive/\n"
+        );
     }
 
     #[test]

@@ -9,6 +9,8 @@ use tauri::{AppHandle, Emitter, Runtime};
 pub const MENU_EVENT: &str = "menu";
 /// Handled natively (macOS only), never forwarded to the frontend.
 pub const INSTALL_CLI_ID: &str = "install-cli";
+/// Handled natively, never forwarded: registers the Native Messaging host (#513).
+pub const INSTALL_BROWSER_ID: &str = "install-browser-support";
 /// Forwarded to the frontend, which runs the update check and shows the result.
 pub const CHECK_UPDATES_ID: &str = "check-updates";
 
@@ -117,6 +119,11 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             .item(&item("open-settings", "Settings…", Some("CmdOrCtrl+,"))?)
             .separator()
             .item(&item(INSTALL_CLI_ID, "Install Command Line Tool…", None)?)
+            .item(&item(
+                INSTALL_BROWSER_ID,
+                "Install browser extension support…",
+                None,
+            )?)
             .item(&item(CHECK_UPDATES_ID, "Check for Updates…", None)?)
             .separator()
             .services()
@@ -132,7 +139,13 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     menu = menu.item(&file.build()?).item(&edit).item(&view);
     let mut help = SubmenuBuilder::new(app, "Help");
     if !cfg!(target_os = "macos") {
-        help = help.item(&item(CHECK_UPDATES_ID, "Check for Updates…", None)?);
+        help = help
+            .item(&item(CHECK_UPDATES_ID, "Check for Updates…", None)?)
+            .item(&item(
+                INSTALL_BROWSER_ID,
+                "Install browser extension support…",
+                None,
+            )?);
     }
     // The log is for a bug report: show it, copy its end, or open its folder.
     let help = help

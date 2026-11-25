@@ -93,7 +93,7 @@ fn note_file_name(title: &str) -> Result<String, CliError> {
 
 /// Joins a vault-relative folder to the root; `..` and absolute folders are refused here, the
 /// confinement of `fileops` checks symlinks afterwards.
-fn folder_path(root: &Path, folder: &str) -> Result<PathBuf, CliError> {
+pub(crate) fn folder_path(root: &Path, folder: &str) -> Result<PathBuf, CliError> {
     let rel = folder.replace('\\', "/");
     let rel = rel.trim_matches('/');
     if rel.is_empty() {

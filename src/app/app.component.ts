@@ -21,6 +21,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import {
   FILE_CHANGED_EVENT,
+  ROOTS_CHANGED_EVENT,
   MENU_EVENT,
   EXPORT_EVENT,
   OPEN_FILE_EVENT,
@@ -342,6 +343,7 @@ export class AppComponent {
       await listen(OPEN_FILE_EVENT, () => void this.openPending());
       await listen(EXPORT_EVENT, () => void this.runPendingExport());
       await listen<string>(FILE_CHANGED_EVENT, (e) => void this.tabs.onExternalChange(e.payload));
+      await listen(ROOTS_CHANGED_EVENT, () => void this.workspace.reloadExtraRoots());
       await listen<VaultChange[]>(
         VAULT_CHANGED_EVENT,
         (e) => void this.workspace.onVaultChanged(e.payload ?? []),

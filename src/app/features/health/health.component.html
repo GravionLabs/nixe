@@ -83,6 +83,57 @@
           <p class="status">None</p>
         }
       </section>
+
+      <section aria-label="Dead links">
+        <h2>
+          Dead links
+          @if (health.deadLinks(); as dead) {
+            <span class="count">{{ dead.length }}</span>
+          }
+        </h2>
+        <div class="actions">
+          <button
+            type="button"
+            class="check-links"
+            [disabled]="health.checkingLinks()"
+            (click)="checkLinks()"
+          >
+            {{ health.checkingLinks() ? "Checking links…" : "Check links" }}
+          </button>
+          @if (health.deadLinks()) {
+            <button
+              type="button"
+              class="recheck-links"
+              [disabled]="health.checkingLinks()"
+              (click)="checkLinks(true)"
+            >
+              Check all again
+            </button>
+          }
+        </div>
+        @if (health.linkCheckFailed()) {
+          <p class="status" role="alert">The links could not be checked.</p>
+        }
+        @for (link of health.deadLinks(); track link.source) {
+          <div class="dead">
+            <button type="button" (click)="open(link.source)" [title]="link.source">
+              <span class="name">{{ link.source }}</span>
+              <span class="detail">{{ link.url }} ({{ link.reason }})</span>
+            </button>
+            @if (link.snapshot) {
+              <a class="snapshot" [href]="link.snapshot" target="_blank" rel="noopener noreferrer">
+                Wayback Machine snapshot
+              </a>
+            }
+          </div>
+        } @empty {
+          @if (health.deadLinks()) {
+            <p class="status">None</p>
+          } @else {
+            <p class="status">Requests every link note's address; not part of the normal check.</p>
+          }
+        }
+      </section>
     }
   }
 }

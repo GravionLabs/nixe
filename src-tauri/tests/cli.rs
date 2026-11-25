@@ -796,3 +796,232 @@ mod site {
         assert!(matches!(r, Err(CliError::Failed(_))));
     }
 }
+
+#[cfg(desktop)]
+mod clip {
+    use super::*;
+
+    fn page(name: &str) -> String {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures/web")
+            .join(name)
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn clip_reads_the_html_from_stdin_and_prints_the_path() {
+        let root = scratch("clip-stdin");
+        let html = std::fs::read_to_string(page("article.html")).unwrap();
+        let out = write_cmd(
+            "clip-stdin",
+            &root,
+            &[
+                "clip",
+                "https://example.com/a",
+                "--tag",
+                "reading",
+                "--tag=web",
+                "--html",
+                "-",
+            ],
+            &html,
+        )
+        .unwrap();
+        let path = root.join("Links/Keeping notes as plain files.md");
+        assert_eq!(out.trim(), path.to_str().unwrap());
+        let text = std::fs::read_to_string(path).unwrap();
+        assert!(text.contains("tags:\n  - reading\n  - web\n"));
+    }
+
+    #[test]
+    fn clip_of_a_saved_url_prints_exists_and_json_says_not_created() {
+        let root = scratch("clip-twice");
+        let file = page("article.html");
+        let first = write_cmd(
+            "clip-twice",
+            &root,
+            &[
+                "clip",
+                "https://example.com/a?utm_source=x",
+                "--html",
+                &file,
+            ],
+            "",
+        )
+        .unwrap();
+        let path = root.join("Links/Keeping notes as plain files.md");
+        assert_eq!(first.trim(), path.to_str().unwrap());
+        // The page names its own canonical address: clip of another page that has the same one.
+        let text = std::fs::read_to_string(&path).unwrap();
+        let url = text
+            .lines()
+            .find_map(|l| l.strip_prefix("url: "))
+            .unwrap()
+            .to_string();
+        let out = write_cmd(
+            "clip-twice",
+            &root,
+            &[
+                "clip",
+                &format!("{}/#top", url.to_uppercase().replace("HTTPS", "https")),
+                "--html",
+                &file,
+            ],
+            "",
+        )
+        .unwrap();
+        assert_eq!(out.trim(), format!("exists: {}", path.display()));
+        let json = write_cmd(
+            "clip-twice",
+            &root,
+            &["clip", &url, "--html", &file, "--json"],
+            "",
+        )
+        .unwrap();
+        let json: Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            json,
+            json!({"path": path.to_str().unwrap(), "created": false})
+        );
+    }
+
+    #[test]
+    fn clip_json_names_path_and_created_and_takes_folder_title_and_file() {
+        let root = scratch("clip-json");
+        let out = write_cmd(
+            "clip-json",
+            &root,
+            &[
+                "clip",
+                "https://example.com/a",
+                "--html",
+                &page("article.html"),
+                "--folder",
+                "Reading/Later",
+                "--title",
+                "Mine",
+                "--json",
+            ],
+            "",
+        )
+        .unwrap();
+        let json: Value = serde_json::from_str(&out).unwrap();
+        let path = root.join("Reading/Later/Mine.md");
+        assert_eq!(
+            json,
+            json!({"path": path.to_str().unwrap(), "created": true})
+        );
+        assert!(path.is_file());
+    }
+
+    #[test]
+    fn clip_refuses_wrong_arguments_and_folders_outside_the_vault() {
+        let root = scratch("clip-bad");
+        let run = |args: &[&str]| write_cmd("clip-bad", &root, args, "<title>T</title>");
+        assert!(matches!(run(&["clip"]), Err(CliError::Usage(_))));
+        assert!(matches!(
+            run(&["clip", "a", "b", "--html", "-"]),
+            Err(CliError::Usage(_))
+        ));
+        assert!(matches!(
+            run(&["clip", "notaurl", "--html", "-"]),
+            Err(CliError::Failed(_))
+        ));
+        assert!(run(&[
+            "clip",
+            "https://x.test/",
+            "--html",
+            "-",
+            "--folder",
+            "../out"
+        ])
+        .is_err());
+        assert!(run(&["clip", "https://x.test/", "--html", "missing.html"]).is_err());
+    }
+}
+
+#[cfg(desktop)]
+mod import_links {
+    use super::*;
+
+    fn export(name: &str) -> String {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures/import")
+            .join(name)
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn import_prints_the_counts_and_a_second_run_skips_everything() {
+        let root = scratch("import-count");
+        let file = export("bookmarks.html");
+        let run = || write_cmd("import-count", &root, &["import-links", &file], "");
+        assert_eq!(run().unwrap().trim(), "created 3, skipped 2, failed 0");
+        assert!(root
+            .join("Links/Bookmarks bar/Reading/Deep link.md")
+            .exists());
+        assert_eq!(run().unwrap().trim(), "created 0, skipped 5, failed 0");
+    }
+
+    #[test]
+    fn import_of_pocket_csv_takes_folder_and_json() {
+        let root = scratch("import-csv");
+        let file = export("pocket.csv");
+        let out = write_cmd(
+            "import-csv",
+            &root,
+            &["import-links", &file, "--folder", "Pocket", "--json"],
+            "",
+        )
+        .unwrap();
+        assert_eq!(out.trim(), r#"{"created":3,"skipped":0,"failed":[]}"#);
+        assert!(root.join("Pocket/Comma, in the title.md").exists());
+    }
+
+    #[test]
+    fn import_of_raindrop_and_linkwarden_exports() {
+        let root = scratch("import-raindrop");
+        let out = write_cmd(
+            "import-raindrop",
+            &root,
+            &["import-links", &export("raindrop.csv")],
+            "",
+        )
+        .unwrap();
+        assert_eq!(out.trim(), "created 2, skipped 1, failed 0");
+        assert!(root.join("Links/Programming").is_dir());
+        let out = write_cmd(
+            "import-raindrop",
+            &root,
+            &["import-links", &export("linkwarden.json")],
+            "",
+        )
+        .unwrap();
+        assert_eq!(out.trim(), "created 3, skipped 1, failed 0");
+        assert!(root.join("Links/Dev/Rust").is_dir());
+    }
+
+    #[test]
+    fn import_refuses_wrong_arguments_and_unknown_files() {
+        let root = scratch("import-bad");
+        let run = |args: &[&str]| write_cmd("import-bad", &root, args, "");
+        assert!(matches!(run(&["import-links"]), Err(CliError::Usage(_))));
+        assert!(matches!(
+            run(&["import-links", "a", "b"]),
+            Err(CliError::Usage(_))
+        ));
+        assert!(matches!(
+            run(&["import-links", "missing.html"]),
+            Err(CliError::Failed(_))
+        ));
+        let page = Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/web/article.html");
+        assert!(matches!(
+            run(&["import-links", page.to_str().unwrap(), "--folder", "../x"]),
+            Err(CliError::Failed(_))
+        ));
+    }
+}
