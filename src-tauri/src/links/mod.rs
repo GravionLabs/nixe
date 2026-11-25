@@ -432,6 +432,7 @@ mod clip_impl {
     mod tests {
         use super::*;
         use crate::links::fetch::Page;
+        use crate::test_dir::TestDir;
         use chrono::TimeZone;
 
         fn at() -> DateTime<FixedOffset> {
@@ -441,11 +442,8 @@ mod clip_impl {
                 .unwrap()
         }
 
-        fn tmp(name: &str) -> PathBuf {
-            let dir = std::env::temp_dir().join(format!("nixe-clip-{name}-{}", std::process::id()));
-            let _ = std::fs::remove_dir_all(&dir);
-            std::fs::create_dir_all(&dir).unwrap();
-            dunce::canonicalize(dir).unwrap()
+        fn tmp(name: &str) -> TestDir {
+            TestDir::nested(&format!("nixe-clip-{name}-"), "vault")
         }
 
         fn data(root: &Path) -> PathBuf {
@@ -703,7 +701,7 @@ mod clip_impl {
             })
         }
 
-        fn clip_archive(name: &str, config: Option<&str>, git: bool) -> (PathBuf, ClipResult) {
+        fn clip_archive(name: &str, config: Option<&str>, git: bool) -> (TestDir, ClipResult) {
             let root = tmp(name);
             if git {
                 git2::Repository::init(&root).unwrap();
@@ -810,7 +808,7 @@ mod clip_impl {
             name: &str,
             config: &str,
             renderer: Option<&dyn Renderer>,
-        ) -> (PathBuf, ClipResult) {
+        ) -> (TestDir, ClipResult) {
             let root = tmp(name);
             std::fs::create_dir_all(root.join(".nixe")).unwrap();
             std::fs::write(root.join(".nixe/config.json"), config).unwrap();
@@ -929,7 +927,7 @@ mod clip_impl {
                 results: vec![],
                 calls: Default::default(),
             };
-            let (_, r) = clip_rendered_with(
+            let (_root, r) = clip_rendered_with(
                 "render-html-only",
                 r#"{"links":{"archive":["html"]}}"#,
                 Some(&fake),
@@ -966,7 +964,7 @@ mod clip_impl {
                 .contains("archive:"));
         }
 
-        fn clip_with_config(name: &str, config: Option<&str>) -> (PathBuf, ClipResult) {
+        fn clip_with_config(name: &str, config: Option<&str>) -> (TestDir, ClipResult) {
             let root = tmp(name);
             if let Some(config) = config {
                 std::fs::create_dir_all(root.join(".nixe")).unwrap();

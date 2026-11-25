@@ -1275,18 +1275,15 @@ pub fn review_changes(root: &Path, rev: &str) -> Result<ReviewChanges, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::fs;
-    use std::path::PathBuf;
 
-    fn temp(name: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-git-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        p
+    fn temp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-git-{name}-"))
     }
 
     /// A repository with an identity in its own config and one commit of `a.md`.
-    fn repo_with_commit(name: &str) -> (PathBuf, Git2Backend) {
+    fn repo_with_commit(name: &str) -> (TestDir, Git2Backend) {
         let dir = temp(name);
         let repo = Repository::init(&dir).unwrap();
         let mut cfg = repo.config().unwrap();

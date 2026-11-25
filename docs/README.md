@@ -30,6 +30,7 @@ links and Mermaid rendering all at once.
   - [backend/tauri-commands.md](backend/tauri-commands.md) — the command surface
   - [backend/logging.md](backend/logging.md) — the log file `nixe.log`
   - [backend/file-watching.md](backend/file-watching.md) — live reload
+  - [backend/tests.md](backend/tests.md) — scratch directories in Rust tests
 - [frontend/README.md](frontend/README.md) — the Angular app (`src/`)
   - [frontend/markdown-pipeline.md](frontend/markdown-pipeline.md) — Markdown → HTML
   - [frontend/editor.md](frontend/editor.md) — CodeMirror editor and saving

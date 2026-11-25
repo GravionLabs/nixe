@@ -90,12 +90,10 @@ pub fn write_position(vault: &Path, key: &str, content: &str) -> Result<(), Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
-    fn tmp(name: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-reading-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        p
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-reading-{name}-"))
     }
 
     #[test]

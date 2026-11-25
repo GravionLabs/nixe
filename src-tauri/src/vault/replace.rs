@@ -289,12 +289,10 @@ pub fn apply_with_checkpoint(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
-    fn temp_dir(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-replace-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dunce::canonicalize(dir).unwrap()
+    fn temp_dir(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-replace-{name}-"))
     }
 
     fn opts(find: &str, replace: &str) -> Options {

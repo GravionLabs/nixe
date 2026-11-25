@@ -443,6 +443,7 @@ pub fn terminal_close(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::sync::mpsc;
 
     #[test]
@@ -483,23 +484,19 @@ mod tests {
 
     #[test]
     fn commands_are_refused_unless_enabled_in_the_settings_file() {
-        let dir = std::env::temp_dir().join(format!("nixe-term-set-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        let dir = TestDir::new("nixe-term-set-");
         let err = check_enabled(&dir).unwrap_err();
         assert!(err.contains("turned off"), "{err}");
         settings::write_settings(&dir, r#"{"terminalEnabled":false}"#).unwrap();
         assert!(check_enabled(&dir).is_err());
         settings::write_settings(&dir, r#"{"terminalEnabled":true}"#).unwrap();
         assert!(check_enabled(&dir).is_ok());
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(unix)]
-    fn temp_bin(tag: &str, name: &str, mode: u32) -> PathBuf {
+    fn temp_bin(tag: &str, name: &str, mode: u32) -> TestDir {
         use std::os::unix::fs::PermissionsExt;
-        let dir = std::env::temp_dir().join(format!("nixe-term-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = TestDir::new(&format!("nixe-term-{tag}-"));
         let file = dir.join(name);
         std::fs::write(&file, "#!/bin/sh\n").unwrap();
         std::fs::set_permissions(&file, std::fs::Permissions::from_mode(mode)).unwrap();
@@ -510,11 +507,10 @@ mod tests {
     #[test]
     fn preset_cli_is_found_on_the_path() {
         let dir = temp_bin("found", "claude", 0o755);
-        let path = std::env::join_paths([dir.clone()]).unwrap();
+        let path = std::env::join_paths([&*dir]).unwrap();
         let shell = preset_shell(PRESETS, "claude", Some(&path)).unwrap();
         assert_eq!(PathBuf::from(&shell.program), dir.join("claude"));
         assert!(shell.args.is_empty());
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(unix)]
@@ -522,36 +518,33 @@ mod tests {
     fn preset_cli_missing_gives_the_install_hint() {
         // A file without the execute bit does not count.
         let dir = temp_bin("missing", "copilot", 0o644);
-        let path = std::env::join_paths([dir.clone()]).unwrap();
+        let path = std::env::join_paths([&*dir]).unwrap();
         let err = preset_shell(PRESETS, "copilot", Some(&path)).unwrap_err();
         assert!(err.contains("not installed"), "{err}");
         assert!(err.contains("copilot"), "{err}");
         assert!(preset_shell(PRESETS, "claude", Some(&path)).is_err());
         assert!(preset_shell(PRESETS, "claude", None).is_err());
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(unix)]
     #[test]
     fn skills_update_runs_npx_with_its_arguments() {
         let dir = temp_bin("npx", "npx", 0o755);
-        let path = std::env::join_paths([dir.clone()]).unwrap();
+        let path = std::env::join_paths([&*dir]).unwrap();
         let shell = preset_shell(PRESETS, "skills-update", Some(&path)).unwrap();
         assert_eq!(PathBuf::from(&shell.program), dir.join("npx"));
         assert_eq!(shell.args, ["skills", "update", "-y"]);
         let err = preset_shell(PRESETS, "skills-update", None).unwrap_err();
         assert!(err.contains("Node.js"), "{err}");
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(unix)]
     #[test]
     fn vault_setup_starts_claude_with_the_update_prompt() {
         let dir = temp_bin("setup", "claude", 0o755);
-        let path = std::env::join_paths([dir.clone()]).unwrap();
+        let path = std::env::join_paths([&*dir]).unwrap();
         let shell = preset_shell(PRESETS, "claude-vault-setup", Some(&path)).unwrap();
         assert_eq!(shell.args, ["/vault-setup update"]);
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -601,6 +594,7 @@ mod tests {
     #[test]
     fn short_lived_command_streams_output_and_ends() {
         let sessions = Sessions::default();
+        // Only a working directory that exists; nothing is created in it.
         let cwd = std::env::temp_dir();
         let (id, rx) = open_sh(&sessions, "echo nixe-terminal-ok", &cwd);
         let (out, exited) = collect(&rx);
@@ -614,14 +608,12 @@ mod tests {
     #[test]
     fn runs_in_the_given_directory() {
         let sessions = Sessions::default();
-        let dir = std::env::temp_dir().join(format!("nixe-term-cwd-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = TestDir::new("nixe-term-cwd-");
         let (id, rx) = open_sh(&sessions, "pwd", &dir);
         let (out, _) = collect(&rx);
         let name = dir.file_name().unwrap().to_string_lossy().into_owned();
         assert!(out.contains(&name), "{out:?}");
         sessions.close(id).unwrap();
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(unix)]

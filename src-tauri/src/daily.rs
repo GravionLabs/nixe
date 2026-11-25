@@ -289,6 +289,7 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use chrono::TimeZone;
 
     fn at(y: i32, mo: u32, d: u32, h: u32, mi: u32) -> DateTime<FixedOffset> {
@@ -342,11 +343,10 @@ mod tests {
         assert!(daily_path(&config, &d).is_err());
     }
 
-    fn tmp(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-daily-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+    fn tmp(name: &str) -> TestDir {
+        let dir = TestDir::new(&format!("nixe-daily-{name}-"));
         std::fs::create_dir_all(dir.join(".obsidian")).unwrap();
-        dunce::canonicalize(dir).unwrap()
+        dir
     }
 
     #[test]

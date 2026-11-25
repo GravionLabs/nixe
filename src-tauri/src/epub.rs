@@ -183,12 +183,10 @@ fn fetch_epub(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
-    fn tmp(name: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-epub-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        dunce::canonicalize(p).unwrap()
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-epub-{name}-"))
     }
 
     #[test]
@@ -328,7 +326,8 @@ mod tests {
 
     #[test]
     fn downloads_once_and_reuses_the_file() {
-        let dir = tmp("dl").join("books");
+        let scratch = tmp("dl");
+        let dir = scratch.join("books");
         let (base, hits) = serve(epub_bytes());
         let url = format!("{base}/a/Moby%20Dick.epub?x=1");
         let first = fetch_epub(&dir, &url, MAX_BYTES, false, T).unwrap();
@@ -365,7 +364,8 @@ mod tests {
 
     #[test]
     fn refuses_a_download_over_the_limit() {
-        let dir = tmp("dl-big").join("books");
+        let scratch = tmp("dl-big");
+        let dir = scratch.join("books");
         let (base, _) = serve(epub_bytes());
         let err = fetch_epub(&dir, &format!("{base}/a.epub"), 10, false, T).unwrap_err();
         assert!(err.contains("too large"), "{err}");
@@ -374,7 +374,8 @@ mod tests {
 
     #[test]
     fn refuses_a_response_that_is_no_epub() {
-        let dir = tmp("dl-html").join("books");
+        let scratch = tmp("dl-html");
+        let dir = scratch.join("books");
         let (base, _) = serve(b"<html>not a book</html>".to_vec());
         let err = fetch_epub(&dir, &format!("{base}/a.epub"), MAX_BYTES, false, T).unwrap_err();
         assert!(err.contains("not an EPUB"), "{err}");
@@ -387,7 +388,8 @@ mod tests {
 
     #[test]
     fn refuses_urls_that_are_not_https() {
-        let dir = tmp("dl-scheme").join("books");
+        let scratch = tmp("dl-scheme");
+        let dir = scratch.join("books");
         for url in [
             "http://example.com/a.epub",
             "ftp://example.com/a.epub",
@@ -404,7 +406,8 @@ mod tests {
 
     #[test]
     fn a_plain_http_server_is_refused_by_the_public_entry() {
-        let dir = tmp("dl-http").join("books");
+        let scratch = tmp("dl-http");
+        let dir = scratch.join("books");
         let (base, hits) = serve(epub_bytes());
         assert!(download_epub(&dir, &format!("{base}/a.epub"), MAX_BYTES).is_err());
         assert_eq!(hits.load(Ordering::SeqCst), 0);
@@ -412,7 +415,8 @@ mod tests {
 
     #[test]
     fn a_failed_request_is_reported() {
-        let dir = tmp("dl-fail").join("books");
+        let scratch = tmp("dl-fail");
+        let dir = scratch.join("books");
         let port = TcpListener::bind("127.0.0.1:0")
             .unwrap()
             .local_addr()

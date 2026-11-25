@@ -418,17 +418,15 @@ pub async fn git_push(app: tauri::AppHandle) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::fs;
 
-    fn tmp(name: &str) -> std::path::PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-gitsync-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        p
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-gitsync-{name}-"))
     }
 
     /// Bare "remote" with one commit on `main`, seeded through a scratch clone.
-    fn remote(name: &str) -> (std::path::PathBuf, String) {
+    fn remote(name: &str) -> (TestDir, String) {
         let bare = tmp(&format!("{name}-bare"));
         let mut opts = git2::RepositoryInitOptions::new();
         opts.bare(true).initial_head("main");
@@ -455,7 +453,8 @@ mod tests {
     #[test]
     fn clone_commit_push_roundtrip() {
         let (bare, url) = remote("rt");
-        let work = tmp("rt-work").join("v");
+        let work_dir = tmp("rt-work");
+        let work = work_dir.join("v");
         clone(&url, &work, None).unwrap();
         assert_eq!(fs::read_to_string(work.join("a.md")).unwrap(), "one");
         fs::write(work.join("b.md"), "two").unwrap();
@@ -473,7 +472,8 @@ mod tests {
     #[test]
     fn commit_without_changes_returns_false() {
         let (_b, url) = remote("nochange");
-        let work = tmp("nochange-work").join("v");
+        let work_dir = tmp("nochange-work");
+        let work = work_dir.join("v");
         clone(&url, &work, None).unwrap();
         assert!(!commit_all(&work, "noop").unwrap());
     }
@@ -481,8 +481,10 @@ mod tests {
     #[test]
     fn pull_rebase_replays_local_commit_on_remote_change() {
         let (_b, url) = remote("rebase");
-        let a = tmp("rebase-a").join("v");
-        let b = tmp("rebase-b").join("v");
+        let a_dir = tmp("rebase-a");
+        let a = a_dir.join("v");
+        let b_dir = tmp("rebase-b");
+        let b = b_dir.join("v");
         clone(&url, &a, None).unwrap();
         clone(&url, &b, None).unwrap();
         fs::write(a.join("x.md"), "x").unwrap();
@@ -508,8 +510,10 @@ mod tests {
     #[test]
     fn pull_rebase_conflict_keeps_both_versions() {
         let (_b, url) = remote("conflict");
-        let a = tmp("conflict-a").join("v");
-        let b = tmp("conflict-b").join("v");
+        let a_dir = tmp("conflict-a");
+        let a = a_dir.join("v");
+        let b_dir = tmp("conflict-b");
+        let b = b_dir.join("v");
         clone(&url, &a, None).unwrap();
         clone(&url, &b, None).unwrap();
         fs::write(a.join("a.md"), "from a").unwrap();
@@ -536,13 +540,14 @@ mod tests {
     }
 
     /// Two clones of one remote, `a` and `b`.
-    fn pair(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
-        let (_bare, url) = remote(name);
-        let a = tmp(&format!("{name}-a")).join("v");
-        let b = tmp(&format!("{name}-b")).join("v");
+    /// The first element holds the scratch directories of the remote and both clones.
+    fn pair(name: &str) -> (Vec<TestDir>, std::path::PathBuf, std::path::PathBuf) {
+        let (bare, url) = remote(name);
+        let (ta, tb) = (tmp(&format!("{name}-a")), tmp(&format!("{name}-b")));
+        let (a, b) = (ta.join("v"), tb.join("v"));
         clone(&url, &a, None).unwrap();
         clone(&url, &b, None).unwrap();
-        (a, b)
+        (vec![bare, ta, tb], a, b)
     }
 
     fn clean(dir: &Path) -> bool {
@@ -557,7 +562,7 @@ mod tests {
 
     #[test]
     fn pull_rebase_fast_forwards_and_reports_up_to_date() {
-        let (a, b) = pair("ff");
+        let (_dirs, a, b) = pair("ff");
         assert_eq!(pull_rebase(&b, None).unwrap(), Pulled::UpToDate);
         fs::write(a.join("x.md"), "x").unwrap();
         commit_all(&a, "add x").unwrap();
@@ -569,7 +574,7 @@ mod tests {
 
     #[test]
     fn pull_rebase_reports_a_rebase_and_a_conflict_leaves_a_clean_repository() {
-        let (a, b) = pair("diverged");
+        let (_dirs, a, b) = pair("diverged");
         fs::write(a.join("x.md"), "x").unwrap();
         commit_all(&a, "add x").unwrap();
         push(&a, None).unwrap();
@@ -580,7 +585,7 @@ mod tests {
 
     #[test]
     fn sync_commits_pulls_and_pushes() {
-        let (a, b) = pair("sync");
+        let (_dirs, a, b) = pair("sync");
         let store = credentials::MemoryStore::default();
         fs::write(a.join("x.md"), "x").unwrap();
         commit_all(&a, "add x").unwrap();
@@ -615,7 +620,7 @@ mod tests {
 
     #[test]
     fn sync_with_a_conflict_completes_and_pushes_both_files() {
-        let (a, b) = pair("sync-conflict");
+        let (_dirs, a, b) = pair("sync-conflict");
         let store = credentials::MemoryStore::default();
         fs::write(a.join("a.md"), "from a").unwrap();
         commit_all(&a, "a").unwrap();
@@ -639,7 +644,7 @@ mod tests {
 
     #[test]
     fn binary_conflict_keeps_both_files_byte_for_byte() {
-        let (a, b) = pair("bin-conflict");
+        let (_dirs, a, b) = pair("bin-conflict");
         fs::write(a.join("p.png"), [0u8, 159, 146, 150]).unwrap();
         commit_all(&a, "a").unwrap();
         push(&a, None).unwrap();
@@ -657,7 +662,7 @@ mod tests {
 
     #[test]
     fn remote_delete_against_local_edit_restores_the_deleted_side_as_the_copy() {
-        let (a, b) = pair("del-remote");
+        let (_dirs, a, b) = pair("del-remote");
         fs::remove_file(a.join("a.md")).unwrap();
         commit_all(&a, "delete").unwrap();
         push(&a, None).unwrap();
@@ -676,7 +681,7 @@ mod tests {
 
     #[test]
     fn local_delete_against_remote_edit_keeps_the_remote_edit_and_a_copy() {
-        let (a, b) = pair("del-local");
+        let (_dirs, a, b) = pair("del-local");
         fs::write(a.join("a.md"), "remote edit").unwrap();
         commit_all(&a, "edit").unwrap();
         push(&a, None).unwrap();
@@ -697,7 +702,7 @@ mod tests {
         let store = credentials::MemoryStore::default();
         let plain = tmp("sync-plain");
         assert!(sync_vault(&plain, None, &store).is_err());
-        let (_a, b) = pair("sync-gone");
+        let (_dirs, _a, b) = pair("sync-gone");
         let repo = Repository::open(&b).unwrap();
         repo.remote_set_url("origin", "file:///nonexistent/repo.git")
             .unwrap();
@@ -789,7 +794,8 @@ mod tests {
 
     #[test]
     fn clone_of_missing_repository_fails() {
-        let dest = tmp("missing").join("v");
+        let dest_dir = tmp("missing");
+        let dest = dest_dir.join("v");
         assert!(clone("file:///nonexistent/repo.git", &dest, None).is_err());
     }
 
@@ -798,7 +804,8 @@ mod tests {
     #[ignore]
     fn bench_clone() {
         let url = std::env::var("NIXE_BENCH_REMOTE").unwrap();
-        let dest = tmp("bench").join("v");
+        let dest_dir = tmp("bench");
+        let dest = dest_dir.join("v");
         let start = std::time::Instant::now();
         clone(&url, &dest, None).unwrap();
         println!("clone took {} ms", start.elapsed().as_millis());

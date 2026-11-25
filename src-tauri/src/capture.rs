@@ -275,6 +275,7 @@ pub fn fetch_title(url: &str, timeout: Duration) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use chrono::TimeZone;
     use std::io::Write;
 
@@ -285,11 +286,8 @@ mod tests {
             .unwrap()
     }
 
-    fn tmp(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-capture-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        dunce::canonicalize(dir).unwrap()
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-capture-{name}-"))
     }
 
     fn config(target: Target) -> Config {

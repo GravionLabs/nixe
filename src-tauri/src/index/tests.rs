@@ -6,12 +6,30 @@ use rusqlite::Connection;
 
 use super::scan::ScanSummary;
 use super::*;
+use crate::test_dir::TestDir;
 
-fn temp_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("nixe-index-{name}-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dunce::canonicalize(dir).unwrap()
+fn temp_dir(name: &str) -> TestDir {
+    TestDir::new(&format!("nixe-index-{name}-"))
+}
+
+/// The `vault` folder of a scratch directory; the scratch directory goes with it.
+struct Vault {
+    root: PathBuf,
+    _base: TestDir,
+}
+
+impl std::ops::Deref for Vault {
+    type Target = Path;
+
+    fn deref(&self) -> &Path {
+        &self.root
+    }
+}
+
+impl AsRef<Path> for Vault {
+    fn as_ref(&self) -> &Path {
+        &self.root
+    }
 }
 
 fn write(root: &Path, rel: &str, text: &str) {
@@ -21,12 +39,12 @@ fn write(root: &Path, rel: &str, text: &str) {
 }
 
 /// A vault and an index database next to it (outside the vault).
-fn setup(name: &str) -> (PathBuf, Connection) {
+fn setup(name: &str) -> (Vault, Connection) {
     let base = temp_dir(name);
     let root = base.join("vault");
     fs::create_dir_all(&root).unwrap();
     let conn = open(&base.join("index/v.sqlite")).unwrap();
-    (root, conn)
+    (Vault { root, _base: base }, conn)
 }
 
 fn run(conn: &mut Connection, root: &Path) -> ScanSummary {
@@ -679,7 +697,7 @@ mod searching {
         );
     }
 
-    fn vault(name: &str) -> (PathBuf, Connection) {
+    fn vault(name: &str) -> (Vault, Connection) {
         let (root, mut conn) = setup(name);
         write(
             &root,
@@ -848,7 +866,7 @@ mod workspace_search {
     use super::*;
     use crate::index::search::{parse_query, search_roots, SearchRoot};
 
-    fn root(name: &str, notes: &[(&str, &str)]) -> (PathBuf, Connection) {
+    fn root(name: &str, notes: &[(&str, &str)]) -> (Vault, Connection) {
         let (dir, mut conn) = setup(name);
         for (rel, text) in notes {
             write(&dir, rel, text);

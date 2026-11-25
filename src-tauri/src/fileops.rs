@@ -295,12 +295,10 @@ pub fn trash_path(root: &Path, path: &Path) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
 
-    fn tmp(name: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("nixe-fileops-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&p);
-        fs::create_dir_all(&p).unwrap();
-        dunce::canonicalize(p).unwrap()
+    fn tmp(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-fileops-{name}-"))
     }
 
     #[test]

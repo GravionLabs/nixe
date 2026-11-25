@@ -528,13 +528,11 @@ pub fn install(app_data: &Path) -> Result<Vec<&'static str>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::fs;
 
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-nh-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dir
+    fn temp_dir(name: &str) -> TestDir {
+        TestDir::new(&format!("nixe-nh-{name}-"))
     }
 
     fn frame(value: &Value) -> Vec<u8> {
@@ -629,20 +627,20 @@ mod tests {
         assert_eq!(handle(br#"{"type":"clip"}"#, none, d)["ok"], false);
     }
 
-    fn vault_with_links(name: &str) -> (PathBuf, KnownVault) {
+    fn vault_with_links(name: &str) -> (TestDir, KnownVault) {
         let root = temp_dir(name);
         fs::create_dir_all(root.join("Links/Reading")).unwrap();
         fs::create_dir_all(root.join("Links/.archive")).unwrap();
         let vault = KnownVault {
             name: "main".into(),
-            path: root.clone(),
+            path: root.to_path_buf(),
         };
         (root, vault)
     }
 
     #[test]
     fn vaults_lists_the_links_folder_and_its_sub_folders() {
-        let (_, vault) = vault_with_links("vaults");
+        let (_root, vault) = vault_with_links("vaults");
         let r = handle(br#"{"type":"vaults"}"#, &[vault], Path::new(""));
         assert_eq!(r["ok"], true);
         assert_eq!(r["vaults"][0]["name"], "main");
@@ -677,7 +675,7 @@ mod tests {
 
     #[test]
     fn clip_refuses_a_folder_outside_the_links_folder_and_unknown_vaults() {
-        let (_, vault) = vault_with_links("refuse");
+        let (_root, vault) = vault_with_links("refuse");
         let data = temp_dir("refuse-data");
         let clip = |extra: Value| {
             let mut m = json!({"type": "clip", "url": "https://example.com/b", "html": "<p>x</p>"});
@@ -701,7 +699,7 @@ mod tests {
 
     #[test]
     fn serve_answers_each_frame_until_the_port_closes() {
-        let (_, vault) = vault_with_links("serve");
+        let (_root, vault) = vault_with_links("serve");
         let input = [
             frame(&json!({"type": "vaults"})),
             frame(&json!({"type": "nope"})),

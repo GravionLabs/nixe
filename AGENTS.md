@@ -23,6 +23,7 @@ Run these before opening a pull request. CI runs the same.
 | Screenshots of the docs and the site (`pnpm screenshots [name...]`; run when a view changes) | `pnpm screenshots` |
 | Rust format | `cargo fmt --manifest-path src-tauri/Cargo.toml --check` |
 | Rust tests | `cargo test --manifest-path src-tauri/Cargo.toml` |
+| Rust tests leave no temp directories | `pnpm check:temp-dirs` |
 
 Run `pnpm format` (oxfmt, `.oxfmtrc.json`) and `cargo fmt --manifest-path src-tauri/Cargo.toml` to fix formatting. oxfmt formats the TypeScript, the Angular templates, the styles and the JSON/YAML configs; Markdown, `docs/`, `fixtures/` and `src-tauri/` are left out.
 
@@ -30,5 +31,5 @@ Run `pnpm format` (oxfmt, `.oxfmtrc.json`) and `cargo fmt --manifest-path src-ta
 
 ## Conventions
 
-- Every change ships with tests.
+- Every change ships with tests. A Rust test that needs a directory uses `TestDir` or `tempfile::TempDir`, never a hand-made name under `env::temp_dir()` (`docs/backend/tests.md`, `pnpm check:temp-dirs`).
 - Commits and branches follow the `github-issue` skill; pull requests target `release/next`.

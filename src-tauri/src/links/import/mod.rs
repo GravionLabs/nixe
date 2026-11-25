@@ -265,8 +265,8 @@ pub(super) fn saved_from_epoch(seconds: String) -> Option<String> {
 mod tests {
     use super::*;
     use crate::links::fetch::Page;
+    use crate::test_dir::TestDir;
     use chrono::TimeZone;
-    use std::path::PathBuf;
 
     fn fixture(name: &str) -> String {
         std::fs::read_to_string(
@@ -277,11 +277,8 @@ mod tests {
         .unwrap()
     }
 
-    fn tmp(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-import-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        dunce::canonicalize(dir).unwrap()
+    fn tmp(name: &str) -> TestDir {
+        TestDir::nested(&format!("nixe-import-{name}-"), "vault")
     }
 
     fn now() -> DateTime<FixedOffset> {
