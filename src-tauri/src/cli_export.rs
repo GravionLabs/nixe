@@ -7,6 +7,7 @@
 //! `nixe export <folder> --format pdf --out <dir>` (#600) lists the notes of the folder here, and
 //! the one hidden window prints them one after the other.
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -15,7 +16,7 @@ use serde::Serialize;
 
 use crate::cli::{note_path, CliError};
 use crate::index::{self, scan};
-use crate::site::{clean_exclude, published_text};
+use crate::site::{clean_exclude, in_excluded, is_unpublished};
 use crate::vault::resolve::is_markdown_path;
 use crate::vault::walk_vault;
 
@@ -218,8 +219,15 @@ fn resolve_folder(
         if !is_markdown_path(&path) || include.as_ref().is_some_and(|i| !i.is_match(file_name)) {
             continue;
         }
-        // A note that cannot be read stays in the list: the export reports it as failed.
-        if matches!(published_text(&root, &path, &prefix, &exclude), Ok(None)) {
+        if in_excluded(&exclude, &prefix, &path) {
+            continue;
+        }
+        // Decoded as the export reads it (`read_text_file`), so that a note which is not UTF-8
+        // keeps its `publish: false`. One that cannot be read at all stays in the list: the
+        // export reports it as failed.
+        if fs::read(root.join(&path))
+            .is_ok_and(|bytes| is_unpublished(&String::from_utf8_lossy(&bytes)))
+        {
             continue;
         }
         let note = root.join(&path);
@@ -271,7 +279,6 @@ pub fn progress_line(index: usize, total: usize, name: &str, error: Option<&str>
 mod tests {
     use super::*;
     use crate::test_dir::TestDir;
-    use std::fs;
 
     /// The vault and data folders; the first element is the guard of both.
     fn vault(name: &str) -> (TestDir, PathBuf, PathBuf) {
@@ -514,13 +521,18 @@ mod tests {
         assert_eq!(names(&r), ["sub/Plan.md"]);
     }
 
-    #[cfg(unix)]
     #[test]
-    fn a_note_that_cannot_be_read_stays_in_the_list() {
-        let (_base, vault, data, o) = folder("unreadable");
-        fs::write(vault.join("docs/Bad.md"), [0xff, 0xfe, 0x00]).unwrap();
+    fn publish_false_holds_for_a_note_that_is_not_utf_8() {
+        let (_base, vault, data, o) = folder("latin1");
+        fs::write(
+            vault.join("docs/Private.md"),
+            b"---\npublish: false\n---\n\xdcbersicht",
+        )
+        .unwrap();
+        fs::write(vault.join("docs/Latin.md"), b"\xdcbersicht").unwrap();
         let r = resolve(&o, &vault, &data, true).unwrap();
-        assert!(names(&r).contains(&"Bad.md"));
+        assert!(!names(&r).contains(&"Private.md"));
+        assert!(names(&r).contains(&"Latin.md"));
     }
 
     #[test]
