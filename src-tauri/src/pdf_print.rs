@@ -247,7 +247,9 @@ mod platform {
         NSPrintHeaderAndFooter, NSPrintInfo, NSPrintJobSavingURL, NSPrintOperation, NSPrintSaveJob,
         NSPrintingPaginationMode, NSWindow,
     };
-    use objc2_foundation::{NSCopying, NSNumber, NSObject, NSSize, NSString, NSURL};
+    use objc2_foundation::{
+        NSCopying, NSNumber, NSObject, NSObjectProtocol, NSSize, NSString, NSURL,
+    };
     use objc2_web_kit::WKWebView;
 
     use super::{margin as spike_margin, Paper, Reply};

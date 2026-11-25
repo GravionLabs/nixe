@@ -194,6 +194,9 @@ export function printHtml(html: string): Promise<void> {
   });
 }
 
+/** Keeps the root attributes of the document `showForPrint` shows. */
+let rootGuard: MutationObserver | null = null;
+
 /**
  * Replaces the document of this window with a complete export document and resolves when its
  * images and fonts are loaded, so a print holds all of it. The app is gone from the window
@@ -217,7 +220,10 @@ export async function showForPrint(html: string): Promise<void> {
   setRootAttributes();
   // The theme of the app still runs and sets its own class on the root, at any time: the look of
   // the export wins until the process ends.
-  new MutationObserver(setRootAttributes).observe(root, { attributes: true });
+  // Only one at a time: two would answer each other without end.
+  rootGuard?.disconnect();
+  rootGuard = new MutationObserver(setRootAttributes);
+  rootGuard.observe(root, { attributes: true });
   const adopt = (node: Node) => document.importNode(node, true);
   document.head.replaceChildren(...Array.from(next.head.childNodes, adopt));
   const body = document.importNode(next.body, true);
@@ -225,16 +231,18 @@ export async function showForPrint(html: string): Promise<void> {
 
   // A hidden window loads no lazy image.
   const images = Array.from(body.querySelectorAll("img"));
+  for (const img of images) img.loading = "eager";
   await Promise.all(
-    images.map((img) => {
-      img.loading = "eager";
-      if (img.complete) return undefined;
+    images
+      .filter((img) => !img.complete)
       // A broken image is complete too: it prints its alternative text.
-      return new Promise<void>((resolve) => {
-        img.addEventListener("load", () => resolve(), { once: true });
-        img.addEventListener("error", () => resolve(), { once: true });
-      });
-    }),
+      .map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            img.addEventListener("load", () => resolve(), { once: true });
+            img.addEventListener("error", () => resolve(), { once: true });
+          }),
+      ),
   );
   // Fonts load when the layout asks for them, which may be only at the print: ask for all now.
   if (document.fonts) {
