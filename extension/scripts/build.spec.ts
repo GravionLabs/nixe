@@ -23,6 +23,20 @@ describe("manifestFor", () => {
   });
 });
 
+describe("the Firefox add-on id", () => {
+  it("is one the native host allows", async () => {
+    const host = await readFile(
+      new URL("../../src-tauri/src/native_host.rs", import.meta.url),
+      "utf8",
+    );
+    const list = /const ALLOWED_FIREFOX_EXTENSIONS: &\[&str\] = &\[([^\]]*)\];/.exec(host)?.[1];
+
+    const allowed = [...(list ?? "").matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+
+    expect(allowed).toContain(geckoId);
+  });
+});
+
 describe("release version", () => {
   it("keeps only the numbers of a pre-release version", () => {
     expect(manifestVersion("1.15.0")).toBe("1.15.0");
