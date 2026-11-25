@@ -45,7 +45,8 @@ The table follows changes in the vault, those of the `.base` file included.
 The switcher in the header lists all views of the base by `name`, in the order of the file (a view
 without a name as `View 2`, by its place). Only `table` views can be shown; another type shows a
 message and the switcher stays. The chosen view belongs to the tab and follows the view by its name
-when the file changes; when it is gone, the first table view shows again.
+when the file changes; when it is gone, the first table view shows again, without the sort of a
+clicked header.
 
 ```yaml
 properties:
@@ -85,7 +86,9 @@ The [syntax page](https://obsidian.md/help/bases/syntax) describes `groupBy`, `g
 `limit` but does not name the key of the saved sort; `sort` with `property` and `direction` was
 checked against bases saved by Obsidian, for example
 [this one](https://github.com/BipinJungRai/NOAT/blob/26d835804df64d47fdbd0b024946c59980d1ffce/00%20Meta/Bases/Literature.base).
-(`order` is not a sort: it lists the columns.)
+Earlier versions of Obsidian named the property of a `sort` entry `column`
+([example](https://github.com/kepano/kepano-obsidian/blob/main/Templates/Bases/Shows.base)); it is
+read too. (`order` is not a sort: it lists the columns.)
 
 The rows of hidden groups are dropped first, the others are sorted, `limit` keeps the first of them
 and these are put into their groups. The limit therefore counts over all groups; a group of an

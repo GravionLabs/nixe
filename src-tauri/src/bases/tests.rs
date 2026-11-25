@@ -1419,6 +1419,14 @@ fn the_saved_sort_orders_the_rows_with_missing_values_last() {
         ),
         ["a.md", "d.md", "b.md", "c.md", "none.md"]
     );
+    // The key of earlier versions of Obsidian.
+    assert_eq!(
+        shown(
+            &conn,
+            "    sort:\n      - { column: note.rank, direction: DESC }\n"
+        ),
+        ["a.md", "d.md", "b.md", "c.md", "none.md"]
+    );
     // The first key counts most; the property needs no column; texts ignore case.
     assert_eq!(
         shown(

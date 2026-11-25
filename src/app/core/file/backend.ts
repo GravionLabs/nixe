@@ -745,12 +745,13 @@ export const backend = {
     invoke<SearchHit[]>("search_workspace", { roots, query }),
   /** The notes of all roots, for the quick switcher. */
   workspaceNotes: (roots: RootArg[]) => invoke<WorkspaceNote[]>("workspace_notes", { roots }),
+  /** The views of the text of a `.base` file. */
+  baseViews: (source: string) => invoke<BaseView[]>("base_views", { source }),
   /**
    * The table of a view (null: the first table view) of the `.base` file with the text `source`,
    * answered from the index; rejects with a message for invalid YAML or another view type.
+   * `view` is an index into `baseViews`; `sort` comes before the sort of the view.
    */
-  baseViews: (source: string) => invoke<BaseView[]>("base_views", { source }),
-  /** `view` is an index into `baseViews`; `sort` comes before the sort of the view. */
   baseQuery: (source: string, view: number | null = null, sort: BaseSort | null = null) =>
     invoke<BaseResult>("base_query", { source, view, sort }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */

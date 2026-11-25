@@ -422,10 +422,12 @@ describe("BaseComponent views", () => {
     await view.settle();
     expect(queries.at(-1)).toEqual([2, null]);
 
+    await view.sort(0);
     views = [VIEWS[0]!, VIEWS[2]!];
     view.index.revision.set(2);
     await view.settle();
     expect(queries.at(-1)).toEqual([1, null]);
+    expect(view.baseChoice()).toEqual({ view: null, sort: null });
   });
 
   it("sorts by a clicked header for the tab only: ascending, descending, off", async () => {

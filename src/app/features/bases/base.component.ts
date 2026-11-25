@@ -152,8 +152,13 @@ export class BaseComponent {
       if (request !== this.request) return;
       const views = await backend.baseViews(source);
       if (request !== this.request) return;
-      const { view, sort } = this.tab.baseChoice();
+      let { view, sort } = this.tab.baseChoice();
       const index = shownView(views, view);
+      // The chosen view is gone: its sort does not apply to the one shown instead.
+      if (view && (index === null || views[index]?.name !== view.name)) {
+        this.tab.baseChoice.set({ view: null, sort: null });
+        sort = null;
+      }
       this.views.set(views);
       this.active.set(index);
       const result = await backend.baseQuery(source, index, sort);
@@ -175,6 +180,7 @@ export class BaseComponent {
     // The table of the view before is not shown while this one is read.
     this.result.set(null);
     this.error.set(null);
+    this.active.set(index);
     this.tab.baseChoice.set({ view: { index, name: view.name }, sort: null });
   }
 

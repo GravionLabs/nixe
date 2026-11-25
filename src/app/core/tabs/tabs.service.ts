@@ -29,10 +29,6 @@ export interface ViewerHandle {
   fold(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void;
 }
 
-/**
- * One note view. Every tab has its own document, editor and outline state (its own injector), so
- * back/forward history, scroll position and viewer/editor mode belong to the tab.
- */
 export interface BaseChoice {
   /** The chosen view, by its place and name; null for the default one. */
   view: { index: number; name: string | null } | null;
@@ -40,6 +36,10 @@ export interface BaseChoice {
   sort: BaseSort | null;
 }
 
+/**
+ * One note view. Every tab has its own document, editor and outline state (its own injector), so
+ * back/forward history, scroll position and viewer/editor mode belong to the tab.
+ */
 export interface Tab {
   readonly id: number;
   readonly injector: Injector;

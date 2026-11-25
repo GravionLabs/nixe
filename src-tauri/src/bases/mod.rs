@@ -346,12 +346,15 @@ impl Key {
                 .property(name)
                 .map_or(eval::Value::Null, eval::property_value),
             Source::Formula(name) => match context.formula(name) {
-                Ok(value) => {
-                    *room = room
-                        .checked_sub(functions::size(&value)?)
-                        .ok_or("The values to sort and group by are too large.")?;
-                    value
-                }
+                Ok(value) => match room.checked_sub(functions::size(&value)?) {
+                    Some(left) => {
+                        *room = left;
+                        value
+                    }
+                    // A sort by a click never takes the table away.
+                    None if !self.strict => eval::Value::Null,
+                    None => return Err("The values to sort and group by are too large.".into()),
+                },
                 Err(e) if self.strict => {
                     return Err(format!(
                         "Error in {place}: {e} in `{}` for the note `{}`.",

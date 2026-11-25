@@ -85,8 +85,11 @@ pub fn compile(view: &View) -> Result<Arrangement, String> {
 
 fn sort_key(value: &Yaml, place: &str) -> Result<SortKey, String> {
     let invalid = |what: &str| format!("Invalid base: `{place}` of the view {what}.");
+    // Earlier versions of Obsidian wrote the property of a sort entry as `column`.
+    let older = || value.get("column").filter(|_| place == "sort");
     let property = value
         .get("property")
+        .or_else(older)
         .and_then(Yaml::as_str)
         .ok_or_else(|| invalid("needs a `property`"))?;
     let direction = match value.get("direction") {
