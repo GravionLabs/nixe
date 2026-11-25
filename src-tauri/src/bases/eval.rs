@@ -2,6 +2,7 @@
 //! property is never an error: the operation or function has no value, which is false. An operator
 //! on a value of another type has no value either; a function on one is an error (`functions`).
 
+use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 
@@ -389,11 +390,13 @@ fn time_of(nanos: i64) -> Value {
     Date::at(nanos.div_euclid(1_000_000)).map_or(Value::Null, Value::Date)
 }
 
-/// The text a file function takes from an argument: a text, or the target of a link.
-fn name_of(value: &Value) -> Option<&str> {
+/// The text a file function takes from an argument: a text, the target of a link, or a date as it
+/// is written (the name of a daily note).
+fn name_of(value: &Value) -> Option<Cow<'_, str>> {
     match value {
-        Value::Text(s) => Some(s),
-        Value::Link(link) => Some(&link.target),
+        Value::Text(s) => Some(s.into()),
+        Value::Link(link) => Some(link.target.as_str().into()),
+        Value::Date(date) => date.text().map(Cow::Owned),
         _ => None,
     }
 }

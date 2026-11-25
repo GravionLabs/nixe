@@ -12,6 +12,9 @@ use chrono::{
 
 /// The years of a date.
 const YEARS: RangeInclusive<i32> = 0..=9999;
+/// Most bytes of the text of a date or a duration: a comparison reads it again for every item of a
+/// list.
+const MAX_TEXT: usize = 100;
 const SECOND: f64 = 1_000.0;
 const MINUTE: f64 = 60.0 * SECOND;
 const HOUR: f64 = 60.0 * MINUTE;
@@ -106,6 +109,9 @@ impl Date {
     /// `YYYY-MM-DD`, optionally with `T` or a space, `hh:mm[:ss[.f]]` and a zone (`Z`, `+01:00`
     /// or `+0100`); without a zone it is local. These are the texts of a date property.
     pub fn parse(text: &str) -> Option<Date> {
+        if text.len() > MAX_TEXT {
+            return None;
+        }
         let text = text.trim();
         let Some((day, time)) = text.split_once(['T', 't', ' ']) else {
             return Date::of_day(NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?);
@@ -266,6 +272,9 @@ impl Duration {
     /// A number and a unit, with or without a space: `1 week`, `2h`, `-1.5 days`. `M` is a month,
     /// `m` a minute. Years and months take whole numbers.
     pub fn parse(text: &str) -> Option<Duration> {
+        if text.len() > MAX_TEXT {
+            return None;
+        }
         let text = text.trim();
         let unit_at = text.find(|c: char| c.is_alphabetic())?;
         let (number, unit) = text.split_at(unit_at);
@@ -527,6 +536,14 @@ mod tests {
         }
         assert_eq!(Duration::parse("1M").unwrap().times(f64::MAX), None);
         assert_eq!(Duration::parse("1d").unwrap().times(f64::INFINITY), None);
+    }
+
+    #[test]
+    fn a_long_text_is_not_read() {
+        let zeros = "0".repeat(MAX_TEXT);
+        assert_eq!(Duration::parse(&format!("{zeros}1s")), None);
+        let spaces = " ".repeat(MAX_TEXT);
+        assert_eq!(Date::parse(&format!("2026-06-10{spaces}")), None);
     }
 
     #[test]

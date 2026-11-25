@@ -214,6 +214,8 @@ pub fn link(args: &[Value], resolver: &Resolver) -> Result<Value, String> {
         None | Some(Value::Null) => return Ok(Value::Null),
         Some(Value::Text(s)) => bare_target(s).to_string(),
         Some(Value::Link(link)) => link.target.clone(),
+        // The daily note of the date.
+        Some(date @ Value::Date(_)) => text_of(date),
         Some(other) => return Err(unavailable("link", other)),
     };
     if target.is_empty() {

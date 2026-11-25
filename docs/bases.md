@@ -216,7 +216,8 @@ The functions of a list give a new list; the property or formula keeps its items
 #### Dates and durations
 
 A date is a day (`2026-06-10`) or a point in time of the years 0 to 9999; a zone is written `Z`,
-`+01:00` or `+0100`, and without one the time is local. Dates are the date
+`+01:00` or `+0100`, and without one the time is local. A text of more than 100 bytes names no date
+and no duration. `link` and `file.hasLink` take a date as the name of a note (a daily note). Dates are the date
 properties of the notes, `file.ctime`, `file.mtime` and what `date`, `now` and `today` give. A text
 property that only looks like a date (`2026-02-30`) and the items of a list property stay texts.
 

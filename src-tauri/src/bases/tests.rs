@@ -1279,8 +1279,8 @@ fn wrong_dates_and_lists_are_errors_of_the_cell() {
         ("marks.join(\"x\".repeat(90000))", "too large"),
         ("due.format(\"[\".repeat(100000))", "the format is too long"),
         (
-            "[duration(\"1\" + \"0\".repeat(300) + \"h\")].join(\"\").repeat(400)",
-            "too large",
+            "duration(\"1\" + \"0\".repeat(300) + \"h\")",
+            "`duration` cannot read",
         ),
         (
             "\"x\".repeat(6000).split(\"\").join(\",\").split(\",\").flat().join(\"y\".repeat(20))",
@@ -1300,4 +1300,30 @@ fn dates_and_durations_are_as_large_as_their_texts() {
     assert_eq!(functions::size(&date), Ok(19));
     let duration = eval::Value::Duration(date::Duration::parse("14M").unwrap());
     assert_eq!(functions::size(&duration), Ok("1 year 2 months".len()));
+}
+
+#[test]
+fn a_date_names_its_daily_note() {
+    let dir = TestDir::new("nixe-bases-daily-");
+    let vault = dir.join("vault");
+    fs::create_dir_all(&vault).unwrap();
+    fs::write(vault.join("2026-06-10.md"), "").unwrap();
+    fs::write(
+        vault.join("Done.md"),
+        "---\ndue: 2026-06-10\n---\n[[2026-06-10]]\n",
+    )
+    .unwrap();
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    assert_eq!(
+        at_clock(&conn, "file.hasLink(due)"),
+        cell("checkbox", json!(true))
+    );
+    assert_eq!(
+        at_clock(&conn, "link(due)"),
+        cell(
+            "link",
+            json!({ "text": "2026-06-10", "path": "2026-06-10.md", "url": null })
+        )
+    );
 }
