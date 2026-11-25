@@ -84,15 +84,6 @@ pub fn print_window(
     page_size: &str,
 ) -> Result<(), String> {
     let paper = paper(page_size).ok_or_else(|| format!("unknown page size {page_size}"))?;
-    // SPIKE (temporary): a native paper and margin that differ from `@page`.
-    let paper = if std::env::var_os("NIXE_PDF_SPIKE").is_some() {
-        Paper {
-            width_mm: 215.9,
-            height_mm: 355.6,
-        }
-    } else {
-        paper
-    };
     write_pdf(target, |file| {
         let (tx, rx) = mpsc::channel();
         let file = file.to_path_buf();
@@ -102,15 +93,6 @@ pub fn print_window(
         rx.recv_timeout(PRINT_TIMEOUT)
             .map_err(|_| "the print did not finish".to_string())?
     })
-}
-
-/// SPIKE (temporary).
-fn margin() -> f64 {
-    if std::env::var_os("NIXE_PDF_SPIKE").is_some() {
-        40.0
-    } else {
-        MARGIN_MM
-    }
 }
 
 type Reply = mpsc::Sender<Result<(), String>>;
@@ -124,7 +106,7 @@ mod platform {
     use gtk::{PageSetup, PaperSize, PrintSettings, Unit};
     use webkit2gtk::{PrintOperation, PrintOperationExt};
 
-    use super::{margin as spike_margin, Paper, Reply};
+    use super::{Paper, Reply, MARGIN_MM};
 
     /// Runs on the main thread; the answer comes through `reply` when WebKit is done.
     pub fn print(
@@ -150,10 +132,10 @@ mod platform {
         let size = PaperSize::new_custom("nixe", "nixe", paper.width_mm, paper.height_mm, Unit::Mm);
         let setup = PageSetup::new();
         setup.set_paper_size(&size);
-        setup.set_top_margin(spike_margin(), Unit::Mm);
-        setup.set_bottom_margin(spike_margin(), Unit::Mm);
-        setup.set_left_margin(spike_margin(), Unit::Mm);
-        setup.set_right_margin(spike_margin(), Unit::Mm);
+        setup.set_top_margin(MARGIN_MM, Unit::Mm);
+        setup.set_bottom_margin(MARGIN_MM, Unit::Mm);
+        setup.set_left_margin(MARGIN_MM, Unit::Mm);
+        setup.set_right_margin(MARGIN_MM, Unit::Mm);
         let settings = PrintSettings::new();
         // The name of the printer of the file backend is translated by GTK.
         settings.set_printer(&gtk::glib::dgettext(Some("gtk30"), "Print to File"));
@@ -186,7 +168,7 @@ mod platform {
     use webview2_com::PrintToPdfCompletedHandler;
     use windows_core::{Interface, HSTRING};
 
-    use super::{margin as spike_margin, Paper, Reply};
+    use super::{Paper, Reply, MARGIN_MM};
 
     const MM_PER_INCH: f64 = 25.4;
 
@@ -208,10 +190,10 @@ mod platform {
                 let settings = environment.CreatePrintSettings()?;
                 settings.SetPageWidth(paper.width_mm / MM_PER_INCH)?;
                 settings.SetPageHeight(paper.height_mm / MM_PER_INCH)?;
-                settings.SetMarginTop(spike_margin() / MM_PER_INCH)?;
-                settings.SetMarginBottom(spike_margin() / MM_PER_INCH)?;
-                settings.SetMarginLeft(spike_margin() / MM_PER_INCH)?;
-                settings.SetMarginRight(spike_margin() / MM_PER_INCH)?;
+                settings.SetMarginTop(MARGIN_MM / MM_PER_INCH)?;
+                settings.SetMarginBottom(MARGIN_MM / MM_PER_INCH)?;
+                settings.SetMarginLeft(MARGIN_MM / MM_PER_INCH)?;
+                settings.SetMarginRight(MARGIN_MM / MM_PER_INCH)?;
                 settings.SetShouldPrintBackgrounds(true)?;
                 settings.SetShouldPrintHeaderAndFooter(false)?;
                 let handler = PrintToPdfCompletedHandler::create(Box::new(
@@ -252,7 +234,7 @@ mod platform {
     };
     use objc2_web_kit::WKWebView;
 
-    use super::{margin as spike_margin, Paper, Reply};
+    use super::{Paper, Reply, MARGIN_MM};
 
     const POINTS_PER_MM: f64 = 72.0 / 25.4;
 
@@ -307,7 +289,7 @@ mod platform {
                 paper.width_mm * POINTS_PER_MM,
                 paper.height_mm * POINTS_PER_MM,
             ));
-            let margin = spike_margin() * POINTS_PER_MM;
+            let margin = MARGIN_MM * POINTS_PER_MM;
             info.setTopMargin(margin);
             info.setBottomMargin(margin);
             info.setLeftMargin(margin);

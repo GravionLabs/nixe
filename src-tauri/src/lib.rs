@@ -1584,7 +1584,7 @@ pub fn run() {
                 .headless_export
                 .store(request.headless, std::sync::atomic::Ordering::SeqCst);
             *state.pending_export.lock().unwrap() = Some(request.clone());
-            if request.headless && std::env::var_os("NIXE_SPIKE_SHOW").is_none() {
+            if request.headless {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
                 }

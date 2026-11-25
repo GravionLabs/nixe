@@ -122,15 +122,6 @@ jobs:
       - name: Export a note as PDF (macOS, Windows)
         if: runner.os != 'Linux'
         run: node scripts/pdf-export-e2e.mjs src-tauri/target/debug/nixe pdf-export
-      - name: SPIKE (temporary)
-        if: always()
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" = Linux ]; then
-            xvfb-run -a scripts/pdf-spike.sh src-tauri/target/debug/nixe pdf-export
-          else
-            scripts/pdf-spike.sh src-tauri/target/debug/nixe pdf-export
-          fi
       - name: Upload the PDFs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
