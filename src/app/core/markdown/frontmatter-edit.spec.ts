@@ -43,8 +43,76 @@ describe("editFrontmatter set", () => {
     expect(set(out, "a", 5)).toBe("---\na: 5\nb: 2\n---\n");
   });
 
-  it("changes a flow list on its own line", () => {
-    expect(set(NOTE, "aliases", ["z"])).toBe(NOTE.replace("aliases: [x, y]", "aliases:\n  - z"));
+  it("keeps a flow list a flow list, with its padding and comment", () => {
+    expect(set(NOTE, "aliases", ["z"])).toBe(NOTE.replace("aliases: [x, y]", "aliases: [z]"));
+    expect(set("---\na: [ x ] # c\nb: 2\n---\n", "a", ["x", "y"])).toBe(
+      "---\na: [ x, y ] # c\nb: 2\n---\n",
+    );
+  });
+
+  it("keeps the quotes of a quoted text", () => {
+    expect(set('---\na: "x" # c\n---\n', "a", "y")).toBe('---\na: "y" # c\n---\n');
+    expect(set("---\na: 'x'\n---\n", "a", "y")).toBe("---\na: 'y'\n---\n");
+  });
+
+  it("does not fold a long text", () => {
+    const long = "word ".repeat(40).trim();
+    expect(set("---\na: x\n---\n", "a", long)).toBe(`---\na: ${long}\n---\n`);
+  });
+
+  it("keeps the comments of a block list when items change", () => {
+    const text = "---\ntags:\n  # first\n  - a # one\n  - b # two\n  # last\n  - c\nx: 1\n---\n";
+    expect(set(text, "tags", ["a", "c", "d"])).toBe(
+      "---\ntags:\n  # first\n  - a # one\n  # last\n  - c\n  - d\nx: 1\n---\n",
+    );
+    expect(set(text, "tags", ["a", "b", "c", "d"])).toBe(text.replace("  - c\n", "  - c\n  - d\n"));
+    expect(set(text, "tags", ["b", "c"])).toBe(text.replace("  - a # one\n", ""));
+  });
+
+  it("keeps the indent and the line ends of a block list", () => {
+    expect(set("---\r\ntags:\r\n- a\r\n- b # c\r\n---\r\n", "tags", ["a", "b", "[[d]]"])).toBe(
+      '---\r\ntags:\r\n- a\r\n- b # c\r\n- "[[d]]"\r\n---\r\n',
+    );
+  });
+
+  it("empties a block list and keeps its comment lines", () => {
+    const out = set("---\ntags: # t\n  # first\n  - a\nx: 1\n---\n", "tags", []);
+    expect(out).toBe("---\ntags: [] # t\n  # first\nx: 1\n---\n");
+    expect(splitFrontmatter(out).data).toEqual({ tags: [], x: 1 });
+  });
+
+  it.each([
+    ["dc:subject:\n  - x", "dc:subject", "dc:subject: []"],
+    ['"a:b":\n  - x', "a:b", '"a:b": []'],
+    ["k: &a\n  - x", "k", "k: &a []"],
+    ["k: !!seq\n  - x", "k", "k: !!seq []"],
+  ])("empties the block list %j", (yaml, key, written) => {
+    expect(set(`---\n${yaml}\n---\n`, key, [])).toBe(`---\n${written}\n---\n`);
+  });
+
+  it.each(["k: # c\n  v", "k:\n  # c\n  v", "k: | # c\n  v"])(
+    "refuses to drop the comment before a value: %j",
+    (yaml) => {
+      expect(() => set(`---\n${yaml}\n---\n`, "k", "w")).toThrow(/comment before/);
+    },
+  );
+
+  it.each([
+    ["an anchored item an alias points to", "---\nl:\n  - &x a\n  - b\nm: *x\n---\n", "l", ["b"]],
+    ["the only anchored item", "---\nl:\n  - &x a\nm: *x\n---\n", "l", []],
+    ["an anchored item of a flow list", "---\nl: [&x a, b]\nm: *x\n---\n", "l", ["b"]],
+    ["a comment that would join the value", "---\na: foo\n\n  bar # c\n---\n", "a", "a\nb"],
+    ["a key behind an indented mapping", "---\n  a: x\n  z: 1\n---\n", "n", "v"],
+  ])("refuses to damage the frontmatter: %s", (_, text, key, value) => {
+    expect(() => set(text, key, value)).toThrow(/damaging/);
+  });
+
+  it("refuses a flow list with comments inside", () => {
+    expect(() => set("---\nl: [a, # q\n  b]\n---\n", "l", ["a"])).toThrow(/comments/);
+  });
+
+  it("changes a key that is a number instead of adding a second one", () => {
+    expect(set("---\n2024: a\n---\n", "2024", "b")).toBe('---\n"2024": b\n---\n');
   });
 
   it("writes a value for a key without one", () => {

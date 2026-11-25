@@ -14,12 +14,16 @@ import type {
   BaseView,
 } from "../../core/file/backend";
 import { backend } from "../../core/file/backend";
+import { NoteEditService } from "../../core/file/note-edit.service";
 import { IndexService } from "../../core/index/index.service";
 import { basename, isMarkdownPath, joinPath } from "../../core/markdown/paths";
+import type { PropertyChange } from "../../core/markdown/property-change";
 import { SettingsService } from "../../core/settings/settings.service";
 import type { BaseChoice } from "../../core/tabs/tabs.service";
 import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { BaseCellComponent } from "./base-cell.component";
+import { cellEditor, cellOfValue, type CellEditor } from "./cell-edit";
 import { cellText } from "./cell-text";
 
 /** The column whose cells open the note. */
@@ -35,7 +39,25 @@ interface ViewCell {
   url: string | null;
   /** The cell could not be evaluated; the text says why. */
   failed: boolean;
+  /** Set for a cell of a note property that can be edited in the table. */
+  edit: CellEdit | null;
 }
+
+interface CellEdit {
+  editor: CellEditor;
+  property: string;
+  label: string;
+  value: unknown;
+}
+
+/** A value that was edited in the table and that the shown result does not hold yet. */
+interface Edited {
+  value: unknown;
+  /** The writes that are under way. */
+  pending: number;
+}
+
+const editKey = (path: string, property: string): string => `${path}\n${property}`;
 
 /** What the cover box of a card shows; both are null for the placeholder. */
 interface ViewCover {
@@ -61,13 +83,14 @@ interface ViewRow {
 /** The tab of a `.base` file: the core reads the file's view from the index. */
 @Component({
   selector: "app-base",
-  imports: [HxDataTable, HxSelectButton, HxTableBody, NgTemplateOutlet],
+  imports: [BaseCellComponent, HxDataTable, HxSelectButton, HxTableBody, NgTemplateOutlet],
   templateUrl: "./base.component.html",
   styleUrl: "./base.component.css",
 })
 export class BaseComponent {
   private readonly tab = inject(CURRENT_TAB);
   private readonly index = inject(IndexService);
+  private readonly notes = inject(NoteEditService);
   private readonly settings = inject(SettingsService);
   private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
@@ -103,19 +126,37 @@ export class BaseComponent {
   );
   /** The addresses of the cover images that could not be loaded in the shown result. */
   private readonly failed = signal<ReadonlySet<string>>(new Set());
+  /** By `editKey`. */
+  private readonly edited = signal<ReadonlyMap<string, Edited>>(new Map());
   protected readonly rows = computed<ViewRow[]>(() => {
     const result = this.result();
     if (!result) return [];
+    const edited = this.edited();
+    const columnCells = result.columns.map((column, i) =>
+      column.property ? result.rows.flatMap((row) => row.cells[i] ?? []) : [],
+    );
     const rows: ViewRow[] = result.rows.map((row) => {
-      const cells = row.cells.map((cell, i) =>
-        viewCell(cell, result.columns[i]?.id === FILE_NAME ? row.path : null),
-      );
+      const title = basename(row.path).replace(/\.[^.]*$/, "");
+      const cells = row.cells.map((cell, i) => {
+        const column = result.columns[i];
+        const property = column?.property;
+        const change = property ? edited.get(editKey(row.path, property)) : undefined;
+        const shown = change ? cellOfValue(change.value) : cell;
+        const view = viewCell(shown, column?.id === FILE_NAME ? row.path : null);
+        if (!column || !property) return view;
+        const editor = cellEditor(property, shown, columnCells[i] ?? []);
+        if (editor) {
+          const label = `${column.label} of ${title}`;
+          view.edit = { editor, property, label, value: shown.value };
+        }
+        return view;
+      });
       return {
         key: `note ${row.path}`,
         group: null,
         cells,
         path: row.path,
-        title: basename(row.path).replace(/\.[^.]*$/, ""),
+        title,
         properties: result.columns.flatMap((column, i) => {
           const cell = cells[i];
           return cell && column.id !== FILE_NAME ? [{ label: column.label, cell }] : [];
@@ -163,6 +204,7 @@ export class BaseComponent {
     if (path !== this.shown) {
       this.result.set(null);
       this.error.set(null);
+      this.edited.set(new Map());
       this.views.set([]);
       this.active.set(null);
       this.shown = path;
@@ -202,6 +244,8 @@ export class BaseComponent {
       // An image that was missing may be there now.
       this.failed.set(new Set());
       this.result.set(result);
+      // The result holds the stored values; those still being written stay as edited.
+      this.edited.update((edited) => new Map([...edited].filter(([, e]) => e.pending > 0)));
       this.error.set(null);
     } catch (err) {
       // The command log has the failure already (`loggedInvoke`).
@@ -209,6 +253,44 @@ export class BaseComponent {
       this.result.set(null);
       this.error.set(String(err));
     }
+  }
+
+  /**
+   * Writes an edited cell into its note. The new value shows at once; when it cannot be stored,
+   * the old one comes back with the reason.
+   */
+  protected async edit(path: string, cell: CellEdit, change: PropertyChange): Promise<void> {
+    const root = this.workspace.vaultRoot();
+    if (!root) return;
+    const key = editKey(path, cell.property);
+    const before = this.edited().get(key);
+    this.setEdited(key, { value: change(cell.value), pending: (before?.pending ?? 0) + 1 });
+    try {
+      const value = await this.notes.editProperty(joinPath(root, path), cell.property, change);
+      const now = this.edited().get(key);
+      if (!now) return;
+      // A later edit of the cell is still being written: its value stays.
+      const pending = now.pending - 1;
+      this.setEdited(key, { value: pending ? now.value : value, pending });
+    } catch (err) {
+      const now = this.edited().get(key);
+      if (now && now.pending > 1) this.setEdited(key, { ...now, pending: now.pending - 1 });
+      else this.setEdited(key, before && !before.pending ? before : null);
+      const reason = err instanceof Error ? err.message : String(err);
+      const message = `${cell.label} was not changed: ${reason}`;
+      console.error(message);
+      // The tab may be another one by now: the notice goes to the app.
+      this.tabs.notice.set(message);
+    }
+  }
+
+  private setEdited(key: string, value: Edited | null): void {
+    this.edited.update((edited) => {
+      const next = new Map(edited);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      return next;
+    });
   }
 
   /** The cover of a card; an image of the vault loads like one in a note. */
@@ -311,5 +393,6 @@ function viewCell(cell: BaseCell, rowNote: string | null): ViewCell {
     note: rowNote ?? linked,
     url: link?.url ?? null,
     failed: cell.type === "error",
+    edit: null,
   };
 }

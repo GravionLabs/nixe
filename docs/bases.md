@@ -2,7 +2,7 @@
 
 A `.base` file shows the notes of the vault as a table or as [cards](#cards). The format is the one of
 [Obsidian Bases](https://obsidian.md/help/bases/syntax); Nixe supports a first part of it and never
-writes a `.base` file.
+writes a `.base` file. The table [edits](#editing-cells) the properties of the notes.
 
 ## Opening a base
 
@@ -111,6 +111,47 @@ A click on a column header sorts by that column: ascending, a second click desce
 returns to the sort of the view, which also decides between equal rows meanwhile. `limit` applies
 to the rows in this order. A formula that fails sorts like a missing value here. This sort belongs
 to the tab: switching the view drops it, and nothing is written to the file.
+
+## Editing cells
+
+In a table, a cell of a note property is edited in place and written into the frontmatter of the
+note of its row. `file.` fields and formulas are read-only, and so are [cards](#cards).
+
+A click on a cell shows its input; a checkbox is switched at once. Enter or leaving the cell takes
+the value, Escape drops it.
+
+| Value | Input |
+| --- | --- |
+| Text and links | A text field with the value as written (`[[Note]]`); several lines in a text area |
+| Number | A number field; an empty or invalid entry changes nothing |
+| Checkbox | A checkbox, undetermined while the property is missing |
+| Date | A date picker; a date with a time, and a day that does not exist, is a text field |
+| List, `tags`, `aliases` | The items with a button to remove each, and a field that adds one with Enter or `,` |
+
+The type is that of the value; `tags` and `aliases` are always lists. An empty cell takes the type
+of the first value in its column, else it is a text. A mapping, and a list that holds one, is
+read-only.
+
+Only the lines of the edited property change: comments, the order and the other lines stay as they
+are. The key that differs in case only is the one that is changed. A quoted text stays quoted, a
+`[a, b]` list stays on one line, and a list of `- item` lines keeps its comment lines. A note
+without frontmatter gets one. A change that cannot be written without damaging the frontmatter
+(a list item that an alias points to, a `[a, b]` list with comments inside, a comment between a
+key and its value) is refused.
+
+- A note that is **open in an editor** takes the change in the editor, together with its unsaved
+  changes, and is saved at once. The change is refused while the editor asks what to do with a
+  change on disk.
+- Any **other note** is read, changed and written atomically, only while the file still holds what
+  was read. A change made in between is not overwritten.
+- Edits of the same note are applied one after the other.
+
+The cell shows the new value while it is written. When it cannot be written (a change on disk,
+invalid frontmatter, a file that is not UTF-8, a failed write), the old value comes back, a message
+says why and the log has it. Only when you type in the note while its save fails does the change
+stay in the editor; the message says so.
+
+Renaming or deleting properties and creating notes from a base are not supported.
 
 ## Cards
 
@@ -411,7 +452,7 @@ In filters and formulas, `this`, other functions (the list functions `filter`, `
 are not supported: they are [errors](#errors).
 
 Other keys are ignored. Other view types, changing the definition in the tab and the CLI and MCP
-are not supported.
+are not supported. [Editing](#editing-cells) is limited to the cells of a table.
 
 ## Errors
 
@@ -436,3 +477,7 @@ The frontend reads the file and passes its text to the commands `base_views` and
 ([Tauri commands](backend/tauri-commands.md)). The Rust core (`src-tauri/src/bases/`) parses the YAML
 and answers the view from the [vault index](architecture.md), sorted, grouped and limited, with the
 cover of each card resolved; the frontend only renders the result. Only the answer of the newest query is shown.
+
+An edited cell goes to `NoteEditService` (`core/file/note-edit.service.ts`), which changes the
+frontmatter with `editFrontmatter` in the open editor, or writes the file with
+`replace_text_file`.

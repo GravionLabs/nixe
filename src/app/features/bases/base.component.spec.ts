@@ -22,6 +22,7 @@ import { SettingsService } from "../../core/settings/settings.service";
 import type { BaseChoice } from "../../core/tabs/tabs.service";
 import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { BaseCellComponent } from "./base-cell.component";
 import { BaseComponent } from "./base.component";
 
 const invokeMock = vi.mocked(invoke);
@@ -95,6 +96,7 @@ function render(previewTabs = true) {
     notice: signal<string | null>(null),
     openPreview: vi.fn().mockResolvedValue(undefined),
     openInNewTab: vi.fn().mockResolvedValue(undefined),
+    tabsOf: vi.fn().mockReturnValue([]),
   };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
@@ -106,13 +108,18 @@ function render(previewTabs = true) {
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
     ],
   });
-  TestBed.overrideComponent(BaseComponent, {
-    set: {
-      templateUrl: undefined,
-      styleUrl: undefined,
-      template: readFileSync("src/app/features/bases/base.component.html", "utf8"),
-    },
-  });
+  for (const [component, name] of [
+    [BaseComponent, "base"],
+    [BaseCellComponent, "base-cell"],
+  ] as const) {
+    TestBed.overrideComponent(component, {
+      set: {
+        templateUrl: undefined,
+        styleUrl: undefined,
+        template: readFileSync(`src/app/features/bases/${name}.component.html`, "utf8"),
+      },
+    });
+  }
   const fixture = TestBed.createComponent(BaseComponent);
   const el = fixture.nativeElement as HTMLElement;
   const settle = async () => {
@@ -640,5 +647,220 @@ describe("BaseComponent cards", () => {
     await view.settle();
     expect(view.cards()).toHaveLength(0);
     expect(text(view.el.querySelector(".cards")!)).toBe("No notes");
+  });
+});
+
+describe("BaseComponent editing", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+  const column = (id: string, property: string | null = id) => ({ id, label: id, property });
+  const result = (): BaseResult => ({
+    view: null,
+    columns: [
+      column("file.name", null),
+      column("title"),
+      column("count"),
+      column("done"),
+      column("due"),
+      column("authors"),
+      column("tags"),
+      column("see"),
+      column("formula.f", null),
+    ],
+    rows: [
+      {
+        path: "sub/Dune.md",
+        cover: null,
+        cells: [
+          { type: "text", value: "Dune" },
+          { type: "text", value: "Old" },
+          { type: "number", value: 3 },
+          { type: "checkbox", value: false },
+          { type: "date", value: "2024-01-31" },
+          { type: "list", value: ["Herbert"] },
+          { type: "list", value: ["scifi"] },
+          { type: "text", value: "[[Emma]]" },
+          { type: "number", value: 6 },
+        ],
+      },
+    ],
+    grouping: null,
+    cards: null,
+    unsupported: [],
+  });
+  const NOTE = `---
+title: Old # keep
+count: 3
+done: false
+due: 2024-01-31
+authors:
+  - Herbert
+tags: [scifi]
+see: "[[Emma]]"
+---
+Body
+`;
+
+  /** The table over a disk that holds the note; `fail` refuses the next writes. */
+  async function shown(note = NOTE) {
+    const disk = { text: note, fail: null as string | null };
+    fakeBackend(async () => result());
+    const queries = invokeMock.getMockImplementation()!;
+    invokeMock.mockImplementation(async (command: string, args?: unknown) => {
+      const a = args as Record<string, string>;
+      if (command === "read_text_file" && a["path"] === "/vault/sub/Dune.md") return disk.text;
+      if (command === "replace_text_file") {
+        if (disk.fail !== null) throw disk.fail;
+        disk.text = a["content"]!;
+        return undefined;
+      }
+      return queries(command, args as never);
+    });
+    const view = render();
+    await view.settle();
+    const cell = (i: number) => view.el.querySelectorAll<HTMLElement>("tbody td")[i]!;
+    const control = <T extends HTMLElement = HTMLInputElement>(label: string) =>
+      view.el.querySelector<T>(`[aria-label="${label}"]`)!;
+    const open = async (i: number) => {
+      cell(i).querySelector<HTMLButtonElement>("button.value")!.click();
+      await view.settle();
+      return cell(i).querySelector<HTMLInputElement>("input")!;
+    };
+    const press = async (input: HTMLInputElement, key: string) => {
+      input.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+      await view.settle();
+    };
+    const type = async (i: number, value: string) => {
+      const input = await open(i);
+      input.value = value;
+      await press(input, "Enter");
+    };
+    return { ...view, disk, cell, control, open, press, type };
+  }
+
+  const writes = () => invokeMock.mock.calls.filter(([c]) => c === "replace_text_file").length;
+
+  it("edits note properties only: the name and formulas are read-only", async () => {
+    const view = await shown();
+    expect(view.cell(0).querySelector("app-base-cell")).toBeNull();
+    expect(view.cell(8).querySelector("app-base-cell, input, button")).toBeNull();
+    expect(view.el.querySelectorAll("app-base-cell").length).toBe(7);
+  });
+
+  it.each([
+    [1, "text", "New", "title: Old # keep", "title: New # keep"],
+    [2, "number", "7", "count: 3", "count: 7"],
+    [4, "date", "2024-02-01", "due: 2024-01-31", "due: 2024-02-01"],
+    [7, "text", "[[Dune]]", 'see: "[[Emma]]"', 'see: "[[Dune]]"'],
+  ])(
+    "writes the %i. cell, edited as %s, into its line",
+    async (i, inputType, value, before, after) => {
+      const view = await shown();
+      const input = await view.open(i);
+      expect(input.type).toBe(inputType);
+      expect(document.activeElement).toBe(input);
+      input.value = value;
+      await view.press(input, "Enter");
+      expect(view.disk.text).toBe(NOTE.replace(before, after));
+      expect(view.cell(i).textContent!.trim()).toBe(value);
+    },
+  );
+
+  it("writes a checkbox", async () => {
+    const view = await shown();
+    view.control("done of Dune").click();
+    await view.settle();
+    expect(view.disk.text).toBe(NOTE.replace("done: false", "done: true"));
+    expect(view.control("done of Dune").checked).toBe(true);
+  });
+
+  it("adds and removes the items of lists and tags; two quick edits both stay", async () => {
+    const view = await shown();
+    const authors = await view.open(5);
+    authors.value = "Anderson";
+    authors.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    authors.value = "Tolkien";
+    await view.press(authors, "Enter");
+    expect(view.disk.text).toContain("authors:\n  - Herbert\n  - Anderson\n  - Tolkien\n");
+
+    view.control<HTMLButtonElement>("Remove Herbert").click();
+    await view.settle();
+    expect(view.disk.text).toContain("authors:\n  - Anderson\n  - Tolkien\n");
+    await view.press(authors, "Escape");
+    expect(view.cell(5).textContent!.trim()).toBe("Anderson, Tolkien");
+
+    const tags = await view.open(6);
+    tags.value = "#classic";
+    // Leaving the cell takes what was typed.
+    tags.blur();
+    await view.settle();
+    expect(view.disk.text).toContain("tags: [scifi, classic]");
+    expect(view.cell(6).querySelector("input")).toBeNull();
+  });
+
+  it("writes nothing after Escape, without a change and for a number that is none", async () => {
+    const view = await shown();
+    const input = await view.open(1);
+    input.value = "typed";
+    await view.press(input, "Escape");
+    await view.type(1, "Old");
+    await view.type(2, "");
+    expect(writes()).toBe(0);
+    expect(view.cell(1).textContent!.trim()).toBe("Old");
+    expect(view.cell(2).textContent!.trim()).toBe("3");
+  });
+
+  it("creates the frontmatter of a note without one", async () => {
+    const view = await shown("Body\n");
+    await view.type(1, "New");
+    expect(view.disk.text).toBe("---\ntitle: New\n---\nBody\n");
+  });
+
+  it("restores the old value of a failed write, says why and logs it", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const view = await shown();
+    view.disk.fail = "the note changed on disk; nothing was written";
+    await view.type(1, "New");
+    view.control("done of Dune").click();
+    await view.settle();
+
+    expect(view.cell(1).textContent!.trim()).toBe("Old");
+    expect(view.control("done of Dune").checked).toBe(false);
+    expect(view.tabs.notice()).toBe(
+      "done of Dune was not changed: the note changed on disk; nothing was written",
+    );
+    expect(log).toHaveBeenCalledWith(view.tabs.notice());
+    expect(view.disk.text).toBe(NOTE);
+    log.mockRestore();
+  });
+
+  it("unchecks a box again when its write is refused at once", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const view = await shown();
+    view.fixture.autoDetectChanges();
+    view.tabs.tabsOf.mockImplementation(() => {
+      throw new Error("refused");
+    });
+    view.control("done of Dune").click();
+    await view.settle();
+    expect(view.control("done of Dune").checked).toBe(false);
+    expect(view.tabs.notice()).toContain("refused");
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the value of an earlier write when a later one fails, until the table is read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const view = await shown();
+    await view.type(1, "First");
+    view.disk.fail = "denied";
+    await view.type(1, "Second");
+    expect(view.cell(1).textContent!.trim()).toBe("First");
+
+    view.index.revision.set(1);
+    await view.settle();
+    // The result is the stored state again.
+    expect(view.cell(1).textContent!.trim()).toBe("Old");
+    vi.restoreAllMocks();
   });
 });

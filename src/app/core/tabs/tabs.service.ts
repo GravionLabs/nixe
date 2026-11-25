@@ -570,9 +570,14 @@ export class TabsService {
     this.ratio.set(clampRatio(ratio));
   }
 
+  /** The tabs, in either pane, whose note is `path`. */
+  tabsOf(path: string): Tab[] {
+    return this.allTabs().filter((t) => t.doc.path() === toSlashes(path));
+  }
+
   /** The watcher reported a change of `path`: every tab showing it takes the change. */
   async onExternalChange(path: string): Promise<void> {
-    const tabs = this.allTabs().filter((t) => t.doc.path() === toSlashes(path));
+    const tabs = this.tabsOf(path);
     await Promise.all(tabs.map((t) => t.doc.onExternalChange(path)));
   }
 

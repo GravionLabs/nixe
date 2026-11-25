@@ -45,6 +45,8 @@ pub struct BaseColumn {
     pub id: String,
     /// The header: the `displayName` of the property, else its name.
     pub label: String,
+    /// The note property the column shows; `None` for a `file.` field and a formula.
+    pub property: Option<String>,
 }
 
 /// A value of a row; both are `None` when there is no value.
@@ -117,6 +119,16 @@ enum Source {
     Note(String),
     /// A formula of the base, by name.
     Formula(String),
+}
+
+impl Source {
+    /// The name of the note property shown, which can be written back.
+    fn property(&self) -> Option<String> {
+        match self {
+            Source::Note(name) => Some(name.clone()),
+            _ => None,
+        }
+    }
 }
 
 /// `["x"]` or `['x']` after a prefix of a property id.
@@ -433,6 +445,7 @@ pub fn query(
                 columns.push(BaseColumn {
                     id: id.clone(),
                     label: label(&base, id, &source),
+                    property: source.property(),
                 });
                 sources.push(source);
             }
@@ -447,6 +460,7 @@ pub fn query(
         columns.push(BaseColumn {
             id: FILE_NAME.into(),
             label: label(&base, FILE_NAME, &Source::FileName),
+            property: None,
         });
         sources.push(Source::FileName);
     }

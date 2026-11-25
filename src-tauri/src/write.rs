@@ -63,6 +63,26 @@ pub fn write_root(
 /// Writes `content` through a temp file in the same folder and renames it over `path`, so a
 /// crash leaves either the old or the new note, never half of one.
 pub fn write_text_file(root: &Path, path: &Path, content: &str) -> Result<(), String> {
+    write_checked(root, path, content, None)
+}
+
+/// `write_text_file` for a note that was read before: nothing is written unless the file still
+/// holds `expected`, so a change made in between is not overwritten.
+pub fn replace_text_file(
+    root: &Path,
+    path: &Path,
+    expected: &str,
+    content: &str,
+) -> Result<(), String> {
+    write_checked(root, path, content, Some(expected))
+}
+
+fn write_checked(
+    root: &Path,
+    path: &Path,
+    content: &str,
+    expected: Option<&str>,
+) -> Result<(), String> {
     if content.len() > MAX_BYTES {
         return Err(format!("note too large: {}", path.display()));
     }
@@ -78,6 +98,19 @@ pub fn write_text_file(root: &Path, path: &Path, content: &str) -> Result<(), St
         file.sync_all()?;
         if let Ok(meta) = fs::metadata(&target) {
             let _ = fs::set_permissions(&tmp, meta.permissions());
+        }
+        // As late as possible: right before the new text replaces the file.
+        if let Some(expected) = expected {
+            let current = fs::read(&target)?;
+            if current != expected.as_bytes() {
+                return Err(std::io::Error::other(
+                    if std::str::from_utf8(&current).is_ok() {
+                        "the note changed on disk; nothing was written"
+                    } else {
+                        "the note is not valid UTF-8; writing it would damage it"
+                    },
+                ));
+            }
         }
         fs::rename(&tmp, &target)
     })();
@@ -137,6 +170,35 @@ mod tests {
         fs::write(&note, "old").unwrap();
         write_text_file(&root, &note, "new ü\n").unwrap();
         assert_eq!(fs::read_to_string(&note).unwrap(), "new ü\n");
+        assert!(leftovers(&root).is_empty());
+    }
+
+    #[test]
+    fn replaces_a_note_only_while_it_holds_the_expected_text() {
+        let root = tmp("expected");
+        let note = root.join("a.md");
+        fs::write(&note, "old").unwrap();
+        replace_text_file(&root, &note, "old", "new").unwrap();
+        assert_eq!(fs::read_to_string(&note).unwrap(), "new");
+
+        let error = replace_text_file(&root, &note, "old", "mine").unwrap_err();
+        assert!(error.contains("changed on disk"), "{error}");
+        assert_eq!(fs::read_to_string(&note).unwrap(), "new");
+        assert!(leftovers(&root).is_empty());
+    }
+
+    #[test]
+    fn replacing_refuses_a_missing_note_and_one_that_is_not_utf8() {
+        let root = tmp("expected-bad");
+        let gone = root.join("gone.md");
+        assert!(replace_text_file(&root, &gone, "", "new").is_err());
+        assert!(!gone.exists());
+
+        let latin = root.join("latin.md");
+        fs::write(&latin, b"caf\xe9").unwrap();
+        let error = replace_text_file(&root, &latin, "caf\u{fffd}", "new").unwrap_err();
+        assert!(error.contains("UTF-8"), "{error}");
+        assert_eq!(fs::read(&latin).unwrap(), b"caf\xe9");
         assert!(leftovers(&root).is_empty());
     }
 

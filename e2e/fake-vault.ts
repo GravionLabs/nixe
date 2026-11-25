@@ -13,6 +13,7 @@ export const FAKE_VAULT: Record<string, unknown> = {
   log_command_error: null,
   log_set_level: null,
   write_text_file: null,
+  replace_text_file: null,
   read_app_bookmarks: null,
   read_folds: null,
   read_epub_position: null,

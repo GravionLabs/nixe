@@ -169,6 +169,24 @@ views:
         ]
     );
     assert_eq!(result.rows[0].cells[0], BaseCell::default());
+    // Only the columns of note properties name one, without the prefix: those can be edited.
+    let properties: Vec<Option<&str>> = result
+        .columns
+        .iter()
+        .map(|c| c.property.as_deref())
+        .collect();
+    assert_eq!(
+        properties,
+        [
+            Some("status"),
+            None,
+            Some("rating"),
+            Some("owned"),
+            Some("finished"),
+            Some("tags"),
+            Some("missing")
+        ]
+    );
 }
 
 #[test]
