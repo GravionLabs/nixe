@@ -2,12 +2,13 @@
 //! property is never an error: the operation or function has no value, which is false. An operator
 //! on a value of another type has no value either; a function on one is an error (`functions`).
 
+use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone};
 use serde_json::Value as Json;
 
+use super::date::{Date, Duration};
 use super::expr::{Expr, Field, Function, Global, Op};
 use super::formula::Formulas;
 use super::functions;
@@ -24,8 +25,8 @@ pub enum Value {
     Bool(bool),
     Number(f64),
     Text(String),
-    /// Milliseconds since the Unix epoch.
-    Date(i64),
+    Date(Date),
+    Duration(Duration),
     List(Vec<Value>),
     /// `file.properties` and mappings in the frontmatter.
     Object(Vec<(String, Value)>),
@@ -59,7 +60,7 @@ impl Value {
             Value::Bool(b) => *b,
             Value::Number(n) => *n != 0.0 && !n.is_nan(),
             Value::Text(s) => !s.is_empty(),
-            Value::Date(_) | Value::Link(_) => true,
+            Value::Date(_) | Value::Duration(_) | Value::Link(_) => true,
             Value::List(items) => !items.is_empty(),
             Value::Object(entries) => !entries.is_empty(),
         }
@@ -100,6 +101,8 @@ pub struct Context<'a> {
     /// Resolves link targets against the files of the vault.
     resolver: &'a Resolver,
     formulas: &'a Formulas,
+    /// The current time, in milliseconds since the Unix epoch.
+    now: i64,
     /// The formulas evaluated on this note so far, by index.
     values: RefCell<HashMap<usize, Result<Value, String>>>,
     /// The size of those values.
@@ -115,11 +118,17 @@ pub struct FilterError {
 }
 
 impl<'a> Context<'a> {
-    pub fn new(note: &'a NoteFile, resolver: &'a Resolver, formulas: &'a Formulas) -> Self {
+    pub fn new(
+        note: &'a NoteFile,
+        resolver: &'a Resolver,
+        formulas: &'a Formulas,
+        now: i64,
+    ) -> Self {
         Context {
             note,
             resolver,
             formulas,
+            now,
             values: RefCell::default(),
             kept: Cell::new(0),
         }
@@ -203,9 +212,7 @@ impl<'a> Context<'a> {
             Expr::Number(n) => Value::Number(*n),
             Expr::Bool(b) => Value::Bool(*b),
             Expr::List(items) => functions::list_of(items.iter().map(|item| self.eval(item)))?,
-            Expr::Property(name) => self
-                .property(name)
-                .map_or(Value::Null, |p| Value::from_json(&p.value)),
+            Expr::Property(name) => self.property(name).map_or(Value::Null, property_value),
             Expr::File(field) => self.field(*field),
             Expr::Formula(name) => self.formula(name)?,
             Expr::Call(function, args) => Value::Bool(self.call(*function, &all(args)?)),
@@ -220,11 +227,12 @@ impl<'a> Context<'a> {
                 args.get(branch).map_or(Ok(Value::Null), |b| self.eval(b))?
             }
             Expr::Global(Global::Link, args) => functions::link(&all(args)?, self.resolver)?,
-            Expr::Global(function, args) => functions::global(*function, all(args)?)?,
+            Expr::Global(function, args) => functions::global(*function, all(args)?, self.now)?,
             Expr::Method(receiver, method, args) => {
-                functions::method(self.eval(receiver)?, *method, &all(args)?)?
+                functions::method(self.eval(receiver)?, *method, &all(args)?, self.now)?
             }
             Expr::Length(inner) => functions::length(&self.eval(inner)?)?,
+            Expr::Part(inner, part) => functions::part(&self.eval(inner)?, *part)?,
             Expr::Not(inner) => Value::Bool(!self.eval(inner)?.is_true()),
             Expr::Negate(inner) => match self.eval(inner)? {
                 Value::Number(n) => Value::Number(-n),
@@ -284,8 +292,8 @@ impl<'a> Context<'a> {
             Field::Folder => text(folder),
             Field::Ext => text(ext),
             Field::Size => Value::Number(note.size as f64),
-            Field::Ctime => Value::Date(note.ctime_ns.div_euclid(1_000_000)),
-            Field::Mtime => Value::Date(note.mtime_ns.div_euclid(1_000_000)),
+            Field::Ctime => time_of(note.ctime_ns),
+            Field::Mtime => time_of(note.mtime_ns),
             Field::Tags => list(note.tags.iter().map(String::as_str).collect()),
             Field::Links => links(false),
             Field::Embeds => links(true),
@@ -367,11 +375,28 @@ impl<'a> Context<'a> {
     }
 }
 
-/// The text a file function takes from an argument: a text, or the target of a link.
-fn name_of(value: &Value) -> Option<&str> {
+/// The value of a note property: a date or a date with a time is a date.
+fn property_value(property: &IndexedProperty) -> Value {
+    if property.kind == "date" {
+        if let Some(date) = property.value.as_str().and_then(Date::parse) {
+            return Value::Date(date);
+        }
+    }
+    Value::from_json(&property.value)
+}
+
+/// A file time in nanoseconds as a date.
+fn time_of(nanos: i64) -> Value {
+    Date::at(nanos.div_euclid(1_000_000)).map_or(Value::Null, Value::Date)
+}
+
+/// The text a file function takes from an argument: a text, the target of a link, or a date as it
+/// is written (the name of a daily note).
+fn name_of(value: &Value) -> Option<Cow<'_, str>> {
     match value {
-        Value::Text(s) => Some(s),
-        Value::Link(link) => Some(&link.target),
+        Value::Text(s) => Some(s.into()),
+        Value::Link(link) => Some(link.target.as_str().into()),
+        Value::Date(date) => date.text().map(Cow::Owned),
         _ => None,
     }
 }
@@ -399,38 +424,68 @@ fn binary(op: Op, left: &Value, right: &Value) -> Value {
         Op::Le => ordered(&[Less, Equal]),
         Op::Gt => ordered(&[Greater]),
         Op::Ge => ordered(&[Greater, Equal]),
-        Op::Add => match (left, right) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
-            (Value::Text(a), Value::Text(b)) => Value::Text(format!("{a}{b}")),
-            (Value::Text(a), Value::Number(b)) => Value::Text(format!("{a}{b}")),
-            (Value::Number(a), Value::Text(b)) => Value::Text(format!("{a}{b}")),
-            _ => Value::Null,
-        },
-        Op::Sub | Op::Mul | Op::Div | Op::Rem => match (left, right) {
-            (Value::Number(a), Value::Number(b)) => {
-                let result = match op {
-                    Op::Sub => a - b,
-                    Op::Mul => a * b,
-                    Op::Div => a / b,
-                    _ => a % b,
-                };
-                // A division by zero has no value.
-                if result.is_finite() {
-                    Value::Number(result)
-                } else {
-                    Value::Null
-                }
-            }
-            _ => Value::Null,
-        },
+        Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Rem => arithmetic(op, left, right),
         Op::And | Op::Or => Value::Null,
     }
 }
 
-/// Same type and same content; a date equals the text that names the same instant.
-fn equal(left: &Value, right: &Value) -> bool {
+/// A duration, also one written as a text.
+fn duration_of(value: &Value) -> Option<Duration> {
+    match value {
+        Value::Duration(duration) => Some(*duration),
+        Value::Text(s) => Duration::parse(s),
+        _ => None,
+    }
+}
+
+/// `+ - * / %`: on numbers, texts, and on dates and durations, which stand on the left.
+fn arithmetic(op: Op, left: &Value, right: &Value) -> Value {
+    let date = |d: Option<Date>| d.map_or(Value::Null, Value::Date);
+    let duration = |d: Option<Duration>| d.map_or(Value::Null, Value::Duration);
+    match (op, left, right) {
+        (Op::Add, Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+        (Op::Add, Value::Text(a), Value::Text(b)) => Value::Text(format!("{a}{b}")),
+        (Op::Add, Value::Text(a), Value::Number(b)) => Value::Text(format!("{a}{b}")),
+        (Op::Add, Value::Number(a), Value::Text(b)) => Value::Text(format!("{a}{b}")),
+        (Op::Add, Value::Text(a), Value::Date(_) | Value::Duration(_)) => {
+            Value::Text(format!("{a}{}", functions::text_of(right)))
+        }
+        (Op::Add, Value::Date(a), _) => date(duration_of(right).and_then(|b| a.plus(b))),
+        (Op::Sub, Value::Date(a), Value::Date(b)) => Value::Duration(Duration::between(*b, *a)),
+        (Op::Sub, Value::Date(a), _) => date(duration_of(right).and_then(|b| a.plus(b.negated()))),
+        (Op::Add, Value::Duration(a), _) => duration(duration_of(right).and_then(|b| a.plus(b))),
+        (Op::Sub, Value::Duration(a), _) => {
+            duration(duration_of(right).and_then(|b| a.plus(b.negated())))
+        }
+        (Op::Mul, Value::Duration(a), Value::Number(b)) => duration(a.times(*b)),
+        (Op::Div, Value::Duration(a), Value::Number(b)) => duration(a.divided(*b)),
+        (_, Value::Number(a), Value::Number(b)) => {
+            let result = match op {
+                Op::Sub => a - b,
+                Op::Mul => a * b,
+                Op::Div => a / b,
+                Op::Rem => a % b,
+                _ => return Value::Null,
+            };
+            // A division by zero has no value.
+            if result.is_finite() {
+                Value::Number(result)
+            } else {
+                Value::Null
+            }
+        }
+        _ => Value::Null,
+    }
+}
+
+/// Same type and same content; a date equals the text that names the same instant, a duration the
+/// text of one of the same length.
+pub fn equal(left: &Value, right: &Value) -> bool {
     match (left, right) {
-        (Value::Date(_), Value::Text(_)) | (Value::Text(_), Value::Date(_)) => {
+        (Value::Date(_), Value::Date(_) | Value::Text(_))
+        | (Value::Text(_), Value::Date(_))
+        | (Value::Duration(_), Value::Duration(_) | Value::Text(_))
+        | (Value::Text(_), Value::Duration(_)) => {
             order(left, right) == Some(std::cmp::Ordering::Equal)
         }
         (Value::List(a), Value::List(b)) => {
@@ -445,39 +500,17 @@ fn equal(left: &Value, right: &Value) -> bool {
     }
 }
 
-/// Numbers, texts (an ISO date sorts as one) and dates have an order.
-fn order(left: &Value, right: &Value) -> Option<std::cmp::Ordering> {
+/// Numbers, texts, dates and durations have an order.
+pub fn order(left: &Value, right: &Value) -> Option<std::cmp::Ordering> {
+    let millis = |text: &str| Date::parse(text).map(|d| d.millis);
     match (left, right) {
         (Value::Number(a), Value::Number(b)) => a.partial_cmp(b),
         (Value::Text(a), Value::Text(b)) => Some(a.cmp(b)),
-        (Value::Date(a), Value::Date(b)) => Some(a.cmp(b)),
-        (Value::Date(a), Value::Text(b)) => Some(a.cmp(&date_millis(b)?)),
-        (Value::Text(a), Value::Date(b)) => Some(date_millis(a)?.cmp(b)),
+        (Value::Date(a), Value::Date(b)) => Some(a.millis.cmp(&b.millis)),
+        (Value::Date(a), Value::Text(b)) => Some(a.millis.cmp(&millis(b)?)),
+        (Value::Text(a), Value::Date(b)) => Some(millis(a)?.cmp(&b.millis)),
+        (Value::Duration(a), _) => a.order(duration_of(right)?),
+        (Value::Text(_), Value::Duration(b)) => duration_of(left)?.order(*b),
         _ => None,
     }
-}
-
-/// `YYYY-MM-DD`, optionally with a time and a zone, as milliseconds; without a zone it is local.
-fn date_millis(text: &str) -> Option<i64> {
-    let text = text.trim();
-    if let Ok(date) = DateTime::parse_from_rfc3339(text) {
-        return Some(date.timestamp_millis());
-    }
-    let local = [
-        "%Y-%m-%dT%H:%M:%S%.f",
-        "%Y-%m-%d %H:%M:%S%.f",
-        "%Y-%m-%dT%H:%M",
-        "%Y-%m-%d %H:%M",
-    ]
-    .iter()
-    .find_map(|format| NaiveDateTime::parse_from_str(text, format).ok())
-    .or_else(|| {
-        NaiveDate::parse_from_str(text, "%Y-%m-%d")
-            .ok()?
-            .and_hms_opt(0, 0, 0)
-    })?;
-    Local
-        .from_local_datetime(&local)
-        .earliest()
-        .map(|d| d.timestamp_millis())
 }

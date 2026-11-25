@@ -2,7 +2,11 @@
 //! follow JavaScript. A function of a missing value, or with a missing argument, has no value; a
 //! value of a type the function does not take is an error.
 
-use super::eval::{bare_target, Link, Value};
+use std::cmp::Ordering;
+use std::collections::HashSet;
+
+use super::date::{Date, Duration, Part};
+use super::eval::{bare_target, equal, order, Link, Value};
 use super::expr::{Global, Method};
 use super::formula::clip;
 use crate::vault::resolve::Resolver;
@@ -13,6 +17,10 @@ const MAX_SIZE: usize = 100_000;
 const MAX_NESTING: usize = 50;
 /// Most decimal places of `round` and `toFixed`.
 const MAX_DIGITS: f64 = 100.0;
+/// The size of a date: `YYYY-MM-DD hh:mm:ss`.
+const DATE_SIZE: usize = 19;
+/// Most bytes of the format of a date; reading it takes quadratic time.
+const MAX_FORMAT: usize = 1_000;
 /// The schemes of a link to something outside the vault.
 const URL_SCHEMES: &[&str] = &["http://", "https://", "mailto:", "tel:"];
 
@@ -38,7 +46,10 @@ fn nested_size(value: &Value, depth: usize) -> Result<usize, String> {
             Ok::<_, String>(sum + key.len() + nested_size(item, depth + 1)?)
         })?,
         Value::Link(link) => link.target.len() + link.display.as_ref().map_or(0, String::len),
-        Value::Null | Value::Bool(_) | Value::Number(_) | Value::Date(_) => 1,
+        // As long as their texts, which a list or a table repeats.
+        Value::Date(_) => DATE_SIZE,
+        Value::Duration(duration) => duration.text().len(),
+        Value::Null | Value::Bool(_) | Value::Number(_) => 1,
     })
 }
 
@@ -73,6 +84,7 @@ fn type_name(value: &Value) -> &'static str {
         Value::Number(_) => "number",
         Value::Text(_) => "string",
         Value::Date(_) => "date",
+        Value::Duration(_) => "duration",
         Value::List(_) => "list",
         Value::Object(_) => "object",
         Value::Link(_) => "link",
@@ -84,14 +96,15 @@ fn unavailable(name: &str, value: &Value) -> String {
 }
 
 /// The text of a value; empty for no value.
-fn text_of(value: &Value) -> String {
+pub fn text_of(value: &Value) -> String {
     match value {
         Value::Null => String::new(),
         Value::Bool(b) => b.to_string(),
         // Without the sign of a negative zero.
         Value::Number(n) => (n + 0.0).to_string(),
         Value::Text(s) => s.clone(),
-        Value::Date(millis) => super::local_date(*millis).unwrap_or_default(),
+        Value::Date(date) => date.text().unwrap_or_default(),
+        Value::Duration(duration) => duration.text(),
         Value::List(items) => items.iter().map(text_of).collect::<Vec<_>>().join(", "),
         Value::Object(entries) => entries
             .iter()
@@ -106,7 +119,7 @@ fn text_of(value: &Value) -> String {
 }
 
 /// The global functions but `if` and `link`, which need more than their values.
-pub fn global(function: Global, args: Vec<Value>) -> Result<Value, String> {
+pub fn global(function: Global, args: Vec<Value>, now: i64) -> Result<Value, String> {
     let mut args = args.into_iter();
     match function {
         Global::List => match args.next().unwrap_or(Value::Null) {
@@ -115,6 +128,12 @@ pub fn global(function: Global, args: Vec<Value>) -> Result<Value, String> {
             other => list_of(std::iter::once(Ok(other))),
         },
         Global::Number => number(args.next().unwrap_or(Value::Null)),
+        Global::Date => date(args.next().unwrap_or(Value::Null)),
+        Global::Duration => duration(args.next().unwrap_or(Value::Null)),
+        Global::Now => Ok(Date::at(now).map_or(Value::Null, Value::Date)),
+        Global::Today => Ok(Date::at(now)
+            .and_then(Date::day)
+            .map_or(Value::Null, Value::Date)),
         Global::Min | Global::Max => {
             let (name, pick): (_, fn(f64, f64) -> f64) = if function == Global::Min {
                 ("min", f64::min)
@@ -143,13 +162,40 @@ pub fn global(function: Global, args: Vec<Value>) -> Result<Value, String> {
     }
 }
 
-/// `number(x)`: booleans are 1 and 0, a date is its milliseconds, a text is read.
+/// `date(x)`: a text is read, a date stays.
+fn date(value: Value) -> Result<Value, String> {
+    Ok(match value {
+        Value::Null => Value::Null,
+        Value::Date(date) => Value::Date(date),
+        Value::Text(s) => match Date::parse(&s) {
+            Some(date) => Value::Date(date),
+            None => return Err(format!("`date` cannot read \"{}\"", clip(&s, 100))),
+        },
+        other => return Err(unavailable("date", &other)),
+    })
+}
+
+/// `duration(x)`: a text is read, a duration stays.
+fn duration(value: Value) -> Result<Value, String> {
+    Ok(match value {
+        Value::Null => Value::Null,
+        Value::Duration(duration) => Value::Duration(duration),
+        Value::Text(s) => match Duration::parse(&s) {
+            Some(duration) => Value::Duration(duration),
+            None => return Err(format!("`duration` cannot read \"{}\"", clip(&s, 100))),
+        },
+        other => return Err(unavailable("duration", &other)),
+    })
+}
+
+/// `number(x)`: booleans are 1 and 0, a date and a duration are milliseconds, a text is read.
 fn number(value: Value) -> Result<Value, String> {
     Ok(match value {
         Value::Null => Value::Null,
         Value::Bool(b) => Value::Number(f64::from(u8::from(b))),
         Value::Number(n) => Value::Number(n),
-        Value::Date(millis) => Value::Number(millis as f64),
+        Value::Date(date) => Value::Number(date.millis as f64),
+        Value::Duration(duration) => Value::Number(duration.total()),
         Value::Text(s) => match s.trim().parse::<f64>() {
             Ok(n) if n.is_finite() => Value::Number(n),
             _ => return Err(format!("`number` cannot read \"{}\"", clip(&s, 100))),
@@ -168,6 +214,8 @@ pub fn link(args: &[Value], resolver: &Resolver) -> Result<Value, String> {
         None | Some(Value::Null) => return Ok(Value::Null),
         Some(Value::Text(s)) => bare_target(s).to_string(),
         Some(Value::Link(link)) => link.target.clone(),
+        // The daily note of the date.
+        Some(date @ Value::Date(_)) => text_of(date),
         Some(other) => return Err(unavailable("link", other)),
     };
     if target.is_empty() {
@@ -184,17 +232,27 @@ pub fn link(args: &[Value], resolver: &Resolver) -> Result<Value, String> {
     }))
 }
 
-/// `.length`: the characters of a text.
+/// `.year`, `.month`, …: a field of a date.
+pub fn part(value: &Value, part: Part) -> Result<Value, String> {
+    match value {
+        Value::Null => Ok(Value::Null),
+        Value::Date(date) => Ok(date.part(part).map_or(Value::Null, Value::Number)),
+        other => Err(unavailable(part.name(), other)),
+    }
+}
+
+/// `.length`: the characters of a text, the items of a list.
 pub fn length(value: &Value) -> Result<Value, String> {
     match value {
         Value::Null => Ok(Value::Null),
         Value::Text(s) => Ok(Value::Number(s.chars().count() as f64)),
+        Value::List(items) => Ok(Value::Number(items.len() as f64)),
         other => Err(unavailable("length", other)),
     }
 }
 
 /// `receiver.method(args)`; the parser checked the number of arguments.
-pub fn method(receiver: Value, method: Method, args: &[Value]) -> Result<Value, String> {
+pub fn method(receiver: Value, method: Method, args: &[Value], now: i64) -> Result<Value, String> {
     match method {
         Method::IsTruthy => Ok(Value::Bool(receiver.is_true())),
         Method::ToString => bounded(Value::Text(text_of(&receiver))),
@@ -209,7 +267,8 @@ pub fn method(receiver: Value, method: Method, args: &[Value]) -> Result<Value, 
         Method::IsEmpty => match receiver {
             Value::Null => Ok(Value::Bool(true)),
             Value::Text(s) => Ok(Value::Bool(s.is_empty())),
-            Value::Number(_) => Ok(Value::Bool(false)),
+            Value::Number(_) | Value::Date(_) => Ok(Value::Bool(false)),
+            Value::List(items) => Ok(Value::Bool(items.is_empty())),
             other => Err(unavailable("isEmpty", &other)),
         },
         Method::Abs | Method::Ceil | Method::Floor | Method::Round | Method::ToFixed => {
@@ -227,8 +286,171 @@ pub fn method(receiver: Value, method: Method, args: &[Value]) -> Result<Value, 
         | Method::Slice
         | Method::Split
         | Method::Repeat
-        | Method::Reverse => string_method(receiver, method, args),
+        | Method::Reverse => match receiver {
+            Value::List(items) => list_method(items, method, args),
+            other => string_method(other, method, args),
+        },
+        Method::Join | Method::Flat | Method::Unique | Method::Sort => match receiver {
+            Value::Null => Ok(Value::Null),
+            Value::List(items) => list_method(items, method, args),
+            other => Err(unavailable(name_of(method), &other)),
+        },
+        Method::Format | Method::Date | Method::Time | Method::Relative => {
+            date_method(receiver, method, args, now)
+        }
     }
+}
+
+fn date_method(receiver: Value, method: Method, args: &[Value], now: i64) -> Result<Value, String> {
+    let date = match receiver {
+        Value::Null => return Ok(Value::Null),
+        Value::Date(date) => date,
+        other => return Err(unavailable(name_of(method), &other)),
+    };
+    let text = |text: Option<String>| text.map_or(Value::Null, Value::Text);
+    bounded(match method {
+        Method::Date => date.day().map_or(Value::Null, Value::Date),
+        Method::Time => text(date.time()),
+        Method::Relative => Value::Text(date.relative(now)),
+        _ => match args.first() {
+            None | Some(Value::Null) => Value::Null,
+            Some(Value::Text(format)) if format.len() > MAX_FORMAT => {
+                return Err("the format is too long".into())
+            }
+            Some(Value::Text(format)) => text(date.format(format)),
+            Some(other) => {
+                return Err(format!(
+                    "`format` takes a text, found a {}",
+                    type_name(other)
+                ))
+            }
+        },
+    })
+}
+
+/// The functions of a list; `method` is one of them.
+fn list_method(mut items: Vec<Value>, method: Method, args: &[Value]) -> Result<Value, String> {
+    // `slice` may leave out its last argument.
+    let needed = match method {
+        Method::Slice => &args[..args.len().min(1)],
+        _ => args,
+    };
+    if needed.contains(&Value::Null) {
+        return Ok(Value::Null);
+    }
+    let has = |wanted: &Value| items.iter().any(|item| equal(item, wanted));
+    let result = match method {
+        Method::Contains | Method::ContainsAll => Value::Bool(args.iter().all(has)),
+        Method::ContainsAny => Value::Bool(args.iter().any(has)),
+        Method::Join => {
+            let separator = match args.first() {
+                Some(Value::Text(s)) => s,
+                Some(other) => {
+                    return Err(format!("`join` takes a text, found a {}", type_name(other)))
+                }
+                None => return Ok(Value::Null),
+            };
+            // Checked while the text is built.
+            let mut text = String::new();
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    text.push_str(separator);
+                }
+                text.push_str(&text_of(item));
+                if text.len() > MAX_SIZE {
+                    return Err(too_large());
+                }
+            }
+            Value::Text(text)
+        }
+        // One level, as in JavaScript.
+        Method::Flat => {
+            return list_of(
+                items
+                    .into_iter()
+                    .flat_map(|item| match item {
+                        Value::List(inner) => inner,
+                        other => vec![other],
+                    })
+                    .map(Ok),
+            )
+        }
+        Method::Unique => {
+            let mut seen = HashSet::new();
+            items.retain(|item| seen.insert(identity(item)));
+            Value::List(items)
+        }
+        Method::Sort => {
+            items.sort_by(ascending);
+            Value::List(items)
+        }
+        Method::Reverse => {
+            items.reverse();
+            Value::List(items)
+        }
+        Method::Slice => {
+            let (start, end) = range(method, args, items.len())?;
+            Value::List(items.drain(start..end).collect())
+        }
+        _ => return Err(unavailable(name_of(method), &Value::List(items))),
+    };
+    bounded(result)
+}
+
+/// What two items that are the same have in common: `unique` keeps the first of them.
+fn identity(value: &Value) -> String {
+    match value {
+        Value::Date(date) => format!("date {}", date.millis),
+        Value::Duration(duration) => format!("duration {}", duration.total()),
+        Value::Link(link) => match &link.path {
+            Some(path) => format!("file {path:?}"),
+            None => format!("link {:?}", link.target.to_lowercase()),
+        },
+        Value::List(items) => {
+            let items: Vec<String> = items.iter().map(identity).collect();
+            format!("list [{}]", items.join(","))
+        }
+        Value::Number(n) => format!("number {}", n + 0.0),
+        other => format!("{other:?}"),
+    }
+}
+
+/// The order of `sort`: smallest first. Different types are grouped (booleans, numbers, dates,
+/// durations, texts, links, the rest, missing values); what has no order keeps its place.
+fn ascending(a: &Value, b: &Value) -> Ordering {
+    let rank = |value: &Value| match value {
+        Value::Bool(_) => 0,
+        Value::Number(_) => 1,
+        Value::Date(_) => 2,
+        Value::Duration(_) => 3,
+        Value::Text(_) => 4,
+        Value::Link(_) => 5,
+        Value::List(_) | Value::Object(_) => 6,
+        Value::Null => 7,
+    };
+    rank(a).cmp(&rank(b)).then_with(|| match (a, b) {
+        (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
+        (Value::Number(a), Value::Number(b)) => a.total_cmp(b),
+        (Value::Duration(a), Value::Duration(b)) => a.total().total_cmp(&b.total()),
+        (Value::Link(a), Value::Link(b)) => a.text().cmp(b.text()),
+        _ => order(a, b).unwrap_or(Ordering::Equal),
+    })
+}
+
+/// The start and end of `slice` in a value of `length` parts; a negative position counts from the
+/// end, and the end is never before the start.
+fn range(method: Method, args: &[Value], length: usize) -> Result<(usize, usize), String> {
+    let position = |value: &Value| -> Result<usize, String> {
+        let n = whole(method, value)?;
+        let n = if n < 0.0 { length as f64 + n } else { n };
+        Ok(n.clamp(0.0, length as f64) as usize)
+    };
+    let start = args.first().map_or(Ok(0), position)?;
+    let end = args
+        .get(1)
+        .filter(|a| **a != Value::Null)
+        .map_or(Ok(length), position)?;
+    Ok((start, end.max(start)))
 }
 
 /// The name of a method as it is written.
@@ -251,6 +473,14 @@ fn name_of(method: Method) -> &'static str {
         Method::Split => "split",
         Method::Repeat => "repeat",
         Method::Reverse => "reverse",
+        Method::Join => "join",
+        Method::Flat => "flat",
+        Method::Unique => "unique",
+        Method::Sort => "sort",
+        Method::Format => "format",
+        Method::Date => "date",
+        Method::Time => "time",
+        Method::Relative => "relative",
         Method::Abs => "abs",
         Method::Ceil => "ceil",
         Method::Floor => "floor",
@@ -412,21 +642,8 @@ fn string_method(receiver: Value, method: Method, args: &[Value]) -> Result<Valu
             }
         }
         Method::Slice => {
-            let length = text.chars().count() as f64;
-            // A negative position counts from the end.
-            let position = |value: &Value| -> Result<usize, String> {
-                let n = whole(method, value)?;
-                let n = if n < 0.0 { length + n } else { n };
-                Ok(n.clamp(0.0, length) as usize)
-            };
-            let start = args.first().map_or(Ok(0), position)?;
-            let end = optional().map_or(Ok(length as usize), position)?;
-            Value::Text(
-                text.chars()
-                    .skip(start)
-                    .take(end.saturating_sub(start))
-                    .collect(),
-            )
+            let (start, end) = range(method, args, text.chars().count())?;
+            Value::Text(text.chars().skip(start).take(end - start).collect())
         }
         Method::Split => {
             let separator = first()?;

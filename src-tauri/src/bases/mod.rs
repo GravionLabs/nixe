@@ -1,8 +1,10 @@
 //! Bases: a `.base` file shows the notes of the vault as a table. The file is parsed (`parse`) and
 //! its view is answered from the vault index; the frontend only renders the result. The rows are
 //! the notes that match the filters (`filter`, `expr`, `eval`) of the base and of the view. The
-//! `formulas` of the base (`formula`) are columns and values in filters and other formulas.
+//! `formulas` of the base (`formula`) are columns and values in filters and other formulas. Dates
+//! and durations are in `date`; the current time is given to the query.
 
+mod date;
 mod eval;
 mod expr;
 mod filter;
@@ -192,9 +194,10 @@ fn value_cell(value: eval::Value) -> BaseCell {
         eval::Value::Bool(b) => typed("checkbox", b.into()),
         eval::Value::Number(n) => typed("number", plain(eval::Value::Number(n))),
         eval::Value::Text(s) => typed("text", s.into()),
-        eval::Value::Date(millis) => {
-            local_date(millis).map_or_else(BaseCell::default, |date| typed("date", date.into()))
-        }
+        eval::Value::Date(date) => date
+            .text()
+            .map_or_else(BaseCell::default, |date| typed("date", date.into())),
+        eval::Value::Duration(duration) => typed("text", duration.text().into()),
         eval::Value::List(items) => typed(
             "list",
             items.into_iter().map(plain).collect::<Vec<_>>().into(),
@@ -226,12 +229,6 @@ fn value_cell(value: eval::Value) -> BaseCell {
     }
 }
 
-/// An instant as `YYYY-MM-DD hh:mm:ss` in local time; `None` when it is out of range.
-fn local_date(millis: i64) -> Option<String> {
-    let local = chrono::DateTime::from_timestamp_millis(millis)?.with_timezone(&chrono::Local);
-    Some(local.format("%Y-%m-%d %H:%M:%S").to_string())
-}
-
 /// A value inside a list or a mapping as JSON.
 fn plain(value: eval::Value) -> Value {
     match value {
@@ -241,7 +238,8 @@ fn plain(value: eval::Value) -> Value {
         eval::Value::Number(n) if n.fract() == 0.0 && n.abs() < 1e15 => (n as i64).into(),
         eval::Value::Number(n) => n.into(),
         eval::Value::Text(s) => s.into(),
-        eval::Value::Date(millis) => local_date(millis).into(),
+        eval::Value::Date(date) => date.text().into(),
+        eval::Value::Duration(duration) => duration.text().into(),
         eval::Value::List(items) => items.into_iter().map(plain).collect::<Vec<_>>().into(),
         eval::Value::Object(entries) => {
             Value::Object(entries.into_iter().map(|(k, v)| (k, plain(v))).collect())
@@ -253,8 +251,14 @@ fn plain(value: eval::Value) -> Value {
 /// Answers the view `view` (default: the first table view) of the base `source` from the index.
 /// An error in the filters of the base or of the view, also one a note causes, is an error of the
 /// query: no row is ever hidden or shown by a filter that could not be applied. An error in the
-/// formula of a column shows in its cell.
-pub fn query(conn: &Connection, source: &str, view: Option<&str>) -> Result<BaseResult, String> {
+/// formula of a column shows in its cell. `now` is the current time of `now()`, `today()` and
+/// `relative()`, in milliseconds since the Unix epoch: one for the whole table.
+pub fn query(
+    conn: &Connection,
+    source: &str,
+    view: Option<&str>,
+    now: i64,
+) -> Result<BaseResult, String> {
     let base = parse::parse(source)?;
     let view = pick(&base, view)?;
     let formulas = Formulas::compile(&base.formulas);
@@ -303,7 +307,7 @@ pub fn query(conn: &Connection, source: &str, view: Option<&str>) -> Result<Base
     let mut rows = Vec::new();
     let mut room = MAX_FORMULA_CELLS;
     'notes: for note in &index.notes {
-        let context = Context::new(note, &resolver, &formulas);
+        let context = Context::new(note, &resolver, &formulas, now);
         for (place, filter) in filters.iter().flatten() {
             let matches = context.matches(filter).map_err(|e| {
                 format!(

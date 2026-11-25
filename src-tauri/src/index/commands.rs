@@ -242,7 +242,8 @@ pub async fn base_query(
     view: Option<String>,
 ) -> Result<BaseResult, String> {
     let conn = state.conn()?;
-    tauri::async_runtime::spawn_blocking(move || bases::query(&conn, &source, view.as_deref()))
+    let now = chrono::Utc::now().timestamp_millis();
+    tauri::async_runtime::spawn_blocking(move || bases::query(&conn, &source, view.as_deref(), now))
         .await
         .map_err(|e| e.to_string())?
 }

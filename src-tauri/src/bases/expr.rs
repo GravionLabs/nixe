@@ -2,6 +2,8 @@
 //! literals, note properties, `file.*` fields, `formula.*` properties, functions and operators.
 //! Parsing checks every function name and its number of arguments.
 
+use super::date::Part;
+
 /// Most tokens of one expression; also bounds the depth of the tree.
 const MAX_TOKENS: usize = 500;
 /// Most nested parentheses, lists, calls and unary operators.
@@ -64,6 +66,10 @@ pub enum Global {
     Min,
     Max,
     Link,
+    Date,
+    Duration,
+    Now,
+    Today,
 }
 
 impl Global {
@@ -76,6 +82,10 @@ impl Global {
             "min" => (Global::Min, 1, usize::MAX),
             "max" => (Global::Max, 1, usize::MAX),
             "link" => (Global::Link, 1, 2),
+            "date" => (Global::Date, 1, 1),
+            "duration" => (Global::Duration, 1, 1),
+            "now" => (Global::Now, 0, 0),
+            "today" => (Global::Today, 0, 0),
             _ => return None,
         })
     }
@@ -101,6 +111,14 @@ pub enum Method {
     Split,
     Repeat,
     Reverse,
+    Join,
+    Flat,
+    Unique,
+    Sort,
+    Format,
+    Date,
+    Time,
+    Relative,
     Abs,
     Ceil,
     Floor,
@@ -129,6 +147,14 @@ impl Method {
             "split" => (Method::Split, 1, 2),
             "repeat" => (Method::Repeat, 1, 1),
             "reverse" => (Method::Reverse, 0, 0),
+            "join" => (Method::Join, 1, 1),
+            "flat" => (Method::Flat, 0, 0),
+            "unique" => (Method::Unique, 0, 0),
+            "sort" => (Method::Sort, 0, 0),
+            "format" => (Method::Format, 1, 1),
+            "date" => (Method::Date, 0, 0),
+            "time" => (Method::Time, 0, 0),
+            "relative" => (Method::Relative, 0, 0),
             "abs" => (Method::Abs, 0, 0),
             "ceil" => (Method::Ceil, 0, 0),
             "floor" => (Method::Floor, 0, 0),
@@ -188,6 +214,8 @@ pub enum Expr {
     Method(Box<Expr>, Method, Vec<Expr>),
     /// `.length` of a value.
     Length(Box<Expr>),
+    /// A field of a date, like `.year`.
+    Part(Box<Expr>, Part),
     Not(Box<Expr>),
     Negate(Box<Expr>),
     Binary(Op, Box<Expr>, Box<Expr>),
@@ -207,7 +235,9 @@ impl Expr {
                 receiver.formulas(names);
                 args.iter().for_each(|a| a.formulas(names));
             }
-            Expr::Length(inner) | Expr::Not(inner) | Expr::Negate(inner) => inner.formulas(names),
+            Expr::Length(inner) | Expr::Part(inner, _) | Expr::Not(inner) | Expr::Negate(inner) => {
+                inner.formulas(names)
+            }
             Expr::Binary(_, left, right) => {
                 left.formulas(names);
                 right.formulas(names);
@@ -393,6 +423,8 @@ impl Parser {
                 Expr::Method(Box::new(expr), method, args)
             } else if name == "length" {
                 Expr::Length(Box::new(expr))
+            } else if let Some(part) = Part::from_name(&name) {
+                Expr::Part(Box::new(expr), part)
             } else {
                 return Err(format!("unknown field `{name}`"));
             };
@@ -604,8 +636,11 @@ mod tests {
             ("1.", "expected a name after `.`"),
             ("'open", "not closed"),
             ("'open\\", "not closed"),
-            ("date('2026-01-01')", "unknown function `date`"),
-            ("today()", "unknown function `today`"),
+            ("html('x')", "unknown function `html`"),
+            ("today(1)", "`today` needs no arguments"),
+            ("date()", "`date` needs exactly 1 argument"),
+            ("created.format()", "`format` needs exactly 1 argument"),
+            ("created.years", "unknown field `years`"),
             ("status.containz('x')", "unknown function `containz`"),
             ("status.contains()", "`contains` needs exactly 1 argument"),
             ("status.lower(1)", "`lower` needs no arguments"),
