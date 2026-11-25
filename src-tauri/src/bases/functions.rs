@@ -4,6 +4,7 @@
 
 use super::eval::{bare_target, Link, Value};
 use super::expr::{Global, Method};
+use super::formula::clip;
 use crate::vault::resolve::Resolver;
 
 /// Most bytes of text plus items a function or an operator may build.
@@ -19,18 +20,22 @@ fn too_large() -> String {
     "the value is too large".into()
 }
 
-/// The size of a value: bytes of text plus items.
-fn size(value: &Value, depth: usize) -> Result<usize, String> {
+/// The size of a value: bytes of text plus items; an error when it is nested too deeply.
+pub fn size(value: &Value) -> Result<usize, String> {
+    nested_size(value, 0)
+}
+
+fn nested_size(value: &Value, depth: usize) -> Result<usize, String> {
     if depth > MAX_NESTING {
         return Err(too_large());
     }
     Ok(match value {
         Value::Text(s) => s.len(),
         Value::List(items) => items.iter().try_fold(0, |sum, item| {
-            Ok::<_, String>(sum + 1 + size(item, depth + 1)?)
+            Ok::<_, String>(sum + 1 + nested_size(item, depth + 1)?)
         })?,
         Value::Object(entries) => entries.iter().try_fold(0, |sum, (key, item)| {
-            Ok::<_, String>(sum + key.len() + size(item, depth + 1)?)
+            Ok::<_, String>(sum + key.len() + nested_size(item, depth + 1)?)
         })?,
         Value::Link(link) => link.target.len() + link.display.as_ref().map_or(0, String::len),
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::Date(_) => 1,
@@ -39,7 +44,7 @@ fn size(value: &Value, depth: usize) -> Result<usize, String> {
 
 /// `value`, unless it grew too large: formulas that use each other could fill the memory.
 pub fn bounded(value: Value) -> Result<Value, String> {
-    if size(&value, 0)? > MAX_SIZE {
+    if size(&value)? > MAX_SIZE {
         return Err(too_large());
     }
     Ok(value)
@@ -51,7 +56,7 @@ pub fn list_of(items: impl Iterator<Item = Result<Value, String>>) -> Result<Val
     let mut total = 0;
     for item in items {
         let item = item?;
-        total += 1 + size(&item, 1)?;
+        total += 1 + nested_size(&item, 1)?;
         if total > MAX_SIZE {
             return Err(too_large());
         }
@@ -147,7 +152,7 @@ fn number(value: Value) -> Result<Value, String> {
         Value::Date(millis) => Value::Number(millis as f64),
         Value::Text(s) => match s.trim().parse::<f64>() {
             Ok(n) if n.is_finite() => Value::Number(n),
-            _ => return Err(format!("`number` cannot read \"{s}\"")),
+            _ => return Err(format!("`number` cannot read \"{}\"", clip(&s, 100))),
         },
         other => return Err(unavailable("number", &other)),
     })

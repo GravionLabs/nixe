@@ -23,6 +23,8 @@ use parse::{Base, View};
 
 /// The view type that can be shown.
 const TABLE: &str = "table";
+/// Most size of the values of all formula cells of one table.
+const MAX_FORMULA_CELLS: usize = 10_000_000;
 /// The property id of the column with the name of the note.
 const FILE_NAME: &str = "file.name";
 
@@ -151,7 +153,8 @@ fn typed(kind: &str, value: Value) -> BaseCell {
     }
 }
 
-fn cell(context: &Context, source: &Source) -> BaseCell {
+/// `room` is what is left of `MAX_FORMULA_CELLS`.
+fn cell(context: &Context, source: &Source, room: &mut usize) -> BaseCell {
     match source {
         Source::FileName => typed("text", Value::String(context.note.title.clone())),
         Source::File(field) => value_cell(context.field(*field)),
@@ -159,10 +162,27 @@ fn cell(context: &Context, source: &Source) -> BaseCell {
             .property(name)
             .map_or_else(BaseCell::default, |p| typed(&p.kind, p.value.clone())),
         // An error stays in its cell.
-        Source::Formula(name) => context
-            .formula(name)
-            .map_or_else(|error| typed("error", error.into()), value_cell),
+        Source::Formula(name) => {
+            formula_cell(context, name, room).unwrap_or_else(|error| typed("error", error.into()))
+        }
     }
+}
+
+/// The cell of the formula `name`; an error once the formula cells of the table are too large.
+fn formula_cell(context: &Context, name: &str, room: &mut usize) -> Result<BaseCell, String> {
+    let full = || "the formula values of the table are too large".to_string();
+    if *room == 0 {
+        return Err(full());
+    }
+    let value = context.formula(name)?;
+    match room.checked_sub(functions::size(&value)?) {
+        Some(left) => *room = left,
+        None => {
+            *room = 0;
+            return Err(full());
+        }
+    }
+    Ok(value_cell(value))
 }
 
 /// The cell of the value of a `file.` field or of a formula.
@@ -281,6 +301,7 @@ pub fn query(conn: &Connection, source: &str, view: Option<&str>) -> Result<Base
     let index = read::base_notes(conn).map_err(|e| e.to_string())?;
     let resolver = Resolver::new(&index.files);
     let mut rows = Vec::new();
+    let mut room = MAX_FORMULA_CELLS;
     'notes: for note in &index.notes {
         let context = Context::new(note, &resolver, &formulas);
         for (place, filter) in filters.iter().flatten() {
@@ -296,7 +317,10 @@ pub fn query(conn: &Connection, source: &str, view: Option<&str>) -> Result<Base
         }
         rows.push(BaseRow {
             path: note.path.clone(),
-            cells: sources.iter().map(|s| cell(&context, s)).collect(),
+            cells: sources
+                .iter()
+                .map(|s| cell(&context, s, &mut room))
+                .collect(),
         });
     }
     Ok(BaseResult {

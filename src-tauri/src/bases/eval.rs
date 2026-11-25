@@ -2,7 +2,7 @@
 //! property is never an error: the operation or function has no value, which is false. An operator
 //! on a value of another type has no value either; a function on one is an error (`functions`).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone};
@@ -11,6 +11,9 @@ use serde_json::Value as Json;
 use super::expr::{Expr, Field, Function, Global, Op};
 use super::formula::Formulas;
 use super::functions;
+
+/// Most size of the values of all formulas of one note, which are kept while its row is built.
+const MAX_NOTE_SIZE: usize = 1_000_000;
 use crate::index::read::{IndexedProperty, NoteFile};
 use crate::vault::resolve::{parse_target, Resolver};
 
@@ -99,6 +102,8 @@ pub struct Context<'a> {
     formulas: &'a Formulas,
     /// The formulas evaluated on this note so far, by index.
     values: RefCell<HashMap<usize, Result<Value, String>>>,
+    /// The size of those values.
+    kept: Cell<usize>,
 }
 
 /// Why a filter could not be applied to a note.
@@ -116,6 +121,7 @@ impl<'a> Context<'a> {
             resolver,
             formulas,
             values: RefCell::default(),
+            kept: Cell::new(0),
         }
     }
 
@@ -163,7 +169,7 @@ impl<'a> Context<'a> {
                     if pending.len() > before {
                         continue;
                     }
-                    self.eval(&formula.expr)
+                    self.keep(&formula.expr)
                 }
                 Err(error) => Err(error.to_string()),
             };
@@ -175,6 +181,21 @@ impl<'a> Context<'a> {
             .get(&wanted)
             .cloned()
             .unwrap_or(Ok(Value::Null))
+    }
+
+    /// The value of a formula that will be kept; an error once the note holds too much.
+    fn keep(&self, expr: &Expr) -> Result<Value, String> {
+        let full = || "the formulas of this note are too large".to_string();
+        if self.kept.get() > MAX_NOTE_SIZE {
+            return Err(full());
+        }
+        let value = self.eval(expr)?;
+        let kept = self.kept.get().saturating_add(functions::size(&value)?);
+        self.kept.set(kept);
+        if kept > MAX_NOTE_SIZE {
+            return Err(full());
+        }
+        Ok(value)
     }
 
     pub fn eval(&self, expr: &Expr) -> Result<Value, String> {

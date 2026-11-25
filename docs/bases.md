@@ -62,6 +62,10 @@ formula, is part of a cycle (formulas that refer back to each other, also in a b
 never taken) or refers to such a formula. Every cell of its column then shows the message, for example
 ``the formulas form a cycle: `a` → `b` → `a` ``; a filter that refers to it is an
 [error](#errors). A formula that nothing uses does no harm.
+Long messages are shortened.
+
+The formula values of one note are limited to 1 000 000 characters and items together, those of all
+formula cells of a table to 10 000 000; what goes beyond shows an error.
 
 ## Filters
 

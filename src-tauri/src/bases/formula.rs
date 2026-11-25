@@ -3,8 +3,30 @@
 //! reference to such a formula) holds the message instead; it counts only where it is used.
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use super::expr::{self, Expr};
+
+/// Most characters of a message; it can quote a whole file, and every cell may repeat it.
+const MAX_MESSAGE: usize = 300;
+/// Most formulas and characters of a name that the message of a cycle names.
+const MAX_CYCLE_NAMES: usize = 8;
+const MAX_NAME: usize = 40;
+
+/// `text`, cut after `max` characters.
+pub fn clip(text: &str, max: usize) -> String {
+    match text.char_indices().nth(max) {
+        Some((end, _)) => format!("{}…", &text[..end]),
+        None => text.to_string(),
+    }
+}
+
+/// Why a formula cannot be evaluated; the formulas that use it share the message.
+type Broken = Option<Rc<str>>;
+
+fn broken(message: &str) -> Rc<str> {
+    clip(message, MAX_MESSAGE).into()
+}
 
 /// A formula that can be evaluated.
 #[derive(Debug)]
@@ -18,7 +40,7 @@ pub struct Formula {
 #[derive(Debug, Default)]
 pub struct Formulas {
     indexes: HashMap<String, usize>,
-    list: Vec<Result<Formula, String>>,
+    list: Vec<Result<Formula, Rc<str>>>,
 }
 
 impl Formulas {
@@ -29,7 +51,7 @@ impl Formulas {
             .enumerate()
             .map(|(index, (name, _))| (name.clone(), index))
             .collect();
-        let mut errors: Vec<Option<String>> = vec![None; sources.len()];
+        let mut errors: Vec<Broken> = vec![None; sources.len()];
         let exprs: Vec<Option<Expr>> = sources
             .iter()
             .zip(&mut errors)
@@ -39,7 +61,7 @@ impl Formulas {
                     None => Err("the expression must be a text".into()),
                 };
                 parsed
-                    .map_err(|e| *error = Some(format!("formula `{name}`: {e}")))
+                    .map_err(|e| *error = Some(broken(&format!("formula `{name}`: {e}"))))
                     .ok()
             })
             .collect();
@@ -58,7 +80,7 @@ impl Formulas {
                         let index = indexes.get(wanted).copied();
                         if index.is_none() {
                             error.get_or_insert_with(|| {
-                                format!("formula `{name}`: unknown formula `{wanted}`")
+                                broken(&format!("formula `{name}`: unknown formula `{wanted}`"))
                             });
                         }
                         index
@@ -73,7 +95,7 @@ impl Formulas {
             .zip(errors)
             .map(|((expr, refs), error)| match (expr, error) {
                 (Some(expr), None) => Ok(Formula { expr, refs }),
-                (_, error) => Err(error.unwrap_or_default()),
+                (_, error) => Err(error.unwrap_or_else(|| "unknown formula".into())),
             })
             .collect();
         Formulas { indexes, list }
@@ -108,16 +130,13 @@ impl Formulas {
 }
 
 /// Gives every formula of a cycle the message that names it, and every formula that refers to a
-/// broken one the message of that one. A depth-first walk without recursion.
-fn spread_errors(
-    sources: &[(String, Option<String>)],
-    refs: &[Vec<usize>],
-    errors: &mut [Option<String>],
-) {
+/// broken one the message of that one. A depth-first walk without recursion, in linear time.
+fn spread_errors(sources: &[(String, Option<String>)], refs: &[Vec<usize>], errors: &mut [Broken]) {
     #[derive(Clone, Copy, PartialEq)]
     enum State {
         New,
-        Open,
+        /// On the path, at this position.
+        Open(usize),
         Done,
     }
     let mut states = vec![State::New; refs.len()];
@@ -125,15 +144,21 @@ fn spread_errors(
         if states[root] != State::New {
             continue;
         }
-        states[root] = State::Open;
+        states[root] = State::Open(0);
         // The path from the root: a formula and the number of its references that were followed.
         let mut path = vec![(root, 0)];
+        // The positions of the path that no cycle has marked yet, in order.
+        let mut unmarked = vec![0];
         while let Some(&(index, followed)) = path.last() {
             let top = path.len() - 1;
             let Some(&next) = refs[index].get(followed) else {
                 states[index] = State::Done;
                 path.pop();
-                if let (Some(error), Some(&(parent, _))) = (errors[index].clone(), path.last()) {
+                if unmarked.last() == Some(&top) {
+                    unmarked.pop();
+                }
+                if let (Some(error), Some(&(parent, _))) = (&errors[index], path.last()) {
+                    let error = Rc::clone(error);
                     errors[parent].get_or_insert(error);
                 }
                 continue;
@@ -141,30 +166,43 @@ fn spread_errors(
             path[top].1 += 1;
             match states[next] {
                 State::New => {
-                    states[next] = State::Open;
+                    states[next] = State::Open(path.len());
+                    unmarked.push(path.len());
                     path.push((next, 0));
                 }
-                State::Open => {
-                    let start = path.iter().position(|&(i, _)| i == next).unwrap_or(0);
-                    let names: Vec<String> = path[start..]
-                        .iter()
-                        .map(|&(i, _)| i)
-                        .chain([next])
-                        .map(|i| format!("`{}`", sources[i].0))
-                        .collect();
-                    let message = format!("the formulas form a cycle: {}", names.join(" → "));
-                    for &(i, _) in &path[start..] {
-                        errors[i].get_or_insert_with(|| message.clone());
+                State::Open(start) => {
+                    let mut message: Broken = None;
+                    while let Some(&position) = unmarked.last().filter(|&&p| p >= start) {
+                        unmarked.pop();
+                        let message = message.get_or_insert_with(|| cycle(sources, &path[start..]));
+                        errors[path[position].0].get_or_insert_with(|| Rc::clone(message));
                     }
                 }
                 State::Done => {
-                    if let Some(error) = errors[next].clone() {
+                    if let Some(error) = &errors[next] {
+                        let error = Rc::clone(error);
                         errors[index].get_or_insert(error);
                     }
                 }
             }
         }
     }
+}
+
+/// The message of the cycle of the formulas of `path`, whose last one refers to the first; a long
+/// cycle is shortened in the middle.
+fn cycle(sources: &[(String, Option<String>)], path: &[(usize, usize)]) -> Rc<str> {
+    let name = |&(i, _): &(usize, usize)| format!("`{}`", clip(&sources[i].0, MAX_NAME));
+    let mut names: Vec<String> = if path.len() > MAX_CYCLE_NAMES {
+        let head = path[..MAX_CYCLE_NAMES - 1].iter().map(name);
+        head.chain(["…".to_string()])
+            .chain(path.last().map(name))
+            .collect()
+    } else {
+        path.iter().map(name).collect()
+    };
+    names.extend(path.first().map(name));
+    format!("the formulas form a cycle: {}", names.join(" → ")).into()
 }
 
 #[cfg(test)]
@@ -254,6 +292,38 @@ mod tests {
             .collect();
         sources.push(("f20000".into(), Some("formula.f0".into())));
         let formulas = Formulas::compile(&sources);
-        assert!(error(&formulas, "f123").unwrap().contains("cycle"));
+        assert_eq!(
+            error(&formulas, "f20000").as_deref(),
+            Some(
+                "the formulas form a cycle: `f0` → `f1` → `f2` → `f3` → `f4` → `f5` → `f6` → … \
+                 → `f20000` → `f0`"
+            )
+        );
+    }
+
+    #[test]
+    fn many_cycles_through_one_chain_mark_every_formula() {
+        let mut sources: Vec<(String, Option<String>)> = (0..20_000)
+            .map(|i| {
+                (
+                    format!("f{i}"),
+                    Some(format!("formula.f{} + formula.f0", i + 1)),
+                )
+            })
+            .collect();
+        sources.push(("f20000".into(), Some("formula.f0".into())));
+        let formulas = Formulas::compile(&sources);
+        for name in ["f0", "f1", "f19999", "f20000"] {
+            assert!(error(&formulas, name).unwrap().contains("cycle"), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_message_that_quotes_a_long_source_is_cut() {
+        let long = "x".repeat(100_000);
+        let formulas = compile(&[("bad", &format!("1 + + '{long}")), ("user", "formula.bad")]);
+        let message = error(&formulas, "user").unwrap();
+        assert_eq!(message.chars().count(), MAX_MESSAGE + 1);
+        assert!(message.ends_with('…'), "{message}");
     }
 }

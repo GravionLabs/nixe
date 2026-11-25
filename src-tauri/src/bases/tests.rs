@@ -876,3 +876,41 @@ fn links_name_a_file_or_a_url() {
         ],
     );
 }
+
+#[test]
+fn the_formula_values_of_a_note_and_of_the_table_are_limited() {
+    let (_dir, conn) = library();
+    // A chain whose every formula keeps a large value.
+    let mut formulas: String = (0..30)
+        .map(|i| format!("  f{i}: formula.f{} + \"\"\n", i + 1))
+        .collect();
+    formulas.push_str("  f30: '\"x\".repeat(90000)'\n");
+    let source = format!(
+        "formulas:\n{formulas}views:\n  - type: table\n    order: [formula.f0, formula.f30]\n"
+    );
+    let result = query(&conn, &source, None).unwrap();
+    assert_eq!(result.rows.len(), 4);
+    for row in &result.rows {
+        assert_eq!(
+            row.cells[0],
+            cell("error", json!("the formulas of this note are too large"))
+        );
+        assert_eq!(row.cells[1].kind.as_deref(), Some("text"));
+    }
+    // One column repeated over and over.
+    let order = vec!["formula.big"; 200].join(", ");
+    let source = format!(
+        "formulas:\n  big: '\"x\".repeat(90000)'\nviews:\n  - type: table\n    order: [{order}]\n"
+    );
+    let result = query(&conn, &source, None).unwrap();
+    let cells: Vec<&BaseCell> = result.rows.iter().flat_map(|r| &r.cells).collect();
+    let shown = cells.iter().filter(|c| c.kind.as_deref() == Some("text"));
+    assert_eq!(shown.count(), 10_000_000 / 90_000);
+    assert_eq!(
+        **cells.last().unwrap(),
+        cell(
+            "error",
+            json!("the formula values of the table are too large")
+        )
+    );
+}
