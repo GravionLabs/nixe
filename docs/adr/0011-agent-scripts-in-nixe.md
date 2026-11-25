@@ -41,7 +41,8 @@ built.
 
 ### Storage
 
-- Scripts are `.agents/scripts/*.md` in the vault root, one level, the same folder poimen and the
+- Scripts are `.agents/scripts/*.md` in the vault root (in a workspace with several roots the
+  first one, which has the Git sync), one level, the same folder poimen and the
   command line use. They are committed with the vault. User scripts of the runner's config
   directory are not listed in Nixe.
 - A script is told from a note **by this folder only**: no frontmatter key and no file name makes a
@@ -49,7 +50,8 @@ built.
   from there they are opened and edited like a note.
 - The folder is fixed. There is **no folder role** for scripts in `.nixe/config.json`
   ([ADR 0007](0007-vault-configuration-in-nixe.md)): a role would let one vault put scripts where
-  the other two tools do not look. Nothing about scripts is stored in `.nixe/`.
+  the other two tools do not look. Neither scripts nor their trust and run records are stored in
+  `.nixe/`.
 
 ### Trust
 
@@ -112,18 +114,27 @@ put a file into the folder can start a run, so every such run is untrusted; hand
 recorded; and the runs are limited. Nixe ignores `schedule` entries (poimen runs those) and says so
 in the Scripts list.
 
-- **Only while Nixe is open.** Files that arrived while it was closed are offered as a list at the
-  next start; they run only when the user chooses them.
+- **Handled files.** Nixe records per vault and script, in the app data directory, the relative
+  path and content hash of every file the script has handled: when its run ends `ok`, with or
+  without a change. A file is **new** when no entry has its path and hash, so a renamed file and
+  a path that comes back with other content are new. When the user trusts a trigger, the files
+  already there are recorded as handled. A watched folder includes its subfolders.
+- **Only while Nixe is open.** Matching files that are new at the next start arrived while Nixe was
+  closed; they are offered as a list and run only when the user chooses them. The same holds for
+  new files found when the setting for folder triggers is switched on again.
 - **Debounce:** a file is taken when it has not changed for 5 seconds. Only a new file starts a
   run, not a change of an existing one. Files a sync pulls in count as new.
-- **No loop:** a script never triggers on a file it wrote itself. Nixe records the paths its runs
-  wrote, also the ones that reach the vault when their review is accepted. A file that a sync brings
-  with the commit that accepted a review of that script (its message names the branch) does not
-  trigger it either.
+- **No loop:** a script never triggers on a file it wrote itself. A file that appears or changes in
+  a watched folder while a run of that script goes on (by hand or triggered) does not start that
+  script: after the run Nixe offers it instead, also when it already waited. This holds without
+  knowing who wrote it, also when auto-sync committed it meanwhile. The notes that reach the vault
+  when a review of the script is accepted are recorded as handled. A file that a sync brings with
+  the commit that accepted such a review (its message names the branch) does not trigger it either.
 - **One at a time:** per script one triggered run at a time. Further files wait in order and are not
-  dropped; a start that the runner refuses because the script is running (also by hand) keeps the
-  file waiting and does not count. Files still waiting when Nixe closes are offered at the next
-  start.
+  dropped; a start that the runner refuses because the script is running (also from poimen or the
+  command line) keeps the file waiting and does not count. Files still waiting when Nixe closes are
+  offered at the next start. (poimen ADR 0020 skips an overlapping due time of a schedule instead;
+  a file that is skipped would be lost.)
 - **What can have a trigger:** the output target is `file` or `append` with the path of a note, or
   the script writes with its tools (target `show` then only adds the text to the result). A script
   with the target `replace`, with `{selection}` or with a required input without a default does not
@@ -163,8 +174,10 @@ the limits of poimen ADR 0020, which the runner enforces for a run the host mark
   working tree are not written.
 - Only notes reach a review. Other files a run created are dropped and named in the result.
 - A run that does not end `ok`, or that changed no note, leaves **no branch**. The Scripts list shows
-  the last result with its reason, a failure also shows in the status bar, and the file is offered
-  again; it does not restart by itself.
+  the last result with its reason. After a failure it also shows in the status bar and the file is
+  offered again; it does not restart by itself.
+- **Departure from poimen ADR 0020:** there the files a failed run had written stay in `{dir}`.
+  Here `{dir}` is the temporary worktree, so they are discarded with it.
 - Without a Git repository, or with an empty review branch prefix, folder triggers do not run, and
   the Scripts list says why.
 
@@ -175,7 +188,9 @@ the limits of poimen ADR 0020, which the runner enforces for a run the host mark
 - **ADR 0006** (terminal panel): a script run is not a terminal. It has no PTY, nobody can type
   into it, and it does not need the terminal setting to be on. Its consent is the trust per script,
   with fixed tools, instead of the one-time confirmation for a shell. The panel is unchanged.
-- **ADR 0007** (`.nixe/`): unchanged; see Storage.
+- **ADR 0007** (`.nixe/`): unchanged; see Storage. `watch` and the output `path` of a script are
+  literal paths, because the shared format knows no folder roles; a script does not follow a
+  renamed role folder.
 - **#90** (AI changes as review): the folder trigger produces such branches. Manual runs do not,
   by the owner's decision: the user asked for the change and watches it.
 
@@ -194,12 +209,15 @@ the limits of poimen ADR 0020, which the runner enforces for a run the host mark
   servers (GravionLabs/agent-scripts#1).
 - A triggered run sees the committed vault plus the arrived file, not other uncommitted changes,
   also not the results of reviews that are still open.
-- The record of written paths belongs to one device. A note that a manual run wrote into a watched
-  folder counts as new on another device after a sync.
+- The record of handled files belongs to one device. A file that a sync brings to a second device
+  is new there, so it can run again, also a note that a manual run wrote into a watched folder.
 - Injected content can still put wrong or hostile text into a review branch; the user reviews it.
 - One more git dependency; Renovate raises the tag. #297 waits for a first release of the runner.
-- Needed from the runner before #299: the `watch` form of `triggers` as a valid entry, and the
-  triggered mode of poimen ADR 0020.
+- Needed from the runner library before #297 and #298: a check that says without starting a run
+  whether a script can run, with the reason, and a machine-readable reason of a `refused` result,
+  so that "already running" is told apart. Neither is in GravionLabs/agent-scripts#1 yet.
+- Needed from the runner before #299: the `watch` form of `triggers` as a valid entry, the
+  triggered mode of poimen ADR 0020 and the names of the tools it drops.
 
 ## Open for the owner
 
@@ -207,7 +225,8 @@ To decide before this ADR is accepted: **may a manual run write outside the vaul
 
 - Recommended: no. `Edit` and `Write` of a manual run stay inside `{dir}` and out of the paths
   poimen ADR 0020 denies, without changing which tools need a grant. The runner has to enforce
-  this, so #297 would wait for it.
+  this, so #297 would wait for it. It narrows "Manual runs keep the listed tools" (ADR 0020) and
+  "`tools` is the whole permission" (ADR 0019) for Nixe.
 - Otherwise: keep the decision above and accept that the trust and grant rules hold only against a
   script whose file tools are not misused.
 
