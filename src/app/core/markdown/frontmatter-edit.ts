@@ -106,6 +106,23 @@ function guardComments(key: string, old: unknown): void {
 }
 
 /**
+ * A comment between a key and its value, or on the `|` line of a block text, is inside the part
+ * that is written again and would be lost.
+ */
+function guardCommentAbove(
+  key: string,
+  yamlText: string,
+  keyEnd: number,
+  old: unknown,
+  valueStart: number,
+): void {
+  const block = isScalar(old) && (old.type === "BLOCK_LITERAL" || old.type === "BLOCK_FOLDED");
+  const header = block ? yamlText.slice(valueStart).split("\n", 1)[0] : "";
+  if (yamlText.slice(keyEnd, valueStart).includes("#") || header.includes("#"))
+    throw new Error(`"${key}" has a comment before its value and cannot be changed here.`);
+}
+
+/**
  * Throws unless `next` is valid frontmatter in which `key` holds `value` and every other property
  * what it held in `before`: an edit that cannot be written like that is not written at all.
  */
@@ -138,6 +155,7 @@ function verified(before: string, next: string, key: string, value: unknown): st
 function blockList(
   yamlText: string,
   from: number,
+  keyLength: number,
   old: YAMLSeq,
   value: unknown[],
 ): { text: string; end: number } | null {
@@ -165,8 +183,10 @@ function blockList(
   }
   if (!value.length) {
     // The list is empty now: `[]` goes behind the key, the comment lines stay below.
-    const colon = out.indexOf(":") + 1;
-    out = `${out.slice(0, colon)} []${out.slice(colon)}`;
+    const colon = out.indexOf(":", keyLength) + 1;
+    // An anchor or a tag of the list stays in front of its value.
+    const at = colon + /^(?:[ \t]+[&!][^ \t\r\n]*)*/.exec(out.slice(colon))![0].length;
+    out = `${out.slice(0, at)} []${out.slice(at)}`;
   }
   if (out && !out.endsWith("\n")) out += eol;
   for (const added of value.slice(next)) {
@@ -226,7 +246,13 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
     const keyRange = (pair.key as { range: [number, number, number] }).range;
     const valueRange = (pair.value as { range?: [number, number, number] } | null)?.range;
     if (isSeq(pair.value) && Array.isArray(edit.value)) {
-      const list = blockList(yamlText, keyRange[0], pair.value, edit.value);
+      const list = blockList(
+        yamlText,
+        keyRange[0],
+        keyRange[1] - keyRange[0],
+        pair.value,
+        edit.value,
+      );
       if (list) return splice(keyRange[0], list.end, list.text);
     }
     const written = lines(replacement(edit.key, edit.value, pair.value, yamlText));
@@ -240,6 +266,7 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
         next === undefined || /[ \t\r\n]/.test(next) ? written : `${written} `,
       );
     }
+    guardCommentAbove(edit.key, yamlText, keyRange[1], pair.value, valueRange[0]);
     return splice(keyRange[0], lineContentEnd(yamlText, valueRange[1]), written);
   }
 

@@ -82,6 +82,22 @@ describe("editFrontmatter set", () => {
   });
 
   it.each([
+    ["dc:subject:\n  - x", "dc:subject", "dc:subject: []"],
+    ['"a:b":\n  - x', "a:b", '"a:b": []'],
+    ["k: &a\n  - x", "k", "k: &a []"],
+    ["k: !!seq\n  - x", "k", "k: !!seq []"],
+  ])("empties the block list %j", (yaml, key, written) => {
+    expect(set(`---\n${yaml}\n---\n`, key, [])).toBe(`---\n${written}\n---\n`);
+  });
+
+  it.each(["k: # c\n  v", "k:\n  # c\n  v", "k: | # c\n  v"])(
+    "refuses to drop the comment before a value: %j",
+    (yaml) => {
+      expect(() => set(`---\n${yaml}\n---\n`, "k", "w")).toThrow(/comment before/);
+    },
+  );
+
+  it.each([
     ["an anchored item an alias points to", "---\nl:\n  - &x a\n  - b\nm: *x\n---\n", "l", ["b"]],
     ["the only anchored item", "---\nl:\n  - &x a\nm: *x\n---\n", "l", []],
     ["an anchored item of a flow list", "---\nl: [&x a, b]\nm: *x\n---\n", "l", ["b"]],

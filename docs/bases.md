@@ -136,7 +136,8 @@ Only the lines of the edited property change: comments, the order and the other 
 are. The key that differs in case only is the one that is changed. A quoted text stays quoted, a
 `[a, b]` list stays on one line, and a list of `- item` lines keeps its comment lines. A note
 without frontmatter gets one. A change that cannot be written without damaging the frontmatter
-(a list item that an alias points to, a `[a, b]` list with comments inside) is refused.
+(a list item that an alias points to, a `[a, b]` list with comments inside, a comment between a
+key and its value) is refused.
 
 - A note that is **open in an editor** takes the change in the editor, together with its unsaved
   changes, and is saved at once. The change is refused while the editor asks what to do with a
