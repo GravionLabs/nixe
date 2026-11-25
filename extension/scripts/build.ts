@@ -15,8 +15,11 @@ import { build as esbuild } from "esbuild";
 export const targets = ["chromium", "firefox"] as const;
 export type Target = (typeof targets)[number];
 
-/** The add-on id of the Firefox package; it must not change once the extension is on AMO. */
-export const geckoId = "extension@nixe.app";
+/**
+ * The add-on id of the Firefox package; it must not change once the extension is on AMO. The native
+ * host allows it by name (`ALLOWED_FIREFOX_EXTENSIONS` in `src-tauri/src/native_host.rs`).
+ */
+export const geckoId = "clipper@nixe.gravionlabs.app";
 
 export type Manifest = Record<string, unknown>;
 
