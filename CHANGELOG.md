@@ -5,10 +5,80 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.15.0] — 2026-11-25
+
+### Bug Fixes
+- Added folders show no books, the tree misses file changes and EPUB links do not open (#568) (#572)
+- Added folders show no books, the tree misses file changes and EPUB links do not open (#568) (#572)
+- **links**: The links folder comes from the folder role links (#504) (#576)
+- **extension**: The Firefox add-on id does not match the native host (#602) (#604)
+
+
+### Documentation
+- ADR and vault convention for link notes (#500) (#569)
+- **extension**: Save the current page with its rendered HTML (#514) (#587)
+- How to back-merge main into release/next (#606)
+- How to back-merge main into release/next (#606) (#607)
+
+
+### Features
+- **links**: Find dead links with nixe check --links (#509) (#571)
+- **links**: Clip a web page into a link note with nixe clip (#502) (#574)
+- **links**: A URL saved twice opens the existing link note (#503) (#575)
+- **links**: The links folder comes from the folder role links (#504) (#576)
+- **links**: Optional single-file HTML archive in Links/.archive (#505) (#577)
+- **links**: Optional screenshot and PDF archive from the desktop app (#506) (#578)
+- **capture**: Save a URL from the capture window as a link note (#507) (#579)
+- **mcp**: Opt-in clip_link tool that creates link notes (#508) (#580)
+- **links**: Import browser bookmarks and Pocket exports (#510) (#583)
+- **links**: Import Raindrop and Linkwarden exports (#511) (#584)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **extension**: Save the current page with its rendered HTML (#514) (#587)
+
+
+### Reverts
+- ADR and vault convention for link notes (#500) (#569)
+- **links**: Clip a web page into a link note with nixe clip (#502) (#574)
+- **extension**: Save the current page with its rendered HTML (#514) (#587)
+
+
+### Security
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+- **links**: Native Messaging host nixe native-host (#513) (#585)
+
+
 ## [1.14.1] — 2026-11-24
 
 ### Bug Fixes
 - **tests**: Remove test directories when the test ends (#581)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.14.1 [skip ci]
 
 
 ## [1.14.0] — 2026-11-24
