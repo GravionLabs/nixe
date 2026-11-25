@@ -9,7 +9,8 @@ One note for someone else. The command palette has three commands for the open n
 | Print (`Ctrl/⌘+Alt+P`) | The same print dialog, for paper. |
 
 `nixe export <note> --format html|pdf` does the same from the terminal, see [cli.md](cli.md#export).
-With `--out <file>` it also writes a PDF [without the print dialog](#pdf-without-the-print-dialog).
+With `--out <file>` it also writes a PDF [without the print dialog](#pdf-without-the-print-dialog),
+and `nixe export <folder> --format pdf --out <dir>` writes a [folder as PDFs](#folder-as-pdfs).
 
 ## What the page contains
 
@@ -76,6 +77,24 @@ Other differences:
 - Dark look: on macOS and Linux the margins of the page stay white and the dark background of the
   last page ends with its content. On Windows the margins are dark grey.
 - Fonts come from the system, so line and page breaks can differ between the platforms.
+
+## Folder as PDFs
+
+`nixe export <folder> --format pdf --out <dir> [--include <glob>]... [--exclude <dir>]...` writes one
+PDF per note of a folder (a vault, or a part of it), each as [above](#pdf-without-the-print-dialog).
+
+- `folder/sub/Note.md` becomes `<dir>/sub/Note.pdf`: the path below the exported folder is kept.
+  `--out .` writes each PDF next to its note instead.
+- `--include` keeps the notes whose file name (not the path) matches the glob, for example
+  `--include "* – Zusammenfassung.md"`; repeated, any of the globs is enough. The match is case
+  sensitive. Quote the glob so that the shell leaves it alone.
+- `--exclude` and `publish: false` leave notes out as in the [site export](#folder-as-a-static-site);
+  `.gitignore`d files are left out too.
+- Nixe starts once for the whole folder. stderr gets one line per note (`nixe: [2/5] sub/Note.md`,
+  with `failed: <reason>` when it failed), stdout the path of every written PDF.
+- A note that fails does not stop the others; the command then exits `1`. Two notes that would write
+  the same PDF (`A.md` and `A.markdown`) count as such a failure for the second one. A folder with no
+  note to export exits `0` without starting the app.
 
 ## Settings
 

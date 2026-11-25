@@ -820,23 +820,45 @@ export const backend = {
   readBundledDataUri: (path: string) => invoke<string | null>("read_bundled_data_uri", { path }),
   /** The export `nixe export` asked for, once. */
   takePendingExport: () => invoke<ExportRequest | null>("take_pending_export"),
+  /** One note of a folder export: progress on stderr, the written PDF on stdout. */
+  reportExportNote: (report: ExportNoteReport) => invoke<void>("report_export_note", { ...report }),
   /** Ends a headless `nixe export`: the message goes to stdout (code 0) or stderr, then the process exits. */
   finishExport: (code: number, message: string) => invoke<void>("finish_export", { code, message }),
 };
 
 /** `nixe export <note> --format html|pdf` (cli.rs `ExportRequest`). */
 export interface ExportRequest {
-  /** Absolute path of the note. */
+  /** Absolute path of the note; of the folder for a folder export. */
   note: string;
   /** Absolute vault root of the note. */
   vaultRoot: string;
   format: "html" | "pdf";
-  /** Absolute path of the HTML file. */
+  /** Absolute path of the file; of the target directory for a folder export. */
   out: string | null;
   dark: boolean | null;
   pageSize: string | null;
   /** No window: the command waits for the file and the process ends with `finishExport`. */
   headless: boolean;
+  /** The notes of a folder export; null or absent for one note. */
+  notes?: FolderNote[] | null;
+}
+
+/** One note of a folder export and the PDF it becomes (cli_export.rs `FolderNote`). */
+export interface FolderNote {
+  note: string;
+  /** Path relative to the exported folder. */
+  name: string;
+  out: string;
+}
+
+export interface ExportNoteReport {
+  /** From 1. */
+  index: number;
+  total: number;
+  name: string;
+  /** The written PDF; null when the note failed. */
+  written: string | null;
+  error: string | null;
 }
 
 export const OPEN_FILE_EVENT = "open-file-requested";

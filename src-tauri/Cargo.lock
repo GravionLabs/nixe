@@ -3009,6 +3009,7 @@ dependencies = [
  "dom_smoothie",
  "dunce",
  "git2",
+ "globset",
  "gtk",
  "htmd",
  "ignore",

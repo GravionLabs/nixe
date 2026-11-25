@@ -83,12 +83,7 @@ pub fn export_site(opts: &SiteOptions) -> Result<SiteSummary, String> {
     } else {
         format!("{folder_rel}/")
     };
-    let exclude: Vec<String> = opts
-        .exclude
-        .iter()
-        .map(|e| e.trim().trim_matches('/').replace('\\', "/"))
-        .filter(|e| !e.is_empty())
-        .collect();
+    let exclude = clean_exclude(&opts.exclude);
 
     // Which notes are published.
     let mut included: BTreeMap<String, (String, String, String)> = BTreeMap::new();
@@ -98,20 +93,11 @@ pub fn export_site(opts: &SiteOptions) -> Result<SiteSummary, String> {
         .filter(|p| is_markdown_path(p) && p.starts_with(&prefix))
     {
         let rel = &path[prefix.len()..];
-        let text = fs::read_to_string(root.join(path))
-            .map_err(|e| format!("{path}: {e}"))?
-            .trim_start_matches('\u{feff}')
-            .to_string();
-        let meta = extract(&text);
-        let unpublished = meta
-            .properties
-            .iter()
-            .any(|p| p.key == "publish" && is_false(&p.value));
-        let by_folder = in_excluded(&exclude, &prefix, path);
-        if unpublished || by_folder {
+        let Some(text) = published_text(root, path, &prefix, &exclude)? else {
             excluded += 1;
             continue;
-        }
+        };
+        let meta = extract(&text);
         let title = meta
             .properties
             .iter()
@@ -258,6 +244,37 @@ pub fn export_site(opts: &SiteOptions) -> Result<SiteSummary, String> {
         files: copied,
         excluded,
     })
+}
+
+/// The `--exclude` folders in the spelling `in_excluded` compares.
+pub(crate) fn clean_exclude(exclude: &[String]) -> Vec<String> {
+    exclude
+        .iter()
+        .map(|e| e.trim().trim_matches('/').replace('\\', "/"))
+        .filter(|e| !e.is_empty())
+        .collect()
+}
+
+/// The text of the note `path` (a vault path), without a byte order mark; `None` when an export of
+/// a folder leaves it out: it lies in an excluded folder or says `publish: false`.
+pub(crate) fn published_text(
+    root: &Path,
+    path: &str,
+    prefix: &str,
+    exclude: &[String],
+) -> Result<Option<String>, String> {
+    if in_excluded(exclude, prefix, path) {
+        return Ok(None);
+    }
+    let text = fs::read_to_string(root.join(path))
+        .map_err(|e| format!("{path}: {e}"))?
+        .trim_start_matches('\u{feff}')
+        .to_string();
+    let unpublished = extract(&text)
+        .properties
+        .iter()
+        .any(|p| p.key == "publish" && is_false(&p.value));
+    Ok((!unpublished).then_some(text))
 }
 
 /// True when `vault` (a vault path) lies in a folder named by `--exclude`, relative to the exported

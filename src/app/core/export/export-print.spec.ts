@@ -78,6 +78,91 @@ describe("PDF export into a file", () => {
     expect(document.head.textContent).toContain("size: A5");
   });
 
+  it("prints a folder note by note, reports each and goes on after a failure", async () => {
+    document.head.innerHTML = "<title>Nixe</title><style>.app { color: red; }</style>";
+    document.body.innerHTML = "<app-root>the app</app-root>";
+    const appStyle = document.querySelector("style")!;
+    const printed: { path: string; head: string; appStyleOff: boolean; text: string }[] = [];
+    invoke.mockImplementation(async (cmd: string, args: { path: string }) => {
+      if (cmd === "read_text_file") {
+        if (args.path === "/v/Gone.md") throw "no such file";
+        return `# Text of ${args.path}`;
+      }
+      if (cmd === "print_export_pdf") {
+        printed.push({
+          path: args.path,
+          head: document.head.textContent ?? "",
+          appStyleOff: appStyle.sheet!.disabled,
+          text: document.querySelector(".markdown-body h1")?.textContent ?? "",
+        });
+        if (args.path === "/out/Full.pdf") throw "disk full";
+      }
+      return cmd === "list_vault_files" ? [] : null;
+    });
+    const note = (name: string, out = name) => ({
+      note: `/v/${name}.md`,
+      name: `${name}.md`,
+      out: `/out/${out}.pdf`,
+    });
+    const notes = [note("A"), note("Gone"), note("Full"), note("Twin", "A"), note("B")];
+
+    const failure = await TestBed.inject(ExportService)
+      .runRequest({ ...request, note: "/v", out: "/out", notes })
+      .catch((err: unknown) => String(err));
+
+    expect(failure).toBe("3 of 5 notes could not be exported");
+    expect(printed.map((p) => p.path)).toEqual(["/out/A.pdf", "/out/Full.pdf", "/out/B.pdf"]);
+    expect(printed[2].text).toContain("Text of /v/B.md");
+    expect(printed[2].appStyleOff).toBe(true);
+    expect(printed[2].head).toContain("size: A5");
+    expect(printed[2].head).not.toContain("Nixe");
+    const reports = invoke.mock.calls.filter((c) => c[0] === "report_export_note").map((c) => c[1]);
+    expect(reports.map((r) => [r.index, r.total, r.name, r.written])).toEqual([
+      [1, 5, "A.md", "/out/A.pdf"],
+      [2, 5, "Gone.md", null],
+      [3, 5, "Full.md", null],
+      [4, 5, "Twin.md", null],
+      [5, 5, "B.md", "/out/B.pdf"],
+    ]);
+    expect(reports[0].error).toBeNull();
+    expect(reports[1].error).toContain("no such file");
+    expect(reports[2].error).toContain("disk full");
+    expect(reports[3].error).toContain("already the PDF of A.md");
+    // The app is back, with its styles.
+    expect(document.querySelector("app-root")?.textContent).toBe("the app");
+    expect(appStyle.isConnected).toBe(true);
+    expect(appStyle.sheet!.disabled).toBe(false);
+    expect(document.title).toBe("Nixe");
+    expect(document.head.querySelectorAll("style")).toHaveLength(1);
+  });
+
+  it("answers a folder without a failed note with nothing more to print", async () => {
+    const notes = [{ note: "/v/A.md", name: "A.md", out: "/out/A.pdf" }];
+    await expect(
+      TestBed.inject(ExportService).runRequest({ ...request, note: "/v", out: "/out", notes }),
+    ).resolves.toBe("");
+  });
+
+  it("brings the app and its root back after a print", async () => {
+    vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(true);
+    const root = document.documentElement;
+    root.className = "app-light";
+    document.head.innerHTML = "<title>Nixe</title>";
+    document.body.innerHTML = "<app-root></app-root>";
+    const restore = await showForPrint(PAGE);
+    expect(document.title).toBe("Note");
+    restore();
+    await tick();
+    expect(root.className).toBe("app-light");
+    expect(document.title).toBe("Nixe");
+    expect(document.querySelector(".markdown-body")).toBeNull();
+    expect(document.querySelector("app-root")).not.toBeNull();
+    // The guard of the export look is gone.
+    root.className = "app-other";
+    await tick();
+    expect(root.className).toBe("app-other");
+  });
+
   it("fails when the print fails", async () => {
     invoke.mockImplementation(async (cmd: string) => {
       if (cmd === "print_export_pdf") throw "/out/Note.pdf: no PDF was written";
@@ -117,7 +202,7 @@ describe("PDF export into a file", () => {
     const shown = showForPrint(PAGE);
     await tick();
     document.querySelector("img")!.dispatchEvent(new Event("error"));
-    await expect(shown).resolves.toBeUndefined();
+    await expect(shown).resolves.toBeTypeOf("function");
   });
 
   it("keeps the look of the export when the theme of the app changes the root", async () => {

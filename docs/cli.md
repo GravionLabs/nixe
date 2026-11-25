@@ -149,6 +149,16 @@ the app for the export.
   once.
 - `--dark` / `--light` and `--page-size A3|A4|A5|Letter|Legal` override the export settings.
 
+### Export a folder as PDFs
+
+`nixe export <folder> --format pdf --out <dir> [--include <glob>]... [--exclude <dir>]... [--vault <dir>]`
+writes one PDF per note, see [export.md](export.md#folder-as-pdfs). It takes `--dark` / `--light` and
+`--page-size` like a note. The written paths go to stdout, the progress to stderr, and the exit code is
+`1` when any note failed. Like a note it runs in its own process, so it works with Nixe running or not.
+Without `--vault` the vault is the one that contains the folder. An argument that names a directory is
+exported as a folder when `--format pdf` and `--out` are given; name a note of the same name with its
+extension (`Projects.md`).
+
 ### Export a folder as a site
 
 `nixe export <folder> --site <out> [--exclude <dir>]... [--vault <dir>]` writes a folder as a static
