@@ -13,3 +13,4 @@ unset NIXE_PDF_SPIKE
 printf '# M\n\n```mermaid\nflowchart LR\n    A[Start] --> B[End]\n```\n' > "$w/vault/M.md"
 "$bin" export M --format html --out "$out/mermaid.html" --vault "$w/vault"
 "$bin" export M --format pdf --out "$out/mermaid.pdf" --vault "$w/vault"
+NIXE_SPIKE_SHOW=1 "$bin" export M --format html --out "$out/mermaid-shown.html" --vault "$w/vault"

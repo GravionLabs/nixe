@@ -161,6 +161,8 @@ export function printCss(options: ExportOptions): string {
   }
   .markdown-body h1, .markdown-body h2, .markdown-body h3 { break-after: avoid; }
   .markdown-body pre { white-space: pre-wrap; }
+  /* Print layout may set a label a little wider than the screen measured it. */
+  .markdown-body .mermaid-diagram foreignObject { overflow: visible; }
 ${options.pageBreaks ? "  .markdown-body h1:not(:first-child) { break-before: page; }\n" : ""}}`;
 }
 
