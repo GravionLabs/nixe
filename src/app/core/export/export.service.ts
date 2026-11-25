@@ -19,6 +19,7 @@ import {
   type ExportFormat,
   type ExportOptions,
 } from "./export-core";
+import { fitTimelines } from "./timeline-core";
 
 /** A note to export with what its rendering needs. */
 export interface ExportSource {
@@ -131,6 +132,7 @@ export class ExportService {
       host.innerHTML = this.markdown.renderNote(source.text, ctx).body; // sanitized by the service
       await this.markdown.expandEmbeds(host, ctx).catch(() => undefined);
       await this.mermaid.render(host, options.dark);
+      fitTimelines(host, options.pageSize);
       plainWikilinks(host);
       stripAppControls(host);
       await inlineImages(host, (path) => backend.readDataUri(path));

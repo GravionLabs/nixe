@@ -15,6 +15,7 @@ import { signal } from "@angular/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { SettingsService } from "../settings/settings.service";
+import { MermaidRenderer } from "../markdown/mermaid-renderer";
 import { ExportService } from "./export.service";
 import type { ExportOptions } from "./export-core";
 
@@ -102,6 +103,25 @@ describe("ExportService", () => {
     expect(write[1].path).toBe("/out/Note.html");
     expect(write[1].content).toContain('class="app-dark"');
     expect(write[1].content).toContain("size: Letter");
+  });
+
+  it("draws a timeline that is wider than the page vertically, without a script", async () => {
+    const render = vi
+      .spyOn(MermaidRenderer.prototype, "render")
+      .mockImplementation(async (root) => {
+        for (const pre of Array.from(root.querySelectorAll("pre.mermaid"))) {
+          const figure = document.createElement("div");
+          figure.className = "mermaid-diagram";
+          figure.dataset["source"] = pre.textContent ?? "";
+          figure.innerHTML = '<svg viewBox="0 0 3390 500"></svg>';
+          pre.replaceWith(figure);
+        }
+      });
+    const html = await build("```mermaid\ntimeline\n  2002 : LinkedIn\n```\n");
+    render.mockRestore();
+    expect(html).toContain('<div class="timeline-period">2002</div>');
+    expect(html).not.toContain("<svg");
+    expect(html).not.toContain("<script");
   });
 
   describe("exportSite", () => {
