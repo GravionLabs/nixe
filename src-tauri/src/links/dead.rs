@@ -358,6 +358,7 @@ pub fn check(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_dir::TestDir;
     use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -438,10 +439,11 @@ mod tests {
         DateTime::parse_from_rfc3339(s).unwrap()
     }
 
-    fn cache_file(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nixe-dead-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        dir.join("link-check").join("v.json")
+    /// A cache file in a directory of its own, which is removed when the guard drops.
+    fn cache_file(name: &str) -> (TestDir, PathBuf) {
+        let dir = TestDir::new(&format!("nixe-dead-{name}-"));
+        let file = dir.join("link-check").join("v.json");
+        (dir, file)
     }
 
     #[test]
@@ -457,7 +459,7 @@ mod tests {
         ];
         let dead = check(
             &notes,
-            &cache_file("kinds"),
+            &cache_file("kinds").1,
             false,
             &settings(&server),
             at("2026-11-24T10:00:00+00:00"),
@@ -487,7 +489,7 @@ mod tests {
         };
         let dead = check(
             &notes,
-            &cache_file("dns"),
+            &cache_file("dns").1,
             false,
             &s,
             at("2026-11-24T10:00:00+00:00"),
@@ -504,7 +506,7 @@ mod tests {
     #[test]
     fn cached_results_are_kept_for_seven_days_unless_forced() {
         let server = serve();
-        let cache = cache_file("cache");
+        let (_dir, cache) = cache_file("cache");
         let notes = vec![note("b.md", format!("{}/gone", server.base))];
         let s = settings(&server);
         let first = at("2026-11-24T10:00:00+00:00");

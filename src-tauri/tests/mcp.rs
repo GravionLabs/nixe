@@ -263,10 +263,10 @@ async fn several_vaults_are_searched_together() {
     assert!(err.contains("no such root"), "{err}");
 }
 
-/// A temp vault and a server over it, with `extra` arguments after `mcp --vault`.
-async fn start_clip(name: &str, extra: &[&str]) -> (Client, PathBuf) {
-    let base = std::env::temp_dir().join(format!("nixe-mcp-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&base);
+/// A temp vault and a server over it, with `extra` arguments after `mcp --vault`; bind the
+/// folder first so the client drops first.
+async fn start_clip(name: &str, extra: &[&str]) -> (TestDir, Client, PathBuf) {
+    let base = TestDir::new(&format!("nixe-mcp-{name}-"));
     let (vault, data) = (base.join("vault"), base.join("data"));
     std::fs::create_dir_all(&vault).unwrap();
     std::fs::create_dir_all(&data).unwrap();
@@ -282,7 +282,8 @@ async fn start_clip(name: &str, extra: &[&str]) -> (Client, PathBuf) {
                 .args(extra);
         }))
         .unwrap();
-    (().serve(transport).await.unwrap(), vault)
+    let client = ().serve(transport).await.unwrap();
+    (base, client, vault)
 }
 
 /// Serves one page on a local port for as many requests as come.
@@ -306,7 +307,7 @@ fn serve_page(html: &'static str) -> String {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn clip_link_exists_only_with_the_flag() {
-    let (without, _) = start_clip("clip-off", &[]).await;
+    let (_off, without, _) = start_clip("clip-off", &[]).await;
     let names: Vec<String> = without
         .list_all_tools()
         .await
@@ -324,7 +325,7 @@ async fn clip_link_exists_only_with_the_flag() {
     .unwrap_err();
     assert!(!err.is_empty());
 
-    let (with, _) = start_clip("clip-on", &["--allow-clip"]).await;
+    let (_on, with, _) = start_clip("clip-on", &["--allow-clip"]).await;
     let tools = with.list_all_tools().await.unwrap();
     let tool = tools.iter().find(|t| t.name == "clip_link").unwrap();
     let ann = tool.annotations.as_ref().unwrap();
@@ -335,7 +336,7 @@ async fn clip_link_exists_only_with_the_flag() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn clip_link_creates_a_note_then_returns_it_and_search_sees_it() {
-    let (client, vault) = start_clip("clip-new", &["--allow-clip"]).await;
+    let (_base, client, vault) = start_clip("clip-new", &["--allow-clip"]).await;
     let url = serve_page(
         "<html><head><title>Zebrafinch notes</title></head><body><article><p>Quokka facts \
          and some more readable words so that the reader keeps this text around.</p></article></body></html>",
@@ -373,7 +374,7 @@ async fn clip_link_creates_a_note_then_returns_it_and_search_sees_it() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn clip_link_refuses_a_folder_outside_the_links_folder() {
-    let (client, vault) = start_clip("clip-folder", &["--allow-clip"]).await;
+    let (_base, client, vault) = start_clip("clip-folder", &["--allow-clip"]).await;
     let url = "https://example.test/never-fetched";
     for folder in ["Notes", "../x", "/tmp", "Links2", "."] {
         let err = call(&client, "clip_link", json!({"url": url, "folder": folder}))

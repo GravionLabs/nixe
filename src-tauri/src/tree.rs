@@ -166,8 +166,7 @@ mod tests {
 
     #[test]
     fn lists_epub_books_and_folders_that_hold_only_books() {
-        let root = std::env::temp_dir().join(format!("nixe-tree-epub-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+        let root = TestDir::new("nixe-tree-epub-");
         fs::create_dir_all(root.join("Shelf/Sub")).unwrap();
         fs::create_dir_all(root.join("Pictures")).unwrap();
         fs::write(root.join("Shelf/Sub/Novel.EPUB"), "").unwrap();
@@ -185,6 +184,5 @@ mod tests {
             .map(|e| e.name)
             .collect();
         assert_eq!(inner, ["Novel.EPUB"]);
-        fs::remove_dir_all(&root).unwrap();
     }
 }
