@@ -1,6 +1,6 @@
-//! The expression language of filters (<https://obsidian.md/help/bases/syntax>): literals, note
-//! properties, `file.*` fields, file functions and operators. Parsing checks every name, so an
-//! expression that parses can be evaluated on every note.
+//! The expression language of filters and formulas (<https://obsidian.md/help/bases/syntax>):
+//! literals, note properties, `file.*` fields, `formula.*` properties, functions and operators.
+//! Parsing checks every function name and its number of arguments.
 
 /// Most tokens of one expression; also bounds the depth of the tree.
 const MAX_TOKENS: usize = 500;
@@ -55,6 +55,90 @@ pub enum Function {
     HasProperty,
 }
 
+/// A global function.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Global {
+    If,
+    List,
+    Number,
+    Min,
+    Max,
+    Link,
+}
+
+impl Global {
+    /// The function and the fewest and most arguments it takes.
+    fn from_name(name: &str) -> Option<(Global, usize, usize)> {
+        Some(match name {
+            "if" => (Global::If, 2, 3),
+            "list" => (Global::List, 1, 1),
+            "number" => (Global::Number, 1, 1),
+            "min" => (Global::Min, 1, usize::MAX),
+            "max" => (Global::Max, 1, usize::MAX),
+            "link" => (Global::Link, 1, 2),
+            _ => return None,
+        })
+    }
+}
+
+/// A function of a value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Method {
+    IsTruthy,
+    IsType,
+    ToString,
+    IsEmpty,
+    Contains,
+    ContainsAll,
+    ContainsAny,
+    StartsWith,
+    EndsWith,
+    Lower,
+    Title,
+    Trim,
+    Replace,
+    Slice,
+    Split,
+    Repeat,
+    Reverse,
+    Abs,
+    Ceil,
+    Floor,
+    Round,
+    ToFixed,
+}
+
+impl Method {
+    /// The method and the fewest and most arguments it takes.
+    fn from_name(name: &str) -> Option<(Method, usize, usize)> {
+        Some(match name {
+            "isTruthy" => (Method::IsTruthy, 0, 0),
+            "isType" => (Method::IsType, 1, 1),
+            "toString" => (Method::ToString, 0, 0),
+            "isEmpty" => (Method::IsEmpty, 0, 0),
+            "contains" => (Method::Contains, 1, 1),
+            "containsAll" => (Method::ContainsAll, 1, usize::MAX),
+            "containsAny" => (Method::ContainsAny, 1, usize::MAX),
+            "startsWith" => (Method::StartsWith, 1, 1),
+            "endsWith" => (Method::EndsWith, 1, 1),
+            "lower" => (Method::Lower, 0, 0),
+            "title" => (Method::Title, 0, 0),
+            "trim" => (Method::Trim, 0, 0),
+            "replace" => (Method::Replace, 2, 2),
+            "slice" => (Method::Slice, 1, 2),
+            "split" => (Method::Split, 1, 2),
+            "repeat" => (Method::Repeat, 1, 1),
+            "reverse" => (Method::Reverse, 0, 0),
+            "abs" => (Method::Abs, 0, 0),
+            "ceil" => (Method::Ceil, 0, 0),
+            "floor" => (Method::Floor, 0, 0),
+            "round" => (Method::Round, 0, 1),
+            "toFixed" => (Method::ToFixed, 1, 1),
+            _ => return None,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Op {
     Or,
@@ -98,9 +182,38 @@ pub enum Expr {
     Property(String),
     File(Field),
     Call(Function, Vec<Expr>),
+    /// A formula of the base, by name.
+    Formula(String),
+    Global(Global, Vec<Expr>),
+    Method(Box<Expr>, Method, Vec<Expr>),
+    /// `.length` of a value.
+    Length(Box<Expr>),
     Not(Box<Expr>),
     Negate(Box<Expr>),
     Binary(Op, Box<Expr>, Box<Expr>),
+}
+
+impl Expr {
+    /// Adds the names of the formulas the expression refers to.
+    pub fn formulas<'a>(&'a self, names: &mut Vec<&'a str>) {
+        match self {
+            Expr::Formula(name) => names.push(name),
+            Expr::Text(_) | Expr::Number(_) | Expr::Bool(_) | Expr::Property(_) | Expr::File(_) => {
+            }
+            Expr::List(items) | Expr::Call(_, items) | Expr::Global(_, items) => {
+                items.iter().for_each(|i| i.formulas(names));
+            }
+            Expr::Method(receiver, _, args) => {
+                receiver.formulas(names);
+                args.iter().for_each(|a| a.formulas(names));
+            }
+            Expr::Length(inner) | Expr::Not(inner) | Expr::Negate(inner) => inner.formulas(names),
+            Expr::Binary(_, left, right) => {
+                left.formulas(names);
+                right.formulas(names);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -260,22 +373,52 @@ impl Parser {
         } else if self.eat("-") {
             Expr::Negate(Box::new(self.unary()?))
         } else {
-            let primary = self.primary()?;
-            // Members and methods of values are not part of the language yet.
-            if self.eat(".") {
-                return Err(match (self.take(), self.eat("(")) {
-                    (Some(Token::Name(name)), true) => format!("unknown function `{name}`"),
-                    (Some(Token::Name(name)), false) => format!("unknown field `{name}`"),
-                    _ => "syntax error: expected a name after `.`".into(),
-                });
-            }
-            if self.eat("[") {
-                return Err("syntax error: access by `[…]` is only supported after `note`".into());
-            }
-            primary
+            self.postfix()?
         };
         self.depth -= 1;
         Ok(expr)
+    }
+
+    /// A primary expression and the fields and functions of its value.
+    fn postfix(&mut self) -> Result<Expr, String> {
+        let mut expr = self.primary()?;
+        while self.eat(".") {
+            let Some(Token::Name(name)) = self.take() else {
+                return Err("syntax error: expected a name after `.`".into());
+            };
+            expr = if self.eat("(") {
+                let (method, min, max) =
+                    Method::from_name(&name).ok_or_else(|| format!("unknown function `{name}`"))?;
+                let args = self.arguments(&name, min, max)?;
+                Expr::Method(Box::new(expr), method, args)
+            } else if name == "length" {
+                Expr::Length(Box::new(expr))
+            } else {
+                return Err(format!("unknown field `{name}`"));
+            };
+        }
+        if self.eat("[") {
+            return Err(
+                "syntax error: access by `[…]` is only supported after `note` and `formula`".into(),
+            );
+        }
+        Ok(expr)
+    }
+
+    /// The arguments of the function `name` after its `(`, from `min` to `max` of them.
+    fn arguments(&mut self, name: &str, min: usize, max: usize) -> Result<Vec<Expr>, String> {
+        let args = self.items(")")?;
+        if (min..=max).contains(&args.len()) {
+            return Ok(args);
+        }
+        let plural = |n: usize| if n == 1 { "argument" } else { "arguments" };
+        let wanted = match (min, max) {
+            (0, 0) => "no arguments".to_string(),
+            (min, usize::MAX) => format!("at least {min} {}", plural(min)),
+            (min, max) if min == max => format!("exactly {min} {}", plural(min)),
+            (min, max) => format!("{min} to {max} arguments"),
+        };
+        Err(format!("`{name}` needs {wanted}"))
     }
 
     fn primary(&mut self) -> Result<Expr, String> {
@@ -309,35 +452,40 @@ impl Parser {
 
     fn name(&mut self, name: String) -> Result<Expr, String> {
         if self.eat("(") {
-            return Err(format!("unknown function `{name}`"));
+            let (function, min, max) =
+                Global::from_name(&name).ok_or_else(|| format!("unknown function `{name}`"))?;
+            let args = self.arguments(&name, min, max)?;
+            return Ok(Expr::Global(function, args));
         }
         match name.as_str() {
             "true" => Ok(Expr::Bool(true)),
             "false" => Ok(Expr::Bool(false)),
             "file" => self.file(),
-            "note" => self.note(),
-            "formula" => Err("`formula.` properties are not supported yet".into()),
+            "note" => self.member("note").map(Expr::Property),
+            "formula" => self.member("formula").map(Expr::Formula),
             "this" => Err("`this` is not supported yet".into()),
             _ => Ok(Expr::Property(name)),
         }
     }
 
-    /// What follows `note`: `.x` or `["x"]`.
-    fn note(&mut self) -> Result<Expr, String> {
+    /// The name that follows `note` or `formula`: `.x` or `["x"]`.
+    fn member(&mut self, of: &str) -> Result<String, String> {
         if self.eat(".") {
             if let Some(Token::Name(name)) = self.take() {
                 if self.eat("(") {
-                    return Err(format!("unknown function `note.{name}`"));
+                    return Err(format!("unknown function `{of}.{name}`"));
                 }
-                return Ok(Expr::Property(name));
+                return Ok(name);
             }
         } else if self.eat("[") {
             if let Some(Token::Text(name)) = self.take() {
                 self.expect("]")?;
-                return Ok(Expr::Property(name));
+                return Ok(name);
             }
         }
-        Err("syntax error: expected `note.name` or `note[\"name\"]`".into())
+        Err(format!(
+            "syntax error: expected `{of}.name` or `{of}[\"name\"]`"
+        ))
     }
 
     /// What follows `file`: `.field` or `.function(…)`.
@@ -415,6 +563,24 @@ mod tests {
         );
         assert_eq!(parse("Länge_2"), Ok(Expr::Property("Länge_2".into())));
         assert_eq!(parse("file.mtime"), Ok(Expr::File(Field::Mtime)));
+        for source in ["formula.ppu", "formula[\"ppu\"]"] {
+            assert_eq!(parse(source), Ok(Expr::Formula("ppu".into())));
+        }
+        assert_eq!(
+            parse("a.trim().length"),
+            Ok(Expr::Length(Box::new(Expr::Method(
+                Box::new(Expr::Property("a".into())),
+                Method::Trim,
+                vec![],
+            ))))
+        );
+        assert_eq!(
+            parse("max(1, 2)"),
+            Ok(Expr::Global(
+                Global::Max,
+                vec![Expr::Number(1.0), Expr::Number(2.0)]
+            ))
+        );
         assert_eq!(
             parse("file.hasTag('a', 'b')"),
             Ok(Expr::Call(Function::HasTag, vec![text("a"), text("b")]))
@@ -439,17 +605,28 @@ mod tests {
             ("'open", "not closed"),
             ("'open\\", "not closed"),
             ("date('2026-01-01')", "unknown function `date`"),
-            ("status.contains('x')", "unknown function `contains`"),
-            ("file.tags.contains('x')", "unknown function `contains`"),
+            ("today()", "unknown function `today`"),
+            ("status.containz('x')", "unknown function `containz`"),
+            ("status.contains()", "`contains` needs exactly 1 argument"),
+            ("status.lower(1)", "`lower` needs no arguments"),
+            ("status.slice()", "`slice` needs 1 to 2 arguments"),
+            (
+                "status.containsAny()",
+                "`containsAny` needs at least 1 argument",
+            ),
+            ("if(a)", "`if` needs 2 to 3 arguments"),
+            ("min()", "`min` needs at least 1 argument"),
+            ("number(1, 2)", "`number` needs exactly 1 argument"),
             ("file.hasTags('x')", "unknown function `file.hasTags`"),
             ("note.lower()", "unknown function `note.lower`"),
-            ("status.length", "unknown field `length`"),
+            ("status.size", "unknown field `size`"),
+            ("formula", "expected `formula.name`"),
+            ("formula.x()", "unknown function `formula.x`"),
             ("file.sise > 1", "unknown field `file.sise`"),
             ("file", "expected `file.`"),
             ("note", "expected `note.name`"),
             ("note[1]", "expected `note.name`"),
             ("tags[0]", "only supported after `note`"),
-            ("formula.x > 1", "`formula.` properties are not supported"),
             ("file.hasLink(this.file)", "`this` is not supported"),
             ("file.hasTag()", "at least one argument"),
             ("file.inFolder()", "exactly one argument"),

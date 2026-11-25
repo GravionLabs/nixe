@@ -1,11 +1,12 @@
 import { Component, computed, effect, inject, signal, untracked } from "@angular/core";
 import type { HxColumn } from "@gravionlabs/helix-ui";
 import { HxDataTable, HxTableBody } from "@gravionlabs/helix-ui";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
-import type { BaseCell, BaseResult } from "../../core/file/backend";
+import type { BaseCell, BaseLink, BaseResult } from "../../core/file/backend";
 import { backend } from "../../core/file/backend";
 import { IndexService } from "../../core/index/index.service";
-import { basename, joinPath } from "../../core/markdown/paths";
+import { basename, isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import { SettingsService } from "../../core/settings/settings.service";
 import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
@@ -18,7 +19,12 @@ interface ViewCell {
   text: string;
   /** Set for a checkbox property: the cell shows a box instead of the text. */
   checked: boolean | null;
-  opens: boolean;
+  /** The note a click opens, relative to the vault. */
+  note: string | null;
+  /** The address a click opens outside the app. */
+  url: string | null;
+  /** The cell could not be evaluated; the text says why. */
+  failed: boolean;
 }
 
 interface ViewRow {
@@ -53,7 +59,9 @@ export class BaseComponent {
     if (!result) return [];
     return result.rows.map((row) => ({
       path: row.path,
-      cells: row.cells.map((cell, i) => viewCell(cell, result.columns[i]?.id === FILE_NAME)),
+      cells: row.cells.map((cell, i) =>
+        viewCell(cell, result.columns[i]?.id === FILE_NAME ? row.path : null),
+      ),
     }));
   });
 
@@ -118,7 +126,16 @@ export class BaseComponent {
     }
   }
 
-  /** Opens the note of a row beside the table, which stays. */
+  /** Opens a web, mail or phone address of a link outside the app. */
+  protected async openExternal(url: string): Promise<void> {
+    try {
+      await openUrl(url);
+    } catch (err) {
+      this.tabs.notice.set(String(err));
+    }
+  }
+
+  /** Opens the note of a row or of a link beside the table, which stays. */
   protected async open(rel: string): Promise<void> {
     const root = this.workspace.vaultRoot();
     if (!root) return;
@@ -133,10 +150,16 @@ export class BaseComponent {
   }
 }
 
-function viewCell(cell: BaseCell, opens: boolean): ViewCell {
+/** `rowNote` is the note of the row when the cell is its name. */
+function viewCell(cell: BaseCell, rowNote: string | null): ViewCell {
+  const link = cell.type === "link" ? (cell.value as BaseLink) : null;
+  // Only notes open in a tab; a link to another file or to no file is text.
+  const linked = link?.path && isMarkdownPath(link.path) ? link.path : null;
   return {
     text: cellText(cell),
     checked: cell.type === "checkbox" ? cell.value === true : null,
-    opens,
+    note: rowNote ?? linked,
+    url: link?.url ?? null,
+    failed: cell.type === "error",
   };
 }

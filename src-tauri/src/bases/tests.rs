@@ -139,21 +139,16 @@ views:
 fn unsupported_parts_are_named_and_not_applied() {
     let (_dir, conn) = indexed();
     let source = r#"
-formulas: { double: rating * 2 }
+summaries: { custom: 'values.mean()' }
 views:
   - type: table
     limit: 1
-    order: [formula.double, file.unknown, rating]
+    order: [file.unknown, rating]
 "#;
     let result = query(&conn, source, None).unwrap();
     assert_eq!(
         result.unsupported,
-        [
-            "formulas",
-            "limit",
-            "column formula.double",
-            "column file.unknown"
-        ]
+        ["summaries", "limit", "column file.unknown"]
     );
     assert_eq!(ids(&result), ["rating"]);
     assert_eq!(result.rows.len(), 2);
@@ -162,10 +157,10 @@ views:
 #[test]
 fn a_view_with_unsupported_columns_only_shows_the_name() {
     let (_dir, conn) = indexed();
-    let source = "views:\n  - type: table\n    order: [formula.x]\n";
+    let source = "views:\n  - type: table\n    order: [file.unknown]\n";
     let result = query(&conn, source, None).unwrap();
     assert_eq!(ids(&result), ["file.name"]);
-    assert_eq!(result.unsupported, ["column formula.x"]);
+    assert_eq!(result.unsupported, ["column file.unknown"]);
 }
 
 /// A vault with links, embeds, tags and folders; the directory must outlive the connection.
@@ -493,4 +488,391 @@ fn a_base_without_a_table_view_and_invalid_yaml_are_errors() {
     assert!(query(&conn, "views: [", None)
         .unwrap_err()
         .starts_with("Invalid YAML"));
+}
+
+/// The cell of the formula `expression` for the note `path` of the library.
+fn evaluated(conn: &Connection, path: &str, expression: &str) -> BaseCell {
+    let source = serde_json::json!({
+        "formulas": { "x": expression },
+        "views": [{ "type": "table", "order": ["formula.x"] }],
+    });
+    let result = query(conn, &source.to_string(), None).unwrap();
+    let row = result.rows.into_iter().find(|r| r.path == path).unwrap();
+    row.cells.into_iter().next().unwrap()
+}
+
+#[track_caller]
+fn assert_values(conn: &Connection, cases: &[(&str, serde_json::Value)]) {
+    for (expression, wanted) in cases {
+        let cell = evaluated(conn, DUNE, expression);
+        assert_ne!(
+            cell.kind.as_deref(),
+            Some("error"),
+            "{expression}: {}",
+            cell.value
+        );
+        assert_eq!(&cell.value, wanted, "{expression}");
+    }
+}
+
+#[test]
+fn formulas_are_columns_and_use_each_other() {
+    let (_dir, conn) = library();
+    let source = r#"
+formulas:
+  label: 'status.title() + " " + formula.double'
+  double: rating * 2
+  "my flag": formula.double > 6
+  status: '"formula"'
+properties:
+  formula.double: { displayName: Twice }
+  status: { displayName: State }
+views:
+  - type: table
+    order: [formula.double, formula.label, 'formula["my flag"]', formula.status, status]
+"#;
+    let result = query(&conn, source, None).unwrap();
+    assert!(result.unsupported.is_empty());
+    let labels: Vec<&str> = result.columns.iter().map(|c| c.label.as_str()).collect();
+    assert_eq!(labels, ["Twice", "label", "my flag", "status", "State"]);
+    let row = |path: &str| &result.rows.iter().find(|r| r.path == path).unwrap().cells;
+    assert_eq!(
+        row(DUNE)[..],
+        [
+            cell("number", json!(10)),
+            cell("text", json!("Read 10")),
+            cell("checkbox", json!(true)),
+            cell("text", json!("formula")),
+            cell("text", json!("read")),
+        ]
+    );
+    // A missing property gives no value, not an error.
+    assert_eq!(row(SHOP)[0], BaseCell::default());
+    assert_eq!(row(SHOP)[1], BaseCell::default());
+}
+
+#[test]
+fn formulas_are_values_in_filters() {
+    let (_dir, conn) = library();
+    let base = |filter: &str| {
+        let quoted = serde_json::to_string(filter).unwrap();
+        format!(
+            "formulas:\n  double: rating.toString() + rating.toString()\n  \
+             big: formula.double == '55'\n  broken: 1 +\n\
+             views:\n  - type: table\n    filters: {quoted}\n"
+        )
+    };
+    assert_eq!(paths(&conn, &base("formula.big")), [DUNE]);
+    assert_eq!(paths(&conn, &base("formula[\"double\"] == \"33\"")), [EMMA]);
+    // A broken formula is an error where it is used, and only there.
+    for (filter, wanted) in [
+        (
+            "formula.broken",
+            "Invalid view filters: formula `broken`: syntax error: unexpected end in `1 +` in \
+             `formula.broken`.",
+        ),
+        (
+            "false && formula.nope",
+            "Invalid view filters: unknown formula `nope` in `false && formula.nope`.",
+        ),
+    ] {
+        assert_eq!(query(&conn, &base(filter), None).unwrap_err(), wanted);
+    }
+}
+
+#[test]
+fn a_cycle_is_an_error_in_its_column_and_in_filters() {
+    let (_dir, conn) = library();
+    let formulas = "formulas:\n  a: formula.b\n  b: formula.a\n  ok: '1'\n";
+    let cycle = "the formulas form a cycle: `a` → `b` → `a`";
+    let columns = format!(
+        "{formulas}views:\n  - type: table\n    order: [formula.a, formula.ok, formula.nope]\n"
+    );
+    let result = query(&conn, &columns, None).unwrap();
+    assert_eq!(result.rows.len(), 4);
+    for row in &result.rows {
+        assert_eq!(
+            row.cells,
+            [
+                cell("error", json!(cycle)),
+                cell("number", json!(1)),
+                cell("error", json!("unknown formula `nope`")),
+            ]
+        );
+    }
+    let filtered = format!("{formulas}filters: formula.a\nviews:\n  - type: table\n");
+    assert_eq!(
+        query(&conn, &filtered, None).unwrap_err(),
+        format!("Invalid filters: {cycle} in `formula.a`.")
+    );
+}
+
+#[test]
+fn an_error_in_a_cell_stays_in_it() {
+    let (_dir, conn) = library();
+    let source = r#"
+formulas:
+  number: number(rating)
+  after: formula.number + 1
+  guarded: if(rating.isType("number"), formula.number, 0)
+views:
+  - type: table
+    order: [formula.number, formula.after, formula.guarded, file.name]
+"#;
+    let result = query(&conn, source, None).unwrap();
+    let row = |path: &str| &result.rows.iter().find(|r| r.path == path).unwrap().cells;
+    assert_eq!(result.rows.len(), 4);
+    // `rating` of Home is the text "high".
+    let error = cell("error", json!("`number` cannot read \"high\""));
+    assert_eq!(
+        row(HOME)[..3],
+        [error.clone(), error, cell("number", json!(0))]
+    );
+    assert_eq!(row(HOME)[3], cell("text", json!("Home")));
+    assert_eq!(row(DUNE)[1], cell("number", json!(6)));
+}
+
+#[test]
+fn an_error_of_a_note_in_a_filter_names_it_and_shows_no_rows() {
+    let (_dir, conn) = library();
+    assert_eq!(
+        query(&conn, &filtered("rating.abs() > 1"), None).unwrap_err(),
+        "Error in view filters: `abs` is not available on a string in `rating.abs() > 1` for the \
+         note `Home.md`."
+    );
+    // Guarded, the function is never called on the text.
+    assert_matches(
+        &conn,
+        &[(
+            "rating.isType(\"number\") && rating.abs() > 1",
+            &[DUNE, EMMA],
+        )],
+    );
+    let lists = query(&conn, &filtered("file.tags.contains('book')"), None).unwrap_err();
+    assert!(
+        lists.contains("`contains` is not available on a list"),
+        "{lists}"
+    );
+}
+
+#[test]
+fn global_and_any_functions() {
+    let (_dir, conn) = library();
+    assert_values(
+        &conn,
+        &[
+            ("if(owned, \"yes\", \"no\")", json!("yes")),
+            ("if(missing, \"yes\", \"no\")", json!("no")),
+            ("if(false, 1)", json!(null)),
+            // Only the chosen branch is evaluated.
+            ("if(true, 1, number(\"x\"))", json!(1)),
+            ("list(status)", json!(["read"])),
+            ("list(authors)", json!(["Frank", "Brian"])),
+            ("list(missing)", json!([])),
+            ("number(\" 3.4 \")", json!(3.4)),
+            ("number(true) + number(false)", json!(1)),
+            ("number(rating)", json!(5)),
+            ("number(missing)", json!(null)),
+            ("min(rating, 2, 9)", json!(2)),
+            ("max(rating, 2, -9)", json!(5)),
+            ("max(rating)", json!(5)),
+            ("min(rating, missing)", json!(null)),
+            ("rating.isTruthy()", json!(true)),
+            ("missing.isTruthy()", json!(false)),
+            ("\"\".isTruthy()", json!(false)),
+            ("status.isType(\"string\")", json!(true)),
+            ("rating.isType(\"number\")", json!(true)),
+            ("owned.isType(\"boolean\")", json!(true)),
+            ("authors.isType(\"list\")", json!(true)),
+            ("file.mtime.isType(\"date\")", json!(true)),
+            ("missing.isType(\"null\")", json!(true)),
+            ("file.properties.isType(\"object\")", json!(true)),
+            ("link(\"Emma\").isType(\"link\")", json!(true)),
+            ("status.isType(\"number\")", json!(false)),
+            ("rating.toString() + 1", json!("51")),
+            ("2.50.toString()", json!("2.5")),
+            ("(-0).toString()", json!("0")),
+            ("owned.toString()", json!("true")),
+            ("authors.toString()", json!("Frank, Brian")),
+            ("missing.toString()", json!("")),
+            ("link(\"Emma\", \"E\").toString()", json!("[[Emma|E]]")),
+        ],
+    );
+}
+
+#[test]
+fn string_functions() {
+    let (_dir, conn) = library();
+    assert_values(
+        &conn,
+        &[
+            ("\"hello\".contains(\"ell\")", json!(true)),
+            ("\"hello\".contains(\"x\")", json!(false)),
+            ("\"hello\".containsAll(\"h\", \"e\")", json!(true)),
+            ("\"hello\".containsAll(\"h\", \"x\")", json!(false)),
+            ("\"hello\".containsAny(\"x\", \"e\")", json!(true)),
+            ("\"hello\".containsAny(\"x\", \"y\")", json!(false)),
+            ("status.startsWith(\"re\")", json!(true)),
+            ("status.endsWith(\"re\")", json!(false)),
+            ("\"\".isEmpty()", json!(true)),
+            ("status.isEmpty()", json!(false)),
+            ("missing.isEmpty()", json!(true)),
+            ("\"ÄbC\".lower()", json!("äbc")),
+            ("\"hELLO  wide-world\".title()", json!("Hello  Wide-world")),
+            ("\"  hi \".trim()", json!("hi")),
+            ("\"a:b:c\".replace(\":\", \"-\")", json!("a-b-c")),
+            ("\"hello\".slice(1, 4)", json!("ell")),
+            ("\"héllo\".slice(1)", json!("éllo")),
+            ("\"hello\".slice(-3, -1)", json!("ll")),
+            ("\"hello\".slice(4, 2)", json!("")),
+            ("\"hello\".slice(-99, 99)", json!("hello")),
+            ("\"a,b,c\".split(\",\")", json!(["a", "b", "c"])),
+            ("\"a,b,c\".split(\",\", 2)", json!(["a", "b"])),
+            ("\"abc\".split(\"\")", json!(["a", "b", "c"])),
+            ("\"123\".repeat(2)", json!("123123")),
+            ("\"123\".repeat(0)", json!("")),
+            ("\"\".repeat(1000000000)", json!("")),
+            ("\"héllo\".reverse()", json!("olléh")),
+            ("\"héllo\".length", json!(5)),
+            ("file.name.lower().length", json!(7)),
+            // No value in, no value out.
+            ("missing.lower()", json!(null)),
+            ("missing.length", json!(null)),
+            ("status.contains(missing)", json!(null)),
+        ],
+    );
+}
+
+#[test]
+fn number_functions() {
+    let (_dir, conn) = library();
+    assert_values(
+        &conn,
+        &[
+            ("(-5).abs()", json!(5)),
+            ("2.1.ceil()", json!(3)),
+            ("2.9.floor()", json!(2)),
+            ("2.5.round()", json!(3)),
+            ("2.3333.round(2)", json!(2.33)),
+            ("3.14159.toFixed(2)", json!("3.14")),
+            ("rating.toFixed(2)", json!("5.00")),
+            ("rating.isEmpty()", json!(false)),
+            ("missing.round()", json!(null)),
+            ("missing.toFixed(2)", json!(null)),
+        ],
+    );
+}
+
+#[test]
+fn wrong_values_and_huge_results_are_errors_of_the_cell() {
+    let (_dir, conn) = library();
+    for (expression, wanted) in [
+        ("rating.lower()", "`lower` is not available on a number"),
+        ("status.abs()", "`abs` is not available on a string"),
+        ("authors.isEmpty()", "`isEmpty` is not available on a list"),
+        ("authors.length", "`length` is not available on a list"),
+        (
+            "status.contains(1)",
+            "`contains` takes a text, found a number",
+        ),
+        ("status.isType(1)", "`isType` takes a text, found a number"),
+        (
+            "status.slice(\"1\")",
+            "`slice` takes a number, found a string",
+        ),
+        ("status.repeat(-1)", "`repeat` takes a count of 0 or more"),
+        (
+            "status.split(\"a\", -1)",
+            "`split` takes a limit of 0 or more",
+        ),
+        ("rating.toFixed(101)", "`toFixed` takes 0 to 100 digits"),
+        ("rating.round(-1)", "`round` takes 0 to 100 digits"),
+        ("min(status)", "`min` takes numbers, found a string"),
+        ("number(\"inf\")", "`number` cannot read \"inf\""),
+        ("number(authors)", "`number` is not available on a list"),
+        ("link(1)", "`link` is not available on a number"),
+        ("status.repeat(1000000000)", "too large"),
+        (
+            "\"a\".repeat(1000).replace(\"a\", \"b\".repeat(1000))",
+            "too large",
+        ),
+        ("\"a\".repeat(60000) + \"a\".repeat(60000)", "too large"),
+        ("[\"a\".repeat(60000), \"a\".repeat(60000)]", "too large"),
+        ("\"a\".repeat(60000).split(\"\")", "too large"),
+    ] {
+        let cell = evaluated(&conn, DUNE, expression);
+        assert_eq!(cell.kind.as_deref(), Some("error"), "{expression}");
+        let message = cell.value.as_str().unwrap();
+        assert!(message.contains(wanted), "{expression}: {message}");
+    }
+}
+
+#[test]
+fn long_expressions_and_chains_of_formulas_are_evaluated() {
+    let (_dir, conn) = library();
+    let long = format!("1{}", " + 1".repeat(240));
+    assert_eq!(evaluated(&conn, DUNE, &long), cell("number", json!(241)));
+    let mut formulas: String = (0..5000)
+        .map(|i| format!("  f{i}: formula.f{} + formula.f{}\n", i + 1, i + 1))
+        .collect();
+    formulas.push_str("  f5000: '0'\n");
+    let source = format!("formulas:\n{formulas}views:\n  - type: table\n    order: [formula.f0]\n");
+    let result = query(&conn, &source, None).unwrap();
+    assert_eq!(result.rows[0].cells[0], cell("number", json!(0)));
+    // Lists inside lists stop at a depth.
+    let mut formulas: String = (0..100)
+        .map(|i| format!("  f{i}: '[formula.f{}]'\n", i + 1))
+        .collect();
+    formulas.push_str("  f100: '0'\n");
+    let source = format!("formulas:\n{formulas}views:\n  - type: table\n    order: [formula.f0]\n");
+    let result = query(&conn, &source, None).unwrap();
+    assert_eq!(
+        result.rows[0].cells[0],
+        cell("error", json!("the value is too large"))
+    );
+}
+
+#[test]
+fn links_name_a_file_or_a_url() {
+    let (_dir, conn) = library();
+    let value = |expression: &str| evaluated(&conn, DUNE, expression);
+    assert_eq!(
+        value("link(\"[[Emma|x]]\", \"Novel\")"),
+        cell(
+            "link",
+            json!({ "text": "Novel", "path": EMMA, "url": null })
+        )
+    );
+    assert_eq!(
+        value("link(\"Ghost\")"),
+        cell(
+            "link",
+            json!({ "text": "Ghost", "path": null, "url": null })
+        )
+    );
+    assert_eq!(
+        value("link(\"https://example.org/a\", \"Site\")"),
+        cell(
+            "link",
+            json!({ "text": "Site", "path": null, "url": "https://example.org/a" })
+        )
+    );
+    assert_eq!(value("link(missing)"), BaseCell::default());
+    assert_eq!(value("[link(\"Emma\")]"), cell("list", json!(["Emma"])));
+    assert_values(
+        &conn,
+        &[
+            (
+                "link(\"Emma\") == link(\"books/old/Emma.md\", \"x\")",
+                json!(true),
+            ),
+            ("link(\"Ghost\") == link(\"ghost\")", json!(true)),
+            ("link(\"Ghost\") == link(\"Emma\")", json!(false)),
+            ("file.hasLink(link(\"Emma\"))", json!(true)),
+            (
+                "link(link(\"Emma\"), \"y\").toString()",
+                json!("[[Emma|y]]"),
+            ),
+        ],
+    );
 }

@@ -451,9 +451,19 @@ export interface BaseColumn {
   label: string;
 }
 
-/** A value of a row; `type` and `value` are null when the note has no such property. */
+/** The value of a `link` cell: `path` is the vault file the link names, `url` a web address. */
+export interface BaseLink {
+  text: string;
+  path: string | null;
+  url: string | null;
+}
+
+/**
+ * A value of a row; `type` and `value` are null when there is none. The value of an `error` cell is
+ * the message, that of a `link` cell a `BaseLink`.
+ */
 export interface BaseCell {
-  type: "text" | "number" | "checkbox" | "date" | "list" | null;
+  type: "text" | "number" | "checkbox" | "date" | "list" | "link" | "error" | null;
   value: unknown;
 }
 

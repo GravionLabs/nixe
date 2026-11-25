@@ -5,31 +5,40 @@ use serde_yaml_ng::Value;
 
 use super::eval::Filter;
 use super::expr;
+use super::formula::Formulas;
 
 /// Most nested groups.
 const MAX_DEPTH: usize = 50;
 
 /// Compiles the filters at `place` (`filters`, `view filters`); `None` when there are none. The
-/// error names the place and the expression, it is the message the tab shows.
-pub fn compile(value: Option<&Value>, place: &str) -> Result<Option<Filter>, String> {
+/// error names the place and the expression, it is the message the tab shows. A filter must not
+/// refer to a formula that cannot be evaluated.
+pub fn compile(
+    value: Option<&Value>,
+    place: &str,
+    formulas: &Formulas,
+) -> Result<Option<Filter>, String> {
     match value {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(s)) if s.trim().is_empty() => Ok(None),
         Some(Value::Mapping(map)) if map.is_empty() => Ok(None),
         Some(Value::Sequence(list)) if list.is_empty() => Ok(None),
-        Some(value) => filter(value, 0)
+        Some(value) => filter(value, 0, formulas)
             .map(Some)
             .map_err(|e| format!("Invalid {place}: {e}")),
     }
 }
 
-fn filter(value: &Value, depth: usize) -> Result<Filter, String> {
+fn filter(value: &Value, depth: usize, formulas: &Formulas) -> Result<Filter, String> {
     if depth > MAX_DEPTH {
         return Err("the groups are nested too deeply.".into());
     }
     match value {
         Value::String(source) => expr::parse(source)
-            .map(Filter::Expr)
+            .and_then(|expr| {
+                formulas.check(&expr)?;
+                Ok(Filter::Expr(expr, source.clone()))
+            })
             .map_err(|e| format!("{e} in `{source}`.")),
         Value::Mapping(map) if map.len() == 1 => {
             let (key, entries) = map.iter().next().ok_or("an empty group.")?;
@@ -57,7 +66,7 @@ fn filter(value: &Value, depth: usize) -> Result<Filter, String> {
             };
             entries
                 .iter()
-                .map(|entry| filter(entry, depth + 1))
+                .map(|entry| filter(entry, depth + 1, formulas))
                 .collect::<Result<_, _>>()
                 .map(group)
         }

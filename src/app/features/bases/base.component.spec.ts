@@ -9,8 +9,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { BaseResult, IndexStatus } from "../../core/file/backend";
 import { IndexService } from "../../core/index/index.service";
 import { SettingsService } from "../../core/settings/settings.service";
@@ -271,5 +273,68 @@ describe("BaseComponent", () => {
 
     expect(view.cells()[0]![0]).toBe("Other");
     expect(view.el.querySelector("header")?.textContent).toContain("Other.base");
+  });
+});
+
+describe("BaseComponent formula cells", () => {
+  const link = (text: string, path: string | null, url: string | null = null) => ({
+    type: "link" as const,
+    value: { text, path, url },
+  });
+  const formulas: BaseResult = {
+    view: null,
+    columns: ["a", "b", "c", "d", "e"].map((n) => ({ id: `formula.${n}`, label: n })),
+    rows: [
+      {
+        path: "Row.md",
+        cells: [
+          { type: "error", value: "unknown formula `x`" },
+          link("Emma", "books/Emma.md"),
+          link("Site", null, "https://example.org"),
+          link("Cover", "cover.png"),
+          link("Ghost", null),
+        ],
+      },
+    ],
+    unsupported: [],
+  };
+
+  async function shown() {
+    fakeBackend(async () => formulas);
+    const view = render();
+    await view.settle();
+    const buttons = [...view.el.querySelectorAll<HTMLButtonElement>("tbody button")];
+    return { ...view, buttons };
+  }
+
+  beforeEach(() => {
+    vi.mocked(openUrl).mockReset().mockResolvedValue(undefined);
+  });
+
+  it("shows the error of a cell in that cell and the other cells beside it", async () => {
+    const view = await shown();
+    expect(view.cells()).toEqual([
+      ["Error: unknown formula `x`", "Emma", "Site", "Cover", "Ghost"],
+    ]);
+    expect(view.alert()).toBeNull();
+  });
+
+  it("opens the note and the address of a link; other links are text", async () => {
+    const view = await shown();
+    expect(view.buttons.map((b) => b.textContent!.trim())).toEqual(["Emma", "Site"]);
+    view.buttons[0]!.click();
+    await view.settle();
+    expect(view.tabs.openPreview).toHaveBeenCalledWith("/vault/books/Emma.md");
+    view.buttons[1]!.click();
+    await view.settle();
+    expect(openUrl).toHaveBeenCalledWith("https://example.org");
+  });
+
+  it("shows a notice when an address cannot be opened", async () => {
+    vi.mocked(openUrl).mockRejectedValue("not allowed");
+    const view = await shown();
+    view.buttons[1]!.click();
+    await view.settle();
+    expect(view.tabs.notice()).toBe("not allowed");
   });
 });
