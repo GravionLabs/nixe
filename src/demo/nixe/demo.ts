@@ -149,6 +149,12 @@ export function createNixeDemo(): NixeDemo {
       return [...DEMO_BOOK];
     },
     write_text_file: (a) => vault.write(str(a, "path"), str(a, "content")),
+    replace_text_file: (a) => {
+      const path = str(a, "path");
+      if (vault.read(path) !== str(a, "expected"))
+        throw `${path}: the note changed on disk; nothing was written`;
+      vault.write(path, str(a, "content"));
+    },
     create_file: (a) => {
       if (vault.exists(str(a, "path"))) throw "already exists";
       vault.write(str(a, "path"), "");

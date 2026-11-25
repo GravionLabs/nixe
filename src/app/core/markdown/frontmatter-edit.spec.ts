@@ -43,8 +43,41 @@ describe("editFrontmatter set", () => {
     expect(set(out, "a", 5)).toBe("---\na: 5\nb: 2\n---\n");
   });
 
-  it("changes a flow list on its own line", () => {
-    expect(set(NOTE, "aliases", ["z"])).toBe(NOTE.replace("aliases: [x, y]", "aliases:\n  - z"));
+  it("keeps a flow list a flow list, with its padding and comment", () => {
+    expect(set(NOTE, "aliases", ["z"])).toBe(NOTE.replace("aliases: [x, y]", "aliases: [z]"));
+    expect(set("---\na: [ x ] # c\nb: 2\n---\n", "a", ["x", "y"])).toBe(
+      "---\na: [ x, y ] # c\nb: 2\n---\n",
+    );
+  });
+
+  it("keeps the quotes of a quoted text", () => {
+    expect(set('---\na: "x" # c\n---\n', "a", "y")).toBe('---\na: "y" # c\n---\n');
+    expect(set("---\na: 'x'\n---\n", "a", "y")).toBe("---\na: 'y'\n---\n");
+  });
+
+  it("does not fold a long text", () => {
+    const long = "word ".repeat(40).trim();
+    expect(set("---\na: x\n---\n", "a", long)).toBe(`---\na: ${long}\n---\n`);
+  });
+
+  it("keeps the comments of a block list when items change", () => {
+    const text = "---\ntags:\n  # first\n  - a # one\n  - b # two\n  # last\n  - c\nx: 1\n---\n";
+    expect(set(text, "tags", ["a", "c", "d"])).toBe(
+      "---\ntags:\n  # first\n  - a # one\n  # last\n  - c\n  - d\nx: 1\n---\n",
+    );
+    expect(set(text, "tags", ["a", "b", "c", "d"])).toBe(text.replace("  - c\n", "  - c\n  - d\n"));
+    expect(set(text, "tags", ["b", "c"])).toBe(text.replace("  - a # one\n", ""));
+  });
+
+  it("keeps the indent and the line ends of a block list", () => {
+    expect(set("---\r\ntags:\r\n- a\r\n- b # c\r\n---\r\n", "tags", ["a", "b", "[[d]]"])).toBe(
+      '---\r\ntags:\r\n- a\r\n- b # c\r\n- "[[d]]"\r\n---\r\n',
+    );
+  });
+
+  it("empties a block list", () => {
+    const out = set("---\ntags:\n  - a\nx: 1\n---\n", "tags", []);
+    expect(splitFrontmatter(out).data).toEqual({ tags: [], x: 1 });
   });
 
   it("writes a value for a key without one", () => {

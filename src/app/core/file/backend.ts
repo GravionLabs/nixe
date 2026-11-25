@@ -449,6 +449,8 @@ export interface BaseColumn {
   /** The property id as written in the view's `order` (`file.name`, `status`, `note.status`). */
   id: string;
   label: string;
+  /** The note property the column shows; null for a `file.` field and a formula. */
+  property?: string | null;
 }
 
 /** The value of a `link` cell: `path` is the vault file the link names, `url` a web address. */
@@ -585,6 +587,12 @@ export const backend = {
   /** Atomic write; the Rust side only accepts the open note or a note inside the vault. */
   writeTextFile: (path: string, content: string) =>
     invoke<void>("write_text_file", { path, content }),
+  /**
+   * `writeTextFile` of an existing note that writes only while the file still holds `expected`:
+   * a change made in between is not overwritten, the call rejects.
+   */
+  replaceTextFile: (path: string, expected: string, content: string) =>
+    invoke<void>("replace_text_file", { path, expected, content }),
   /** Creates an empty file inside the vault; fails when it exists. */
   createFile: (path: string) => invoke<void>("create_file", { path }),
   /** Creates a folder and its missing parents inside the vault. */

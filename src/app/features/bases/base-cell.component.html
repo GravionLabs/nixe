@@ -1,0 +1,61 @@
+@if (editor === "checkbox") {
+  <input
+    type="checkbox"
+    [checked]="value === true"
+    [indeterminate]="value === null"
+    [attr.aria-label]="label"
+    (change)="toggle($any($event.target))"
+  />
+} @else if (draft() === null) {
+  <button
+    type="button"
+    class="value"
+    [attr.aria-label]="'Edit ' + label + (text ? ': ' + text : '')"
+    (click)="start()"
+  >
+    {{ text }}
+  </button>
+} @else if (isList) {
+  <span #box class="list" (focusout)="leaveList($event, box, field)">
+    @for (item of items; track $index) {
+      <span class="item">
+        {{ item }}
+        <button
+          type="button"
+          [attr.aria-label]="'Remove ' + item"
+          (mousedown)="$event.preventDefault()"
+          (click)="remove(item, field)"
+        >
+          ✕
+        </button>
+      </span>
+    }
+    <input
+      #field
+      type="text"
+      placeholder="Add…"
+      [attr.aria-label]="'Add to ' + label"
+      (keydown)="onListKey($event, field)"
+    />
+  </span>
+} @else if (draft()?.includes("\n")) {
+  <textarea
+    #field
+    rows="3"
+    [value]="draft()"
+    [attr.aria-label]="label"
+    (blur)="commit($any($event.target))"
+    (keydown.escape)="cancel()"
+  ></textarea>
+} @else {
+  <input
+    #field
+    [type]="editor"
+    step="any"
+    [value]="draft()"
+    [attr.aria-label]="label"
+    (blur)="commit($any($event.target))"
+    (keydown.enter)="commit($any($event.target))"
+    (keydown.escape)="cancel()"
+  />
+}

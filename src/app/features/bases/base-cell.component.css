@@ -1,0 +1,54 @@
+:host {
+  display: block;
+}
+
+/* An empty value stays a place to click. */
+.value {
+  display: block;
+  width: 100%;
+  min-height: 1.5em;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+input:not([type="checkbox"]),
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 8ch;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+  background: var(--h-content-background);
+  color: inherit;
+  font: inherit;
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 4px;
+}
+
+.item button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--h-text-muted-color);
+  font: inherit;
+  cursor: pointer;
+}

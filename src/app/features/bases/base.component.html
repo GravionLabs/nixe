@@ -104,7 +104,18 @@
           } @else {
             @for (cell of row.cells; track $index) {
               <td>
-                <ng-container *ngTemplateOutlet="value; context: { $implicit: cell }" />
+                @if (cell.edit; as edit) {
+                  <app-base-cell
+                    [editor]="edit.editor"
+                    [property]="edit.property"
+                    [value]="edit.value"
+                    [text]="cell.text"
+                    [label]="edit.label"
+                    (changed)="this.edit(row.path, edit, $event)"
+                  />
+                } @else {
+                  <ng-container *ngTemplateOutlet="value; context: { $implicit: cell }" />
+                }
               </td>
             }
           }

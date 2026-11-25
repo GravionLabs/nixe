@@ -1,4 +1,13 @@
-import { isMap, isScalar, parseDocument, stringify, type Pair } from "yaml";
+import {
+  Document,
+  isMap,
+  isScalar,
+  isSeq,
+  parseDocument,
+  stringify,
+  type Pair,
+  type YAMLSeq,
+} from "yaml";
 
 /** One change of the properties panel, applied to the note text. */
 export type PropertyEdit =
@@ -61,9 +70,67 @@ function guardAnchor(pair: Pair, yamlText: string): void {
   }
 }
 
-/** `key: value` as YAML, one entry, without the trailing newline. */
+/** `key: value` as YAML, one entry, without the trailing newline. A long text is not folded. */
 function entry(key: string, value: unknown): string {
-  return stringify({ [key]: value }).replace(/\n$/, "");
+  return stringify({ [key]: value }, { lineWidth: 0 }).replace(/\n$/, "");
+}
+
+/** The entry that replaces `old`: a quoted text stays quoted, a `[a, b]` list stays one line. */
+function replacement(key: string, value: unknown, old: unknown, yamlText: string): string {
+  const quoted =
+    typeof value === "string" &&
+    isScalar(old) &&
+    (old.type === "QUOTE_DOUBLE" || old.type === "QUOTE_SINGLE");
+  const flow = Array.isArray(value) && isSeq(old) && old.flow === true;
+  if (!quoted && !flow) return entry(key, value);
+  const doc = new Document({});
+  const node = doc.createNode(value, { flow });
+  if (quoted && isScalar(node)) node.type = (old as { type: "QUOTE_DOUBLE" | "QUOTE_SINGLE" }).type;
+  doc.set(key, node);
+  const range = (old as { range: [number, number, number] }).range;
+  const flowCollectionPadding = /^\[\s/.test(yamlText.slice(range[0], range[1]));
+  return doc.toString({ lineWidth: 0, flowCollectionPadding }).replace(/\n$/, "");
+}
+
+/**
+ * The lines of a block list (`- item` per line) changed to hold `value`: lines of items that stay
+ * and the comment lines between items are kept, other items are dropped, new ones are added after
+ * the last one. Null when the list cannot be changed line by line.
+ */
+function blockList(
+  yamlText: string,
+  from: number,
+  old: YAMLSeq,
+  value: unknown[],
+): { text: string; end: number } | null {
+  if (old.flow || !old.items.length || !value.length) return null;
+  const items: { start: number; end: number; value: unknown }[] = [];
+  for (const item of old.items) {
+    if (!isScalar(item) || !item.range) return null;
+    const start = yamlText.lastIndexOf("\n", item.range[0] - 1) + 1;
+    if (!/^[ \t]*-[ \t]/.test(yamlText.slice(start, item.range[0]))) return null;
+    const nl = yamlText.indexOf("\n", Math.max(item.range[1] - 1, item.range[0]));
+    items.push({ start, end: nl < 0 ? yamlText.length : nl + 1, value: item.value });
+  }
+  const eol = yamlText.includes("\r\n") ? "\r\n" : "\n";
+  const indent = /^[ \t]*/.exec(yamlText.slice(items[0]!.start))![0];
+  let out = "";
+  let at = from;
+  let next = 0;
+  for (const item of items) {
+    out += yamlText.slice(at, item.start);
+    if (next < value.length && Object.is(item.value, value[next])) {
+      out += yamlText.slice(item.start, item.end);
+      next++;
+    }
+    at = item.end;
+  }
+  if (out && !out.endsWith("\n")) out += eol;
+  for (const added of value.slice(next)) {
+    const written = stringify([added], { lineWidth: 0 }).replace(/\n$/, "");
+    out += `${indent}${written.replace(/\n/g, `${eol}${indent}`)}${eol}`;
+  }
+  return { text: out, end: at };
 }
 
 /**
@@ -115,7 +182,11 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
       guardAnchor(pair, yamlText);
       const keyRange = (pair.key as { range: [number, number, number] }).range;
       const valueRange = (pair.value as { range?: [number, number, number] } | null)?.range;
-      const written = lines(entry(edit.key, edit.value));
+      if (isSeq(pair.value) && Array.isArray(edit.value)) {
+        const list = blockList(yamlText, keyRange[0], pair.value, edit.value);
+        if (list) return splice(keyRange[0], list.end, list.text);
+      }
+      const written = lines(replacement(edit.key, edit.value, pair.value, yamlText));
       if (!valueRange || valueRange[1] === valueRange[0]) {
         // `key:` without a value: replace through the colon and keep what follows (a comment).
         const end = yamlText.indexOf(":", keyRange[1]) + 1;

@@ -20,6 +20,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { countText } from "../../core/editor/text-stats";
+import { editAndSave } from "../../core/editor/buffer-edit";
 import {
   AutoSaver,
   ExternalChangeTracker,
@@ -69,6 +70,8 @@ interface Session {
   crlf: boolean;
   saver: AutoSaver;
   tracker: ExternalChangeTracker;
+  /** Why the last write failed; null after one that worked. */
+  failure: string | null;
 }
 
 /** Pause after the last change before the counts are recomputed. */
@@ -130,6 +133,8 @@ export class EditorComponent implements OnDestroy {
       saveCopy: () => this.saveCopy(),
       insertTemplate: (template) => this.insertTemplate(template),
       applyText: (text) => this.applyText(text),
+      holdsNote: () => this.holdsNote(),
+      editText: (change) => this.editText(change),
       attachPaths: (paths) => this.attachPaths(paths),
       fold: (action) => this.fold(action),
       selection: () => this.selection(),
@@ -195,7 +200,7 @@ export class EditorComponent implements OnDestroy {
     this.editor.stats.set(null);
     this.unlistenClose?.();
     this.dropUndo();
-    void this.settle();
+    this.editor.settling = this.settle();
     this.editor.handle = null;
     this.outline.editorText.set(null);
     this.outline.topLine.set(null);
@@ -240,6 +245,7 @@ export class EditorComponent implements OnDestroy {
       path: current,
       crlf: text.includes("\r\n"),
       tracker: new ExternalChangeTracker(text),
+      failure: null,
       saver: new AutoSaver({
         write: (t) => this.write(session, t),
         onError: (e) => this.failed.emit(`Saving failed: ${String(e)}`),
@@ -307,6 +313,37 @@ export class EditorComponent implements OnDestroy {
     if (!view) return;
     const change = textChange(view.state.doc.toString(), next);
     if (change) view.dispatch({ changes: change });
+  }
+
+  private holdsNote(): boolean {
+    return !!this.view && this.session !== null && this.session.path === this.doc.path();
+  }
+
+  /** An edit from outside the editor (a cell of a base), saved at once. */
+  private async editText(change: (text: string) => string): Promise<void> {
+    const session = this.session;
+    const view = this.view;
+    const closed = "The note was closed while it was changed.";
+    if (!session || !view) throw new Error(closed);
+    await editAndSave(
+      {
+        saver: session.saver,
+        tracker: session.tracker,
+        text: () => view.state.doc.toString(),
+        apply: (text) => this.applyText(text),
+        readDisk: () => backend.readTextFile(session.path),
+        external: (disk) => this.onExternal(session.path, disk),
+        refusal: () => {
+          if (this.session !== session || this.destroyed) return closed;
+          if (this.conflict() !== null)
+            return "The note changed on disk: choose Reload or Keep mine first.";
+          return this.doc.missing() ? "The file of the note was not found." : null;
+        },
+        failure: () => session.failure,
+        clearFailure: () => (session.failure = null),
+      },
+      change,
+    );
   }
 
   private liveMode(source: boolean): Extension {
@@ -430,8 +467,10 @@ export class EditorComponent implements OnDestroy {
     try {
       await this.doc.write(session.path, out);
       session.tracker.written(out);
+      session.failure = null;
     } catch (error) {
       session.tracker.failed(out);
+      session.failure = String(error);
       throw error;
     }
   }

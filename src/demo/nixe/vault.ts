@@ -217,6 +217,7 @@ export class DemoVault {
       columns: ids.map((id) => ({
         id,
         label: base.properties?.[id]?.displayName ?? key(id),
+        property: id.startsWith("file.") ? null : key(id),
       })),
       rows: this.notePaths().map((path) => {
         const frontmatter = /^---\n([\s\S]*?)\n---\n/.exec(this.read(`${this.root}/${path}`));
