@@ -9,7 +9,18 @@ use crate::test_dir::TestDir;
 
 /// The query with the real clock, for what does not depend on the time.
 fn query_now(conn: &Connection, source: &str, view: Option<&str>) -> Result<BaseResult, String> {
-    query(conn, source, view, chrono::Utc::now().timestamp_millis())
+    let view = view.map(|name| {
+        let views = views(source).unwrap();
+        let named = |v: &BaseView| v.name.as_deref() == Some(name);
+        views.iter().position(named).unwrap_or(views.len())
+    });
+    query(
+        conn,
+        source,
+        view,
+        None,
+        chrono::Utc::now().timestamp_millis(),
+    )
 }
 
 /// A scanned index of a small vault; the directory must outlive the connection.
@@ -71,6 +82,25 @@ fn the_base_of_the_fixture_vault_shows_its_notes() {
     let wanted: Vec<&str> = tagged.iter().map(|n| n.path.as_str()).collect();
     assert_eq!(paths, wanted);
     assert!(paths.len() < index::read::note_count(&conn).unwrap());
+}
+
+#[test]
+fn the_second_view_of_the_fixture_base_groups_sorts_and_limits() {
+    let dir = TestDir::new("nixe-bases-fixture-view-");
+    let vault = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/vault");
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    let source = fs::read_to_string(vault.join("Notes.base")).unwrap();
+
+    let result = query_now(&conn, &source, Some("By publication")).unwrap();
+
+    assert!(result.unsupported.is_empty());
+    assert!((1..=5).contains(&result.rows.len()));
+    let groups = result.grouping.unwrap().groups;
+    assert_eq!(
+        groups.iter().map(|g| g.rows).sum::<usize>(),
+        result.rows.len()
+    );
 }
 
 #[test]
@@ -148,13 +178,13 @@ fn unsupported_parts_are_named_and_not_applied() {
 summaries: { custom: 'values.mean()' }
 views:
   - type: table
-    limit: 1
+    summaries: { rating: Average }
     order: [file.unknown, rating]
 "#;
     let result = query_now(&conn, source, None).unwrap();
     assert_eq!(
         result.unsupported,
-        ["summaries", "limit", "column file.unknown"]
+        ["summaries", "view summaries", "column file.unknown"]
     );
     assert_eq!(ids(&result), ["rating"]);
     assert_eq!(result.rows.len(), 2);
@@ -479,7 +509,7 @@ fn the_first_table_view_or_the_named_one_is_shown() {
     let cards = query_now(&conn, source, Some("C")).unwrap_err();
     assert!(cards.contains("\"cards\" are not supported"), "{cards}");
     let missing = query_now(&conn, source, Some("D")).unwrap_err();
-    assert!(missing.contains("no view named \"D\""), "{missing}");
+    assert_eq!(missing, "The base no longer has this view.");
 }
 
 #[test]
@@ -972,7 +1002,7 @@ fn at_clock(conn: &Connection, expression: &str) -> BaseCell {
         "formulas": { "x": expression },
         "views": [{ "type": "table", "order": ["formula.x"] }],
     });
-    let result = query(conn, &source.to_string(), None, clock()).unwrap();
+    let result = query(conn, &source.to_string(), None, None, clock()).unwrap();
     let row = result.rows.into_iter().find(|r| r.path == "Done.md");
     row.unwrap().cells.into_iter().next().unwrap()
 }
@@ -1135,7 +1165,7 @@ fn date_arithmetic() {
 fn dates_compare_in_filters() {
     let (_dir, conn) = calendar();
     let matching = |filter: &str| -> Vec<String> {
-        let result = query(&conn, &filtered(filter), None, clock()).unwrap();
+        let result = query(&conn, &filtered(filter), None, None, clock()).unwrap();
         result.rows.into_iter().map(|r| r.path).collect()
     };
     let cases: [(&str, &[&str]); 11] = [
@@ -1326,4 +1356,293 @@ fn a_date_names_its_daily_note() {
             json!({ "text": "2026-06-10", "path": "2026-06-10.md", "url": null })
         )
     );
+}
+
+/// The paths of the rows of the first table view.
+fn shown(conn: &Connection, view: &str) -> Vec<String> {
+    let source = format!("views:\n  - type: table\n{view}");
+    let result = query_now(conn, &source, None).unwrap();
+    assert!(result.unsupported.is_empty(), "{:?}", result.unsupported);
+    result.rows.into_iter().map(|r| r.path).collect()
+}
+
+/// Notes with a `kind`, a `rank` and a `due` date; `none.md` has none of them.
+fn ranked() -> (TestDir, Connection) {
+    let dir = TestDir::new("nixe-bases-arrange-");
+    let vault = dir.join("vault");
+    fs::create_dir_all(&vault).unwrap();
+    for (name, frontmatter) in [
+        ("a", "kind: tool\nrank: 10\ndue: 2026-03-01\ntitle: beta"),
+        ("b", "kind: Book\nrank: 2\ndue: 2026-01-01\ntitle: Alpha"),
+        ("c", "kind: tool\nrank: 2\ntitle: gamma"),
+        ("d", "kind: game\nrank: 7\ndue: 2026-02-01"),
+    ] {
+        fs::write(
+            vault.join(format!("{name}.md")),
+            format!("---\n{frontmatter}\n---\n"),
+        )
+        .unwrap();
+    }
+    fs::write(vault.join("none.md"), "text\n").unwrap();
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    (dir, conn)
+}
+
+/// Each group as the text of its value with the paths of its rows.
+fn grouped(result: &BaseResult) -> Vec<(serde_json::Value, Vec<&str>)> {
+    let mut rows = result.rows.iter().map(|r| r.path.as_str());
+    let grouping = result.grouping.as_ref().unwrap();
+    let groups = grouping
+        .groups
+        .iter()
+        .map(|g| (g.value.value.clone(), rows.by_ref().take(g.rows).collect()))
+        .collect();
+    assert_eq!(rows.next(), None);
+    groups
+}
+
+#[test]
+fn the_saved_sort_orders_the_rows_with_missing_values_last() {
+    let (_dir, conn) = ranked();
+    assert_eq!(
+        shown(
+            &conn,
+            "    sort:\n      - { property: note.rank, direction: ASC }\n"
+        ),
+        ["b.md", "c.md", "d.md", "a.md", "none.md"]
+    );
+    assert_eq!(
+        shown(
+            &conn,
+            "    sort:\n      - { property: rank, direction: DESC }\n"
+        ),
+        ["a.md", "d.md", "b.md", "c.md", "none.md"]
+    );
+    // The first key counts most; the property needs no column; texts ignore case.
+    assert_eq!(
+        shown(
+            &conn,
+            "    sort:\n      - { property: rank }\n      - { property: file.name, direction: desc }\n"
+        ),
+        ["c.md", "b.md", "d.md", "a.md", "none.md"]
+    );
+    assert_eq!(
+        shown(&conn, "    sort: [{ property: title, direction: ASC }]\n"),
+        ["b.md", "a.md", "c.md", "d.md", "none.md"]
+    );
+    assert_eq!(
+        shown(&conn, "    sort: [{ property: due, direction: DESC }]\n"),
+        ["a.md", "d.md", "b.md", "c.md", "none.md"]
+    );
+    assert_eq!(
+        shown(&conn, "    sort: []\n    groupBy: {}\n"),
+        ["a.md", "b.md", "c.md", "d.md", "none.md"]
+    );
+}
+
+#[test]
+fn limit_keeps_the_first_rows_of_the_sort() {
+    let (_dir, conn) = ranked();
+    assert_eq!(shown(&conn, "    limit: 2\n"), ["a.md", "b.md"]);
+    assert_eq!(
+        shown(
+            &conn,
+            "    limit: 2\n    sort: [{ property: rank, direction: DESC }]\n"
+        ),
+        ["a.md", "d.md"]
+    );
+    assert_eq!(shown(&conn, "    limit: 50\n").len(), 5);
+}
+
+#[test]
+fn only_the_shown_rows_use_the_room_of_the_formula_cells() {
+    let (_dir, conn) = ranked();
+    let source = "formulas:\n  big: '\"x\".repeat(90000)'\n  one: '1'\nviews:\n  - type: table\n    limit: 1\n    order: [formula.big]\n    sort: [{ property: formula.one }]\n";
+    let result = query_now(&conn, source, None).unwrap();
+    assert_eq!(result.rows.len(), 1);
+    assert_eq!(result.rows[0].cells[0].kind.as_deref(), Some("text"));
+}
+
+#[test]
+fn group_by_puts_the_rows_into_groups_in_its_direction() {
+    let (_dir, conn) = ranked();
+    let source = |direction: &str| {
+        format!("properties:\n  note.kind: {{ displayName: Type }}\nviews:\n  - type: table\n    groupBy: {{ property: note.kind, direction: {direction} }}\n    sort: [{{ property: rank, direction: ASC }}]\n")
+    };
+    let result = query_now(&conn, &source("ASC"), None).unwrap();
+    assert_eq!(result.grouping.as_ref().unwrap().label, "Type");
+    assert_eq!(
+        grouped(&result),
+        [
+            (json!("Book"), vec!["b.md"]),
+            (json!("game"), vec!["d.md"]),
+            (json!("tool"), vec!["c.md", "a.md"]),
+            (json!(null), vec!["none.md"]),
+        ]
+    );
+    let result = query_now(&conn, &source("DESC"), None).unwrap();
+    assert_eq!(
+        grouped(&result),
+        [
+            (json!("tool"), vec!["c.md", "a.md"]),
+            (json!("game"), vec!["d.md"]),
+            (json!("Book"), vec!["b.md"]),
+            (json!(null), vec!["none.md"]),
+        ]
+    );
+    assert!(query_now(&conn, "views: [{ type: table }]", None)
+        .unwrap()
+        .grouping
+        .is_none());
+}
+
+#[test]
+fn group_order_chooses_and_orders_the_groups_before_the_limit() {
+    let (_dir, conn) = ranked();
+    let source = |rest: &str| {
+        format!(
+            "views:\n  - type: table\n    groupBy: {{ property: kind, direction: ASC }}\n{rest}"
+        )
+    };
+    // Only listed groups, in that order, also an empty one; `null` is the rows without a value.
+    let result = query_now(
+        &conn,
+        &source("    groupOrder: [tool, film, null, Book, tool]\n"),
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        grouped(&result),
+        [
+            (json!("tool"), vec!["a.md", "c.md"]),
+            (json!("film"), vec![]),
+            (json!(null), vec!["none.md"]),
+            (json!("Book"), vec!["b.md"]),
+        ]
+    );
+    // Hidden rows do not count for the limit.
+    let result = query_now(
+        &conn,
+        &source("    groupOrder: [game, Book]\n    limit: 1\n    sort: [{ property: rank, direction: DESC }]\n"),
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        grouped(&result),
+        [(json!("game"), vec!["d.md"]), (json!("Book"), vec![])]
+    );
+    // Without `groupOrder` a group the limit leaves empty does not show.
+    let result = query_now(&conn, &source("    limit: 1\n"), None).unwrap();
+    assert_eq!(grouped(&result), [(json!("tool"), vec!["a.md"])]);
+    let result = query_now(&conn, &source("    groupOrder: []\n"), None).unwrap();
+    assert!(result.rows.is_empty() && grouped(&result).is_empty());
+    // Without `groupBy` there is nothing to order.
+    assert_eq!(shown(&conn, "    groupOrder: []\n").len(), 5);
+}
+
+#[test]
+fn group_order_names_numbers_lists_and_formula_values() {
+    let dir = TestDir::new("nixe-bases-groups-");
+    let vault = dir.join("vault");
+    fs::create_dir_all(&vault).unwrap();
+    fs::write(vault.join("a.md"), "---\nn: 3\norg: [\"[[Uni]]\"]\n---\n").unwrap();
+    fs::write(vault.join("b.md"), "---\nn: 4\norg: []\n---\n").unwrap();
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    for (by, order) in [
+        ("n", "[4, \"3\"]"),
+        ("org", "[null, [\"[[Uni]]\"]]"),
+        ("formula.big", "[true, false]"),
+    ] {
+        let source = format!("formulas:\n  big: n > 3\nviews:\n  - type: table\n    groupBy: {{ property: '{by}' }}\n    groupOrder: {order}\n");
+        let result = query_now(&conn, &source, None).unwrap();
+        let paths: Vec<&str> = result.rows.iter().map(|r| r.path.as_str()).collect();
+        assert_eq!(paths, ["b.md", "a.md"], "{by}");
+    }
+}
+
+#[test]
+fn a_clicked_sort_comes_before_the_sort_of_the_view() {
+    let (_dir, conn) = ranked();
+    let source = "formulas:\n  low: kind.lower()\n  bad: rank.lower()\nviews:\n  - type: table\n    sort: [{ property: file.name, direction: DESC }]\n";
+    let clicked = |property: &str, direction: &str| -> Vec<String> {
+        let key: SortKey =
+            serde_json::from_value(json!({ "property": property, "direction": direction }))
+                .unwrap();
+        let result = query(&conn, source, None, Some(&key), 0).unwrap();
+        result.rows.into_iter().map(|r| r.path).collect()
+    };
+    assert_eq!(
+        clicked("formula.low", "ASC"),
+        ["b.md", "d.md", "c.md", "a.md", "none.md"]
+    );
+    // A formula that fails sorts like a missing value, and the view's sort decides.
+    assert_eq!(
+        clicked("formula.bad", "DESC"),
+        ["none.md", "d.md", "c.md", "b.md", "a.md"]
+    );
+}
+
+#[test]
+fn a_formula_that_fails_in_the_sort_or_group_of_the_view_is_an_error() {
+    let (_dir, conn) = ranked();
+    let query = |view: &str| {
+        let source = format!("formulas:\n  bad: rank.lower()\n  loop: formula.loop\nviews:\n  - type: table\n    {view}\n");
+        query_now(&conn, &source, None).unwrap_err()
+    };
+    for (view, wanted) in [
+        ("sort: [{ property: formula.bad }]", "Error in sort: "),
+        ("groupBy: { property: formula.bad }", "Error in groupBy: "),
+        ("sort: [{ property: formula.loop }]", "Invalid sort: "),
+        ("groupBy: { property: formula.nope }", "Invalid groupBy: "),
+    ] {
+        let error = query(view);
+        assert!(error.starts_with(wanted), "{view}: {error}");
+    }
+}
+
+#[test]
+fn wrong_view_settings_are_errors_and_unsupported_properties_are_named() {
+    let (_dir, conn) = ranked();
+    for (view, wanted) in [
+        ("limit: 0", "`limit`"),
+        ("limit: ten", "`limit`"),
+        ("limit: -1", "`limit`"),
+        ("sort: rank", "`sort` of the view must be a list"),
+        ("sort: [rank]", "`sort` of the view needs a `property`"),
+        (
+            "sort: [{ property: rank, direction: up }]",
+            "`ASC` or `DESC`",
+        ),
+        ("groupBy: kind", "`groupBy` of the view needs a `property`"),
+        (
+            "groupBy: { property: kind }\n    groupOrder: tool",
+            "`groupOrder` of the view must be a list",
+        ),
+    ] {
+        let source = format!("views:\n  - type: table\n    {view}\n");
+        let error = query_now(&conn, &source, None).unwrap_err();
+        assert!(error.contains(wanted), "{view}: {error}");
+    }
+    // Another view with wrong settings does not matter.
+    let source = "views:\n  - type: table\n  - { type: table, limit: x }\n";
+    assert!(query_now(&conn, source, None).is_ok());
+
+    let source = "views:\n  - type: table\n    sort: [{ property: file.nope }]\n    groupBy: { property: file.other }\n";
+    let result = query_now(&conn, source, None).unwrap();
+    assert_eq!(result.unsupported, ["sort file.nope", "groupBy file.other"]);
+    assert!(result.grouping.is_none());
+    assert_eq!(result.rows.len(), 5);
+}
+
+#[test]
+fn the_views_of_a_base_are_listed_in_their_order() {
+    let list = views("views:\n  - { type: cards, name: C }\n  - { type: table }\n").unwrap();
+    let list: Vec<(Option<&str>, &str)> = list
+        .iter()
+        .map(|v| (v.name.as_deref(), v.kind.as_str()))
+        .collect();
+    assert_eq!(list, [(Some("C"), "cards"), (None, "table")]);
+    assert!(views("views: x").is_err());
 }

@@ -474,11 +474,40 @@ export interface BaseRow {
   cells: BaseCell[];
 }
 
+/** One group of a grouped base table. */
+export interface BaseGroup {
+  /** The value the rows of the group share. */
+  value: BaseCell;
+  /** How many of the rows belong to it; they follow those of the groups before it. */
+  rows: number;
+}
+
+export interface BaseGrouping {
+  /** The header of the property the rows are grouped by. */
+  label: string;
+  groups: BaseGroup[];
+}
+
+/** A view of a `.base` file (bases/mod.rs `BaseView`). */
+export interface BaseView {
+  name: string | null;
+  /** `table`, `cards`, … */
+  type: string;
+}
+
+/** A property and a direction rows are sorted by (bases/arrange.rs `SortKey`). */
+export interface BaseSort {
+  property: string;
+  direction: "ASC" | "DESC";
+}
+
 /** The table of a view of a `.base` file (bases/mod.rs `BaseResult`). */
 export interface BaseResult {
   view: string | null;
   columns: BaseColumn[];
+  /** In the order they show: group by group when the view groups them. */
   rows: BaseRow[];
+  grouping: BaseGrouping | null;
   /** Parts of the file that are not supported yet and therefore not applied. */
   unsupported: string[];
 }
@@ -720,8 +749,10 @@ export const backend = {
    * The table of a view (null: the first table view) of the `.base` file with the text `source`,
    * answered from the index; rejects with a message for invalid YAML or another view type.
    */
-  baseQuery: (source: string, view: string | null = null) =>
-    invoke<BaseResult>("base_query", { source, view }),
+  baseViews: (source: string) => invoke<BaseView[]>("base_views", { source }),
+  /** `view` is an index into `baseViews`; `sort` comes before the sort of the view. */
+  baseQuery: (source: string, view: number | null = null, sort: BaseSort | null = null) =>
+    invoke<BaseResult>("base_query", { source, view, sort }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Requests the address of every link note (network); `force` ignores results of the last 7 days. */

@@ -54,6 +54,8 @@ describe("DemoVault", () => {
   it("answers a base with the notes and their properties", () => {
     const result = vault().baseQuery(
       "filters: x\nviews:\n  - type: table\n    order: [file.name, note.status, formula.f]\n",
+      null,
+      null,
     );
     expect(result.columns.map((c) => c.id)).toEqual(["file.name", "note.status"]);
     expect(result.rows.find((r) => r.path === "Projects/Nixe.md")?.cells).toEqual([
@@ -61,7 +63,23 @@ describe("DemoVault", () => {
       { type: "text", value: "active" },
     ]);
     expect(result.unsupported).toEqual(["filters"]);
-    expect(() => vault().baseQuery("views: [{ type: cards }]")).toThrow("no table view");
+    expect(() => vault().baseQuery("views: [{ type: cards }]", null, null)).toThrow(
+      "no table view",
+    );
+  });
+
+  it("lists the views of a base and answers the chosen one, sorted by a clicked column", () => {
+    const source =
+      "views:\n  - { type: cards, name: C }\n  - { type: table, name: T, order: [file.name] }\n";
+    expect(vault().baseViews(source)).toEqual([
+      { name: "C", type: "cards" },
+      { name: "T", type: "table" },
+    ]);
+    const names = vault()
+      .baseQuery(source, 1, { property: "file.name", direction: "DESC" })
+      .rows.map((r) => String(r.cells[0]!.value));
+    expect(names).toEqual([...names].sort((a, b) => b.localeCompare(a)));
+    expect(() => vault().baseQuery(source, 0, null)).toThrow("no table view");
   });
 
   it("searches the text and marks the match", () => {

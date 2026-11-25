@@ -10,7 +10,7 @@ import {
 } from "@angular/core";
 
 import { EditorService } from "../editor/editor.service";
-import { backend } from "../file/backend";
+import { backend, type BaseSort } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { OutlineService } from "../outline/outline.service";
 import { SettingsService } from "../settings/settings.service";
@@ -33,6 +33,13 @@ export interface ViewerHandle {
  * One note view. Every tab has its own document, editor and outline state (its own injector), so
  * back/forward history, scroll position and viewer/editor mode belong to the tab.
  */
+export interface BaseChoice {
+  /** The chosen view, by its place and name; null for the default one. */
+  view: { index: number; name: string | null } | null;
+  /** The sort of a clicked column header. */
+  sort: BaseSort | null;
+}
+
 export interface Tab {
   readonly id: number;
   readonly injector: Injector;
@@ -57,6 +64,8 @@ export interface Tab {
   readonly epub: WritableSignal<EpubBook | null>;
   /** The path of the `.base` file the base view of this tab shows; set with the view `base`. */
   readonly base: WritableSignal<string | null>;
+  /** What was chosen in the base view of this tab; it is never written to the file. */
+  readonly baseChoice: WritableSignal<BaseChoice>;
   /** Set by the pane while the viewer of the tab is shown. */
   viewer: ViewerHandle | null;
   /** 1-based first visible line, kept while the tab is not shown. */
@@ -738,6 +747,7 @@ export class TabsService {
       compare: signal<CompareInput | null>(null),
       epub: signal<EpubBook | null>(null),
       base: signal<string | null>(null),
+      baseChoice: signal<BaseChoice>({ view: null, sort: null }),
       viewer: null,
       scrollLine: null,
     };

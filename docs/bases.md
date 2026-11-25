@@ -12,8 +12,9 @@ layout. [Vault health](cli.md) does not count a base as an unused attachment.
 
 ## What is shown
 
-The tab shows the first view of type `table`, one row per indexed note that matches the
-[filters](#filters), sorted by path. The columns are the entries of the view's `order`:
+The tab shows one view at a time, at first the first view of type `table`. A view has one row per
+indexed note that matches the [filters](#filters), sorted by path unless the view
+[sorts](#sorting) them. The columns are the entries of the view's `order`:
 
 | Entry | Column |
 | --- | --- |
@@ -38,6 +39,74 @@ views:
 ```
 
 The table follows changes in the vault, those of the `.base` file included.
+
+## Views
+
+The switcher in the header lists all views of the base by `name`, in the order of the file (a view
+without a name as `View 2`, by its place). Only `table` views can be shown; another type shows a
+message and the switcher stays. The chosen view belongs to the tab and follows the view by its name
+when the file changes; when it is gone, the first table view shows again.
+
+```yaml
+properties:
+  status:
+    displayName: State
+views:
+  - type: table
+    name: Reading list
+    groupBy:
+      property: status
+      direction: ASC
+    groupOrder:
+      - reading
+      - wish
+      - null
+    sort:
+      - property: rating
+        direction: DESC
+      - property: file.name
+        direction: ASC
+    limit: 20
+    order: [file.name, rating]
+```
+
+| Key of the view | Meaning |
+| --- | --- |
+| `sort` | The saved sort: a list of `property` and `direction`; the first entry counts most |
+| `groupBy` | `property` and `direction`: the rows are put into groups by the value of the property |
+| `groupOrder` | The values of the groups that show, in this order. Rows of other groups are hidden; an empty list hides all. `null` stands for the rows without a value. A listed group without rows shows with `0`. Without `groupBy` it has no effect |
+| `limit` | At most this many rows; a whole number of 1 or more |
+
+A `property` is written like an entry of `order` and needs no column. `direction` is `ASC` (also
+when left out) or `DESC`.
+
+The keys `sort`, `groupBy`, `groupOrder` and `limit` are those Obsidian writes into a `.base` file.
+The [syntax page](https://obsidian.md/help/bases/syntax) describes `groupBy`, `groupOrder` and
+`limit` but does not name the key of the saved sort; `sort` with `property` and `direction` was
+checked against bases saved by Obsidian, for example
+[this one](https://github.com/BipinJungRai/NOAT/blob/26d835804df64d47fdbd0b024946c59980d1ffce/00%20Meta/Bases/Literature.base).
+(`order` is not a sort: it lists the columns.)
+
+The rows of hidden groups are dropped first, the others are sorted, `limit` keeps the first of them
+and these are put into their groups. The limit therefore counts over all groups; a group of an
+automatic order (without `groupOrder`) that gets no row does not show.
+
+### Sorting
+
+- Numbers, dates and durations by their size, `false` before `true`, texts alphabetically without
+  regard to case, lists item by item. Values of different types are grouped as by
+  [`sort()`](#functions) of a list.
+- Rows without a value (also an empty text or list) come last in both directions.
+- Rows that are equal stay sorted by path.
+- Groups follow the `direction` of `groupBy` in the same order, the group `No value` last. An entry
+  of `groupOrder` matches a value that is written the same (`3` and `"3"`); a list value needs a
+  list entry.
+- A formula that fails for a note in the `sort` or `groupBy` of the view is an [error](#errors).
+
+A click on a column header sorts by that column: ascending, a second click descending, a third one
+returns to the sort of the view, which also decides between equal rows meanwhile. `limit` applies
+to the rows in this order. A formula that fails sorts like a missing value here. This sort belongs
+to the tab: switching the view drops it, and nothing is written to the file.
 
 ## Formulas
 
@@ -279,20 +348,20 @@ These parts are read but not applied; the tab names the ones the file uses, so t
 silently sorted or cut wrongly:
 
 - `summaries` of the base and of the view
-- `sort`, `groupBy` and `limit` of the view
-- columns of unknown `file.` fields
+- columns of unknown `file.` fields, and a `sort` or `groupBy` by one
 
 In filters and formulas, `this`, other functions (the list functions `filter`, `map` and `reduce`,
 `html`, `image`, `icon`, `random`, object functions), regular expressions and other fields of values
 are not supported: they are [errors](#errors).
 
-Other keys are ignored. Switching views, other view types, editing and the CLI and MCP are not
-supported.
+Other keys are ignored. Other view types, changing the definition in the tab and the CLI and MCP
+are not supported.
 
 ## Errors
 
 The tab shows a message instead of the table for invalid YAML, a file whose keys have the wrong
-shape, a file without a view, a file without a `table` view, a base outside the open vault (in a
+shape (also a wrong `sort`, `groupBy`, `groupOrder` or `limit` of the shown view), a file without a
+view, a view that is no `table`, a base outside the open vault (in a
 further folder of the workspace) and when the vault index is not available. A failed read or query is
 written to the log.
 
@@ -306,7 +375,7 @@ An error in the formula of a column stays in its cell; the other cells and rows 
 
 ## How it works
 
-The frontend reads the file and passes its text to the command `base_query`
+The frontend reads the file and passes its text to the commands `base_views` and `base_query`
 ([Tauri commands](backend/tauri-commands.md)). The Rust core (`src-tauri/src/bases/`) parses the YAML
-and answers the view from the [vault index](architecture.md); the frontend only renders the result.
-Only the answer of the newest query is shown.
+and answers the view from the [vault index](architecture.md), sorted, grouped and limited; the
+frontend only renders the result. Only the answer of the newest query is shown.
