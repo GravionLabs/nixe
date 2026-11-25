@@ -11,6 +11,13 @@ There is no build provenance attestation: the repository is private.
 The release build also signs the update packages and uploads `latest.json` for the in-app updater; see
 [updater.md](updater.md).
 
+## Back-merge of `main` into `release/next`
+
+After a hotfix on `main`, merge `main` back into `release/next` through a pull request, with a **merge commit**. A
+squash drops the ancestry and the release pull request conflicts again. Before merging, check the commit message
+GitHub proposes: it must not hold the skip-CI marker of the changelog commits (`skip ci` in square brackets, also
+when it only quotes a commit title), else no check runs on `release/next` and the release pull request is not updated.
+
 ## Browser extension
 
 The `extension` job of `release.yml` builds `extension/` with the version of the app and zips one package per browser:
