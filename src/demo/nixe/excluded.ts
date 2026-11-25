@@ -24,6 +24,8 @@ export const EXCLUDED: Readonly<Record<string, string>> = {
   save_attachment: DISK,
   import_attachment: DISK,
   write_export_file: DISK,
+  print_export_pdf: DISK,
+  report_export_note: DISK,
   export_site: DISK,
   git_clone_vault: NETWORK,
   git_clone_cancel: NETWORK,

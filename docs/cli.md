@@ -137,11 +137,27 @@ the commands "Export as HTML", "Export as PDF" and "Print" do in the app (see
 the app for the export.
 
 - `--format html` writes one self-contained file to `--out` (default: `<note name>.html` in the
-  current directory) and prints its path. No window shows; the command ends when the file is written.
-- `--format pdf` opens the note with the print dialog: the system web views have no silent print,
-  so the PDF is saved from that dialog ("Save as PDF"). `--out` is refused.
+  current directory) and prints its path. No window shows; the command ends when the file is written,
+  so a script can use the file at once. A failed export exits `1` with the error on stderr. This is
+  the same when Nixe is already running: the command exports in its own process.
+- `--format pdf --out <file>` writes the PDF without a dialog and without a window and prints its
+  path, like HTML: the command ends when the file is written, a failed export exits `1` with the
+  error on stderr, and it exports in its own process when Nixe is already running. On Linux it needs
+  a display (`xvfb-run`). See [export.md](export.md#pdf-without-the-print-dialog).
+- `--format pdf` without `--out` opens the note with the print dialog, where "Save as PDF" writes
+  the file. When Nixe is already running, its window opens that dialog and the command returns at
+  once.
 - `--dark` / `--light` and `--page-size A3|A4|A5|Letter|Legal` override the export settings.
-- When Nixe is already running, its window does the export and the command returns at once.
+
+### Export a folder as PDFs
+
+`nixe export <folder> --format pdf --out <dir> [--include <glob>]... [--exclude <dir>]... [--vault <dir>]`
+writes one PDF per note, see [export.md](export.md#folder-as-pdfs). It takes `--dark` / `--light` and
+`--page-size` like a note. The written paths go to stdout, the progress to stderr, and the exit code is
+`1` when any note failed. Like a note it runs in its own process, so it works with Nixe running or not.
+Without `--vault` the vault is the one that contains the folder. An argument that names a directory is
+exported as a folder when `--format pdf` and `--out` are given; name a note of the same name with its
+extension (`Projects.md`).
 
 ### Export a folder as a site
 

@@ -3009,12 +3009,17 @@ dependencies = [
  "dom_smoothie",
  "dunce",
  "git2",
+ "globset",
  "gtk",
  "htmd",
  "ignore",
  "keyring",
  "log",
  "notify-debouncer-mini",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "objc2-web-kit",
  "portable-pty",
  "pulldown-cmark",
  "regex",
@@ -3037,6 +3042,8 @@ dependencies = [
  "tokio",
  "ureq",
  "webkit2gtk",
+ "webview2-com",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
