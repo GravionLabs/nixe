@@ -1,5 +1,5 @@
 import type { DirEntry } from "../file/backend";
-import { isMarkdownPath } from "../markdown/paths";
+import { isBasePath, isMarkdownPath } from "../markdown/paths";
 
 export interface TreeItem {
   /** Display name. */
@@ -98,7 +98,8 @@ export function defaultPage(items: TreeItem[]): string | null {
     const hit = items.find((i) => !i.dirPath && i.filePath?.toLowerCase().endsWith(`/${name}`));
     if (hit) return hit.filePath;
   }
-  return items.find((i) => i.filePath)?.filePath ?? null;
+  // A base opens in its table tab only, never as the text of a page.
+  return items.find((i) => i.filePath && !isBasePath(i.filePath))?.filePath ?? null;
 }
 
 const COPY_RE = /^(.+) \(conflict \d{4}-\d{2}-\d{2} [^)]+\)(\.[^./\\]*)?$/;

@@ -27,7 +27,7 @@ vault has broken links, so it can run in CI or a pre-commit hook.
 | Broken links | Links, embeds and Markdown links that resolve to no file (missing or ambiguous), with note, line and the linking line. |
 | Orphan notes | Notes with no link to or from another note. Daily notes (`YYYY-MM-DD`) never count. |
 | Duplicate basenames | Notes sharing a name (case-insensitive), which makes `[[name]]` ambiguous. |
-| Unused attachments | Non-Markdown files that no note links or embeds. Hidden paths (`.something/`) are skipped. |
+| Unused attachments | Non-Markdown files that no note links or embeds. Hidden paths (`.something/`) and `.base` files ([bases](bases.md)) are skipped. |
 
 `--exclude <dir>` (repeatable) leaves a vault-relative folder and everything below it out of
 every section, for example `templates` or `archive`. In the app the folders are set in the

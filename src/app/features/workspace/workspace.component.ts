@@ -13,7 +13,8 @@ import { TabsService } from "../../core/tabs/tabs.service";
 import { PaneComponent } from "./pane.component";
 
 const KEY_STEP = 0.02;
-const VIEW_TITLES: Record<Exclude<TabView, "compare" | "review" | "log" | "epub">, string> = {
+type UntitledView = "compare" | "review" | "log" | "epub" | "base";
+const VIEW_TITLES: Record<Exclude<TabView, UntitledView>, string> = {
   settings: "Settings",
   health: "Vault health",
 };
@@ -62,6 +63,7 @@ export class WorkspaceComponent {
     if (view === "compare")
       return `Compare ${basename(tab.compare()?.path ?? "").replace(/\.(md|markdown|mdown|mkd)$/i, "")}`.trim();
     if (view === "epub") return tab.epub()?.title ?? "Book";
+    if (view === "base") return basename(tab.base() ?? "").replace(/\.base$/i, "");
     if (view === "review") return "Review a suggestion";
     if (view === "log") return "Log";
     if (view) return VIEW_TITLES[view];
@@ -78,7 +80,7 @@ export class WorkspaceComponent {
         label: this.title(tab),
         preview,
         // The italic title has no text of its own: the tooltip and its description say "preview".
-        title: `${tab.doc.path() ?? this.title(tab)}${preview ? " (preview)" : ""}`,
+        title: `${tab.doc.path() ?? tab.base() ?? this.title(tab)}${preview ? " (preview)" : ""}`,
         modified: tab.editor.unsaved(),
         missing: tab.doc.missing(),
       };

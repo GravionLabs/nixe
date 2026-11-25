@@ -1,0 +1,58 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
+  font-size: 13px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 34px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--h-content-border-color);
+  font-weight: 600;
+}
+
+.view-name {
+  color: var(--h-text-muted-color);
+  font-weight: 400;
+}
+
+.message {
+  margin: 8px 12px;
+  color: var(--h-text-muted-color);
+}
+
+.error {
+  color: light-dark(var(--h-red-700), var(--h-red-300));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.table {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.note-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--h-primary-color);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-link:hover {
+  text-decoration: underline;
+}

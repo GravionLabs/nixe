@@ -7,6 +7,8 @@ use serde::Serialize;
 const MARKDOWN_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx"];
 /// Books the reader opens (ADR 0009); they are listed next to the notes.
 const BOOK_EXTENSIONS: &[&str] = &["epub"];
+/// Bases (tables of the notes), listed next to the notes.
+const BASE_EXTENSIONS: &[&str] = &["base"];
 const SKIPPED_DIRS: &[&str] = &["node_modules", "target"];
 /// Upper bound of directory entries inspected when checking whether a folder
 /// contains markdown at all; beyond that the folder is simply shown.
@@ -44,16 +46,22 @@ fn is_book(path: &Path) -> bool {
         .is_some_and(|e| BOOK_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
 }
 
-/// A file the tree shows: a note or a book.
+fn is_base(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| BASE_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
+}
+
+/// A file the tree shows: a note, a book or a base.
 fn is_listed(path: &Path) -> bool {
-    is_markdown(path) || is_book(path)
+    is_markdown(path) || is_book(path) || is_base(path)
 }
 
 fn is_visible_dir(name: &str) -> bool {
     !name.starts_with('.') && !SKIPPED_DIRS.contains(&name)
 }
 
-/// True if `dir` (recursively) contains a markdown file or a book.
+/// True if `dir` (recursively) contains a file the tree shows.
 fn contains_markdown(dir: &Path, budget: &mut usize) -> bool {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return false;
@@ -77,7 +85,7 @@ fn contains_markdown(dir: &Path, budget: &mut usize) -> bool {
     subdirs.iter().any(|d| contains_markdown(d, budget))
 }
 
-/// Folders (that contain markdown or books), markdown files and `.epub` books of `dir`.
+/// Folders (that contain a listed file), markdown files, `.epub` books and `.base` files of `dir`.
 ///
 /// Sorted like the Azure DevOps wiki: names listed in `.order` first (in that
 /// order), then the rest with folders before files, alphabetically.
@@ -184,5 +192,20 @@ mod tests {
             .map(|e| e.name)
             .collect();
         assert_eq!(inner, ["Novel.EPUB"]);
+    }
+
+    #[test]
+    fn lists_bases_and_folders_that_hold_only_bases() {
+        let root = TestDir::new("nixe-tree-base-");
+        fs::create_dir_all(root.join("Tables/Sub")).unwrap();
+        fs::write(root.join("Tables/Sub/Reading.BASE"), "").unwrap();
+        fs::write(root.join("Library.base"), "").unwrap();
+        fs::write(root.join(".hidden.base"), "").unwrap();
+        let names = |dir: &Path| -> Vec<String> {
+            list_dir(dir).unwrap().into_iter().map(|e| e.name).collect()
+        };
+        assert_eq!(names(&root), ["Tables", "Library.base"]);
+        assert_eq!(names(&root.join("Tables")), ["Sub"]);
+        assert_eq!(names(&root.join("Tables/Sub")), ["Reading.BASE"]);
     }
 }

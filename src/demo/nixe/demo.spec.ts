@@ -51,6 +51,19 @@ describe("DemoVault", () => {
     expect(tags.find((t) => t.tag === "project")).toEqual({ tag: "project", count: 2 });
   });
 
+  it("answers a base with the notes and their properties", () => {
+    const result = vault().baseQuery(
+      "filters: x\nviews:\n  - type: table\n    order: [file.name, note.status, formula.f]\n",
+    );
+    expect(result.columns.map((c) => c.id)).toEqual(["file.name", "note.status"]);
+    expect(result.rows.find((r) => r.path === "Projects/Nixe.md")?.cells).toEqual([
+      { type: "text", value: "Nixe" },
+      { type: "text", value: "active" },
+    ]);
+    expect(result.unsupported).toEqual(["filters"]);
+    expect(() => vault().baseQuery("views: [{ type: cards }]")).toThrow("no table view");
+  });
+
   it("searches the text and marks the match", () => {
     const hits = vault().search("backlinks");
     expect(hits.map((h) => h.path)).toEqual(["Ideas.md"]);

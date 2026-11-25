@@ -675,6 +675,30 @@ describe("TabsService", () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toBe("/v/a.md");
   });
 
+  describe("openBase", () => {
+    it("opens a tab with the view base and focuses it when the file is opened again", async () => {
+      const tab = tabs.openBase("/v/Library.base");
+
+      expect(tab.view()).toBe("base");
+      expect(tab.base()).toBe("/v/Library.base");
+      expect(tabs.activeTab()).toBe(tab);
+      expect(tabs.showWorkspace()).toBe(true);
+
+      await tabs.openInNewTab("/v/a.md");
+      expect(tabs.openBase("/v/Library.base")).toBe(tab);
+      expect(tabs.activeTab()).toBe(tab);
+      expect(tabs.panes()[0].tabs.length).toBe(3);
+
+      expect(tabs.openBase("/v/Other.base")).not.toBe(tab);
+    });
+
+    it("does not store the table tab with the layout", () => {
+      tabs.openBase("/v/Library.base");
+
+      expect(tabs.snapshot().panes[0].tabs.at(-1)?.view).toBeNull();
+    });
+  });
+
   describe("openEpub", () => {
     it("opens a tab with the view epub and the book; the tab title is the book title", async () => {
       const tab = await tabs.openEpub("/v/Books/sample.epub");

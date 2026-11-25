@@ -161,6 +161,7 @@ export function createNixeDemo(): NixeDemo {
     note_meta: (a) => vault.meta(str(a, "path")),
     backlinks: (a) => vault.backlinks(str(a, "path")),
     tags: () => vault.tags(),
+    base_query: (a) => vault.baseQuery(str(a, "source")),
     search_notes: (a) => vault.search(str(a, "query")),
     capture_note_names: () => vault.notes().map((n) => n.title),
     // The spike editor lists the notes by name when the app starts (`editor-spike.component.ts`).

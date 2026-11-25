@@ -18,7 +18,7 @@ import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { GitService } from "../../core/git/git.service";
 import { SettingsService } from "../../core/settings/settings.service";
-import { basename, isEpubPath } from "../../core/markdown/paths";
+import { basename, isBasePath, isEpubPath } from "../../core/markdown/paths";
 import { TabsService } from "../../core/tabs/tabs.service";
 import type { FocusKey } from "../../core/workspace/tree-nav";
 import {
@@ -289,6 +289,8 @@ export class SidebarComponent {
     try {
       if (node.filePath && isEpubPath(node.filePath)) {
         await this.tabs.openEpub(node.filePath);
+      } else if (node.filePath && isBasePath(node.filePath)) {
+        this.tabs.openBase(node.filePath);
       } else if (node.filePath) {
         if (event?.altKey) await this.tabs.openInNewTab(node.filePath);
         else await this.tabs.openPreview(node.filePath);
@@ -304,8 +306,8 @@ export class SidebarComponent {
   /** A double click on a note keeps it in a tab of its own. */
   protected async pin(node: TreeNode, event: MouseEvent): Promise<void> {
     if (!node.filePath || event.altKey || event.shiftKey || event.metaKey || event.ctrlKey) return;
-    // A book has no preview tab: the click that opened it has done it already.
-    if (isEpubPath(node.filePath)) return;
+    // A book or a base has no preview tab: the click that opened it has done it already.
+    if (isEpubPath(node.filePath) || isBasePath(node.filePath)) return;
     try {
       await this.tabs.openPinned(node.filePath);
     } catch (err) {

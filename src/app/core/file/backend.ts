@@ -445,6 +445,34 @@ export interface RecentNote {
   message: string;
 }
 
+export interface BaseColumn {
+  /** The property id as written in the view's `order` (`file.name`, `status`, `note.status`). */
+  id: string;
+  label: string;
+}
+
+/** A value of a row; `type` and `value` are null when the note has no such property. */
+export interface BaseCell {
+  type: "text" | "number" | "checkbox" | "date" | "list" | null;
+  value: unknown;
+}
+
+export interface BaseRow {
+  /** Vault-relative path of the note. */
+  path: string;
+  /** One cell per column, in their order. */
+  cells: BaseCell[];
+}
+
+/** The table of a view of a `.base` file (bases/mod.rs `BaseResult`). */
+export interface BaseResult {
+  view: string | null;
+  columns: BaseColumn[];
+  rows: BaseRow[];
+  /** Parts of the file that are not supported yet and therefore not applied. */
+  unsupported: string[];
+}
+
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
 export type RootKind = "obsidian" | "wiki" | "folder";
 
@@ -678,6 +706,12 @@ export const backend = {
     invoke<SearchHit[]>("search_workspace", { roots, query }),
   /** The notes of all roots, for the quick switcher. */
   workspaceNotes: (roots: RootArg[]) => invoke<WorkspaceNote[]>("workspace_notes", { roots }),
+  /**
+   * The table of a view (null: the first table view) of the `.base` file with the text `source`,
+   * answered from the index; rejects with a message for invalid YAML or another view type.
+   */
+  baseQuery: (source: string, view: string | null = null) =>
+    invoke<BaseResult>("base_query", { source, view }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Requests the address of every link note (network); `force` ignores results of the last 7 days. */

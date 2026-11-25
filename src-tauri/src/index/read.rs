@@ -180,6 +180,50 @@ pub fn note_meta(conn: &Connection, path: &str) -> rusqlite::Result<Option<NoteR
     }))
 }
 
+/// A note with all its properties, as the bases query them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteProperties {
+    pub path: String,
+    pub title: String,
+    /// In the order of the frontmatter.
+    pub properties: Vec<IndexedProperty>,
+}
+
+/// Every note with its typed properties, sorted by path.
+pub fn notes_with_properties(conn: &Connection) -> rusqlite::Result<Vec<NoteProperties>> {
+    // One statement, so the notes and their properties come from the same state of the index.
+    let mut stmt = conn.prepare(
+        "SELECT n.path, n.title, p.key, p.type, p.value
+         FROM notes n LEFT JOIN properties p ON p.note_id = n.id
+         ORDER BY n.path, p.rowid",
+    )?;
+    let mut rows = stmt.query([])?;
+    let mut out: Vec<NoteProperties> = Vec::new();
+    while let Some(row) = rows.next()? {
+        let path: String = row.get(0)?;
+        if out.last().is_none_or(|n| n.path != path) {
+            out.push(NoteProperties {
+                path,
+                title: row.get(1)?,
+                properties: Vec::new(),
+            });
+        }
+        let Some(key) = row.get::<_, Option<String>>(2)? else {
+            continue;
+        };
+        let value: String = row.get(4)?;
+        let property = IndexedProperty {
+            key,
+            kind: row.get(3)?,
+            value: serde_json::from_str(&value).unwrap_or(Value::Null),
+        };
+        if let Some(note) = out.last_mut() {
+            note.properties.push(property);
+        }
+    }
+    Ok(out)
+}
+
 /// Links whose resolved target is `path`, a note linking to itself excluded.
 pub fn backlinks(conn: &Connection, path: &str) -> rusqlite::Result<Vec<Backlink>> {
     let mut stmt = conn.prepare(

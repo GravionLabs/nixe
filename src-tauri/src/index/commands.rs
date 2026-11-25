@@ -17,6 +17,7 @@ use super::search;
 use super::{
     index_path, open, scan, Backlink, NoteRecord, NoteSummary, RelatedNote, SearchHit, TagCount,
 };
+use crate::bases::{self, BaseResult};
 use crate::links::dead::{self, DeadLink};
 
 /// Event carrying the `IndexStatus` whenever it changes.
@@ -230,6 +231,20 @@ pub async fn unlinked_mentions(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// The table of a view (default: the first table view) of the `.base` file with the text
+/// `source`, answered from the index.
+#[tauri::command]
+pub async fn base_query(
+    state: State<'_, IndexState>,
+    source: String,
+    view: Option<String>,
+) -> Result<BaseResult, String> {
+    let conn = state.conn()?;
+    tauri::async_runtime::spawn_blocking(move || bases::query(&conn, &source, view.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

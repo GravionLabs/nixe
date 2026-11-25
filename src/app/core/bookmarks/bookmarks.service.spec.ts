@@ -41,6 +41,7 @@ describe("BookmarksService", () => {
   const tabs = {
     openPreview: vi.fn().mockResolvedValue(undefined),
     openPinned: vi.fn().mockResolvedValue(undefined),
+    openBase: vi.fn(),
   };
   const writeApp = vi.spyOn(backend, "writeAppBookmarks");
   const writeVault = vi.spyOn(backend, "writeVaultBookmarks");
@@ -169,6 +170,16 @@ describe("BookmarksService", () => {
     await service.flush();
     expect(service.items()).toEqual([expect.objectContaining({ path: "dir/b.md" })]);
     expect(JSON.parse(appFile!)["/v"].items[0].path).toBe("dir/b.md");
+  });
+
+  it("opens a bookmarked base in its table tab, never as text", async () => {
+    await start();
+    tabs.openPreview.mockClear();
+    tabs.openPinned.mockClear();
+    await service.open({ type: "file", path: "dir/Library.base", subpath: "" }, vi.fn(), true);
+    expect(tabs.openBase).toHaveBeenCalledWith("/v/dir/Library.base");
+    expect(tabs.openPreview).not.toHaveBeenCalled();
+    expect(tabs.openPinned).not.toHaveBeenCalled();
   });
 
   it("opens a bookmarked heading at its line and a search through the callback", async () => {
