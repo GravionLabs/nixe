@@ -1718,6 +1718,8 @@ fn covers_are_vault_images_web_addresses_or_colors() {
         ("d", "art/Far Away.JPG", path("art/Far Away.JPG")),
         ("e", "far away.jpg", path("art/Far Away.JPG")),
         ("f", "art/Far%20Away.JPG", path("art/Far Away.JPG")),
+        ("w", "img/near.png?v=2", path("notes/img/near.png")),
+        ("x", "\"/root.svg#top\"", path("root.svg")),
         // Wikilinks and embeds, also with a size.
         ("g", "\"[[near.png]]\"", path("notes/img/near.png")),
         ("h", "\"![[Far Away.JPG|300]]\"", path("art/Far Away.JPG")),
@@ -1741,6 +1743,9 @@ fn covers_are_vault_images_web_addresses_or_colors() {
         ("u", "42", None),
         ("v", "[img/near.png]", None),
     ];
+    let mut cases = cases;
+    // The rows come sorted by path.
+    cases.sort_by_key(|case| case.0);
     let notes: Vec<(&str, &str)> = cases.iter().map(|(n, c, _)| (*n, *c)).collect();
     let (_dir, conn) = covers(&notes);
 

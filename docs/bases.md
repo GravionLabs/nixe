@@ -12,7 +12,8 @@ layout. [Vault health](cli.md) does not count a base as an unused attachment.
 
 ## What is shown
 
-The tab shows one view at a time, at first the first view of type `table`, without one the first\nview. A view has one row (or [card](#cards)) per
+The tab shows one view at a time, at first the first view of type `table`, without one the first
+view. A view has one row (or [card](#cards)) per
 indexed note that matches the [filters](#filters), sorted by path unless the view
 [sorts](#sorting) them. The columns are the entries of the view's `order`:
 
@@ -153,7 +154,7 @@ The value of the `image` property names the cover; it is resolved like an image 
 | Value | Cover |
 | --- | --- |
 | `"[[photo.png]]"`, `"![[photo.png\|300]]"` | The file of the vault the [link](#links) names; the size is ignored |
-| `img/photo.png`, `/art/photo.png` | The file at that path, seen from the folder of the note (with a leading `/` from the vault root); else resolved like a link. `%20` and the like are read |
+| `img/photo.png`, `/art/photo.png` | The file at that path, seen from the folder of the note (with a leading `/` from the vault root); else resolved like a link. `%20` and the like are read, a `?…` or `#…` at the end is ignored |
 | `https://…`, `http://…` | The web image. As in notes, the app's content policy loads `https:` only |
 | `"#ff8800"` | The color |
 | a [link](#links) from a formula | Its file or web address |

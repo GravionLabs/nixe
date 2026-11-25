@@ -196,7 +196,11 @@ fn cover_of(text: &str, note: &str, resolver: &Resolver, files: &[String]) -> Op
         return Some(url);
     }
     let wikilink = text.starts_with("[[") || text.starts_with("![[");
-    let target = bare_target(text);
+    let mut target = bare_target(text);
+    if !wikilink {
+        // A query or an anchor is no part of the file name, as in a Markdown image.
+        target = target.split(['?', '#']).next().unwrap_or(target);
+    }
     // `300` in `[[a.png|300]]` is a size, which `bare_target` has cut off.
     let spellings = [target.to_string(), percent_decode(target)];
     let as_path = || {
