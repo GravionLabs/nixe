@@ -1277,11 +1277,27 @@ fn wrong_dates_and_lists_are_errors_of_the_cell() {
             "`slice` takes a number, found a string",
         ),
         ("marks.join(\"x\".repeat(90000))", "too large"),
-        ("due.format(\"dddd\".repeat(20000))", "too large"),
+        ("due.format(\"[\".repeat(100000))", "the format is too long"),
+        (
+            "[duration(\"1\" + \"0\".repeat(300) + \"h\")].join(\"\").repeat(400)",
+            "too large",
+        ),
+        (
+            "\"x\".repeat(6000).split(\"\").join(\",\").split(\",\").flat().join(\"y\".repeat(20))",
+            "too large",
+        ),
     ] {
         let cell = at_clock(&conn, expression);
         assert_eq!(cell.kind.as_deref(), Some("error"), "{expression}");
         let message = cell.value.as_str().unwrap();
         assert!(message.contains(wanted), "{expression}: {message}");
     }
+}
+
+#[test]
+fn dates_and_durations_are_as_large_as_their_texts() {
+    let date = eval::Value::Date(date::Date::parse("2026-06-10").unwrap());
+    assert_eq!(functions::size(&date), Ok(19));
+    let duration = eval::Value::Duration(date::Duration::parse("14M").unwrap());
+    assert_eq!(functions::size(&duration), Ok("1 year 2 months".len()));
 }

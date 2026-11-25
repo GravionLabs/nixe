@@ -3,12 +3,15 @@
 //! `1 week` or `2h`.
 
 use std::cmp::Ordering;
+use std::ops::RangeInclusive;
 
 use chrono::{
     DateTime, Datelike, Days, FixedOffset, Local, Months, NaiveDate, NaiveDateTime, NaiveTime,
     TimeDelta, TimeZone, Timelike,
 };
 
+/// The years of a date.
+const YEARS: RangeInclusive<i32> = 0..=9999;
 const SECOND: f64 = 1_000.0;
 const MINUTE: f64 = 60.0 * SECOND;
 const HOUR: f64 = 60.0 * MINUTE;
@@ -67,6 +70,10 @@ impl Part {
 /// The instant of the local time `local`. A time that a change of the clock skips is the one an
 /// hour later; of a time that happens twice it is the first.
 fn instant(local: NaiveDateTime) -> Option<i64> {
+    // So far out the offset of the zone could leave the range of `chrono`.
+    if !YEARS.contains(&local.year()) {
+        return None;
+    }
     Local
         .from_local_datetime(&local)
         .earliest()
@@ -78,10 +85,10 @@ fn instant(local: NaiveDateTime) -> Option<i64> {
 }
 
 impl Date {
-    /// A point in time; `None` when it is out of the range of dates.
+    /// A point in time; `None` outside the years 0 to 9999.
     pub fn at(millis: i64) -> Option<Date> {
-        DateTime::from_timestamp_millis(millis)?;
-        Some(Date {
+        let utc = DateTime::from_timestamp_millis(millis)?;
+        YEARS.contains(&utc.year()).then_some(Date {
             millis,
             timed: true,
         })
@@ -89,30 +96,36 @@ impl Date {
 
     /// The start of the day `day`.
     fn of_day(day: NaiveDate) -> Option<Date> {
+        let date = Date::at(instant(day.and_time(NaiveTime::MIN))?)?;
         Some(Date {
-            millis: instant(day.and_time(NaiveTime::MIN))?,
             timed: false,
+            ..date
         })
     }
 
-    /// `YYYY-MM-DD`, optionally with a time and a zone; without a zone it is local.
+    /// `YYYY-MM-DD`, optionally with `T` or a space, `hh:mm[:ss[.f]]` and a zone (`Z`, `+01:00`
+    /// or `+0100`); without a zone it is local. These are the texts of a date property.
     pub fn parse(text: &str) -> Option<Date> {
         let text = text.trim();
-        if let Ok(date) = DateTime::parse_from_rfc3339(text) {
+        let Some((day, time)) = text.split_once(['T', 't', ' ']) else {
+            return Date::of_day(NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?);
+        };
+        let text = format!("{day}T{time}");
+        // `%#z` reads every way to write an offset, but not `Z`.
+        let zoned = match text.strip_suffix(['Z', 'z']) {
+            Some(rest) => format!("{rest}+00:00"),
+            None => text.clone(),
+        };
+        if let Some(date) = ["%Y-%m-%dT%H:%M:%S%.f%#z", "%Y-%m-%dT%H:%M%#z"]
+            .iter()
+            .find_map(|format| DateTime::parse_from_str(&zoned, format).ok())
+        {
             return Date::at(date.timestamp_millis());
         }
-        let timed = [
-            "%Y-%m-%dT%H:%M:%S%.f",
-            "%Y-%m-%d %H:%M:%S%.f",
-            "%Y-%m-%dT%H:%M",
-            "%Y-%m-%d %H:%M",
-        ]
-        .iter()
-        .find_map(|format| NaiveDateTime::parse_from_str(text, format).ok());
-        match timed {
-            Some(local) => Date::at(instant(local)?),
-            None => Date::of_day(NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?),
-        }
+        let local = ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M"]
+            .iter()
+            .find_map(|format| NaiveDateTime::parse_from_str(&text, format).ok())?;
+        Date::at(instant(local)?)
     }
 
     /// The date in local time.
@@ -174,7 +187,11 @@ impl Date {
             } else {
                 local.checked_sub_months(months)?
             };
-            date.millis = instant(moved)?;
+            date = if date.timed {
+                Date::at(instant(moved)?)?
+            } else {
+                Date::of_day(moved.date())?
+            };
         }
         let mut rest = duration.millis;
         if !date.timed && duration.days.fract() == 0.0 {
@@ -341,15 +358,28 @@ impl Duration {
 
     /// `factor` times as long; a fraction of a month counts as days.
     pub fn times(self, factor: f64) -> Option<Duration> {
-        let months = self.months as f64 * factor;
+        self.scaled(|n| n * factor)
+    }
+
+    /// One of `divisor` equal parts.
+    pub fn divided(self, divisor: f64) -> Option<Duration> {
+        if divisor == 0.0 {
+            return None;
+        }
+        // Not times the reciprocal, which can fall short of a whole month.
+        self.scaled(|n| n / divisor)
+    }
+
+    fn scaled(self, scale: impl Fn(f64) -> f64) -> Option<Duration> {
+        let months = scale(self.months as f64);
         let whole = months.trunc();
         if !months.is_finite() || whole.abs() > f64::from(u32::MAX) {
             return None;
         }
         Duration {
             months: whole as i64,
-            days: self.days * factor + (months - whole) * DAYS_PER_MONTH,
-            millis: self.millis * factor,
+            days: scale(self.days) + (months - whole) * DAYS_PER_MONTH,
+            millis: scale(self.millis),
         }
         .finite()
     }
@@ -510,6 +540,54 @@ mod tests {
         for text in ["", "2026", "2026-02-30", "10.06.2026", "2026-06-10 25:00"] {
             assert_eq!(Date::parse(text), None, "{text}");
         }
+    }
+
+    #[test]
+    fn every_text_of_a_date_property_is_read() {
+        let wanted = date("2026-06-10T08:00:00Z").millis;
+        for text in [
+            "2026-06-10T08:00Z",
+            "2026-06-10 08:00Z",
+            "2026-06-10T10:00+02:00",
+            "2026-06-10 10:00+02:00",
+            "2026-06-10T10:00:00+0200",
+            "2026-06-10T06:00:00.000-02:00",
+        ] {
+            assert_eq!(date(text).millis, wanted, "{text}");
+        }
+    }
+
+    #[test]
+    fn the_ends_of_the_range_are_none_and_do_not_panic() {
+        for text in [
+            "9999-12-31 12:00",
+            "0000-01-01 12:00",
+            "9999-12-31",
+            "0000-01-02",
+        ] {
+            let from = date(text);
+            for step in ["90m", "-90m", "1M", "-1M", "400d", "-400d", "99999999h"] {
+                if let Some(moved) = from.plus(Duration::parse(step).unwrap()) {
+                    assert!(
+                        moved.day().is_some() || moved.text().is_some(),
+                        "{text} {step}"
+                    );
+                }
+            }
+        }
+        for duration in ["95000000000h", "-95000000000h", "300000y"] {
+            let duration = Duration::parse(duration);
+            assert_eq!(duration.and_then(|d| date("2026-01-01").plus(d)), None);
+        }
+        assert_eq!(Date::at(i64::MAX), None);
+        assert_eq!(Date::at(i64::MIN), None);
+    }
+
+    #[test]
+    fn a_part_of_months_stays_a_month() {
+        let month = Duration::parse("49M").unwrap().divided(49.0).unwrap();
+        assert_eq!(date("2026-01-31").plus(month), Some(date("2026-02-28")));
+        assert_eq!(Duration::parse("1d").unwrap().divided(0.0), None);
     }
 
     #[test]

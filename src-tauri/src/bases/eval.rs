@@ -455,7 +455,7 @@ fn arithmetic(op: Op, left: &Value, right: &Value) -> Value {
             duration(duration_of(right).and_then(|b| a.plus(b.negated())))
         }
         (Op::Mul, Value::Duration(a), Value::Number(b)) => duration(a.times(*b)),
-        (Op::Div, Value::Duration(a), Value::Number(b)) => duration(a.times(b.recip())),
+        (Op::Div, Value::Duration(a), Value::Number(b)) => duration(a.divided(*b)),
         (_, Value::Number(a), Value::Number(b)) => {
             let result = match op {
                 Op::Sub => a - b,

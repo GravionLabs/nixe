@@ -17,6 +17,10 @@ const MAX_SIZE: usize = 100_000;
 const MAX_NESTING: usize = 50;
 /// Most decimal places of `round` and `toFixed`.
 const MAX_DIGITS: f64 = 100.0;
+/// The size of a date: `YYYY-MM-DD hh:mm:ss`.
+const DATE_SIZE: usize = 19;
+/// Most bytes of the format of a date; reading it takes quadratic time.
+const MAX_FORMAT: usize = 1_000;
 /// The schemes of a link to something outside the vault.
 const URL_SCHEMES: &[&str] = &["http://", "https://", "mailto:", "tel:"];
 
@@ -42,7 +46,10 @@ fn nested_size(value: &Value, depth: usize) -> Result<usize, String> {
             Ok::<_, String>(sum + key.len() + nested_size(item, depth + 1)?)
         })?,
         Value::Link(link) => link.target.len() + link.display.as_ref().map_or(0, String::len),
-        Value::Null | Value::Bool(_) | Value::Number(_) | Value::Date(_) | Value::Duration(_) => 1,
+        // As long as their texts, which a list or a table repeats.
+        Value::Date(_) => DATE_SIZE,
+        Value::Duration(duration) => duration.text().len(),
+        Value::Null | Value::Bool(_) | Value::Number(_) => 1,
     })
 }
 
@@ -305,8 +312,9 @@ fn date_method(receiver: Value, method: Method, args: &[Value], now: i64) -> Res
         Method::Relative => Value::Text(date.relative(now)),
         _ => match args.first() {
             None | Some(Value::Null) => Value::Null,
-            // A longer format can only give a text that is too large.
-            Some(Value::Text(format)) if format.len() > MAX_SIZE => return Err(too_large()),
+            Some(Value::Text(format)) if format.len() > MAX_FORMAT => {
+                return Err("the format is too long".into())
+            }
             Some(Value::Text(format)) => text(date.format(format)),
             Some(other) => {
                 return Err(format!(

@@ -186,7 +186,7 @@ negative (`(-5).abs()`).
 | `d.hour`, `d.minute`, `d.second`, `d.millisecond` | The parts of the time (0–23, 0–59, 0–59, 0–999) |
 | `d.date()` | The day without the time |
 | `d.time()` | The time as `hh:mm:ss` |
-| `d.format(format)` | The date written with [Moment.js tokens](https://momentjs.com/docs/#/displaying/format/) in English (`"DD.MM.YYYY"`); text in `[brackets]` stays |
+| `d.format(format)` | The date written with [Moment.js tokens](https://momentjs.com/docs/#/displaying/format/) in English (`"DD.MM.YYYY"`); text in `[brackets]` stays; a format has at most 1000 bytes |
 | `d.relative()` | The distance from now in words (`3 days ago`, `in a month`) |
 | `d.isEmpty()` | `false` |
 
@@ -215,7 +215,8 @@ The functions of a list give a new list; the property or formula keeps its items
 
 #### Dates and durations
 
-A date is a day (`2026-06-10`) or a point in time; without a zone it is local. Dates are the date
+A date is a day (`2026-06-10`) or a point in time of the years 0 to 9999; a zone is written `Z`,
+`+01:00` or `+0100`, and without one the time is local. Dates are the date
 properties of the notes, `file.ctime`, `file.mtime` and what `date`, `now` and `today` give. A text
 property that only looks like a date (`2026-02-30`) and the items of a list property stay texts.
 
