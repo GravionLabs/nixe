@@ -52,6 +52,7 @@ export const FAKE_VAULT: Record<string, unknown> = {
   last_vault_operation: null,
   is_utf8_file: true,
   watch_file: null,
+  watch_roots: null,
   related_notes: [],
   unlinked_mentions: [],
   is_dir: true,
