@@ -10,7 +10,7 @@ use serde::Serialize;
 use super::scan::{delete_note, insert_note, reresolve_all, ScanSummary};
 use crate::vault::meta;
 use crate::vault::resolve::{is_markdown_path, Resolver};
-use crate::vault::{walk_vault, SKIPPED_DIRS};
+use crate::vault::{walk_vault, VaultFile, SKIPPED_DIRS};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -179,10 +179,7 @@ pub fn apply_changes(
         return Ok(ScanSummary::default());
     }
     let files = walk_vault(root);
-    let present: HashMap<&str, (u64, i64)> = files
-        .iter()
-        .map(|f| (f.path.as_str(), (f.size, f.mtime_ns)))
-        .collect();
+    let present: HashMap<&str, &VaultFile> = files.iter().map(|f| (f.path.as_str(), f)).collect();
     let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
     let resolver = Resolver::new(&paths);
 
@@ -190,7 +187,7 @@ pub fn apply_changes(
     let mut summary = ScanSummary::default();
     let mut membership_changed = false;
     let mut upsert = |tx: &rusqlite::Transaction, path: &str| -> rusqlite::Result<bool> {
-        let Some(&(size, mtime_ns)) = present.get(path) else {
+        let Some(&file) = present.get(path) else {
             return Ok(false);
         };
         if is_markdown_path(path) {
@@ -204,8 +201,9 @@ pub fn apply_changes(
             summary.extracted += 1;
         }
         tx.execute(
-            "INSERT OR REPLACE INTO files (path, size, mtime_ns) VALUES (?1, ?2, ?3)",
-            params![path, size as i64, mtime_ns],
+            "INSERT OR REPLACE INTO files (path, size, mtime_ns, ctime_ns)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![path, file.size as i64, file.mtime_ns, file.ctime_ns],
         )?;
         Ok(true)
     };

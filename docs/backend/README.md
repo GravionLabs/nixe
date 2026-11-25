@@ -67,7 +67,7 @@ link target to a file (exact path, then unique basename, case-insensitive) like
 ## Vault index (`index/`)
 
 A SQLite file per vault at `<app-data>/index/<vault-hash>.sqlite` (`rusqlite`, bundled). It holds
-`files` (scan state), `notes`, `links` (target, resolved path, kind `link`/`embed`/`markdown`),
+`files` (scan state, size, modification and creation time), `notes`, `links` (target, resolved path, kind `link`/`embed`/`markdown`),
 `tags`, `headings`, typed `properties` and the FTS5 table `notes_fts` (rowid = note id). The
 schema version is `PRAGMA user_version`; a different version, or a file that is not a database,
 is deleted and rebuilt. The index is derived data and is never written into the vault.
