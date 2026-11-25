@@ -5,6 +5,23 @@ export const PAGE_SIZES = ["A3", "A4", "A5", "Letter", "Legal"] as const;
 export type PageSize = (typeof PAGE_SIZES)[number];
 export const DEFAULT_PAGE_SIZE: PageSize = "A4";
 
+/** Portrait width of each page size, in mm. */
+const PAGE_WIDTHS_MM: Record<PageSize, number> = {
+  A3: 297,
+  A4: 210,
+  A5: 148,
+  Letter: 215.9,
+  Legal: 215.9,
+};
+
+/** Margin of the printed page (`@page`), in mm. */
+const PAGE_MARGIN_MM = 18;
+
+/** The width a printed page of `size` has for its content, in CSS pixels. */
+export function pageContentWidth(size: PageSize): number {
+  return ((PAGE_WIDTHS_MM[size] - 2 * PAGE_MARGIN_MM) * 96) / 25.4;
+}
+
 export type ExportFormat = "html" | "pdf";
 
 /** What an export looks like; the settings give the defaults, the command line overrides them. */
@@ -132,7 +149,7 @@ export async function inlineFonts(
 
 /** The stylesheet of the print view: no app chrome, page size, optional break before each `h1`. */
 export function printCss(options: ExportOptions): string {
-  return `@page { size: ${options.pageSize}; margin: 18mm; }
+  return `@page { size: ${options.pageSize}; margin: ${PAGE_MARGIN_MM}mm; }
 @media print {
   html, body { background: #fff; }
   html.app-dark, html.app-dark body { background: #0d1117; }
@@ -157,7 +174,14 @@ const BASE_CSS = `body { margin: 0; }
 .markdown-body .embed.embed-placeholder .embed-body { font-style: italic; opacity: 0.7; padding-bottom: 0.5em; }
 .markdown-body .callout { margin: 1em 0; padding: 0.5em 1em; border: 1px solid #8b949e66; border-radius: 6px; }
 .markdown-body .callout-title { font-weight: 600; }
-.markdown-body .mermaid-error { color: #cf222e; }`;
+.markdown-body .mermaid-error { color: #cf222e; }
+.markdown-body .timeline-vertical { margin: 1em 0; white-space: pre-line; overflow-wrap: anywhere; }
+.markdown-body .timeline-title { font-size: 1.25em; font-weight: 600; text-align: center; margin-bottom: 0.5em; }
+.markdown-body .timeline-keep, .markdown-body .timeline-row { break-inside: avoid; page-break-inside: avoid; }
+.markdown-body .timeline-section-title { font-weight: 600; margin-top: 0.75em; padding: 0.25em 0.75em; border: 1px solid #8b949e66; border-radius: 4px; }
+.markdown-body .timeline-row { display: flex; gap: 1em; padding: 0.4em 0; border-bottom: 1px solid #8b949e66; }
+.markdown-body .timeline-period { flex: 0 0 25%; font-weight: 600; }
+.markdown-body .timeline-vertical ul.timeline-events { flex: 1; min-width: 0; margin: 0; padding-left: 1.25em; }`;
 
 export interface HtmlDocument {
   title: string;

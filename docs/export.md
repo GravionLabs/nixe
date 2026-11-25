@@ -19,6 +19,26 @@ One note for someone else. The command palette has three commands for the open n
 - Comments (`%%…%%`) never appear: the renderer drops them before the export sees the note.
 - The properties panel and the viewer's controls (copy buttons) are left out.
 
+## Wide timelines
+
+A Mermaid `timeline` has one column per period, so a long one becomes unreadable when it is scaled to
+the page. Every export (HTML, PDF, print) measures it: the content width of the page (the page size
+setting minus the `@page` margins, portrait) divided by the width of the diagram's `viewBox`. When
+the 16 px labels would come out below 9 px (a scale below about 0.56), the timeline is written
+vertically instead: the title, the sections as headings in their colour, and one row per period with
+the period on the left and its events as a list on the right. It wraps across pages like text; a
+period is never split. The viewer is unchanged (horizontal, scrollable).
+
+A comment in the Mermaid block forces one layout:
+
+```mermaid
+timeline
+    %% nixe: vertical
+    2002 : LinkedIn
+```
+
+`%% nixe: horizontal` keeps the diagram. The comment stands on its own line.
+
 ## Print stylesheet
 
 Export as PDF, Print and the `@media print` block of the HTML page share one stylesheet: no app
