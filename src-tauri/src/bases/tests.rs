@@ -1654,3 +1654,32 @@ fn the_views_of_a_base_are_listed_in_their_order() {
     assert_eq!(list, [(Some("C"), "cards"), (None, "table")]);
     assert!(views("views: x").is_err());
 }
+
+#[test]
+fn a_clicked_sort_takes_no_room_from_the_keys_of_the_view() {
+    let dir = TestDir::new("nixe-bases-room-");
+    let vault = dir.join("vault");
+    fs::create_dir_all(&vault).unwrap();
+    // Together a bit more than half of the room for the keys.
+    for i in 0..70 {
+        fs::write(vault.join(format!("{i:02}.md")), "text\n").unwrap();
+    }
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    let source = "formulas:\n  big: '\"x\".repeat(90000)'\nviews:\n  - type: table\n    sort: [{ property: formula.big }]\n";
+    let clicked: SortKey = serde_json::from_value(json!({ "property": "formula.big" })).unwrap();
+
+    let result = query(&conn, source, None, Some(&clicked), 0).unwrap();
+
+    assert_eq!(result.rows.len(), 70);
+    // More than the room: the view's sort is an error, the clicked one is not.
+    for i in 70..120 {
+        fs::write(vault.join(format!("{i}.md")), "text\n").unwrap();
+    }
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    let error = query(&conn, source, None, None, 0).unwrap_err();
+    assert_eq!(error, "The values to sort and group by are too large.");
+    let unsorted = source.replace("    sort: [{ property: formula.big }]\n", "");
+    let result = query(&conn, &unsorted, None, Some(&clicked), 0).unwrap();
+    assert_eq!(result.rows.len(), 120);
+}

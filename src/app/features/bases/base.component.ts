@@ -155,7 +155,9 @@ export class BaseComponent {
       let { view, sort } = this.tab.baseChoice();
       const index = shownView(views, view);
       // The chosen view is gone: its sort does not apply to the one shown instead.
-      if (view && (index === null || views[index]?.name !== view.name)) {
+      // Unnamed views can only be told apart by their place.
+      const moved = view?.name === null && index !== view.index;
+      if (view && (index === null || views[index]?.name !== view.name || moved)) {
         this.tab.baseChoice.set({ view: null, sort: null });
         sort = null;
       }

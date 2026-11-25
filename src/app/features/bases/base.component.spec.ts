@@ -430,6 +430,23 @@ describe("BaseComponent views", () => {
     expect(view.baseChoice()).toEqual({ view: null, sort: null });
   });
 
+  it("drops the sort when an unnamed view is gone and another unnamed one shows", async () => {
+    let views: BaseView[] = [
+      { name: null, type: "table" },
+      { name: null, type: "table" },
+    ];
+    const view = await shown(() => views);
+    await view.choose("View 2");
+    await view.sort(0);
+
+    views = [views[0]!];
+    view.index.revision.set(1);
+    await view.settle();
+
+    expect(queries.at(-1)).toEqual([0, null]);
+    expect(view.baseChoice()).toEqual({ view: null, sort: null });
+  });
+
   it("sorts by a clicked header for the tab only: ascending, descending, off", async () => {
     const view = await shown();
     await view.sort(1);

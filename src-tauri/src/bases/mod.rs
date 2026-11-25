@@ -458,6 +458,8 @@ pub fn query(
     let resolver = Resolver::new(&index.files);
     let mut matches: Vec<Match> = Vec::new();
     let mut key_room = MAX_FORMULA_KEYS;
+    // A sort by a click has its own, so it takes nothing from the keys of the view.
+    let mut click_room = MAX_FORMULA_KEYS;
     'notes: for note in &index.notes {
         let context = Context::new(note, &resolver, &formulas, now);
         for (place, filter) in filters.iter().flatten() {
@@ -482,7 +484,14 @@ pub fn query(
         };
         let keys = sort_keys
             .iter()
-            .map(|key| key.value(&context, "sort", &mut key_room))
+            .map(|key| {
+                let room = if key.strict {
+                    &mut key_room
+                } else {
+                    &mut click_room
+                };
+                key.value(&context, "sort", room)
+            })
             .collect::<Result<_, _>>()?;
         matches.push(Match { note, keys, group });
     }
