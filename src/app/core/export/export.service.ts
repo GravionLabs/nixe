@@ -87,7 +87,10 @@ export class ExportService {
     return { out, pages: await backend.exportSite(folder, out) };
   }
 
-  /** `nixe export`: the note of the request. HTML goes to `out`; a PDF opens the print dialog. */
+  /**
+   * `nixe export`: the note of the request, written to `out`. A PDF without `out` opens the print
+   * dialog; with `out` the window shows the document and the web view prints it into the file.
+   */
   async runRequest(request: ExportRequest): Promise<string | null> {
     const text = await backend.readTextFile(request.note);
     const base = this.options();
@@ -106,12 +109,17 @@ export class ExportService {
       },
       options,
     );
-    if (request.format === "pdf") {
+    if (request.format === "pdf" && !request.out) {
       await printHtml(html);
       return null;
     }
     if (!request.out) throw new Error("no output file");
-    await backend.writeExportFile(request.out, html);
+    if (request.format === "pdf") {
+      await showForPrint(html);
+      await backend.printExportPdf(request.out, options.pageSize);
+    } else {
+      await backend.writeExportFile(request.out, html);
+    }
     return request.out;
   }
 
@@ -184,4 +192,53 @@ export function printHtml(html: string): Promise<void> {
     frame.srcdoc = html;
     document.body.append(frame);
   });
+}
+
+/**
+ * Replaces the document of this window with a complete export document and resolves when its
+ * images and fonts are loaded, so a print holds all of it. The app is gone from the window
+ * afterwards: only the window of a headless export may use it.
+ */
+export async function showForPrint(html: string): Promise<void> {
+  const next = new DOMParser().parseFromString(html, "text/html");
+  const root = document.documentElement;
+  const wanted = new Map(
+    Array.from(next.documentElement.attributes, (a) => [a.name, a.value] as const),
+  );
+  // Writes only what differs, so the observer below does not answer itself.
+  const setRootAttributes = () => {
+    for (const name of root.getAttributeNames()) {
+      if (!wanted.has(name)) root.removeAttribute(name);
+    }
+    for (const [name, value] of wanted) {
+      if (root.getAttribute(name) !== value) root.setAttribute(name, value);
+    }
+  };
+  setRootAttributes();
+  // The theme of the app still runs and sets its own class on the root, at any time: the look of
+  // the export wins until the process ends.
+  new MutationObserver(setRootAttributes).observe(root, { attributes: true });
+  const adopt = (node: Node) => document.importNode(node, true);
+  document.head.replaceChildren(...Array.from(next.head.childNodes, adopt));
+  const body = document.importNode(next.body, true);
+  document.body.replaceWith(body);
+
+  // A hidden window loads no lazy image.
+  const images = Array.from(body.querySelectorAll("img"));
+  await Promise.all(
+    images.map((img) => {
+      img.loading = "eager";
+      if (img.complete) return undefined;
+      // A broken image is complete too: it prints its alternative text.
+      return new Promise<void>((resolve) => {
+        img.addEventListener("load", () => resolve(), { once: true });
+        img.addEventListener("error", () => resolve(), { once: true });
+      });
+    }),
+  );
+  // Fonts load when the layout asks for them, which may be only at the print: ask for all now.
+  if (document.fonts) {
+    await Promise.allSettled(Array.from(document.fonts, (font) => font.load()));
+    await document.fonts.ready;
+  }
 }
