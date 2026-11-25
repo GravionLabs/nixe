@@ -16,6 +16,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **adr**: Agent scripts in Nixe (#296)
 - **adr**: Close the review findings on agent scripts (#296)
 - **adr**: Define handled files and runner needs for agent scripts (#296)
+- Update CHANGELOG.md for v1.16.0 [skip ci]
 
 
 ### Features
