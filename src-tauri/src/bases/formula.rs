@@ -106,7 +106,7 @@ impl Formulas {
         self.indexes
             .get(name)
             .copied()
-            .ok_or_else(|| format!("unknown formula `{name}`"))
+            .ok_or_else(|| format!("unknown formula `{}`", clip(name, MAX_NAME)))
     }
 
     /// The formula of `index`, or why it cannot be evaluated.

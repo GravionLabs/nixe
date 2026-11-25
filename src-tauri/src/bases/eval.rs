@@ -183,18 +183,14 @@ impl<'a> Context<'a> {
             .unwrap_or(Ok(Value::Null))
     }
 
-    /// The value of a formula that will be kept; an error once the note holds too much.
+    /// The value of a formula that will be kept; an error when the note would hold too much.
     fn keep(&self, expr: &Expr) -> Result<Value, String> {
-        let full = || "the formulas of this note are too large".to_string();
-        if self.kept.get() > MAX_NOTE_SIZE {
-            return Err(full());
-        }
         let value = self.eval(expr)?;
         let kept = self.kept.get().saturating_add(functions::size(&value)?);
-        self.kept.set(kept);
         if kept > MAX_NOTE_SIZE {
-            return Err(full());
+            return Err("the formulas of this note are too large".into());
         }
+        self.kept.set(kept);
         Ok(value)
     }
 

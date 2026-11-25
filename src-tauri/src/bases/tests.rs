@@ -886,7 +886,8 @@ fn the_formula_values_of_a_note_and_of_the_table_are_limited() {
         .collect();
     formulas.push_str("  f30: '\"x\".repeat(90000)'\n");
     let source = format!(
-        "formulas:\n{formulas}views:\n  - type: table\n    order: [formula.f0, formula.f30]\n"
+        "formulas:\n{formulas}  one: '1'\nviews:\n  - type: table\n    \
+         order: [formula.f0, formula.f30, formula.one]\n"
     );
     let result = query(&conn, &source, None).unwrap();
     assert_eq!(result.rows.len(), 4);
@@ -896,6 +897,8 @@ fn the_formula_values_of_a_note_and_of_the_table_are_limited() {
             cell("error", json!("the formulas of this note are too large"))
         );
         assert_eq!(row.cells[1].kind.as_deref(), Some("text"));
+        // What still fits is shown.
+        assert_eq!(row.cells[2], cell("number", json!(1)));
     }
     // One column repeated over and over.
     let order = vec!["formula.big"; 200].join(", ");
@@ -913,4 +916,16 @@ fn the_formula_values_of_a_note_and_of_the_table_are_limited() {
             json!("the formula values of the table are too large")
         )
     );
+}
+
+#[test]
+fn the_message_of_an_unknown_formula_is_cut() {
+    let (_dir, conn) = library();
+    let source = format!(
+        "views:\n  - type: table\n    order: ['formula.{}']\n",
+        "x".repeat(10_000)
+    );
+    let result = query(&conn, &source, None).unwrap();
+    let message = format!("unknown formula `{}…`", "x".repeat(40));
+    assert_eq!(result.rows[0].cells[0], cell("error", json!(message)));
 }
