@@ -5,6 +5,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.16.0] — 2026-11-25
+
+### Bug Fixes
+- Nixe export --format html returns before the file exists when Nixe is running (#596) (#608)
+- **export**: Vertical layout for Mermaid timelines that do not fit the page (#597) (#610)
+
+
+### Documentation
+- **adr**: Agent scripts in Nixe (#296)
+- **adr**: Close the review findings on agent scripts (#296)
+- **adr**: Define handled files and runner needs for agent scripts (#296)
+
+
+### Features
+- **export**: Vertical layout for Mermaid timelines that do not fit the page (#597) (#610)
+- **export**: Write a folder as PDFs without the print dialog (#600) (#612)
+
+
 ## [1.15.0] — 2026-11-25
 
 ### Bug Fixes
@@ -19,6 +37,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **extension**: Save the current page with its rendered HTML (#514) (#587)
 - How to back-merge main into release/next (#606)
 - How to back-merge main into release/next (#606) (#607)
+- Update CHANGELOG.md for v1.15.0 [skip ci]
 
 
 ### Features
