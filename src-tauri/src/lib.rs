@@ -72,6 +72,8 @@ mod menu;
 mod native_host;
 #[cfg(any(debug_assertions, mobile))]
 mod notes;
+#[cfg(desktop)]
+mod pdf_print;
 mod reading;
 mod review;
 mod settings;
@@ -100,7 +102,7 @@ struct AppState {
     pending_file: Mutex<Option<String>>,
     /// Export requested by `nixe export`.
     pending_export: Mutex<Option<cli_export::ExportRequest>>,
-    /// The process runs only for a `nixe export` to HTML: `finish_export` ends it.
+    /// The process runs only for a `nixe export` into a file: `finish_export` ends it.
     headless_export: std::sync::atomic::AtomicBool,
     watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
     /// Watches the further roots of the workspace so the file tree follows the disk (#568).
@@ -198,6 +200,28 @@ fn finish_export(state: State<'_, AppState>, code: i32, message: String) {
         eprintln!("nixe: {message}");
     }
     std::process::exit(code);
+}
+
+/// Prints the document of the headless export window into `path` (`nixe export --format pdf
+/// --out`).
+#[cfg(desktop)]
+#[tauri::command]
+async fn print_export_pdf(
+    window: tauri::WebviewWindow,
+    path: String,
+    page_size: String,
+) -> Result<(), String> {
+    let headless = &window.state::<AppState>().headless_export;
+    if !headless.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err("only `nixe export` prints into a file".into());
+    }
+    // The print needs the main thread, so the wait for it does not run there.
+    tauri::async_runtime::spawn_blocking(move || {
+        pdf_print::print_window(&window, Path::new(&path), &page_size)
+            .map_err(|e| format!("{path}: {e}"))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Writes an exported file where the user chose (save dialog or `--out`).
@@ -1486,8 +1510,8 @@ pub fn run() {
         // Must be the first plugin: forwards files from a second launch.
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             if argv.get(1).is_some_and(|a| a == "export") {
-                // A running window opens the print dialog of a PDF; the new process ends at once.
-                // An HTML export never gets here (`cli_export::runs_alone`).
+                // A running window opens the print dialog of a PDF without `--out`; the new process
+                // ends at once. An export into a file never gets here (`cli_export::runs_alone`).
                 let request = cli::data_dir().and_then(|data| {
                     cli::parse_export(&argv[2..], Path::new(&cwd), &data, false)
                         .map_err(|e| log::warn!("export from a second launch refused: {e:?}"))
@@ -1604,6 +1628,8 @@ pub fn run() {
         take_pending_export,
         finish_export,
         write_export_file,
+        #[cfg(desktop)]
+        print_export_pdf,
         export_site,
         read_data_uri,
         read_bundled_data_uri,
@@ -1760,6 +1786,8 @@ pub fn run() {
         take_pending_export,
         finish_export,
         write_export_file,
+        #[cfg(desktop)]
+        print_export_pdf,
         export_site,
         read_data_uri,
         read_bundled_data_uri,

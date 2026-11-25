@@ -63,10 +63,20 @@ keyring = { version = "3", features = ["apple-native"] }
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
+# The silent PDF export (#599): `PrintToPdf` of the WebView2 that Tauri uses.
+webview2-com = "0.39"
+windows-core = "0.62"
+
+# The silent PDF export (#599): the print operation of the WKWebView that Tauri uses.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "objc2-core-foundation", "NSPrintInfo", "NSPrintOperation", "NSResponder", "NSView", "NSWindow"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "objc2-core-foundation", "NSDictionary", "NSGeometry", "NSString", "NSURL", "NSValue"] }
+objc2-web-kit = { version = "0.3.2", default-features = false, features = ["std", "objc2-app-kit", "WKWebView"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3", features = ["sync-secret-service", "crypto-rust", "vendored"] }
-# The screenshot and the PDF of a link note (#506): the same versions as the webview of Tauri.
+# The screenshot and the PDF of a link note (#506) and the PDF export (#599): the same versions as the webview of Tauri.
 webkit2gtk = "=2.0.2"
 gtk = "0.18"
 cairo-rs = { version = "0.18", features = ["png"] }

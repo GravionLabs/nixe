@@ -9,6 +9,7 @@ One note for someone else. The command palette has three commands for the open n
 | Print (`Ctrl/⌘+Alt+P`) | The same print dialog, for paper. |
 
 `nixe export <note> --format html|pdf` does the same from the terminal, see [cli.md](cli.md#export).
+With `--out <file>` it also writes a PDF [without the print dialog](#pdf-without-the-print-dialog).
 
 ## What the page contains
 
@@ -46,6 +47,36 @@ chrome (the page is printed from its own frame), the page size as `@page`, no br
 tables, images and diagrams, and a page break before every top-level heading (`h1`) except the first
 one.
 
+## PDF without the print dialog
+
+`nixe export <note> --format pdf --out <file>` renders the note in the hidden export window as for
+HTML, shows the finished document there, waits for its images and fonts and lets the web view print it
+into `<file>`: WebView2 `PrintToPdf` on Windows, a print operation without panels on macOS (11 or
+later), a print-to-file operation on Linux. Page size, dark or light, page breaks and the print
+stylesheet apply. The PDF has no header or footer. The file is written beside the target first, so a
+failed export leaves an existing file as it was.
+
+On Linux the export loads only the file backend of GTK printing, so it never reaches a printer. It
+needs a display; on a machine without one run it under `xvfb-run`.
+
+### What each web view honours of `@page`
+
+Measured by giving the web view a paper (Legal) and margins (40 mm) that differ from the CSS rule
+(`@page { size: A5; margin: 18mm }`). Nixe passes the page size and the 18 mm margin to the web view
+as well, so the paper and the margins are the same on all three.
+
+| Platform | `@page size` | `@page margin` | Paper and margins are set by |
+|---|---|---|---|
+| Windows (WebView2) | lays out the page box in this size and centres it on the paper of the print settings | wins over the print settings | print settings (paper), CSS (page box and margins) |
+| macOS (WKWebView) | ignored: the text fills the paper of the print info | wins over the print info | print info (paper), CSS (margins) |
+| Linux (WebKitGTK) | ignored | ignored | GTK page setup |
+
+Other differences:
+
+- Dark look: on macOS and Linux the margins of the page stay white and the dark background of the
+  last page ends with its content. On Windows the margins are dark grey.
+- Fonts come from the system, so line and page breaks can differ between the platforms.
+
 ## Settings
 
 Settings, section "Export and print" (`settings.json`):
@@ -77,7 +108,10 @@ The command "Export folder as site" (it asks for the folder and for where to wri
 
 ## Limits
 
-- A PDF is made by the print dialog of the system web view, not by Nixe, so the command line cannot
-  write one without that dialog.
+- A PDF is made by the system web view, not by Nixe. In the app, "Export as PDF" opens its print
+  dialog; only the command line writes a PDF without it.
+- On Windows, `nixe export` from the command line lays out a Mermaid flowchart far too wide, in HTML
+  and PDF, so its labels become tiny (seen with the WebView2 of a CI runner). macOS and Linux draw it
+  as the app does.
 - In a development build (`pnpm tauri dev`) the KaTeX fonts come from the dev server and are not
   inlined; a release build embeds them.

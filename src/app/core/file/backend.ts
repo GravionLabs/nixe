@@ -808,6 +808,9 @@ export const backend = {
   /** Writes an exported file to the place the user (or `--out`) chose; any path, replaces a file. */
   writeExportFile: (path: string, content: string) =>
     invoke<void>("write_export_file", { path, content }),
+  /** Prints the document of the headless export window into a PDF file (no dialog). */
+  printExportPdf: (path: string, pageSize: string) =>
+    invoke<void>("print_export_pdf", { path, pageSize }),
   /** Writes `folder` of a vault as a static website into `out`; the number of pages. */
   exportSite: (folder: string, out: string, exclude: string[] = []) =>
     invoke<number>("export_site", { folder, out, exclude }),

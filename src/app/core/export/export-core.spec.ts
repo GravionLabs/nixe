@@ -130,6 +130,10 @@ describe("print stylesheet", () => {
     expect(css).toMatch(/h1:not\(:first-child\) \{ break-before: page; \}/u);
   });
 
+  it("does not clip the labels of a diagram", () => {
+    expect(printCss(light)).toContain(".mermaid-diagram foreignObject { overflow: visible; }");
+  });
+
   it("has no page breaks when the setting is off", () => {
     expect(printCss({ ...light, pageBreaks: false })).not.toContain("break-before");
   });

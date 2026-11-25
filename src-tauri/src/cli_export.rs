@@ -1,10 +1,8 @@
 //! `nixe export <note> --format html|pdf`: the command line side of "Export as HTML / PDF".
 //! The rendering (Markdown, Mermaid, KaTeX) lives in the app, so the command validates its
 //! arguments and resolves the note here, then starts the app with an export request: the window
-//! stays hidden, writes the HTML file and ends the process with the result, also next to a
-//! running Nixe. A PDF has no
-//! silent path in the system web views; the request opens the print dialog of the note ("Save as
-//! PDF").
+//! stays hidden, writes the HTML or PDF file and ends the process with the result, also next to a
+//! running Nixe. A PDF without `--out` opens the print dialog of the note ("Save as PDF").
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -28,7 +26,7 @@ pub struct ExportRequest {
     pub vault_root: String,
     /// `html` or `pdf`.
     pub format: String,
-    /// Absolute path of the HTML file; none for a PDF.
+    /// Absolute path of the file; none for a PDF that goes to the print dialog.
     pub out: Option<String>,
     /// `--dark` / `--light`; none keeps the setting of the app.
     pub dark: Option<bool>,
@@ -51,7 +49,8 @@ pub struct Options {
 
 /// True when the process of this request must not hand over to a running Nixe. A headless export
 /// writes the file itself, so the command returns when the file exists and carries the result of
-/// the export (#596). A PDF needs a window: the running one opens its print dialog.
+/// the export (#596, #599). A PDF without `--out` needs a window: the running one opens its print
+/// dialog.
 pub fn runs_alone(request: Option<&ExportRequest>) -> bool {
     request.is_some_and(|r| r.headless)
 }
@@ -85,11 +84,6 @@ pub fn resolve(
         }
         None => return Err(CliError::Usage("--format html|pdf is required".into())),
     };
-    if format == "pdf" && opts.out.is_some() {
-        return Err(CliError::Usage(
-            "--out is for html; a PDF is saved from the print dialog".into(),
-        ));
-    }
     let page_size = match opts.page_size.as_deref() {
         Some(s) => Some(
             page_size(s)
@@ -109,7 +103,8 @@ pub fn resolve(
     scan(&mut conn, &root, |_| {}).map_err(|e| CliError::Failed(format!("index: {e}")))?;
     let rel = note_path(&conn, note)?;
     let note_file = root.join(&rel);
-    let out = (format == "html").then(|| {
+    // HTML always goes to a file; a PDF only with `--out`, else to the print dialog.
+    let out = (format == "html" || opts.out.is_some()).then(|| {
         let target = match &opts.out {
             Some(o) => cwd.join(o),
             None => cwd.join(
@@ -121,6 +116,7 @@ pub fn resolve(
         };
         crate::path_to_string(&target)
     });
+    let headless = headless_allowed && out.is_some();
     Ok(ExportRequest {
         note: crate::path_to_string(&note_file),
         vault_root: crate::path_to_string(&root),
@@ -128,7 +124,7 @@ pub fn resolve(
         out,
         dark: opts.dark,
         page_size,
-        headless: headless_allowed && format == "html",
+        headless,
     })
 }
 
@@ -176,11 +172,14 @@ mod tests {
     }
 
     #[test]
-    fn an_html_export_does_not_go_to_a_running_instance() {
+    fn an_export_into_a_file_does_not_go_to_a_running_instance() {
         let (_base, vault, data) = vault("running");
         let v = vec![vault.to_string_lossy().into_owned()];
         let mut html = opts(Some("html"), "A");
         html.vaults = v.clone();
+        let mut file = opts(Some("pdf"), "A");
+        file.vaults = v.clone();
+        file.out = Some("a.pdf".into());
         let mut pdf = opts(Some("pdf"), "A");
         pdf.vaults = v;
         // The command line asks for headless; a running instance would end the process at once.
@@ -188,6 +187,8 @@ mod tests {
         let pdf = resolve(&pdf, &vault, &data, true).unwrap();
         assert!(runs_alone(Some(&html)));
         assert!(!runs_alone(Some(&pdf)));
+        let file = resolve(&file, &vault, &data, true).unwrap();
+        assert!(runs_alone(Some(&file)));
         // A normal start of the viewer is still forwarded.
         assert!(!runs_alone(None));
     }
@@ -203,18 +204,28 @@ mod tests {
     }
 
     #[test]
-    fn pdf_has_no_file_and_opens_the_print_dialog() {
+    fn a_pdf_without_out_has_no_file_and_opens_the_print_dialog() {
         let (_base, vault, data) = vault("pdf");
         let mut o = opts(Some("pdf"), "A");
         o.vaults = vec![vault.to_string_lossy().into_owned()];
         let r = resolve(&o, &vault, &data, true).unwrap();
         assert_eq!(r.out, None);
         assert!(!r.headless);
-        o.out = Some("a.pdf".into());
-        assert!(matches!(
-            resolve(&o, &vault, &data, true),
-            Err(CliError::Usage(_))
-        ));
+    }
+
+    #[test]
+    fn a_pdf_with_out_is_written_without_a_window() {
+        let (_base, vault, data) = vault("pdf-out");
+        let mut o = opts(Some("pdf"), "A");
+        o.vaults = vec![vault.to_string_lossy().into_owned()];
+        o.out = Some("x/a.pdf".into());
+        o.page_size = Some("a5".into());
+        let r = resolve(&o, &vault, &data, true).unwrap();
+        assert_eq!(r.out, Some(crate::path_to_string(&vault.join("x/a.pdf"))));
+        assert_eq!(r.format, "pdf");
+        assert_eq!(r.page_size.as_deref(), Some("A5"));
+        assert!(r.headless);
+        assert!(!resolve(&o, &vault, &data, false).unwrap().headless);
     }
 
     #[test]
