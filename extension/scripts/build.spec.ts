@@ -2,7 +2,7 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { build, geckoId, manifestFor, type Manifest } from "./build.ts";
+import { build, geckoId, manifestFor, manifestVersion, type Manifest } from "./build.ts";
 
 const base: Manifest = { manifest_version: 3, name: "Nixe", version: "0.1.0" };
 
@@ -20,6 +20,42 @@ describe("manifestFor", () => {
 
     expect(manifest["background"]).toEqual({ service_worker: "background.js", type: "module" });
     expect(manifest).not.toHaveProperty("browser_specific_settings");
+  });
+});
+
+describe("release version", () => {
+  it("keeps only the numbers of a pre-release version", () => {
+    expect(manifestVersion("1.15.0")).toBe("1.15.0");
+    expect(manifestVersion("1.15.0-rc.3")).toBe("1.15.0");
+    expect(() => manifestVersion("v1.15")).toThrow("not a semantic version");
+  });
+
+  it("replaces the manifest version of both targets", () => {
+    for (const target of ["chromium", "firefox"] as const) {
+      expect(manifestFor(base, target, "1.15.0")["version"]).toBe("1.15.0");
+      expect(manifestFor(base, target, "1.15.0")).not.toHaveProperty("version_name");
+    }
+  });
+
+  it("shows the pre-release version as version_name in Chromium only", () => {
+    expect(manifestFor(base, "chromium", "1.15.0-rc.3")).toMatchObject({
+      version: "1.15.0",
+      version_name: "1.15.0-rc.3",
+    });
+    expect(manifestFor(base, "firefox", "1.15.0-rc.3")).not.toHaveProperty("version_name");
+  });
+
+  it("builds the packages with the release version", async () => {
+    const out = await mkdtemp(join(tmpdir(), "nixe-extension-"));
+    try {
+      await build(out, "2.3.4");
+      for (const target of ["chromium", "firefox"]) {
+        const manifest = JSON.parse(await readFile(join(out, target, "manifest.json"), "utf8"));
+        expect(manifest.version).toBe("2.3.4");
+      }
+    } finally {
+      await rm(out, { recursive: true, force: true });
+    }
   });
 });
 
