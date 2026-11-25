@@ -47,6 +47,7 @@ usage: nixe <path>|-                       open the viewer
        nixe append --inbox [text] [--vault <dir>]
        nixe daily [--append <text>] [--vault <dir>]   open today's daily note, or append to it
        nixe export <note> --format html|pdf [--out <file>] [--dark|--light] [--page-size A4] [--vault <dir>]
+       nixe export <folder> --format pdf --out <dir> [--include <glob>]... [--exclude <dir>]... [--dark|--light] [--page-size A4] [--vault <dir>]   one PDF per note
        nixe export <folder> --site <out> [--exclude <dir>]... [--vault <dir>]   a folder as a static website
        nixe native-host                           Native Messaging host of the browser extension (started by the browser)
        nixe mcp [--vault <dir>]...                MCP server over stdio (read-only)
@@ -125,6 +126,11 @@ fn export_request(args: &[String], cwd: &Path) -> Option<i32> {
         .ok_or_else(|| CliError::Failed("cannot locate the application data directory".into()))
         .and_then(|data| parse_export(args, cwd, &data, true));
     match result {
+        // A folder without a note to export needs no app.
+        Ok(request) if request.notes.as_ref().is_some_and(Vec::is_empty) => {
+            eprintln!("nixe: no notes to export");
+            Some(0)
+        }
         Ok(request) => {
             let _ = crate::cli_export::REQUEST.set(request);
             None
@@ -147,9 +153,9 @@ fn export_site(p: &Parsed, cwd: &Path, out: &mut dyn Write) -> Result<(), CliErr
             "`export` takes one note and --format, or one folder and --site <out>".into(),
         ));
     };
-    if p.format.is_some() || p.out.is_some() {
+    if p.format.is_some() || p.out.is_some() || !p.include.is_empty() {
         return Err(CliError::Usage(
-            "--site cannot be combined with --format or --out".into(),
+            "--site cannot be combined with --format, --out or --include".into(),
         ));
     }
     let folder = dunce::canonicalize(cwd.join(folder))
@@ -199,6 +205,8 @@ pub fn parse_export(
         out: p.out,
         dark: p.dark,
         page_size: p.page_size,
+        include: p.include,
+        exclude: p.exclude,
     };
     crate::cli_export::resolve(&opts, cwd, app_data, headless)
 }
@@ -247,6 +255,7 @@ pub(crate) struct Parsed {
     json: bool,
     tags: Vec<String>,
     exclude: Vec<String>,
+    include: Vec<String>,
     links: bool,
     force: bool,
     fetch: bool,
@@ -300,6 +309,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Parsed, CliError> {
             "--workspace" => p.workspace = Some(value(flag, inline, &mut it)?),
             "--tag" => p.tags.push(value(flag, inline, &mut it)?),
             "--exclude" => p.exclude.push(value(flag, inline, &mut it)?),
+            "--include" => p.include.push(value(flag, inline, &mut it)?),
             "--path" => p.path = value(flag, inline, &mut it)?,
             _ if flag.starts_with("--") => {
                 return Err(CliError::Usage(format!("unknown option {flag}")))

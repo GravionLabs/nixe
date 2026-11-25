@@ -1,5 +1,5 @@
 #[cfg(desktop)]
-use std::io::{IsTerminal, Read};
+use std::io::{IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -193,13 +193,46 @@ fn finish_export(state: State<'_, AppState>, code: i32, message: String) {
         return;
     }
     if code == 0 {
-        println!("{message}");
+        // A folder export has already named every file it wrote.
+        if !message.is_empty() {
+            println!("{message}");
+        }
     } else {
         // The headless export reports on stderr as before; the log keeps a copy.
         log::error!("export failed (code {code}): {message}");
         eprintln!("nixe: {message}");
     }
     std::process::exit(code);
+}
+
+/// One note of a folder export: the progress goes to stderr, the written PDF to stdout.
+#[tauri::command]
+fn report_export_note(
+    state: State<'_, AppState>,
+    index: usize,
+    total: usize,
+    name: String,
+    written: Option<String>,
+    error: Option<String>,
+) {
+    if !state
+        .headless_export
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        return;
+    }
+    if let Some(error) = &error {
+        log::error!("export of {name} failed: {error}");
+    }
+    // A closed pipe (`nixe export … | head`) must not end the export.
+    let _ = writeln!(
+        std::io::stderr(),
+        "{}",
+        cli_export::progress_line(index, total, &name, error.as_deref())
+    );
+    if let Some(written) = written {
+        let _ = writeln!(std::io::stdout(), "{written}");
+    }
 }
 
 /// Prints the document of the headless export window into `path` (`nixe export --format pdf
@@ -1627,6 +1660,7 @@ pub fn run() {
         take_pending_file,
         take_pending_export,
         finish_export,
+        report_export_note,
         write_export_file,
         #[cfg(desktop)]
         print_export_pdf,
@@ -1785,6 +1819,7 @@ pub fn run() {
         take_pending_file,
         take_pending_export,
         finish_export,
+        report_export_note,
         write_export_file,
         #[cfg(desktop)]
         print_export_pdf,

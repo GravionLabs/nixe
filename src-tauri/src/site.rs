@@ -83,12 +83,7 @@ pub fn export_site(opts: &SiteOptions) -> Result<SiteSummary, String> {
     } else {
         format!("{folder_rel}/")
     };
-    let exclude: Vec<String> = opts
-        .exclude
-        .iter()
-        .map(|e| e.trim().trim_matches('/').replace('\\', "/"))
-        .filter(|e| !e.is_empty())
-        .collect();
+    let exclude = clean_exclude(&opts.exclude);
 
     // Which notes are published.
     let mut included: BTreeMap<String, (String, String, String)> = BTreeMap::new();
@@ -98,20 +93,19 @@ pub fn export_site(opts: &SiteOptions) -> Result<SiteSummary, String> {
         .filter(|p| is_markdown_path(p) && p.starts_with(&prefix))
     {
         let rel = &path[prefix.len()..];
+        if in_excluded(&exclude, &prefix, path) {
+            excluded += 1;
+            continue;
+        }
         let text = fs::read_to_string(root.join(path))
             .map_err(|e| format!("{path}: {e}"))?
             .trim_start_matches('\u{feff}')
             .to_string();
-        let meta = extract(&text);
-        let unpublished = meta
-            .properties
-            .iter()
-            .any(|p| p.key == "publish" && is_false(&p.value));
-        let by_folder = in_excluded(&exclude, &prefix, path);
-        if unpublished || by_folder {
+        if is_unpublished(&text) {
             excluded += 1;
             continue;
         }
+        let meta = extract(&text);
         let title = meta
             .properties
             .iter()
@@ -260,9 +254,26 @@ pub fn export_site(opts: &SiteOptions) -> Result<SiteSummary, String> {
     })
 }
 
+/// The `--exclude` folders in the spelling `in_excluded` compares.
+pub(crate) fn clean_exclude(exclude: &[String]) -> Vec<String> {
+    exclude
+        .iter()
+        .map(|e| e.trim().trim_matches('/').replace('\\', "/"))
+        .filter(|e| !e.is_empty())
+        .collect()
+}
+
+/// True when the frontmatter of a note says `publish: false`: an export of a folder leaves it out.
+pub(crate) fn is_unpublished(text: &str) -> bool {
+    extract(text.trim_start_matches('\u{feff}'))
+        .properties
+        .iter()
+        .any(|p| p.key == "publish" && is_false(&p.value))
+}
+
 /// True when `vault` (a vault path) lies in a folder named by `--exclude`, relative to the exported
 /// folder or to the vault.
-fn in_excluded(exclude: &[String], prefix: &str, vault: &str) -> bool {
+pub(crate) fn in_excluded(exclude: &[String], prefix: &str, vault: &str) -> bool {
     let rel = vault.strip_prefix(prefix).unwrap_or(vault);
     exclude.iter().any(|e| {
         [rel, vault]

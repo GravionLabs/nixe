@@ -27,6 +27,8 @@ base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 serde_yaml_ng = "0.10"
 ignore = "0.4"
+# `--include` of the folder PDF export (#600); `ignore` already brings it.
+globset = "0.4"
 regex = "1"
 git2 = { version = "0.21.0", features = ["https", "vendored-libgit2", "vendored-openssl"] }
 rusqlite = { version = "0.43.0", features = ["bundled"] }

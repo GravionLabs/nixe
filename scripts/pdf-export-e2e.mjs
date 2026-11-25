@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// End-to-end check of `nixe export <note> --format pdf --out <file>` with a built app (#599), run
-// by the `pdf-export` job of ci.yml on every platform:
+// End-to-end check of `nixe export <note|folder> --format pdf --out <target>` with a built app
+// (#599, #600), run by the `pdf-export` job of ci.yml on every platform:
 //
 //   pnpm tauri build --debug --no-bundle
 //   node scripts/pdf-export-e2e.mjs src-tauri/target/debug/nixe [directory for the PDFs]
@@ -114,6 +114,63 @@ export function main(binary, keep) {
           `${size}: page of ${x1 - x0} x ${y1 - y0} points`,
         );
       }
+    }
+
+    // A folder: one start, one PDF per published note, a failed note does not stop the others.
+    const notes = join(vault, "folder");
+    mkdirSync(join(notes, "sub"), { recursive: true });
+    mkdirSync(join(notes, "skip"), { recursive: true });
+    writeFileSync(join(notes, "A.md"), NOTE.replace("square.png", "../square.png"));
+    writeFileSync(join(notes, "sub", "B.md"), NOTE.replace("square.png", "../../square.png"));
+    writeFileSync(join(notes, "skip", "C.md"), "# C\n");
+    writeFileSync(join(notes, "Draft.md"), "---\npublish: false\n---\n# Draft\n");
+    const pdfs = join(out, `${platform}-folder`);
+    rmSync(pdfs, { recursive: true, force: true });
+    // A folder where the PDF of `A.md` goes: that note fails, `sub/B.md` comes after it.
+    mkdirSync(join(pdfs, "A.pdf"), { recursive: true });
+    const folder = run(
+      binary,
+      [
+        "export",
+        notes,
+        "--format",
+        "pdf",
+        "--out",
+        pdfs,
+        "--exclude",
+        "skip",
+        "--vault",
+        vault,
+        "--page-size",
+        "A5",
+      ],
+      work,
+    );
+    check(folder.status === 1, `folder with a failing note: exit ${folder.status}`);
+    check(folder.stderr.includes("[1/2] A.md: failed"), "folder: the failure is not reported");
+    check(folder.stderr.includes("[2/2] sub/B.md"), "folder: no progress");
+    const written = folder.stdout.trim().split(/\r?\n/);
+    check(
+      written.length === 1 && written[0].replaceAll("\\", "/").endsWith("folder/sub/B.pdf"),
+      `folder: written paths ${written}`,
+    );
+    const second = readFileSync(join(pdfs, "sub", "B.pdf"));
+    check(pageCount(second) >= 2, "folder: the page break is missing");
+    check(hasImage(second, 8), "folder: the image is missing");
+    check(!existsSync(join(pdfs, "skip")), "folder: an excluded note was exported");
+    check(!existsSync(join(pdfs, "Draft.pdf")), "folder: an unpublished note was exported");
+
+    // Without the failure: both notes, next to themselves, exit 0.
+    const beside = run(
+      binary,
+      ["export", notes, "--format", "pdf", "--out", ".", "--exclude", "skip", "--vault", vault],
+      work,
+    );
+    check(beside.status === 0, `folder beside the notes: exit ${beside.status}`);
+    for (const file of [join(notes, "A.pdf"), join(notes, "sub", "B.pdf")]) {
+      const pdf = readFileSync(file);
+      check(pdf.subarray(0, 5).toString() === "%PDF-", `${file}: not a PDF`);
+      check(pageCount(pdf) >= 2 && hasImage(pdf, 8), `${file}: incomplete`);
     }
 
     // A target that cannot be written: exit 1 and a message.
