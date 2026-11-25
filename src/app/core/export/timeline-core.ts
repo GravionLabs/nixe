@@ -33,7 +33,8 @@ export interface SectionColor {
 
 const FRONTMATTER = /^\s*---[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*---[ \t]*(?:\r?\n|$)/u;
 const DIRECTIVE = /%%\{[\s\S]*?\}%%/gu;
-const HEADER = /^timeline(?:[ \t]+(?:LR|TD))?$/iu;
+/** The keyword of the diagram; a statement may follow it on the same line. */
+const HEADER = /^timeline(?:[ \t]+(?:LR|TD))?(?=\s|$)/iu;
 const OVERRIDE = /^[ \t]*%%[ \t]*nixe[ \t]*:[ \t]*(vertical|horizontal)[ \t]*$/imu;
 /** Mermaid writes characters as `#35;` or `#quot;`; their `#` starts no comment. */
 const ENTITY = /#(\w+);/gu;
@@ -70,7 +71,11 @@ export function parseTimeline(source: string): Timeline | null {
     .split(/\r?\n/u)
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("%") && !line.startsWith("#"));
-  if (!HEADER.test(lines.shift() ?? "")) return null;
+  const first = lines.shift() ?? "";
+  const header = HEADER.exec(first)?.[0];
+  if (!header) return null;
+  const rest = first.slice(header.length).trim();
+  if (rest) lines.unshift(rest);
 
   const timeline: Timeline = { title: frontTitle ? label(frontTitle) : null, sections: [] };
   let section: TimelineSection | undefined;
@@ -95,7 +100,8 @@ export function parseTimeline(source: string): Timeline | null {
     }
     // A colon separates only when a space follows (`10:30` is text).
     const [head, ...events] = line.split(/:(?=\s|$)/u);
-    const start = head.split("#")[0].trim();
+    const comment = head.indexOf("#");
+    const start = (comment < 0 ? head : head.slice(0, comment)).trim();
     if (start) {
       if (!section) {
         section = { name: null, periods: [] };
@@ -104,7 +110,8 @@ export function parseTimeline(source: string): Timeline | null {
       period = { period: label(start), events: [] };
       section.periods.push(period);
     }
-    period?.events.push(...events.map(label).filter(Boolean));
+    // A comment in the period takes the rest of the line with it.
+    if (comment < 0) period?.events.push(...events.map(label).filter(Boolean));
   }
   return timeline;
 }

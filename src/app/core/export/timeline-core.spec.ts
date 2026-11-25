@@ -108,6 +108,13 @@ timeline TD
     });
   });
 
+  it("follows Mermaid on one-line headers and comments after a period", () => {
+    expect(parseTimeline("timeline title History\n  2002 #1 : LinkedIn")).toEqual({
+      title: "History",
+      sections: [{ name: null, periods: [{ period: "2002", events: [] }] }],
+    });
+  });
+
   it("ignores other diagrams", () => {
     expect(parseTimeline("flowchart LR\n A --> B")).toBeNull();
     expect(parseTimeline("gantt\n title timeline")).toBeNull();
