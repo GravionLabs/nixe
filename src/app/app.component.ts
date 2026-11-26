@@ -11,7 +11,7 @@ import {
 } from "@angular/core";
 import { HxActivityBar, HxAppShell } from "@gravionlabs/helix-desktop";
 import { HxUpdateService } from "@gravionlabs/helix-desktop/tauri";
-import { HxMessageService, HxToast } from "@gravionlabs/helix-ui";
+import { HxConfirmDialog, HxMessageService, HxToast } from "@gravionlabs/helix-ui";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -93,6 +93,7 @@ import { NavIconDirective } from "./nav-icon.directive";
   selector: "app-root",
   imports: [
     HxToast,
+    HxConfirmDialog,
     PanelResizerComponent,
     TerminalPanelComponent,
     BookmarksComponent,

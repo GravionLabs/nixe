@@ -1,5 +1,6 @@
 :host {
   display: block;
+  --h-button-sm-font-size: 0.8125rem;
 }
 
 .properties-panel {
@@ -20,39 +21,11 @@
 .prop-key {
   flex: 0 0 140px;
   min-width: 0;
-  color: var(--h-text-muted-color);
-  font-weight: 500;
 }
 
 .prop-value {
   flex: 1;
   min-width: 0;
-}
-
-input[type="text"],
-input[type="number"],
-input[type="date"],
-select {
-  box-sizing: border-box;
-  padding: 2px 6px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--h-text-color);
-  font: inherit;
-}
-
-.prop-value input[type="text"],
-.prop-value input[type="number"],
-.prop-value input[type="date"] {
-  width: 100%;
-}
-
-input:hover,
-input:focus,
-select {
-  border-color: var(--h-content-border-color);
-  background: var(--h-content-background);
 }
 
 .chip-input {
@@ -72,42 +45,18 @@ select {
   color: var(--h-primary-color);
 }
 
-.property-chip button,
-.prop-remove {
-  padding: 0 2px;
-  border: 0;
-  background: transparent;
-  color: var(--h-text-muted-color);
-  font-size: 11px;
-  cursor: pointer;
-}
-
 .prop-remove {
   visibility: hidden;
 }
 
 .prop:hover .prop-remove,
-.prop-remove:focus-visible {
+.prop-remove:focus-within {
   visibility: visible;
 }
 
-.chip-field {
+.chip-field-box {
   flex: 1;
   min-width: 80px;
-}
-
-.prop-add {
-  margin-top: 4px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--h-text-muted-color);
-  font: inherit;
-  cursor: pointer;
-}
-
-.prop-add:hover {
-  color: var(--h-primary-color);
 }
 
 .prop-new {
@@ -124,82 +73,36 @@ select {
   white-space: pre-wrap;
 }
 
-.properties-header,
-.properties-summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  padding: 2px 0;
-  border: 0;
-  background: transparent;
-  color: var(--h-text-muted-color);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.properties-summary {
-  width: 100%;
-  padding: 4px 12px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 6px;
-  background: var(--h-surface-frame);
-}
-
 .summary-text {
+  flex: 1;
   overflow: hidden;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 /* In the live preview the block is smaller than the note text and muted, folded and unfolded (#375). */
 :host(.in-editor) {
+  --h-button-sm-font-size: 1em;
+  --h-inputtext-sm-font-size: 1em;
   color: var(--h-text-muted-color);
   font-size: 0.85em;
   line-height: 1.5;
 }
 
 :host(.in-editor) .properties-panel,
-:host(.in-editor) .properties-header,
-:host(.in-editor) .properties-summary,
 :host(.in-editor) .frontmatter-warning {
   font-size: inherit;
-}
-
-:host(.in-editor) input[type="text"],
-:host(.in-editor) input[type="number"],
-:host(.in-editor) input[type="date"],
-:host(.in-editor) select {
-  color: inherit;
 }
 
 :host(.in-editor) .property-chip {
   color: inherit;
 }
 
-:host(.in-editor) .prop-add {
-  margin-right: 12px;
-}
-
 /* In the sidebar panel (#376) the panel is narrow: no frame, the name above its value. */
 .properties-empty {
   margin: 0;
   color: var(--h-text-muted-color);
-}
-
-.prop-move {
-  padding: 0 2px;
-  border: 0;
-  background: transparent;
-  color: var(--h-text-muted-color);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.prop-move:disabled {
-  opacity: 0.3;
-  cursor: default;
 }
 
 :host(.in-sidebar) .properties-panel {
@@ -210,11 +113,12 @@ select {
 
 :host(.in-sidebar) .prop {
   flex-wrap: wrap;
+  column-gap: 2px;
   padding: 4px 0;
 }
 
 :host(.in-sidebar) .prop-key {
-  flex: 1 1 60%;
+  flex: 1 1 0;
 }
 
 :host(.in-sidebar) .prop-value {

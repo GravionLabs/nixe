@@ -4,7 +4,15 @@ import { readFileSync } from "node:fs";
 import { NO_ERRORS_SCHEMA, computed, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
-import { HxList, HxListRow } from "@gravionlabs/helix-ui";
+import {
+  HxButton,
+  HxCheckbox,
+  HxField,
+  HxInput,
+  HxList,
+  HxListRow,
+  HxTooltip,
+} from "@gravionlabs/helix-ui";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -113,8 +121,13 @@ function render(
         PanelSectionComponent,
         NoteRowComponent,
         NoteTitleComponent,
+        HxButton,
+        HxCheckbox,
+        HxField,
+        HxInput,
         HxList,
         HxListRow,
+        HxTooltip,
         EmptyStateComponent,
       ],
       schemas: [NO_ERRORS_SCHEMA],
@@ -212,7 +225,10 @@ describe("GitComponent", () => {
     button.click();
     expect(sync).toHaveBeenCalled();
     const busy = render(status, undefined, {}, { sync: { phase: "syncing", message: "" } });
-    expect(busy.el.querySelector<HTMLButtonElement>("button.sync")!.disabled).toBe(true);
+    const spinning = busy.el.querySelector<HTMLButtonElement>("button.sync")!;
+    expect(spinning.getAttribute("aria-busy")).toBe("true");
+    spinning.click();
+    expect(busy.sync).not.toHaveBeenCalled();
     const local = render({ ...status, hasRemote: false });
     expect(local.el.querySelector<HTMLButtonElement>("button.sync")!.disabled).toBe(true);
   });
@@ -289,7 +305,9 @@ describe("GitComponent", () => {
     const { el, discard, fixture, errors } = render(status);
     const buttons = el.querySelectorAll<HTMLButtonElement>("button.discard");
     expect(buttons).toHaveLength(3);
-    expect(buttons[0].textContent?.trim()).toBe("Discard changes");
+    // Icon-only: the name comes from the label.
+    expect(buttons[0].getAttribute("aria-label")).toBe("Discard changes of a");
+    expect(buttons[0].classList.contains("hx-button-icon-only")).toBe(true);
     buttons[2].click();
     await fixture.whenStable();
     expect(discard).toHaveBeenCalledWith({ path: "gone.md", kind: "deleted" });

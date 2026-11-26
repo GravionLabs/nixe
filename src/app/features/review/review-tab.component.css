@@ -31,12 +31,6 @@ ul {
   font-size: 12px;
 }
 
-.finish {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .body {
   display: flex;
   flex: 1;
@@ -80,10 +74,6 @@ ul {
   flex: 1;
 }
 
-.toolbar .on {
-  font-weight: 600;
-}
-
 .add {
   color: #2da44e;
 }
@@ -104,19 +94,6 @@ ul {
 .decide {
   display: inline-flex;
   gap: 0.25rem;
-}
-.decide button,
-.section-head button,
-.finish button,
-.conflict button {
-  font: inherit;
-  font-size: 0.8em;
-}
-.decide button.on,
-.section-head button.on,
-.conflict button.on {
-  font-weight: 600;
-  text-decoration: underline;
 }
 .sections {
   display: flex;
@@ -149,9 +126,11 @@ ul {
 .section pre.add {
   background: rgba(46, 160, 67, 0.15);
 }
-.section textarea {
-  width: 100%;
-  font-family: var(--nixe-font-mono, monospace);
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
 }
 .conflicts {
   border: 1px solid #bf8700;

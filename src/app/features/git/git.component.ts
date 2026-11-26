@@ -1,5 +1,13 @@
 import { Component, inject, output } from "@angular/core";
-import { HxList, HxListRow } from "@gravionlabs/helix-ui";
+import {
+  HxButton,
+  HxCheckbox,
+  HxField,
+  HxInput,
+  HxList,
+  HxListRow,
+  HxTooltip,
+} from "@gravionlabs/helix-ui";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { CompareService } from "../../core/compare/compare.service";
@@ -30,8 +38,13 @@ import { ReviewComponent } from "../review/review.component";
     PanelSectionComponent,
     NoteRowComponent,
     NoteTitleComponent,
+    HxButton,
+    HxCheckbox,
+    HxField,
+    HxInput,
     HxList,
     HxListRow,
+    HxTooltip,
     EmptyStateComponent,
   ],
   templateUrl: "./git.component.html",

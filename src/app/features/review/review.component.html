@@ -5,30 +5,31 @@
   @if (review.result(); as result) {
     <p class="status" role="status">{{ result }}</p>
   }
-  <ul class="cards" aria-label="Suggestions waiting for review">
+  <hx-list class="cards" aria-label="Suggestions waiting for review">
     @for (branch of review.branches(); track branch.name) {
-      <li>
-        <button
-          type="button"
-          class="card"
-          [class.open]="review.open()?.name === branch.name"
-          [title]="branch.name"
-          (click)="open(branch)"
-        >
+      <button
+        hx-list-row
+        type="button"
+        class="card"
+        [current]="review.open()?.name === branch.name"
+        [title]="branch.name"
+        (click)="open(branch)"
+      >
+        <span class="card-body">
           <span class="who">{{ branch.author }}</span>
           <span class="meta">
             {{ time(branch.time) }} · {{ branch.notes }}
             {{ branch.notes === 1 ? "note" : "notes" }}
           </span>
-          <ul class="messages" aria-label="Messages">
+          <span class="messages">
             @for (message of branch.messages; track $index) {
-              <li>{{ message }}</li>
+              <span class="message">{{ message }}</span>
             }
-          </ul>
-        </button>
-      </li>
+          </span>
+        </span>
+      </button>
     } @empty {
-      <li><app-empty-state text="No suggestions to review" /></li>
+      <app-empty-state text="No suggestions to review" />
     }
-  </ul>
+  </hx-list>
 </app-panel-section>

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
+import { HxConfirmationService } from "@gravionlabs/helix-ui";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -95,9 +96,11 @@ function render() {
     }),
     select: vi.fn(async () => undefined),
   };
+  const confirm = vi.fn(async (_q: unknown) => true);
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
+      { provide: HxConfirmationService, useValue: { confirmAsync: confirm } },
       { provide: ReviewService, useValue: service },
       { provide: MarkdownService, useValue: { render: (t: string) => `<p>${t}</p>` } },
       { provide: DocumentService, useValue: {} },
@@ -115,7 +118,7 @@ function render() {
   });
   const fixture = TestBed.createComponent(ReviewTabComponent);
   fixture.detectChanges();
-  return { service, fixture, el: fixture.nativeElement as HTMLElement };
+  return { service, confirm, fixture, el: fixture.nativeElement as HTMLElement };
 }
 
 describe("ReviewTabComponent", () => {
@@ -193,38 +196,52 @@ describe("ReviewTabComponent", () => {
     expect(el.querySelector("textarea")).toBeNull();
   });
 
-  it("asks before it finishes the review and deletes the branch", () => {
-    const { el, fixture, service } = render();
+  it("asks before it finishes the review and removes the suggestion", async () => {
+    const { el, fixture, service, confirm } = render();
+    confirm.mockResolvedValueOnce(false);
     button(el, "Finish review").click();
-    fixture.detectChanges();
-    expect(service.finish).not.toHaveBeenCalled();
-    expect(el.querySelector(".finish")!.textContent).toContain(
-      "Take over 1 note and remove the suggestion",
+    await fixture.whenStable();
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Take over 1 note and remove the suggestion?",
+        acceptSeverity: "danger",
+      }),
     );
+    expect(service.finish).not.toHaveBeenCalled();
     expect(el.textContent).not.toContain("claude/a");
-    button(el, "Cancel").click();
-    fixture.detectChanges();
-    expect(el.querySelector(".finish p")).toBeNull();
     button(el, "Finish review").click();
-    fixture.detectChanges();
-    button(el, "Confirm").click();
+    await fixture.whenStable();
     expect(service.finish).toHaveBeenCalled();
+  });
+
+  it("does not finish another suggestion than the one it asked about", async () => {
+    const { el, fixture, service, confirm } = render();
+    confirm.mockImplementationOnce(async () => {
+      service.open.set(branches[1]);
+      return true;
+    });
+    button(el, "Finish review").click();
+    await fixture.whenStable();
+    expect(service.finish).not.toHaveBeenCalled();
   });
 
   it("closes its tab once the suggestion is taken over, and keeps it when the finish stops", async () => {
     const { el, fixture, service } = render();
     service.finish.mockImplementation(async () => undefined);
     button(el, "Finish review").click();
-    fixture.detectChanges();
-    button(el, "Confirm").click();
     await fixture.whenStable();
     expect(tabs.closeTab).not.toHaveBeenCalled();
     service.finish.mockImplementation(async () => service.open.set(null));
     button(el, "Finish review").click();
-    fixture.detectChanges();
-    button(el, "Confirm").click();
     await fixture.whenStable();
     expect(tabs.closeTab).toHaveBeenCalledWith(1, 7);
+  });
+
+  it("names the icon-only accept button of a note", () => {
+    const { el } = render();
+    const accept = el.querySelector(".decide button[hx-button]")!;
+    expect(accept.getAttribute("aria-label")).toBe("Accept a.md");
+    expect(accept.classList.contains("hx-button-icon-only")).toBe(true);
   });
 
   it("shows both versions of a conflicting note and lets the user decide", () => {
