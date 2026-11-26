@@ -12,6 +12,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import type { SearchHit } from "../../core/file/backend";
+import { DocumentService } from "../../core/file/document.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { ReplaceService } from "../../core/index/replace.service";
 import type { SearchState } from "../../core/index/search.service";
@@ -19,6 +20,7 @@ import { SearchService, segments } from "../../core/index/search.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { WorkspacesService } from "../../core/workspace/workspaces.service";
 import { SearchComponent } from "./search.component";
+import { pressArrow } from "../../../testing/list-keys";
 
 const hit: SearchHit = {
   path: "work/b.md",
@@ -61,6 +63,7 @@ function render(
   hits: SearchHit[],
   replace = replaceMock(false),
   roots: { path: string; name: string }[] | null = null,
+  openPath: string | null = null,
 ) {
   const open = vi.fn().mockResolvedValue(undefined);
   const openPinned = vi.fn().mockResolvedValue(undefined);
@@ -84,6 +87,7 @@ function render(
         },
       },
       { provide: ReplaceService, useValue: replace },
+      { provide: DocumentService, useValue: { path: signal(openPath) } },
       { provide: TabsService, useValue: { openPreview: open, openPinned } },
       { provide: BookmarksService, useValue: { bookmarkSearch } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
@@ -116,7 +120,7 @@ describe("SearchComponent", () => {
 
   it("groups snippets under their note and highlights the matches", () => {
     const { el } = render("ready", [hit]);
-    expect(el.querySelectorAll("li").length).toBe(1);
+    expect(el.querySelectorAll(".hit").length).toBe(1);
     expect(el.querySelector(".name")?.textContent).toContain("b");
     expect([...el.querySelectorAll("mark")].map((m) => m.textContent)).toEqual(["quick", "quick"]);
     expect(segments("x")[0].match).toBe(false);
@@ -139,6 +143,26 @@ describe("SearchComponent", () => {
     expect(openPinned).toHaveBeenLastCalledWith("/vault/work/b.md", { line: 9 });
     el.querySelector("button.note")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     expect(openPinned).toHaveBeenLastCalledWith("/vault/work/b.md", { line: null });
+  });
+
+  it("marks the result of the open note as current", () => {
+    const a: SearchHit = { path: "a.md", title: "a", modified: 1, matches: 0, snippets: [] };
+    const { el } = render("ready", [hit, a], undefined, null, "/vault/a.md");
+    const notes = el.querySelectorAll("button.note");
+    expect(notes[0].getAttribute("aria-current")).toBeNull();
+    expect(notes[1].getAttribute("aria-current")).toBe("true");
+    expect(notes[1].classList.contains("hx-list-row-current")).toBe(true);
+  });
+
+  it("moves through the results and their snippets with the arrows", () => {
+    const { el } = render("ready", [hit]);
+    const rows = el.querySelectorAll<HTMLButtonElement>("button[hx-list-row]");
+    expect(rows).toHaveLength(4);
+    rows[0].focus();
+    pressArrow(rows[0], "ArrowDown");
+    expect(document.activeElement).toBe(rows[1]);
+    pressArrow(rows[1], "ArrowDown");
+    expect(document.activeElement).toBe(el.querySelectorAll("button.snippet")[0]);
   });
 
   it("counts the results and the notes above the list", () => {

@@ -1,0 +1,9 @@
+@if (kind; as k) {
+  <app-status-icon [kind]="k" />
+}
+<span class="hx-list-row-label">
+  <span class="title">{{ label.title }}</span>
+  @if (label.folder) {
+    <span class="folder">{{ label.folder }}</span>
+  }
+</span>

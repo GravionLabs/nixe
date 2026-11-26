@@ -1,8 +1,10 @@
 import { Component, computed, inject, signal } from "@angular/core";
+import { HxList, HxListRow } from "@gravionlabs/helix-ui";
 
 import type { Bookmark, ItemPath } from "../../core/bookmarks/bookmarks-core";
 import { isFile, isGroup, isSearch, labelOf } from "../../core/bookmarks/bookmarks-core";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
+import { DocumentService } from "../../core/file/document.service";
 import { SearchService } from "../../core/index/search.service";
 import { ShellService } from "../../core/shell/shell.service";
 
@@ -43,6 +45,7 @@ const ICONS: Record<BookmarkRow["kind"], string> = {
 /** Sidebar: the bookmarks of the vault; drag to reorder or to move into a group. */
 @Component({
   selector: "app-bookmarks",
+  imports: [HxList, HxListRow],
   templateUrl: "./bookmarks.component.html",
   styles: `
     :host {
@@ -83,14 +86,11 @@ const ICONS: Record<BookmarkRow["kind"], string> = {
       padding-right: 8px;
       min-height: 26px;
     }
-    li:hover {
-      background: var(--h-hover-bg, rgba(127, 127, 127, 0.12));
-    }
     .status {
       margin: 8px 12px;
       color: var(--h-text-muted-color);
     }
-    button {
+    button:where(:not([hx-list-row])) {
       border: 0;
       background: none;
       color: inherit;
@@ -99,18 +99,13 @@ const ICONS: Record<BookmarkRow["kind"], string> = {
     }
     .label {
       flex: 1;
-      min-width: 0;
-      text-align: left;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      padding: 2px 0;
     }
     .remove {
       visibility: hidden;
       color: var(--h-text-muted-color);
     }
-    li:hover .remove {
+    li:hover .remove,
+    li:focus-within .remove {
       visibility: visible;
     }
     .rename {
@@ -118,7 +113,7 @@ const ICONS: Record<BookmarkRow["kind"], string> = {
       min-width: 0;
       font: inherit;
     }
-    li[data-kind="group"] .label {
+    li[data-kind="group"] .hx-list-row-label {
       font-weight: 600;
     }
   `,
@@ -127,6 +122,7 @@ export class BookmarksComponent {
   protected readonly bookmarks = inject(BookmarksService);
   private readonly search = inject(SearchService);
   private readonly shell = inject(ShellService);
+  private readonly doc = inject(DocumentService);
 
   protected readonly rows = computed(() => bookmarkRows(this.bookmarks.items()));
   protected readonly dragging = signal<ItemPath | null>(null);
@@ -138,6 +134,13 @@ export class BookmarksComponent {
 
   protected label(row: BookmarkRow): string {
     return labelOf(row.bookmark);
+  }
+
+  /** A bookmark of the open note itself; one of a heading or a block in it is not. */
+  protected isCurrent(row: BookmarkRow): boolean {
+    if (row.kind !== "note") return false;
+    const open = this.bookmarks.relative(this.doc.path());
+    return open !== null && open === (row.bookmark as { path: string }).path;
   }
 
   protected open(row: BookmarkRow, pin = false): void {

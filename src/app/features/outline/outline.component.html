@@ -15,49 +15,42 @@
       All
     </button>
   </div>
-  <ul class="tree" role="tree">
-    <ng-container *ngTemplateOutlet="nodes; context: { $implicit: outline.tree() }" />
-  </ul>
-}
-
-<ng-template #nodes let-list>
-  @for (node of list; track node.index) {
-    <li
-      role="treeitem"
-      [attr.aria-level]="node.level"
-      [attr.aria-selected]="node.index === outline.marked()"
-      [attr.aria-expanded]="node.children.length > 0 ? !outline.folded().has(node.index) : null"
-    >
-      @if (node.children.length > 0) {
-        <button
-          type="button"
-          class="fold"
-          [style.left.px]="2 + (node.level - 1) * 12"
-          [attr.aria-label]="
-            (outline.folded().has(node.index) ? 'Expand ' : 'Collapse ') + node.text
-          "
-          (click)="outline.toggle(node.index)"
+  <hx-list>
+    <ul class="tree" role="tree">
+      @for (node of visible(); track node.index) {
+        <li
+          role="treeitem"
+          [attr.aria-level]="node.level"
+          [attr.aria-selected]="node.index === outline.marked()"
+          [attr.aria-expanded]="node.children.length > 0 ? !outline.folded().has(node.index) : null"
         >
-          {{ outline.folded().has(node.index) ? "▸" : "▾" }}
-        </button>
+          @if (node.children.length > 0) {
+            <button
+              type="button"
+              class="fold"
+              [style.left.px]="2 + (node.level - 1) * 12"
+              [attr.aria-label]="
+                (outline.folded().has(node.index) ? 'Expand ' : 'Collapse ') + node.text
+              "
+              (click)="outline.toggle(node.index)"
+            >
+              {{ outline.folded().has(node.index) ? "▸" : "▾" }}
+            </button>
+          }
+          <button
+            hx-list-row
+            type="button"
+            class="heading"
+            [current]="node.index === outline.marked() ? 'location' : false"
+            [style.padding-left.px]="16 + (node.level - 1) * 12"
+            (click)="go(node)"
+            (contextmenu)="bookmark($event, node)"
+            title="Right-click to bookmark the heading"
+          >
+            <span class="hx-list-row-label">{{ node.text }}</span>
+          </button>
+        </li>
       }
-      <button
-        type="button"
-        class="heading"
-        [class.current]="node.index === outline.marked()"
-        [attr.aria-current]="node.index === outline.marked() ? 'location' : null"
-        [style.padding-left.px]="16 + (node.level - 1) * 12"
-        (click)="go(node)"
-        (contextmenu)="bookmark($event, node)"
-        title="Right-click to bookmark the heading"
-      >
-        {{ node.text }}
-      </button>
-      @if (node.children.length > 0 && !outline.folded().has(node.index)) {
-        <ul role="group">
-          <ng-container *ngTemplateOutlet="nodes; context: { $implicit: node.children }" />
-        </ul>
-      }
-    </li>
-  }
-</ng-template>
+    </ul>
+  </hx-list>
+}

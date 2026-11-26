@@ -13,23 +13,24 @@
       @if (related.notes().length === 0) {
         <p class="status">No related notes</p>
       } @else {
-        <ul>
+        <hx-list aria-label="Related notes">
           @for (note of related.notes(); track note.path) {
-            <li>
-              <button
-                type="button"
-                (click)="open(note, $event)"
-                (dblclick)="open(note, $event)"
-                (mousemove)="hover($event, note)"
-                (mouseleave)="leave()"
-                [title]="note.path"
-              >
+            <button
+              hx-list-row
+              type="button"
+              (click)="open(note, $event)"
+              (dblclick)="open(note, $event)"
+              (mousemove)="hover($event, note)"
+              (mouseleave)="leave()"
+              [title]="note.path"
+            >
+              <span class="hx-list-row-label">
                 <span class="name">{{ note.title }}</span>
                 <span class="context">{{ note.reasons.join(", ") }}</span>
-              </button>
-            </li>
+              </span>
+            </button>
           }
-        </ul>
+        </hx-list>
       }
     </section>
   }

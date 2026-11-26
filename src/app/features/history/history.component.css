@@ -65,20 +65,9 @@ header .folder {
   border-bottom: 1px solid var(--h-content-border-color);
 }
 
-.timeline button {
+.version .hx-list-row-label {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  background: none;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.timeline button.selected {
-  background: var(--h-selection-background, rgba(100, 140, 255, 0.2));
 }
 
 .message {
@@ -95,8 +84,8 @@ header .folder {
   font-size: 0.85em;
 }
 
-.meta {
-  font-size: 11px;
+.version .meta {
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 
@@ -120,21 +109,17 @@ header .folder {
   padding: 0 0.5rem 0.25rem;
 }
 
+.row-actions button {
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
 li:hover > .row-actions,
 li:focus-within > .row-actions {
   display: flex;
-}
-
-.deleted {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.recent {
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .filter {

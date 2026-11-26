@@ -1,99 +1,36 @@
-import { Component, EventEmitter, Input, Output } from "@angular/core";
-
-import { noteLabel } from "./note-label";
-import { type ChangeKind, StatusIconComponent } from "./status-icon.component";
+import { Component } from "@angular/core";
 
 /**
- * A list row for a note: the title in normal weight, the folder dimmed behind it, the full path as
- * tooltip. Extra content (`<… rowActions>`) shows on hover and on keyboard focus.
+ * The line of a note in an `hx-list`: the `button[hx-list-row]` of the caller, between optional
+ * content in front of it (`<… rowStart>`) and actions (`<… rowActions>`) that show on hover and on
+ * keyboard focus. The row is declared by the caller: an `hx-list` only moves through the rows of its
+ * own template.
  */
 @Component({
   selector: "app-note-row",
-  imports: [StatusIconComponent],
   templateUrl: "./note-row.component.html",
   styles: `
     :host {
-      display: block;
-    }
-
-    .row {
       display: flex;
       align-items: center;
-      padding-right: 12px;
     }
 
-    .row:hover,
-    .row:focus-within {
-      background: var(--h-surface-hover);
-    }
-
-    ::slotted([rowStart]) {
-      flex: none;
-      margin: 0 0 0 12px;
-    }
-
-    .main {
-      display: flex;
+    .line {
       flex: 1;
-      align-items: center;
-      gap: 6px;
       min-width: 0;
-      padding: 4px 12px;
-      border: 0;
-      background: none;
-      color: inherit;
-      font: inherit;
-      text-align: left;
-      cursor: pointer;
-    }
-
-    .main:disabled {
-      cursor: default;
-      opacity: 0.6;
-    }
-
-    .title,
-    .folder {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .title {
-      flex: 0 1 auto;
-      font-weight: 400;
-    }
-
-    .folder {
-      flex: 1 1 0;
-      font-size: 11px;
-      color: var(--h-text-muted-color);
     }
 
     .actions {
       display: none;
       gap: 4px;
       flex: none;
+      padding-right: 12px;
     }
 
-    .static .actions,
-    .row:hover .actions,
-    .row:focus-within .actions {
+    :host(:hover) .actions,
+    :host(:focus-within) .actions {
       display: inline-flex;
     }
   `,
 })
-export class NoteRowComponent {
-  @Input({ required: true }) path!: string;
-  @Input() kind?: ChangeKind;
-  @Input() disabled = false;
-  /** False renders the row as plain text: no click, and its actions are always visible. */
-  @Input() interactive = true;
-  /** Set when the row expands something; it is announced as `aria-expanded`. */
-  @Input() expanded?: boolean;
-  @Output() readonly activated = new EventEmitter<void>();
-
-  protected get label(): { title: string; folder: string } {
-    return noteLabel(this.path);
-  }
-}
+export class NoteRowComponent {}

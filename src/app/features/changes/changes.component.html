@@ -30,19 +30,22 @@
   @if (changes.loading()) {
     <p class="status">Loading…</p>
   }
-  <ul class="list" aria-label="Changed notes">
+  <hx-list aria-label="Changed notes">
     @for (change of changes.changes(); track change.path) {
-      <li>
-        <app-note-row
-          [path]="change.path"
-          [kind]="change.kind"
-          (activated)="changes.compare(change)"
+      <app-note-row>
+        <button
+          hx-list-row
+          type="button"
+          [current]="isCurrent(change.path)"
+          [title]="change.path"
+          (click)="changes.compare(change)"
         >
-          @if (change.kind !== "deleted") {
-            <button rowActions type="button" class="open" (click)="open(change)">Open</button>
-          }
-        </app-note-row>
-      </li>
+          <app-note-title [path]="change.path" [kind]="change.kind" />
+        </button>
+        @if (change.kind !== "deleted") {
+          <button rowActions type="button" class="open" (click)="open(change)">Open</button>
+        }
+      </app-note-row>
     }
-  </ul>
+  </hx-list>
 </app-panel-section>
