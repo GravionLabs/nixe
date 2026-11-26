@@ -135,23 +135,60 @@ describe("CloneComponent", () => {
     expect(clone.start).toHaveBeenCalledOnce();
   });
 
-  it("closes on Escape and on the mask", async () => {
-    for (const close of [
-      (el: HTMLElement) =>
-        el
-          .querySelector("[role=dialog]")!
-          .dispatchEvent(
-            new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }),
-          ),
-      (el: HTMLElement) => el.querySelector<HTMLElement>(".hx-dialog-backdrop")!.click(),
-    ]) {
-      const { clone, el, fixture } = render();
-      close(el);
-      await vi.waitFor(() => {
-        fixture.detectChanges();
-        expect(clone.close).toHaveBeenCalled();
-      });
-    }
+  const escape = (el: HTMLElement) =>
+    el
+      .querySelector("[role=dialog]")!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
+  const closeButton = (el: HTMLElement) => el.querySelector(".hx-dialog-close");
+  const backdrop = (el: HTMLElement) => el.querySelector<HTMLElement>(".hx-dialog-backdrop")!;
+
+  it("closes the idle dialog on Escape", async () => {
+    const { clone, el, fixture } = render();
+    expect(closeButton(el)).not.toBeNull();
+    escape(el);
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(clone.close).toHaveBeenCalled();
+    });
+  });
+
+  it("stays open on a click on the mask", async () => {
+    const { clone, el, fixture } = render();
+    backdrop(el).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(clone.close).not.toHaveBeenCalled();
+    expect(el.querySelector("[role=dialog]")).not.toBeNull();
+  });
+
+  it("has Cancel clone as the only way out while cloning", async () => {
+    const { clone, el, fixture } = render(null, true);
+    escape(el);
+    backdrop(el).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(clone.close).not.toHaveBeenCalled();
+    expect(el.querySelector("[role=dialog]")).not.toBeNull();
+    expect(closeButton(el)).toBeNull();
+    button(el, "Cancel clone").click();
+    expect(clone.close).toHaveBeenCalledOnce();
+  });
+
+  it("closes on Escape again once the clone has ended", async () => {
+    const { clone, el, fixture } = render(null, true);
+    clone.cloning.set(false);
+    fixture.detectChanges();
+    expect(closeButton(el)).not.toBeNull();
+    escape(el);
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(clone.close).toHaveBeenCalled();
+    });
+  });
+
+  it("has the size class md", () => {
+    const { el } = render();
+    expect(el.querySelector(".hx-dialog-size-md")).not.toBeNull();
   });
 
   it("has Close as text button before the one primary button in the footer", () => {

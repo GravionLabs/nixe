@@ -2,9 +2,10 @@
   [visible]="true"
   (hidden)="onHidden()"
   header="Clone vault"
-  dismissableMask
   position="top"
-  width="min(520px, 90vw)"
+  size="md"
+  [closable]="!clone.cloning()"
+  [closeOnEscape]="!clone.cloning()"
 >
   <!-- novalidate: the browser would refuse an SSH URL itself and never send the submit event. -->
   <form id="clone-form" novalidate (submit)="submit($event)">

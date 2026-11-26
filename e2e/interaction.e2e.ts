@@ -58,7 +58,9 @@ test("editing a note saves it with write_text_file", async ({ page }) => {
     .toEqual({ path: FAKE_NOTE, content: expect.stringContaining("Added by the test.") });
 });
 
-test("the clone dialog focuses the URL, Enter clones and Escape closes it", async ({ page }) => {
+test("the clone dialog focuses the URL, Enter clones and only Escape closes it, not the mask", async ({
+  page,
+}) => {
   await page.evaluate(() => {
     window.__demo!.answer("git_clone_vault", "/demo");
     window.__demoDialog = { open: "/tmp/vaults" };
@@ -69,6 +71,11 @@ test("the clone dialog focuses the URL, Enter clones and Escape closes it", asyn
   const dialog = page.getByRole("dialog", { name: "Clone vault" });
   const url = dialog.getByRole("textbox", { name: "Repository URL" });
   await expect(url).toBeFocused();
+  // A click on the mask, beside the dialog, keeps it open.
+  await page.mouse.click(10, 400);
+  await expect(url).toBeVisible();
+  await expect(page.locator(".hx-dialog-backdrop")).toBeVisible();
+  await url.focus();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 
