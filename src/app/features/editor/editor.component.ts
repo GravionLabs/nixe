@@ -21,7 +21,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { countText } from "../../core/editor/text-stats";
-import { editAndSave } from "../../core/editor/buffer-edit";
+import { editAndSave, editsDone, watchedChange } from "../../core/editor/buffer-edit";
 import {
   AutoSaver,
   ExternalChangeTracker,
@@ -55,7 +55,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
-import { textChange } from "./text-change";
+import { dispatchText } from "./text-change";
 import { BaseBlocks } from "../bases/base-blocks";
 import { PropertiesComponent } from "../properties/properties.component";
 import { ExternalCompareComponent } from "./external-compare.component";
@@ -145,7 +145,7 @@ export class EditorComponent implements OnDestroy {
       selection: () => this.selection(),
       headingLine: () => this.headingLine(),
     };
-    this.doc.editorHook = (path, text) => this.onExternal(path, text);
+    this.doc.editorHook = (path, text) => this.onWatched(path, text);
     this.doc.remoteHook = (text, saved) => this.onRemote(text, saved);
 
     effect(() => this.editor.blocked.set(this.conflict() !== null));
@@ -253,7 +253,7 @@ export class EditorComponent implements OnDestroy {
       tracker: new ExternalChangeTracker(text),
       failure: null,
       saver: new AutoSaver({
-        write: (t) => this.write(session, t),
+        write: (t, expected) => this.write(session, t, expected),
         onError: (e) => this.failed.emit(`Saving failed: ${String(e)}`),
         onDirtyChange: (dirty) => this.editor.unsaved.set(dirty),
       }),
@@ -317,10 +317,7 @@ export class EditorComponent implements OnDestroy {
 
   /** A change from outside the text (the properties panel): one undoable transaction. */
   private applyText(next: string): void {
-    const view = this.view;
-    if (!view) return;
-    const change = textChange(view.state.doc.toString(), next);
-    if (change) view.dispatch({ changes: change });
+    if (this.view) dispatchText(this.view, next);
   }
 
   private holdsNote(): boolean {
@@ -338,7 +335,18 @@ export class EditorComponent implements OnDestroy {
         saver: session.saver,
         tracker: session.tracker,
         text: () => view.state.doc.toString(),
-        apply: (text) => this.applyText(text),
+        // The editor may be left while the edit runs: the saver still has to get a taken back edit.
+        apply: (text) =>
+          dispatchText(
+            view,
+            text,
+            this.destroyed
+              ? (t) => {
+                  session.saver.change(t);
+                  this.doc.typed(session.path, t);
+                }
+              : undefined,
+          ),
         readDisk: () => backend.readTextFile(session.path),
         external: (disk) => this.onExternal(session.path, disk),
         refusal: () => {
@@ -473,11 +481,11 @@ export class EditorComponent implements OnDestroy {
     return backend.readTextFile(joinPath(root, rel)).catch(() => "");
   }
 
-  private async write(session: Session, text: string): Promise<void> {
+  private async write(session: Session, text: string, expected?: string): Promise<void> {
     const out = session.crlf ? toCrlf(text) : text;
     session.tracker.willWrite(out);
     try {
-      await this.doc.write(session.path, out);
+      await this.doc.write(session.path, out, expected);
       session.tracker.written(out);
       session.failure = null;
     } catch (error) {
@@ -493,6 +501,8 @@ export class EditorComponent implements OnDestroy {
    */
   private async settle(): Promise<void> {
     const session = this.session;
+    // An edit that is under way may take itself back or raise a conflict: decide after it.
+    if (session?.saver.busy) await editsDone(session.saver);
     const pending = session?.saver.pendingText ?? null;
     if (!session || this.conflict() === null || pending === null) return this.flush();
     const copy = unsavedCopyPath(session.path);
@@ -611,6 +621,18 @@ export class EditorComponent implements OnDestroy {
   }
 
   /** The watcher reported a change of the note; `diskText` is what is on disk now. */
+  private onWatched(path: string, diskText: string): void {
+    const session = this.session;
+    if (!session || session.path !== path) return;
+    watchedChange(
+      session.saver,
+      diskText,
+      () => backend.readTextFile(session.path),
+      (disk) => this.onExternal(path, disk),
+    );
+  }
+
+  /** Takes over a disk text that differs: reloads, or asks the user. */
   private onExternal(path: string, diskText: string): void {
     const session = this.session;
     if (!session || session.path !== path) return;

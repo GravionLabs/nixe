@@ -198,8 +198,8 @@ test("the live preview shows a base block and an embed as interactive widgets", 
   await widgets.first().getByRole("textbox", { name: "Title of Home" }).fill("Final");
   await page.keyboard.press("Enter");
   await expect
-    .poll(async () => (await takeCalls(page, "write_text_file")).at(-1)?.args?.["content"])
-    .toContain("title: Final");
+    .poll(async () => (await takeCalls(page, "replace_text_file")).at(-1)?.args)
+    .toMatchObject({ expected: text, content: expect.stringContaining("title: Final") });
 
   // With the cursor inside, the block shows its source; leaving it draws the base again.
   await widgets
