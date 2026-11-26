@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import "@angular/compiler";
-import { signal } from "@angular/core";
+import { type Provider, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
@@ -11,6 +12,8 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 import { CloneService } from "../../core/git/clone.service";
 import { GitService } from "../../core/git/git.service";
+import { SettingsService } from "../../core/settings/settings.service";
+import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { CloneComponent } from "./clone.component";
 
 function render(
@@ -42,18 +45,41 @@ function render(
     signInWithGh: vi.fn().mockResolvedValue(undefined),
     cancelGhSignIn: vi.fn().mockResolvedValue(undefined),
   };
+  const settings = { gitEnterpriseHost: signal("") };
+  const fixture = create([
+    { provide: CloneService, useValue: clone },
+    { provide: GitService, useValue: git },
+    { provide: SettingsService, useValue: settings },
+  ]);
+  // hx-dialog renders its content in the overlay, outside the host element.
+  return { clone, git, settings, el: document.body, fixture };
+}
+
+/** The dialog on the real `CloneService`, so a submit reaches the backend commands. */
+function renderWithService(openFolder = vi.fn().mockResolvedValue(undefined)) {
+  const git = {
+    tokenPrompt: signal(null),
+    runRemote: <T>(run: () => Promise<T>) => run(),
+    cancelTokenPrompt: vi.fn(),
+  };
+  const fixture = create([
+    { provide: GitService, useValue: git },
+    { provide: SettingsService, useValue: { gitEnterpriseHost: signal("") } },
+    { provide: WorkspaceService, useValue: { openFolder } },
+  ]);
+  const clone = TestBed.inject(CloneService);
+  clone.open();
+  fixture.detectChanges();
+  return { clone, openFolder, el: document.body, fixture };
+}
+
+function create(providers: Provider[]) {
   TestBed.resetTestingModule();
-  TestBed.configureTestingModule({
-    providers: [
-      { provide: CloneService, useValue: clone },
-      { provide: GitService, useValue: git },
-    ],
-  });
+  TestBed.configureTestingModule({ providers });
   TestBed.overrideComponent(CloneComponent, { set: { styleUrl: undefined } });
   const fixture = TestBed.createComponent(CloneComponent);
   fixture.detectChanges();
-  // hx-dialog renders its content in the overlay, outside the host element.
-  return { clone, git, el: document.body, fixture };
+  return fixture;
 }
 
 describe("CloneComponent", () => {
@@ -64,10 +90,26 @@ describe("CloneComponent", () => {
   const buttons = (el: HTMLElement) => [...el.querySelectorAll<HTMLButtonElement>("button")];
   const button = (el: HTMLElement, label: string) =>
     buttons(el).find((b) => b.textContent?.trim() === label)!;
-  const field = (el: HTMLElement, label: string) => {
-    const found = [...el.querySelectorAll("label")].find((l) => l.textContent?.trim() === label)!;
-    return el.querySelector<HTMLInputElement>(`#${found.htmlFor}`)!;
+  const label = (el: HTMLElement, name: string) =>
+    [...el.querySelectorAll("label")].find((l) => l.textContent?.replace("*", "").trim() === name)!;
+  const field = (el: HTMLElement, name: string) =>
+    el.querySelector<HTMLInputElement>(`#${label(el, name).htmlFor}`)!;
+  const urlError = (el: HTMLElement) =>
+    el.querySelector(".hx-field-error-shown")?.textContent?.trim();
+  const folderError = (el: HTMLElement) => el.querySelector("#clone-folder-error");
+  const described = (el: HTMLElement, input: HTMLElement) =>
+    (input.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => el.querySelector(`#${id}`)?.textContent?.trim());
+  const type = (input: HTMLInputElement, value: string) => {
+    input.value = value;
+    input.dispatchEvent(new Event("input"));
   };
+
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+    document.body.innerHTML = "";
+  });
 
   it("focuses the URL field on open", async () => {
     // jsdom has no layout, so the focus trap would take every element for invisible.
@@ -127,9 +169,114 @@ describe("CloneComponent", () => {
     expect(clone.close).toHaveBeenCalled();
   });
 
-  it("disables Clone until the form is complete", () => {
-    const { el } = render(null, false, undefined, { error: "", canStart: false });
-    expect(button(el, "Clone").disabled).toBe(true);
+  it("shows both errors on a submit of the empty form and calls no backend command", async () => {
+    const { el, fixture } = renderWithService();
+    expect(urlError(el)).toBeUndefined();
+    expect(folderError(el)).toBeNull();
+    const submit = button(el, "Clone");
+    expect(submit.disabled).toBe(false);
+
+    submit.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const url = field(el, "Repository URL");
+    expect(urlError(el)).toBe("Enter an HTTPS URL of github.com");
+    expect(url.getAttribute("aria-invalid")).toBe("true");
+    expect(described(el, url)).toContain("Enter an HTTPS URL of github.com");
+    const target = field(el, "Target folder");
+    expect(folderError(el)?.classList).toContain("hx-message-error");
+    expect(folderError(el)?.textContent?.trim()).toBe("Choose a target folder");
+    expect(target.getAttribute("aria-invalid")).toBe("true");
+    expect(target.getAttribute("aria-describedby")).toBe("clone-folder-error");
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("refuses an SSH URL with the error on the field", async () => {
+    const { clone, el, fixture } = renderWithService();
+    clone.parent.set("/home/me/vaults");
+    type(field(el, "Repository URL"), "git@github.com:owner/notes.git");
+    button(el, "Clone").click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(urlError(el)).toBe("Enter an HTTPS URL of github.com");
+    expect(folderError(el)).toBeNull();
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("starts the clone of a valid form", async () => {
+    vi.mocked(invoke).mockResolvedValue("/home/me/vaults/notes");
+    const { clone, openFolder, el, fixture } = renderWithService();
+    type(field(el, "Repository URL"), "https://github.com/owner/notes.git");
+    clone.parent.set("/home/me/vaults");
+    fixture.detectChanges();
+    button(el, "Clone").click();
+    await vi.waitFor(() => expect(openFolder).toHaveBeenCalledWith("/home/me/vaults/notes"));
+    expect(invoke).toHaveBeenCalledWith("git_clone_vault", {
+      url: "https://github.com/owner/notes.git",
+      parent: "/home/me/vaults",
+    });
+  });
+
+  it("clears the errors once the form is complete", () => {
+    const { clone, el, fixture } = render(null, false, undefined, { error: "", canStart: false });
+    clone.url.set("");
+    button(el, "Clone").click();
+    fixture.detectChanges();
+    expect(urlError(el)).toBeDefined();
+    expect(folderError(el)).not.toBeNull();
+
+    type(field(el, "Repository URL"), "https://github.com/owner/notes.git");
+    clone.parent.set("/home/me/vaults");
+    fixture.detectChanges();
+    expect(clone.url()).toBe("https://github.com/owner/notes.git");
+    expect(urlError(el)).toBeUndefined();
+    expect(folderError(el)).toBeNull();
+    const target = field(el, "Target folder");
+    expect(target.hasAttribute("aria-invalid")).toBe(false);
+    expect(target.hasAttribute("aria-describedby")).toBe(false);
+  });
+
+  it("shows the URL error when the field is left invalid", () => {
+    const { el, fixture } = render();
+    const url = field(el, "Repository URL");
+    type(url, "https://gitlab.com/a/b.git");
+    fixture.detectChanges();
+    expect(urlError(el)).toBeUndefined();
+    url.dispatchEvent(new FocusEvent("blur"));
+    fixture.detectChanges();
+    expect(urlError(el)).toBe("Enter an HTTPS URL of github.com");
+    expect(folderError(el)).toBeNull();
+  });
+
+  it("names the configured enterprise host in the hint and the error", () => {
+    const { settings, el, fixture } = render();
+    settings.gitEnterpriseHost.set("ghe.example.com");
+    const url = field(el, "Repository URL");
+    type(url, "https://other.example.com/a/b.git");
+    url.dispatchEvent(new FocusEvent("blur"));
+    fixture.detectChanges();
+    expect(urlError(el)).toBe("Enter an HTTPS URL of github.com or ghe.example.com");
+    expect(el.querySelector(".hx-field-hint")?.textContent).toContain("ghe.example.com");
+    type(url, "https://ghe.example.com/a/b.git");
+    fixture.detectChanges();
+    expect(urlError(el)).toBeUndefined();
+  });
+
+  it("marks both fields as required and gives the URL format as hint, not as placeholder", () => {
+    const { el } = render();
+    for (const name of ["Repository URL", "Target folder"]) {
+      expect(label(el, name).querySelector(".hx-field-required"), name).not.toBeNull();
+      expect(field(el, name).getAttribute("aria-required"), name).toBe("true");
+    }
+    const url = field(el, "Repository URL");
+    expect(url.hasAttribute("placeholder")).toBe(false);
+    expect(described(el, url)[0]).toContain("https://<host>/<owner>/<repository>");
+  });
+
+  it("disables the URL field while cloning", () => {
+    const { el } = render(null, true);
+    expect(field(el, "Repository URL").disabled).toBe(true);
   });
 
   it("shows the progress, a loading Clone button and a cancel button while cloning", () => {

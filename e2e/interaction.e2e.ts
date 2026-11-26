@@ -84,6 +84,21 @@ test("the clone dialog focuses the URL, Enter clones and Escape closes it", asyn
     .toEqual({ url: "https://github.com/owner/notes.git", parent: "/tmp/vaults" });
 });
 
+test("the clone dialog says what is missing on Enter and clones nothing", async ({ page }) => {
+  await openPalette(page);
+  await page.getByRole("combobox").fill(">Clone vault");
+  await page.getByRole("option", { name: /Clone vault/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Clone vault" });
+  const url = dialog.getByRole("textbox", { name: "Repository URL" });
+  await url.fill("git@github.com:owner/notes.git");
+  await takeCalls(page);
+  await url.press("Enter");
+  await expect(url).toHaveAttribute("aria-invalid", "true");
+  await expect(dialog.getByText("Enter an HTTPS URL of github.com")).toBeVisible();
+  await expect(dialog.getByText("Choose a target folder")).toBeVisible();
+  expect(await takeCalls(page, "git_clone_vault")).toEqual([]);
+});
+
 test("the folder choice takes the focus, Enter adds the chosen form", async ({ page }) => {
   await page.evaluate(() => {
     window.__demo!.answer("workspace_variable_choices", [

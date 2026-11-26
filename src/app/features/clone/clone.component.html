@@ -6,40 +6,42 @@
   position="top"
   width="min(520px, 90vw)"
 >
-  <form id="clone-form" (submit)="submit($event)">
-    <hx-field label="Repository URL">
-      <input
-        hx-input
-        type="url"
-        autocomplete="off"
-        placeholder="https://github.com/owner/notes.git"
-        [value]="clone.url()"
-        [disabled]="clone.cloning()"
-        (input)="clone.url.set($any($event.target).value)"
-      />
+  <!-- novalidate: the browser would refuse an SSH URL itself and never send the submit event. -->
+  <form id="clone-form" novalidate (submit)="submit($event)">
+    <hx-field label="Repository URL" [hint]="urlHint()" required>
+      <input hx-input type="url" autocomplete="off" spellcheck="false" [formField]="urlField" />
     </hx-field>
-    <hx-field label="Target folder">
-      <hx-input-group>
-        <input
-          hx-input
-          type="text"
-          readonly
-          placeholder="No target folder chosen"
-          [value]="clone.parent()"
-          [title]="clone.parent()"
-        />
-        <button
-          hx-button
-          type="button"
-          variant="outlined"
-          severity="secondary"
-          [disabled]="clone.cloning()"
-          (click)="chooseFolder()"
-        >
-          Choose folder…
-        </button>
-      </hx-input-group>
-    </hx-field>
+    <div class="path-picker">
+      <hx-field label="Target folder" required>
+        <hx-input-group>
+          <input
+            hx-input
+            type="text"
+            readonly
+            placeholder="No target folder chosen"
+            [value]="clone.parent()"
+            [title]="clone.parent()"
+            [attr.aria-invalid]="folderError() ? 'true' : null"
+            [attr.aria-describedby]="folderError() ? 'clone-folder-error' : null"
+          />
+          <button
+            hx-button
+            type="button"
+            variant="outlined"
+            severity="secondary"
+            [disabled]="clone.cloning()"
+            (click)="chooseFolder()"
+          >
+            Choose folder…
+          </button>
+        </hx-input-group>
+      </hx-field>
+      @if (folderError(); as error) {
+        <hx-message id="clone-folder-error" severity="error" variant="simple" size="small">
+          {{ error }}
+        </hx-message>
+      }
+    </div>
 
     @if (git.tokenPrompt(); as prompt) {
       <hx-message severity="error">
@@ -153,14 +155,6 @@
     <button hx-button type="button" variant="text" (click)="clone.close()">
       {{ clone.cloning() ? "Cancel clone" : "Close" }}
     </button>
-    <button
-      hx-button
-      type="submit"
-      form="clone-form"
-      [loading]="clone.cloning()"
-      [disabled]="!clone.cloning() && !clone.canStart()"
-    >
-      Clone
-    </button>
+    <button hx-button type="submit" form="clone-form" [loading]="clone.cloning()">Clone</button>
   </div>
 </hx-dialog>
