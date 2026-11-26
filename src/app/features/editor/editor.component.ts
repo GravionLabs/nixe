@@ -3,6 +3,7 @@ import {
   ApplicationRef,
   Component,
   EnvironmentInjector,
+  Injector,
   computed,
   createComponent,
   effect,
@@ -55,10 +56,12 @@ import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
 import { textChange } from "./text-change";
+import { BaseBlocks } from "../bases/base-blocks";
 import { PropertiesComponent } from "../properties/properties.component";
 import { ExternalCompareComponent } from "./external-compare.component";
 import type { LivePreviewHooks, PropertiesHandle } from "./live-preview";
 import { isRenderedLine, livePreview } from "./live-preview";
+import { mountLiveBase } from "./live-bases";
 import type { FoldAction } from "./folding";
 import { foldAction, folding, restoreFolds } from "./folding";
 import { headingLineAt } from "../../core/composer/composer-core";
@@ -116,6 +119,8 @@ export class EditorComponent implements OnDestroy {
   private readonly live = new Compartment();
   private readonly markdown = inject(MarkdownService);
   private readonly mermaid = new MermaidRenderer();
+  /** The bases of the live preview. */
+  private readonly bases = new BaseBlocks(this.appRef, this.injector, inject(Injector));
   private view: EditorView | undefined;
   private session: Session | null = null;
   private loading = false;
@@ -208,6 +213,7 @@ export class EditorComponent implements OnDestroy {
     this.doc.editorHook = null;
     this.doc.remoteHook = null;
     this.view?.destroy();
+    this.bases.dispose();
   }
 
   private async watchWindowClose(): Promise<void> {
@@ -254,6 +260,8 @@ export class EditorComponent implements OnDestroy {
     };
     this.session = session;
     this.editor.unsaved.set(false);
+    // Also for a note without a base, which drops the chosen views of the one before.
+    this.bases.enter(current);
 
     this.loading = true;
     const state = EditorState.create({
@@ -376,6 +384,10 @@ export class EditorComponent implements OnDestroy {
         },
       };
     },
+    mountBase: (el, origin, occurrence) =>
+      mountLiveBase(this.bases, el, origin, occurrence, this.session?.path ?? null, () =>
+        this.view?.requestMeasure(),
+      ),
     render: (el, source) => {
       const ctx = {
         filePath: this.doc.path(),

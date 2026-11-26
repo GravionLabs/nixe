@@ -106,13 +106,27 @@ export type BaseBlock = (
   note: string | null;
   /** The view and sort chosen in the block. */
   choice: WritableSignal<BaseChoice>;
+  /** The cells of its table can be edited (the live preview); else the values are read-only. */
+  editable?: boolean;
+  /** Holds the last answer, which a block drawn again shows while nothing changed. */
+  answer?: { current: KeptAnswer | null };
 };
+
+/** What a base showed for `key`: the file, the choice and the state of the vault index. */
+export interface KeptAnswer {
+  key: string;
+  views: BaseView[];
+  active: number | null;
+  result: BaseResult | null;
+  error: string | null;
+}
 
 /** Provided to a `BaseComponent` that shows a base in a note instead of the file of its tab. */
 export const BASE_BLOCK = new InjectionToken<BaseBlock>("BASE_BLOCK");
 
 /**
- * A base: the tab of a `.base` file, a ```base block of a note or an embed of a `.base` file in one.
+ * A base: the tab of a `.base` file, a ```base block of a note or an embed of a `.base` file in one,
+ * in the reading view or the live preview.
  * The core answers its view from the index.
  */
 @Component({
@@ -204,8 +218,9 @@ export class BaseComponent {
         const shown = change ? cellOfValue(change.value) : cell;
         const view = viewCell(shown, column?.id === FILE_NAME ? row.path : null);
         if (!column || !property) return view;
-        // A block of a note shows the values; they are edited in the base tab or the note.
-        const editor = this.block ? null : cellEditor(property, shown, columnCells[i] ?? []);
+        // The reading view shows the values; they are edited in a base tab or the live preview.
+        const readOnly = this.block !== null && !this.block.editable;
+        const editor = readOnly ? null : cellEditor(property, shown, columnCells[i] ?? []);
         if (editor) {
           const label = `${column.label} of ${title}`;
           view.edit = { editor, property, label, value: shown.value };
@@ -275,6 +290,15 @@ export class BaseComponent {
       this.active.set(null);
       this.shown = shown;
     }
+    const key = this.key();
+    const kept = this.block?.answer?.current;
+    if (kept && kept.key === key) {
+      this.views.set(kept.views);
+      this.active.set(kept.active);
+      this.result.set(kept.result);
+      this.error.set(kept.error);
+      return;
+    }
     // A tab without a base has nothing to show; a block of an unsaved note is outside the vault.
     if (path === null && !this.block) return;
     // Only the notes of the vault are indexed here: a base of another root would list the wrong ones.
@@ -318,6 +342,7 @@ export class BaseComponent {
       if (named !== null && index === null) {
         this.result.set(null);
         this.error.set(`View not found: ${named} in ${embedded}`);
+        this.keep(key);
         return;
       }
       const result = await backend.baseQuery(source, index, sort, path.slice(prefix.length));
@@ -328,12 +353,31 @@ export class BaseComponent {
       // The result holds the stored values; those still being written stay as edited.
       this.edited.update((edited) => new Map([...edited].filter(([, e]) => e.pending > 0)));
       this.error.set(null);
+      this.keep(key);
     } catch (err) {
       // The command log has the failure already (`loggedInvoke`).
       if (request !== this.request) return;
       this.result.set(null);
       this.error.set(String(err));
+      this.keep(key);
     }
+  }
+
+  private keep(key: string): void {
+    const answer = this.block?.answer;
+    if (!answer) return;
+    answer.current = {
+      key,
+      views: this.views(),
+      active: this.active(),
+      result: this.result(),
+      error: this.error(),
+    };
+  }
+
+  /** The kept answer may hold a value from before an edit. */
+  private forget(): void {
+    if (this.block?.answer) this.block.answer.current = null;
   }
 
   /** Shows why there is no base, without the views of the one shown before. */
@@ -354,6 +398,7 @@ export class BaseComponent {
     const key = editKey(path, cell.property);
     const before = this.edited().get(key);
     this.setEdited(key, { value: change(cell.value), pending: (before?.pending ?? 0) + 1 });
+    this.forget();
     try {
       const value = await this.notes.editProperty(joinPath(root, path), cell.property, change);
       const now = this.edited().get(key);
@@ -370,6 +415,8 @@ export class BaseComponent {
       console.error(message);
       // The tab may be another one by now: the notice goes to the app.
       this.tabs.notice.set(message);
+    } finally {
+      this.forget();
     }
   }
 
