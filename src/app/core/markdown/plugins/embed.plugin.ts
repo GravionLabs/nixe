@@ -3,7 +3,7 @@ import type { MarkdownIt } from "markdown-it";
 import { parseEmbed } from "../embed";
 import { joinPath } from "../paths";
 import { resolveWikilink } from "../wikilink-resolver";
-import { baseBlockHtml } from "./base-fence.plugin";
+import { baseBlockHtml, encodeBaseAttribute } from "./base-fence.plugin";
 
 /** Render environment for embeds. */
 export interface EmbedEnv {
@@ -79,7 +79,7 @@ export function embedPlugin(md: MarkdownIt, options: { bases?: boolean } = {}): 
   });
 
   md.renderer.rules["base_embed"] = (tokens, idx) =>
-    baseBlockHtml(`data-base-embed="${md.utils.escapeHtml(tokens[idx].content)}"`);
+    baseBlockHtml(`data-base-embed="${encodeBaseAttribute(tokens[idx].content)}"`);
 
   md.renderer.rules["embed"] = (tokens, idx) => {
     const t = tokens[idx];

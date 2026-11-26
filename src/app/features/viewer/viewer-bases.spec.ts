@@ -419,6 +419,14 @@ describe("ViewerComponent .base embeds", () => {
     },
   );
 
+  it("keeps a view name that the sanitizer would drop as plain text", async () => {
+    withFiles({ "/vault/bases/Books.base": "books" });
+    const view = render("![[Books.base#To read --> Done]]\n", "/vault/dir/Home.md", FILES);
+    await view.settle();
+
+    expect(alert(view.el)).toBe("View not found: To read --> Done in bases/Books.base");
+  });
+
   it("binds `this` of an embed in an embedded note to that note", async () => {
     withFiles({ "/vault/bases/Books.base": "books" });
     const fallback = invokeMock.getMockImplementation()!;

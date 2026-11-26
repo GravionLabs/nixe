@@ -97,12 +97,15 @@ export class BaseBlocks {
 /** Where the base of a block comes from: the target of an embed, else the source of a fence. */
 function originOf(el: HTMLElement): { source: string } | { embed: string } | null {
   const embed = el.dataset["baseEmbed"];
-  if (embed !== undefined) return { embed };
+  if (embed !== undefined) {
+    const target = decode(embed);
+    return target === null ? null : { embed: target };
+  }
   const source = decode(el.dataset["base"] ?? "");
   return source === null ? null : { source };
 }
 
-/** The source of a block; null for an attribute written by hand that is no encoded text. */
+/** The source or embed target of a block; null for an attribute written by hand that is no encoded text. */
 function decode(encoded: string): string | null {
   try {
     return decodeURIComponent(encoded);

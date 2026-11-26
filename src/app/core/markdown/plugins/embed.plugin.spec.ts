@@ -33,7 +33,7 @@ describe("embed plugin", () => {
     const bases = createMarkdownRenderer({ math: false, bases: true });
     const html = bases.render('![[Books.base#My "view"|300]]', { vaultFiles: files });
     expect(html).toContain(
-      '<div class="base-block" data-base-embed="Books.base#My &quot;view&quot;">',
+      '<div class="base-block" data-base-embed="Books.base%23My%20%22view%22">',
     );
     expect(html).toContain("shown in the reading view");
     expect(render("![[Books.base]]")).toContain(
