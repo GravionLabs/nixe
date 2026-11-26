@@ -17,8 +17,13 @@ import { CommandRegistry } from "../commands/command-registry";
 import { SettingsService } from "../settings/settings.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { TerminalBackend } from "./terminal-backend";
-import { TERMINAL_PRESETS } from "./terminal-presets";
-import { TERMINAL_OFF_NOTICE, TerminalService } from "./terminal.service";
+import { SKILLS_UPDATE_PRESET, TERMINAL_PRESETS, VAULT_SETUP_PRESET } from "./terminal-presets";
+import {
+  TERMINAL_CONFIRM,
+  TERMINAL_OFF_CONFIRM,
+  TERMINAL_OFF_QUESTION,
+  TerminalService,
+} from "./terminal.service";
 
 describe("TerminalService", () => {
   const terminalEnabled = signal(false);
@@ -26,6 +31,7 @@ describe("TerminalService", () => {
   const terminalVisible = signal(false);
   const vaultRoot = signal<string | null>("/v");
   const backend = { checkPreset: vi.fn<(id: string) => Promise<void>>() };
+  const save = vi.fn<() => Promise<void>>();
 
   beforeAll(() => TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting()));
 
@@ -36,7 +42,7 @@ describe("TerminalService", () => {
       providers: [
         {
           provide: SettingsService,
-          useValue: { terminalEnabled, terminalConfirmed, terminalVisible },
+          useValue: { terminalEnabled, terminalConfirmed, terminalVisible, save },
         },
         { provide: WorkspaceService, useValue: { vaultRoot } },
         { provide: TerminalBackend, useValue: backend },
@@ -53,6 +59,7 @@ describe("TerminalService", () => {
     vaultRoot.set("/v");
     ask.mockReset();
     backend.checkPreset.mockReset().mockResolvedValue(undefined);
+    save.mockReset().mockResolvedValue(undefined);
   });
 
   it("registers the toggle-terminal command with a shortcut", () => {
@@ -80,13 +87,118 @@ describe("TerminalService", () => {
     expect(service.open()).toBe(false);
   });
 
-  it("only points to the setting while the terminal is off", () => {
-    const { service, commands } = create();
-    commands.execute("toggle-terminal");
-    expect(terminalVisible()).toBe(false);
-    expect(service.open()).toBe(false);
-    expect(service.notice()).toBe(TERMINAL_OFF_NOTICE);
-    expect(TERMINAL_OFF_NOTICE).toContain("Enable terminal");
+  describe("while the terminal is off", () => {
+    const triggers = [
+      ["toggle-terminal", 0],
+      ["new-terminal-tab", 1],
+      ["open-claude-in-vault", 1],
+      ["open-copilot-in-vault", 1],
+    ] as const;
+    const settled = () => new Promise((resolve) => setTimeout(resolve));
+
+    it.each(triggers)("%s asks, enables on yes and runs the action", async (id, tabs) => {
+      ask.mockResolvedValue(true);
+      const { service, commands } = create();
+      commands.execute(id);
+      await settled();
+      expect(ask).toHaveBeenCalledTimes(1);
+      expect(ask.mock.calls[0][0]).toBe(TERMINAL_OFF_CONFIRM);
+      expect(terminalEnabled()).toBe(true);
+      expect(terminalConfirmed()).toBe(true);
+      expect(service.open()).toBe(true);
+      expect(service.tabs()).toHaveLength(tabs);
+      const preset = TERMINAL_PRESETS.find((p) => p.commandId === id)?.id ?? null;
+      expect(service.tabs().map((t) => t.preset)).toEqual(tabs ? [preset] : []);
+    });
+
+    it.each(triggers)("%s changes nothing when declined, and asks again", async (id) => {
+      ask.mockResolvedValue(false);
+      const { service, commands } = create();
+      commands.execute(id);
+      await settled();
+      expect(terminalEnabled()).toBe(false);
+      expect(terminalConfirmed()).toBe(false);
+      expect(terminalVisible()).toBe(false);
+      expect(service.tabs()).toEqual([]);
+      expect(service.notice()).toBeNull();
+      expect(save).not.toHaveBeenCalled();
+      expect(backend.checkPreset).not.toHaveBeenCalled();
+      commands.execute(id);
+      await settled();
+      expect(ask).toHaveBeenCalledTimes(2);
+    });
+
+    it("carries the security warning only while never confirmed", async () => {
+      expect(TERMINAL_OFF_CONFIRM).toContain(TERMINAL_CONFIRM);
+      terminalConfirmed.set(true);
+      ask.mockResolvedValue(false);
+      const { service } = create();
+      service.toggle();
+      await settled();
+      expect(ask.mock.calls[0][0]).toBe(TERMINAL_OFF_QUESTION);
+    });
+
+    it("shows the panel after yes, also when it was stored as visible", async () => {
+      terminalVisible.set(true);
+      ask.mockResolvedValue(true);
+      const { service } = create();
+      service.toggle();
+      await settled();
+      expect(service.open()).toBe(true);
+    });
+
+    it("opens one dialog only, and runs only its action", async () => {
+      let answer!: (yes: boolean) => void;
+      ask.mockReturnValue(new Promise<boolean>((resolve) => (answer = resolve)));
+      const { service } = create();
+      service.newTab();
+      service.newTab();
+      service.toggle();
+      expect(await service.openPreset(TERMINAL_PRESETS[0])).toBe(false);
+      expect(await service.setEnabled(true)).toBe(false);
+      expect(ask).toHaveBeenCalledTimes(1);
+      answer(true);
+      await settled();
+      expect(service.tabs()).toHaveLength(1);
+      expect(terminalVisible()).toBe(true);
+    });
+
+    it("opens no second dialog while the one of the setting is open", async () => {
+      ask.mockReturnValue(new Promise<boolean>(() => undefined));
+      const { service } = create();
+      void service.setEnabled(true);
+      service.newTab();
+      await settled();
+      expect(ask).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs the action only once the setting is saved", async () => {
+      let saved!: () => void;
+      save.mockReturnValue(new Promise<void>((resolve) => (saved = resolve)));
+      ask.mockResolvedValue(true);
+      const { service } = create();
+      const opened = service.openPreset(TERMINAL_PRESETS[0]);
+      await settled();
+      service.newTab();
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(backend.checkPreset).not.toHaveBeenCalled();
+      expect(service.tabs()).toEqual([]);
+      expect(terminalVisible()).toBe(false);
+      saved();
+      expect(await opened).toBe(true);
+      expect(service.tabs()).toHaveLength(1);
+    });
+
+    it.each([SKILLS_UPDATE_PRESET, VAULT_SETUP_PRESET])(
+      "asks for the preset $id of the vault skills too",
+      async (preset) => {
+        ask.mockResolvedValue(true);
+        const { service } = create();
+        expect(await service.openPreset(preset)).toBe(true);
+        expect(ask).toHaveBeenCalledTimes(1);
+        expect(service.tabs()[0].preset).toBe(preset.id);
+      },
+    );
   });
 
   it("asks once before the terminal is enabled", async () => {
@@ -157,23 +269,33 @@ describe("TerminalService", () => {
       expect(terminalVisible()).toBe(true);
     });
 
-    it("opens no tab and shows the install hint when the CLI is missing", async () => {
-      backend.checkPreset.mockRejectedValue("Claude Code is not installed.");
-      const { service } = create();
-      await service.openPreset(TERMINAL_PRESETS[0]);
-      expect(service.tabs()).toEqual([]);
-      expect(terminalVisible()).toBe(false);
-      expect(service.notice()).toBe("Claude Code is not installed.");
-    });
+    it.each(TERMINAL_PRESETS)(
+      "opens a shell tab and shows the install hint when the CLI of $id is missing",
+      async (preset) => {
+        backend.checkPreset.mockRejectedValue("The CLI is not installed.");
+        const { service } = create();
+        const onExit = vi.fn();
+        expect(await service.openPreset(preset, onExit)).toBe(false);
+        expect(service.tabs()).toEqual([{ key: 1, title: "Terminal 1", preset: null }]);
+        expect(service.activeKey()).toBe(1);
+        expect(terminalVisible()).toBe(true);
+        expect(service.notice()).toBe("The CLI is not installed.");
+        service.ended(1);
+        expect(onExit).not.toHaveBeenCalled();
+      },
+    );
 
-    it("points to the setting while the terminal is off, without a check", async () => {
-      terminalEnabled.set(false);
-      const { service } = create();
-      await service.openPreset(TERMINAL_PRESETS[0]);
-      expect(service.notice()).toBe(TERMINAL_OFF_NOTICE);
-      expect(backend.checkPreset).not.toHaveBeenCalled();
-      expect(service.tabs()).toEqual([]);
-    });
+    it.each([SKILLS_UPDATE_PRESET, VAULT_SETUP_PRESET])(
+      "opens no shell for the missing CLI of $id",
+      async (preset) => {
+        backend.checkPreset.mockRejectedValue("Not installed.");
+        const { service } = create();
+        expect(await service.openPreset(preset)).toBe(false);
+        expect(service.tabs()).toEqual([]);
+        expect(terminalVisible()).toBe(false);
+        expect(service.notice()).toBe("Not installed.");
+      },
+    );
 
     it("runs the exit handler of a preset tab once, and not after the tab is closed", async () => {
       const { service } = create();
@@ -250,14 +372,6 @@ describe("TerminalService", () => {
       expect(commands.available().some((c) => c.id === "close-terminal-tab")).toBe(true);
       commands.execute("close-terminal-tab");
       expect(service.tabs()).toEqual([]);
-    });
-
-    it("does not open a tab while the terminal is off", () => {
-      terminalEnabled.set(false);
-      const { service } = create();
-      service.newTab();
-      expect(service.tabs()).toEqual([]);
-      expect(service.notice()).toBe(TERMINAL_OFF_NOTICE);
     });
 
     it("forgets the tabs when the terminal is turned off", async () => {
