@@ -209,11 +209,11 @@ importers:
         specifier: ^6.43.15
         version: 6.43.15
       '@gravionlabs/helix-desktop':
-        specifier: ^22.9.1
-        version: 22.9.1(e22709337393b822c2c269e0f0ebc3a9)
+        specifier: ^22.10.0
+        version: 22.10.0(184d294946075210177b0c1b16728d9b)
       '@gravionlabs/helix-ui':
-        specifier: ^22.9.1
-        version: 22.9.1(1451c33af360edb798ee4acb841a85d1)
+        specifier: ^22.10.0
+        version: 22.10.0(1451c33af360edb798ee4acb841a85d1)
       '@tauri-apps/api':
         specifier: ^2.12.0
         version: 2.12.0
@@ -890,8 +890,8 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@gravionlabs/helix-desktop@22.9.1':
-    resolution: {integrity: sha512-BNpbCtLPQji0KhVJTJQ/BGXG0iw/2j5J48QiB/0uXJRQIfOM7/OnvCsT/qkjbgKnhOwgIpba1gdzr8DI5L8qMA==}
+  '@gravionlabs/helix-desktop@22.10.0':
+    resolution: {integrity: sha512-hH5cWWXR7enoInBhbA6O/cReq0GWuJbbVcrWN6RuupryJY6Q49QXIglPBhCuItpXcD3xPsKSyEbfy2ZxeRYX5g==}
     peerDependencies:
       '@angular/cdk': '>=22'
       '@angular/common': '>=22'
@@ -908,8 +908,8 @@ packages:
       '@tauri-apps/plugin-updater':
         optional: true
 
-  '@gravionlabs/helix-ui@22.9.1':
-    resolution: {integrity: sha512-bKVjV3kWcB0fR8rdj+c9aMRBatUPD16hv+Xv8H0bFnIRf97CDuIr1BTvc2DucEE7+mrUbiCUK0rB60tbViQ90w==}
+  '@gravionlabs/helix-ui@22.10.0':
+    resolution: {integrity: sha512-gf0RYlOzP8o+o1S7Y3YZYeVQPpgBy4tUGCrsf8kR7OQmWMEXkFBznYNJjD66KccUX4Z6GZIXh/DdslBsFMJoRg==}
     peerDependencies:
       '@angular/cdk': '>=22'
       '@angular/common': '>=22'
@@ -3754,10 +3754,6 @@ packages:
     resolution: {integrity: sha512-aBY19bn/XA+hKOKX0qL7Z0UfdBsbQvc9hn993U8ALUjzxCvDcuZqLoRXjGJrUARWAlwMnsRVD9sw2AFNOYvalA==}
     engines: {node: '>=22'}
 
-  source-map-js@1.2.1:
-    resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
-    engines: {node: '>=0.10.0'}
-
   source-map-js@1.2.2:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
@@ -4709,19 +4705,19 @@ snapshots:
 
   '@exodus/bytes@1.16.0': {}
 
-  '@gravionlabs/helix-desktop@22.9.1(e22709337393b822c2c269e0f0ebc3a9)':
+  '@gravionlabs/helix-desktop@22.10.0(184d294946075210177b0c1b16728d9b)':
     dependencies:
       '@angular/cdk': 22.3.0(@angular/common@22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(@angular/forms@22.3.0(@angular/common@22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(@angular/platform-browser@22.3.0(@angular/common@22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2)))(rxjs@7.8.2))(@angular/platform-browser@22.3.0(@angular/common@22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2)))(rxjs@7.8.2)
       '@angular/common': 22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2)
       '@angular/core': 22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2)
-      '@gravionlabs/helix-ui': 22.9.1(1451c33af360edb798ee4acb841a85d1)
+      '@gravionlabs/helix-ui': 22.10.0(1451c33af360edb798ee4acb841a85d1)
       tslib: 2.8.1
     optionalDependencies:
       '@tauri-apps/api': 2.12.0
       '@tauri-apps/plugin-process': 2.4.0
       '@tauri-apps/plugin-updater': 2.13.3
 
-  '@gravionlabs/helix-ui@22.9.1(1451c33af360edb798ee4acb841a85d1)':
+  '@gravionlabs/helix-ui@22.10.0(1451c33af360edb798ee4acb841a85d1)':
     dependencies:
       '@angular/cdk': 22.3.0(@angular/common@22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(@angular/forms@22.3.0(@angular/common@22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(@angular/platform-browser@22.3.0(@angular/common@22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2)))(rxjs@7.8.2))(@angular/platform-browser@22.3.0(@angular/common@22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2)))(rxjs@7.8.2)
       '@angular/common': 22.3.0(@angular/core@22.3.0(@angular/compiler@22.3.0)(rxjs@7.8.2))(rxjs@7.8.2)
@@ -7186,7 +7182,7 @@ snapshots:
     dependencies:
       chokidar: 5.0.0
       immutable: 5.1.9
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
     optionalDependencies:
       '@parcel/watcher': 2.6.0
 
@@ -7217,8 +7213,6 @@ snapshots:
     dependencies:
       ansi-styles: 6.2.3
       is-fullwidth-code-point: 5.1.0
-
-  source-map-js@1.2.1: {}
 
   source-map-js@1.2.2: {}
 
