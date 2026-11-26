@@ -149,28 +149,36 @@
 
 <ng-template #chips let-p="p" let-source="source">
   <span class="chip-input">
-    @for (item of items(p.value); track $index) {
+    @for (chip of chipList(p.value); track chip.index) {
       <span class="property-chip">
-        {{ item }}
-        <button type="button" [attr.aria-label]="'Remove ' + item" (click)="removeChip(p, $index)">
-          ✕
-        </button>
+        {{ chip.text }}
+        @if (chipsEditable(p.value)) {
+          <button
+            type="button"
+            [attr.aria-label]="'Remove ' + chip.text"
+            (click)="removeChip(p, chip.index)"
+          >
+            ✕
+          </button>
+        }
       </span>
     }
-    <input
-      type="text"
-      class="chip-field"
-      [attr.list]="suggestId(p.key)"
-      [attr.aria-label]="'Add to ' + p.key"
-      placeholder="Add…"
-      (focus)="loadSuggestions()"
-      (keydown)="onChipKey($event, p)"
-      (change)="addChip(p, $any($event.target))"
-    />
-    <datalist [id]="suggestId(p.key)">
-      @for (s of suggest(source, p); track s) {
-        <option [value]="s"></option>
-      }
-    </datalist>
+    @if (chipsEditable(p.value)) {
+      <input
+        type="text"
+        class="chip-field"
+        [attr.list]="suggestId(p.key)"
+        [attr.aria-label]="'Add to ' + p.key"
+        placeholder="Add…"
+        (focus)="loadSuggestions()"
+        (keydown)="onChipKey($event, p)"
+        (change)="addChip(p, $any($event.target))"
+      />
+      <datalist [id]="suggestId(p.key)">
+        @for (s of suggest(source, p); track s) {
+          <option [value]="s"></option>
+        }
+      </datalist>
+    }
   </span>
 </ng-template>

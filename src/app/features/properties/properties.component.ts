@@ -20,11 +20,14 @@ import {
   NEW_PROPERTY_TYPES,
   chipSuggestions,
   chipText,
+  chipsEditable,
+  chipsOf,
   initialValue,
   propertiesSummary,
   isDateOnly,
   listItems,
   parseNumber,
+  storedItems,
 } from "../../core/markdown/properties-edit";
 
 const today = (): string => {
@@ -85,7 +88,8 @@ export class PropertiesComponent {
   private readonly aliasIndex = signal<string[]>([]);
 
   protected readonly isDateOnly = isDateOnly;
-  protected readonly items = listItems;
+  protected readonly chipList = chipsOf;
+  protected readonly chipsEditable = chipsEditable;
   protected readonly isObject = (v: unknown): boolean =>
     typeof v === "object" && v !== null && !Array.isArray(v);
   protected readonly json = (v: unknown): string => JSON.stringify(v);
@@ -144,19 +148,23 @@ export class PropertiesComponent {
     return this.apply({ kind: "remove", key });
   }
 
+  // The other items are written back as stored: a number stays a number, its line stays.
   protected addChip(p: Property, input: HTMLInputElement): Promise<boolean> | void {
     const text = chipText(p.key, input.value);
     input.value = "";
+    if (!chipsEditable(p.value)) return;
     const items = listItems(p.value);
     if (!text || items.some((i) => i.toLowerCase() === text.toLowerCase())) return;
-    return this.apply({ kind: "set", key: p.key, value: [...items, text] });
+    return this.apply({ kind: "set", key: p.key, value: [...storedItems(p.value), text] });
   }
 
+  /** Removes the stored item at `index` (`Chip.index`). */
   protected removeChip(p: Property, index: number): Promise<boolean> {
+    if (!chipsEditable(p.value)) return Promise.resolve(false);
     return this.apply({
       kind: "set",
       key: p.key,
-      value: listItems(p.value).filter((_, i) => i !== index),
+      value: storedItems(p.value).filter((_, i) => i !== index),
     });
   }
 
@@ -166,8 +174,8 @@ export class PropertiesComponent {
       event.preventDefault();
       void this.addChip(p, input);
     } else if (event.key === "Backspace" && !input.value) {
-      const items = listItems(p.value);
-      if (items.length) void this.removeChip(p, items.length - 1);
+      const last = chipsOf(p.value).at(-1);
+      if (last) void this.removeChip(p, last.index);
     }
   }
 
