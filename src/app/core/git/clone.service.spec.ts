@@ -115,7 +115,9 @@ describe("CloneService", () => {
   it("keeps the dialog open and shows a failure", async () => {
     vi.spyOn(backend, "gitCloneVault").mockRejectedValue("repository not found");
     await clone.start();
-    expect(clone.error()).toBe("Clone failed: repository not found");
+    expect(clone.error()).toBe(
+      "Clone failed: repository not found. Check the URL and your access, then clone again",
+    );
     expect(clone.visible()).toBe(true);
     expect(clone.cloning()).toBe(false);
     expect(openFolder).not.toHaveBeenCalled();
@@ -124,10 +126,12 @@ describe("CloneService", () => {
   it("explains a refused token and a cancel", async () => {
     vi.spyOn(backend, "gitCloneVault").mockRejectedValue("auth-failed:github.com");
     await clone.start();
-    expect(clone.error()).toBe("GitHub needs a valid access token");
+    expect(clone.error()).toBe(
+      "GitHub needs a valid access token. Check your access, then clone again",
+    );
     vi.spyOn(backend, "gitCloneVault").mockRejectedValue("cancelled");
     await clone.start();
-    expect(clone.error()).toBe("Clone cancelled");
+    expect(clone.error()).toBe("Clone cancelled. Clone again when you are ready");
     expect(openFolder).not.toHaveBeenCalled();
   });
 
@@ -143,7 +147,7 @@ describe("CloneService", () => {
     expect(clone.visible()).toBe(false);
     reject("cancelled");
     await running;
-    expect(clone.error()).toBe("Clone cancelled");
+    expect(clone.error()).toBe("Clone cancelled. Clone again when you are ready");
   });
 
   it("does not ask the backend to cancel when nothing runs", async () => {
@@ -157,7 +161,9 @@ describe("CloneService", () => {
     vi.spyOn(backend, "gitCloneVault").mockResolvedValue("/home/me/notes");
     openFolder.mockRejectedValue(new Error("boom"));
     await clone.start();
-    expect(clone.error()).toBe("Clone failed: boom");
+    expect(clone.error()).toBe(
+      "Clone failed: boom. Check the URL and your access, then clone again",
+    );
     expect(clone.visible()).toBe(true);
   });
 });
