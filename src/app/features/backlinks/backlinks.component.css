@@ -38,6 +38,8 @@ h2 {
 }
 
 .fold {
+  --h-button-sm-padding-x: 0;
+  --h-button-label-font-weight: 600;
   justify-content: flex-start;
   gap: var(--h-space-1);
 }
