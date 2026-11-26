@@ -101,10 +101,17 @@ h2 {
   min-width: 0;
 }
 
-.control input[type="text"],
-.control input[type="number"],
-.control select {
+/*
+ * The selects and fields of a row share one outer box, so their edges line up (#629): a select is
+ * `border-box` by default, an input is not. Only direct children: the token and location forms keep
+ * their own layout.
+ */
+.control > input[type="text"],
+.control > input[type="number"],
+.control > select {
+  box-sizing: border-box;
   width: 200px;
+  height: 28px;
   padding: 4px 8px;
   border: 1px solid var(--h-content-border-color);
   border-radius: 4px;

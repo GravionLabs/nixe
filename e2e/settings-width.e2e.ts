@@ -33,3 +33,28 @@ for (const width of [1920, 1280, 720]) {
     );
   });
 }
+
+test("the selects and fields of the settings rows have the same box", async ({ page }) => {
+  await ready(page);
+  await page.keyboard.press("ControlOrMeta+,");
+  const region = page.getByRole("region", { name: "Settings" });
+  await expect(region).toBeVisible();
+  const sections = region.getByRole("navigation").getByRole("button");
+  const boxes: { width: number; height: number; right: number }[] = [];
+  for (const section of await sections.all()) {
+    await section.click();
+    const controls = region.locator(
+      '.control > select, .control > input[type="text"], .control > input[type="number"]',
+    );
+    for (const control of await controls.all()) {
+      const box = await control.boundingBox();
+      boxes.push({ width: box!.width, height: box!.height, right: box!.x + box!.width });
+    }
+  }
+  expect(boxes.length).toBeGreaterThan(1);
+  for (const box of boxes) {
+    expect(box.width).toBeCloseTo(boxes[0].width, 0);
+    expect(box.height).toBeCloseTo(boxes[0].height, 0);
+    expect(box.right).toBeCloseTo(boxes[0].right, 0);
+  }
+});
