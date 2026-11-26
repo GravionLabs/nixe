@@ -7,24 +7,41 @@
     position="top"
     width="min(560px, 90vw)"
   >
-    <div class="choice">
-      <p>Store this folder as a path on this device or relative to a location variable?</p>
-      <ul>
-        <li>
-          <button type="button" class="primary" (click)="choose(null)">
-            <span class="form">Absolute path</span>
-            <span class="path">{{ pending.path }}</span>
-          </button>
-        </li>
+    <form id="root-choice-form" class="choice" (submit)="submit($event)">
+      <hx-fieldset legend="Store this folder as">
+        <p>A path on this device, or a path relative to a location variable.</p>
+        <label>
+          <input
+            type="radio"
+            hx-radio
+            name="root-form"
+            [checked]="selected() === null"
+            (change)="selected.set(null)"
+          />
+          <span class="form">Absolute path</span>
+          <span class="path">{{ pending.path }}</span>
+        </label>
         @for (choice of pending.choices; track choice.name) {
-          <li>
-            <button type="button" (click)="choose(choice.template)">
-              <span class="form">{{ choice.template }}</span>
-              <span class="path">{{ choice.resolved }}</span>
-            </button>
-          </li>
+          <label>
+            <input
+              type="radio"
+              hx-radio
+              name="root-form"
+              [checked]="selected() === choice.template"
+              (change)="selected.set(choice.template)"
+            />
+            <span class="form">{{ choice.template }}</span>
+            <span class="path">{{ choice.resolved }}</span>
+          </label>
         }
-      </ul>
+      </hx-fieldset>
+    </form>
+
+    <div hxDialogFooter>
+      <button hx-button type="button" variant="text" (click)="workspaces.cancelRootChoice()">
+        Cancel
+      </button>
+      <button hx-button type="submit" form="root-choice-form">Add folder</button>
     </div>
   </hx-dialog>
 }

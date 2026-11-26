@@ -10,6 +10,16 @@ beforeAll(() => {
   TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
 });
 
+const escape = (el: HTMLElement) =>
+  el
+    .querySelector("[role=dialog]")!
+    .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
+const footer = (el: HTMLElement) => [
+  ...el.querySelectorAll<HTMLButtonElement>(".hx-dialog-footer button"),
+];
+const primary = (el: HTMLElement) =>
+  footer(el).filter((b) => !b.matches(".hx-button-text, .hx-button-outlined, .hx-button-link"));
+
 function render(disk: string, mine: string) {
   TestBed.resetTestingModule();
   TestBed.overrideComponent(ExternalCompareComponent, {
@@ -41,15 +51,36 @@ describe("ExternalCompareComponent", () => {
     expect(el.querySelectorAll(".row.add, .row.del")).toHaveLength(0);
   });
 
-  it("offers the same two choices and says what each does", () => {
+  it("offers the two choices and says what each does", () => {
     const { el, events } = render("a", "b");
-    const buttons = Array.from(el.querySelectorAll<HTMLButtonElement>(".choices button"));
-    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["Reload", "Keep mine"]);
+    expect(footer(el).map((b) => b.textContent?.trim())).toEqual(["Cancel", "Reload", "Keep mine"]);
+    expect(footer(el)[0].classList).toContain("hx-button-text");
+    expect(footer(el)[1].classList).toContain("hx-button-danger");
     expect(el.querySelector(".choices")?.textContent).toContain("Discards your unsaved edits");
     expect(el.querySelector(".choices")?.textContent).toContain("Replaces the version on disk");
-    buttons[0].click();
-    buttons[1].click();
+    footer(el)[1].click();
     expect(events.reload).toHaveBeenCalledTimes(1);
+    expect(events.keep).not.toHaveBeenCalled();
+  });
+
+  it("keeps the editor text with the one primary button", () => {
+    const { el, events } = render("a", "b");
+    expect(primary(el)).toEqual([footer(el)[2]]);
+    primary(el)[0].click();
     expect(events.keep).toHaveBeenCalledTimes(1);
+    expect(events.reload).not.toHaveBeenCalled();
+  });
+
+  it("closes with Escape and with Cancel, without a choice", async () => {
+    for (const close of [escape, (el: HTMLElement) => footer(el)[0].click()]) {
+      const { el, events, fixture } = render("a", "b");
+      close(el);
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        expect(events.closed).toHaveBeenCalled();
+      });
+      expect(events.reload).not.toHaveBeenCalled();
+      expect(events.keep).not.toHaveBeenCalled();
+    }
   });
 });

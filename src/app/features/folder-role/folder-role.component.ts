@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from "@angular/core";
-import { HxDialog } from "@gravionlabs/helix-ui";
+import { HxButton, HxDialog, HxField, HxInput, HxMessage } from "@gravionlabs/helix-ui";
 
 import { basename } from "../../core/markdown/paths";
 import {
@@ -12,7 +12,7 @@ import {
   selector: "app-folder-role",
   templateUrl: "./folder-role.component.html",
   styleUrl: "./folder-role.component.css",
-  imports: [HxDialog],
+  imports: [HxButton, HxDialog, HxField, HxInput, HxMessage],
 })
 export class FolderRoleComponent {
   protected readonly roles = inject(FolderRolesService);

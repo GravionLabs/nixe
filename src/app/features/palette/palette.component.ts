@@ -1,6 +1,6 @@
 import type { ElementRef } from "@angular/core";
 import { Component, effect, inject, output, viewChild } from "@angular/core";
-import { HxDialog, HxKbd } from "@gravionlabs/helix-ui";
+import { HxButton, HxDialog, HxInput, HxKbd } from "@gravionlabs/helix-ui";
 
 import type { KeyHint } from "./key-hints.component";
 import { KeyHintsComponent, isMac, modKey } from "./key-hints.component";
@@ -43,7 +43,7 @@ const NOUN: Record<PaletteMode, string> = {
   selector: "app-palette",
   templateUrl: "./palette.component.html",
   styleUrl: "./palette.component.css",
-  imports: [HxDialog, HxKbd, KeyHintsComponent],
+  imports: [HxButton, HxDialog, HxInput, HxKbd, KeyHintsComponent],
 })
 export class PaletteComponent {
   protected readonly palette = inject(PaletteService);

@@ -7,11 +7,11 @@
   width="min(480px, 90vw)"
 >
   @if (dialog(); as d) {
-    <form (submit)="submit($event)">
+    <form id="folder-role-form" (submit)="submit($event)">
       <p class="folder" [title]="d.rel">{{ basename(d.rel) }}</p>
-      <label>
-        Role
+      <hx-field label="Role">
         <input
+          hx-input
           type="text"
           list="folder-role-names"
           autocomplete="off"
@@ -25,26 +25,30 @@
             <option [value]="role"></option>
           }
         </datalist>
-      </label>
-      <label>
-        Description{{ needsDescription() ? " (required for an own role)" : "" }}
+      </hx-field>
+      <hx-field [label]="'Description' + (needsDescription() ? ' (required for an own role)' : '')">
         <input
+          hx-input
           type="text"
           autocomplete="off"
           placeholder="What belongs into this folder"
           [value]="description()"
           (input)="description.set($any($event.target).value)"
         />
-      </label>
+      </hx-field>
       @if (error()) {
-        <p class="error" role="alert">{{ error() }}</p>
+        <hx-message severity="error">{{ error() }}</hx-message>
       }
-      <div class="buttons">
-        <button type="submit">Save</button>
-        @if (d.current) {
-          <button type="button" class="remove" (click)="remove()">Remove folder role</button>
-        }
-      </div>
     </form>
   }
+
+  <div hxDialogFooter>
+    <button hx-button type="button" variant="text" (click)="onHidden()">Cancel</button>
+    @if (dialog()?.current) {
+      <button hx-button type="button" variant="outlined" severity="danger" (click)="remove()">
+        Remove folder role
+      </button>
+    }
+    <button hx-button type="submit" form="folder-role-form">Save</button>
+  </div>
 </hx-dialog>

@@ -1,6 +1,6 @@
 import type { ElementRef } from "@angular/core";
 import { Component, effect, inject, output, viewChild } from "@angular/core";
-import { HxDialog } from "@gravionlabs/helix-ui";
+import { HxButton, HxDialog, HxField, HxInput } from "@gravionlabs/helix-ui";
 
 import type { TargetOption } from "../../core/composer/composer.service";
 import { ComposerService } from "../../core/composer/composer.service";
@@ -10,7 +10,7 @@ import { ComposerService } from "../../core/composer/composer.service";
   selector: "app-composer",
   templateUrl: "./composer.component.html",
   styleUrl: "../palette/palette.component.css",
-  imports: [HxDialog],
+  imports: [HxButton, HxDialog, HxField, HxInput],
 })
 export class ComposerComponent {
   protected readonly composer = inject(ComposerService);
@@ -24,6 +24,13 @@ export class ComposerComponent {
 
   protected onInput(event: Event): void {
     this.composer.setQuery((event.target as HTMLInputElement).value);
+  }
+
+  /** The primary button of the footer: takes the selected note, as Enter in the field does. */
+  protected submit(event: Event): void {
+    event.preventDefault();
+    const option = this.composer.current();
+    if (option) void this.choose(option);
   }
 
   protected onKeydown(event: KeyboardEvent): void {
