@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { editAndSave, type EditedBuffer } from "./buffer-edit";
+import { editAndSave, watchedChange, type EditedBuffer } from "./buffer-edit";
 import { AutoSaver, ExternalChangeTracker } from "./editor-core";
 
 /** An editor on a note whose disk text is `disk.text`. */
@@ -10,18 +10,23 @@ function editor(initial = "a: 1\n") {
     error: null as string | null,
     /** Runs right after the editor read the disk: another program writing the note. */
     afterRead: null as (() => void) | null,
+    /** Runs while a checked write is under way, before the disk is compared. */
+    duringWrite: null as (() => void) | null,
   };
   let text = initial;
   let failure: string | null = null;
   let refusal: string | null = null;
-  let expected: string | null = null;
   const tracker = new ExternalChangeTracker(initial);
   const saver = new AutoSaver({
-    write: async (next) => {
-      const expect = expected;
-      expected = null;
+    write: async (next, expected) => {
+      if (expected !== undefined) {
+        const during = disk.duringWrite;
+        disk.duringWrite = null;
+        during?.();
+        await Promise.resolve();
+      }
       if (disk.error !== null) throw disk.error;
-      if (expect !== null && disk.text !== expect)
+      if (expected !== undefined && disk.text !== expected)
         throw "the note changed on disk; nothing was written";
       disk.text = next;
       tracker.written(next);
@@ -44,7 +49,6 @@ function editor(initial = "a: 1\n") {
       after?.();
       return read;
     },
-    expectDisk: (next) => (expected = next),
     external: vi.fn(),
     refusal: () => refusal,
     failure: () => failure,
@@ -103,13 +107,7 @@ describe("editAndSave", () => {
   it("says that the change stays when the user typed during the failed write", async () => {
     const e = editor();
     e.disk.error = "denied";
-    const flush = e.saver.flush.bind(e.saver);
-    let flushes = 0;
-    vi.spyOn(e.saver, "flush").mockImplementation(async () => {
-      await flush();
-      // The first flush writes what was due before the edit, the second one the edit.
-      if (++flushes === 2) e.type("a: 1\nb: 2\ntyped\n");
-    });
+    e.disk.duringWrite = () => e.type("a: 1\nb: 2\ntyped\n");
     await expect(editAndSave(e.buffer, add)).rejects.toThrow("stays in the editor: denied");
     expect(e.buffer.text()).toBe("a: 1\nb: 2\ntyped\n");
     e.saver.discard();
@@ -128,20 +126,76 @@ describe("editAndSave", () => {
   it("keeps the unsaved text when the disk changed after the check", async () => {
     const e = editor();
     e.type("a: 1\ntyped\n");
-    // Read after the unsaved text was written first: the other program writes then.
     e.disk.afterRead = () => (e.disk.text = "external\n");
     await expect(editAndSave(e.buffer, add)).rejects.toThrow("changed on disk");
     expect(e.disk.text).toBe("external\n");
     expect(e.buffer.external).toHaveBeenCalledWith("external\n");
     expect(e.buffer.text()).toBe("a: 1\ntyped\n");
+    e.saver.discard();
   });
 
-  it("writes what was due before it checks the disk", async () => {
+  it("does not write unsaved text over a change made before the edit", async () => {
+    const e = editor();
+    e.type("a: 1\ntyped\n");
+    e.disk.text = "external\n";
+    await expect(editAndSave(e.buffer, add)).rejects.toThrow("changed on disk");
+    expect(e.disk.text).toBe("external\n");
+    expect(e.buffer.external).toHaveBeenCalledWith("external\n");
+    expect(e.buffer.text()).toBe("a: 1\ntyped\n");
+    e.saver.discard();
+  });
+
+  it("saves unsaved text and the edit in one write", async () => {
     const e = editor();
     e.type("a: 1\ntyped\n");
     await editAndSave(e.buffer, add);
     expect(e.disk.text).toBe("a: 1\ntyped\nb: 2\n");
     expect(e.buffer.external).not.toHaveBeenCalled();
+  });
+
+  it("waits for a write that is under way before it checks the disk", async () => {
+    const e = editor();
+    e.type("a: 1\ntyped\n");
+    const under = e.saver.flush();
+    await editAndSave(e.buffer, add);
+    await under;
+    expect(e.disk.text).toBe("a: 1\ntyped\nb: 2\n");
+  });
+
+  it("lets no flush write the edit unchecked while it is under way", async () => {
+    const e = editor();
+    let flushed: Promise<void> | undefined;
+    e.disk.duringWrite = () => {
+      e.disk.text = "external\n";
+      // A blur or ⌘S while the checked write runs.
+      flushed = e.saver.flush();
+    };
+    await expect(editAndSave(e.buffer, add)).rejects.toThrow("changed on disk");
+    await flushed;
+    expect(e.disk.text).toBe("external\n");
+    expect(e.buffer.text()).toBe("a: 1\n");
+    expect(e.saver.dirty).toBe(false);
+  });
+
+  it("judges a change the watcher reports during the edit only after it", async () => {
+    const e = editor();
+    const external = vi.fn();
+    e.disk.duringWrite = () => {
+      e.disk.text = "external\n";
+      watchedChange(e.saver, e.disk.text, async () => e.disk.text, external);
+      expect(external).not.toHaveBeenCalled();
+    };
+    await expect(editAndSave(e.buffer, add)).rejects.toThrow("changed on disk");
+    expect(e.buffer.text()).toBe("a: 1\n");
+    await vi.waitFor(() => expect(external).toHaveBeenCalledWith("external\n"));
+    expect(e.saver.busy).toBeNull();
+  });
+
+  it("takes a change the watcher reports at once when no edit runs", () => {
+    const e = editor();
+    const external = vi.fn();
+    watchedChange(e.saver, "external\n", async () => "", external);
+    expect(external).toHaveBeenCalledWith("external\n");
   });
 
   it("checks only the write of the edit", async () => {

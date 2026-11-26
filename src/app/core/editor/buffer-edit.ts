@@ -10,11 +10,6 @@ export interface EditedBuffer {
   /** Puts `text` into the editor as one change, which the saver and the other tabs receive. */
   apply(text: string): void;
   readDisk(): Promise<string>;
-  /**
-   * The next write of the saver goes through only while the disk still holds `disk` (null: no
-   * check). The write that takes it clears it.
-   */
-  expectDisk(disk: string | null): void;
   /** Takes over what changed on disk: reloads, or asks the user. */
   external(disk: string): void;
   /** Why no edit can be made now; null when it can. */
@@ -25,22 +20,44 @@ export interface EditedBuffer {
 }
 
 /**
+ * A change on disk that the watcher reported. While an edit holds the saver it is not judged yet:
+ * the edit checks the disk itself, and the disk is read again when it ended.
+ */
+export function watchedChange(
+  saver: AutoSaver,
+  disk: string,
+  readDisk: () => Promise<string>,
+  external: (disk: string) => void,
+): void {
+  const busy = saver.busy;
+  if (!busy) return external(disk);
+  // A file that cannot be read by now is reported by its own watcher event.
+  void busy
+    .then(readDisk)
+    .then((now) => watchedChange(saver, now, readDisk, external))
+    .catch(() => undefined);
+}
+
+/**
  * Applies `change` to the text in the editor, with its unsaved changes, and saves it at once.
  * The write goes through only while the disk holds what was checked. Rejects, without the change,
  * when the note changed on disk or cannot be saved; only when the user typed during a failed
  * write does the change stay in the editor, which the message says.
  */
-export async function editAndSave(
+export function editAndSave(buffer: EditedBuffer, change: (text: string) => string): Promise<void> {
+  // No other write runs between the check and the end of the edit, which would be unchecked.
+  return buffer.saver.exclusive((write) => checkedEdit(buffer, change, write));
+}
+
+async function checkedEdit(
   buffer: EditedBuffer,
   change: (text: string) => string,
+  write: (expected: string) => Promise<void>,
 ): Promise<void> {
   const assertAllowed = () => {
     const reason = buffer.refusal();
     if (reason !== null) throw new Error(reason);
   };
-  assertAllowed();
-  // A write that is under way or due comes first, so the disk is not checked against an old text.
-  await buffer.saver.flush();
   assertAllowed();
   // Only the note of the focused tab is watched: the disk may be ahead without a notice.
   const disk = await buffer.readDisk();
@@ -53,13 +70,8 @@ export async function editAndSave(
   const next = change(before);
   const dirty = buffer.saver.dirty;
   buffer.clearFailure();
-  buffer.expectDisk(disk);
-  try {
-    buffer.apply(next);
-    await buffer.saver.flush();
-  } finally {
-    buffer.expectDisk(null);
-  }
+  buffer.apply(next);
+  await write(disk);
   // Still dirty without a reason: the user typed on, which the autosave takes care of.
   const reason = buffer.refusal() ?? buffer.failure();
   if (!buffer.saver.dirty || reason === null) return;

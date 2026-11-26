@@ -6,8 +6,8 @@
 export const SAVE_IDLE_MS = 1000;
 
 export interface AutoSaverOptions {
-  /** Writes the text to disk. */
-  write: (text: string) => Promise<void>;
+  /** Writes the text to disk; with `expected` only while the disk still holds it. */
+  write: (text: string, expected?: string) => Promise<void>;
   /** Idle time before a change is written. */
   delayMs?: number;
   /** Called when a write fails; the text stays dirty. */
@@ -28,6 +28,7 @@ export class AutoSaver {
   private held = false;
   private running: Promise<void> = Promise.resolve();
   private reported = false;
+  private exclusiveRun: Promise<void> | null = null;
 
   constructor(private readonly options: AutoSaverOptions) {
     this.delayMs = options.delayMs ?? SAVE_IDLE_MS;
@@ -41,6 +42,26 @@ export class AutoSaver {
   /** Text that was changed and not written yet. */
   get dirty(): boolean {
     return this.pending !== null;
+  }
+
+  /** Settles when the last task of `exclusive` that is waiting or running ends; null: none. */
+  get busy(): Promise<void> | null {
+    return this.exclusiveRun;
+  }
+
+  /**
+   * Runs `task` after the running writes and before every write that is asked for meanwhile, so
+   * nothing else is written until it ends. Its `write` writes the pending text, only while the
+   * disk holds `expected`. The task must not wait for `flush`.
+   */
+  exclusive<T>(task: (write: (expected: string) => Promise<void>) => Promise<T>): Promise<T> {
+    const run = this.running.then(() => task((expected) => this.writePending(expected)));
+    const done = () => {
+      if (this.exclusiveRun === settled) this.exclusiveRun = null;
+    };
+    const settled: Promise<void> = run.then(done, done);
+    this.exclusiveRun = this.running = settled;
+    return run;
   }
 
   private report(): void {
@@ -82,13 +103,14 @@ export class AutoSaver {
     return this.running;
   }
 
-  private async writePending(): Promise<void> {
+  private async writePending(expected?: string): Promise<void> {
     const text = this.pending;
     if (text === null || this.held) return;
     this.pending = null;
     this.report();
     try {
-      await this.options.write(text);
+      if (expected === undefined) await this.options.write(text);
+      else await this.options.write(text, expected);
     } catch (error) {
       // A newer change keeps its own text; otherwise the failed one stays dirty for the next flush.
       this.pending ??= text;

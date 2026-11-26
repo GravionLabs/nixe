@@ -21,7 +21,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { countText } from "../../core/editor/text-stats";
-import { editAndSave } from "../../core/editor/buffer-edit";
+import { editAndSave, watchedChange } from "../../core/editor/buffer-edit";
 import {
   AutoSaver,
   ExternalChangeTracker,
@@ -75,8 +75,6 @@ interface Session {
   tracker: ExternalChangeTracker;
   /** Why the last write failed; null after one that worked. */
   failure: string | null;
-  /** The disk text the next write expects (an edit from outside the editor); null: none. */
-  expected: string | null;
 }
 
 /** Pause after the last change before the counts are recomputed. */
@@ -147,7 +145,7 @@ export class EditorComponent implements OnDestroy {
       selection: () => this.selection(),
       headingLine: () => this.headingLine(),
     };
-    this.doc.editorHook = (path, text) => this.onExternal(path, text);
+    this.doc.editorHook = (path, text) => this.onWatched(path, text);
     this.doc.remoteHook = (text, saved) => this.onRemote(text, saved);
 
     effect(() => this.editor.blocked.set(this.conflict() !== null));
@@ -254,9 +252,8 @@ export class EditorComponent implements OnDestroy {
       crlf: text.includes("\r\n"),
       tracker: new ExternalChangeTracker(text),
       failure: null,
-      expected: null,
       saver: new AutoSaver({
-        write: (t) => this.write(session, t),
+        write: (t, expected) => this.write(session, t, expected),
         onError: (e) => this.failed.emit(`Saving failed: ${String(e)}`),
         onDirtyChange: (dirty) => this.editor.unsaved.set(dirty),
       }),
@@ -343,7 +340,6 @@ export class EditorComponent implements OnDestroy {
         text: () => view.state.doc.toString(),
         apply: (text) => this.applyText(text),
         readDisk: () => backend.readTextFile(session.path),
-        expectDisk: (disk) => (session.expected = disk),
         external: (disk) => this.onExternal(session.path, disk),
         refusal: () => {
           if (this.session !== session || this.destroyed) return closed;
@@ -477,10 +473,8 @@ export class EditorComponent implements OnDestroy {
     return backend.readTextFile(joinPath(root, rel)).catch(() => "");
   }
 
-  private async write(session: Session, text: string): Promise<void> {
+  private async write(session: Session, text: string, expected?: string): Promise<void> {
     const out = session.crlf ? toCrlf(text) : text;
-    const expected = session.expected ?? undefined;
-    session.expected = null;
     session.tracker.willWrite(out);
     try {
       await this.doc.write(session.path, out, expected);
@@ -617,6 +611,18 @@ export class EditorComponent implements OnDestroy {
   }
 
   /** The watcher reported a change of the note; `diskText` is what is on disk now. */
+  private onWatched(path: string, diskText: string): void {
+    const session = this.session;
+    if (!session || session.path !== path) return;
+    watchedChange(
+      session.saver,
+      diskText,
+      () => backend.readTextFile(session.path),
+      (disk) => this.onExternal(path, disk),
+    );
+  }
+
+  /** Takes over a disk text that differs: reloads, or asks the user. */
   private onExternal(path: string, diskText: string): void {
     const session = this.session;
     if (!session || session.path !== path) return;
