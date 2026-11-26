@@ -1,9 +1,14 @@
 <div class="dialog" role="region" aria-label="Settings">
   <nav aria-label="Settings sections">
     @for (section of page.sections(); track section.id) {
+      @let active = !page.query().trim() && section.id === page.selectedId();
       <button
+        hx-button
         type="button"
-        [class.active]="!page.query().trim() && section.id === page.selectedId()"
+        variant="text"
+        [severity]="active ? 'primary' : 'secondary'"
+        [class.active]="active"
+        [attr.aria-current]="active ? 'page' : null"
         (click)="page.select(section.id)"
       >
         {{ section.title }}
@@ -13,6 +18,8 @@
   <div class="content">
     <input
       #search
+      hx-input
+      fluid
       type="search"
       class="search"
       placeholder="Search settings…"
@@ -21,37 +28,31 @@
       (input)="page.query.set(value($event))"
     />
     @for (section of page.listed(); track section.id) {
-      <section>
-        <h2>{{ section.title }}</h2>
+      <hx-fieldset [legend]="section.title">
         @for (item of section.items; track item.id) {
-          <div class="row">
-            <div class="label">
-              <label [attr.for]="'setting-' + item.id">{{ item.label }}</label>
-              @if (item.description) {
-                <p class="description">{{ item.description }}</p>
-              }
-            </div>
+          <hx-field class="row" [label]="item.label" [hint]="item.description">
             <div class="control">
               @switch (item.kind) {
                 @case ("toggle") {
                   <input
                     type="checkbox"
+                    hx-switch
                     [id]="'setting-' + item.id"
                     [checked]="item.get()"
                     (change)="item.set(checked($event))"
                   />
                 }
                 @case ("select") {
-                  <select [id]="'setting-' + item.id" (change)="item.set(value($event))">
-                    @for (option of item.options; track option.value) {
-                      <option [value]="option.value" [selected]="option.value === item.get()">
-                        {{ option.label }}
-                      </option>
-                    }
-                  </select>
+                  <hx-select
+                    [inputId]="'setting-' + item.id"
+                    [options]="item.options"
+                    [value]="item.get()"
+                    (valueChange)="setSelect(item, $event)"
+                  />
                 }
                 @case ("text") {
                   <input
+                    hx-input
                     type="text"
                     [id]="'setting-' + item.id"
                     [value]="item.get()"
@@ -61,6 +62,7 @@
                 }
                 @case ("number") {
                   <input
+                    hx-input
                     type="number"
                     [id]="'setting-' + item.id"
                     [min]="item.min"
@@ -75,7 +77,10 @@
                     @let pending = shortcuts.pending();
                     @if (shortcuts.recordingId() === item.commandId) {
                       <button
+                        hx-button
                         type="button"
+                        variant="outlined"
+                        size="small"
                         class="key recording"
                         [id]="'setting-' + item.id"
                         (keydown)="onShortcutKey($event)"
@@ -96,26 +101,67 @@
                         >
                       }
                       <span class="actions">
-                        <button type="button" (click)="shortcuts.savePending()">Save</button>
-                        <button type="button" (click)="shortcuts.cancel()">Cancel</button>
+                        <button
+                          hx-button
+                          type="button"
+                          variant="text"
+                          severity="secondary"
+                          size="small"
+                          (click)="shortcuts.savePending()"
+                        >
+                          Save
+                        </button>
+                        <button
+                          hx-button
+                          type="button"
+                          variant="text"
+                          severity="secondary"
+                          size="small"
+                          (click)="shortcuts.cancel()"
+                        >
+                          Cancel
+                        </button>
                       </span>
                     } @else {
                       <button
+                        hx-button
                         type="button"
+                        variant="outlined"
+                        severity="secondary"
+                        size="small"
                         class="key"
                         [id]="'setting-' + item.id"
+                        [attr.aria-label]="
+                          item.label + ': ' + (shortcuts.display(item.commandId) || 'Not set')
+                        "
                         (click)="shortcuts.startRecording(item.commandId)"
                       >
                         {{ shortcuts.display(item.commandId) || "Not set" }}
                       </button>
                       <span class="actions">
                         @if (shortcuts.display(item.commandId)) {
-                          <button type="button" (click)="shortcuts.assign(command, '')">
+                          <button
+                            hx-button
+                            type="button"
+                            variant="text"
+                            severity="secondary"
+                            size="small"
+                            (click)="shortcuts.assign(command, '')"
+                          >
                             Remove
                           </button>
                         }
                         @if (!shortcuts.isDefault(command)) {
-                          <button type="button" (click)="shortcuts.reset(command)">Reset</button>
+                          <button
+                            hx-button
+                            type="button"
+                            variant="text"
+                            severity="secondary"
+                            size="small"
+                            (click)="shortcuts.reset(command)"
+                          >
+                            Reset
+                          </button>
                         }
                       </span>
                     }
@@ -130,7 +176,16 @@
                             ? "GitHub rejected the token. Enter a new one."
                             : "Enter a personal access token to reach GitHub."
                         }}
-                        <button type="button" (click)="item.cancelPrompt()">Cancel</button>
+                        <button
+                          hx-button
+                          type="button"
+                          variant="text"
+                          severity="secondary"
+                          size="small"
+                          (click)="item.cancelPrompt()"
+                        >
+                          Cancel
+                        </button>
                       </p>
                     }
                     <div class="token-state">
@@ -139,8 +194,26 @@
                       }}</span>
                       @if (item.stored()) {
                         <span class="actions">
-                          <button type="button" (click)="tokenEditing.set(true)">Replace</button>
-                          <button type="button" (click)="deleteToken(item)">Delete token</button>
+                          <button
+                            hx-button
+                            type="button"
+                            variant="text"
+                            severity="secondary"
+                            size="small"
+                            (click)="tokenEditing.set(true)"
+                          >
+                            Replace
+                          </button>
+                          <button
+                            hx-button
+                            type="button"
+                            variant="text"
+                            severity="secondary"
+                            size="small"
+                            (click)="deleteToken(item)"
+                          >
+                            Delete token
+                          </button>
                         </span>
                       }
                     </div>
@@ -149,8 +222,8 @@
                         <div class="token-signin">
                           @for (host of gh.hosts(); track host) {
                             <button
+                              hx-button
                               type="button"
-                              class="primary"
                               [disabled]="gh.busy()"
                               (click)="gh.signIn(host)"
                             >
@@ -169,7 +242,16 @@
                             } @else {
                               Waiting for the GitHub CLI…
                             }
-                            <button type="button" (click)="gh.cancel()">Cancel</button>
+                            <button
+                              hx-button
+                              type="button"
+                              variant="text"
+                              severity="secondary"
+                              size="small"
+                              (click)="gh.cancel()"
+                            >
+                              Cancel
+                            </button>
                           </p>
                         }
                         @if (gh.notice(); as ghNotice) {
@@ -184,18 +266,32 @@
                       <div class="token-manual">
                         <input
                           #token
+                          hx-input
                           type="password"
                           autocomplete="off"
                           placeholder="Personal access token"
                           [id]="'setting-' + item.id"
                         />
-                        <button type="button" (click)="saveToken(item, token)">
+                        <button
+                          hx-button
+                          type="button"
+                          variant="outlined"
+                          severity="secondary"
+                          (click)="saveToken(item, token)"
+                        >
                           {{ item.stored() ? "Replace token" : "Save token" }}
                         </button>
                       </div>
                     } @else if (!item.stored()) {
                       <span class="actions">
-                        <button type="button" (click)="tokenEditing.set(true)">
+                        <button
+                          hx-button
+                          type="button"
+                          variant="text"
+                          severity="secondary"
+                          size="small"
+                          (click)="tokenEditing.set(true)"
+                        >
                           Use a personal access token instead
                         </button>
                       </span>
@@ -213,8 +309,24 @@
                           <span class="loc-name">${{ v.name }}</span>
                           <span class="loc-path">{{ v.path }}</span>
                           <span class="actions">
-                            <button type="button" (click)="editLocation(v)">Edit</button>
-                            <button type="button" (click)="removeLocation(item, v.name)">
+                            <button
+                              hx-button
+                              type="button"
+                              variant="text"
+                              severity="secondary"
+                              size="small"
+                              (click)="editLocation(v)"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              hx-button
+                              type="button"
+                              variant="text"
+                              severity="secondary"
+                              size="small"
+                              (click)="removeLocation(item, v.name)"
+                            >
                               Remove
                             </button>
                           </span>
@@ -225,6 +337,7 @@
                     </ul>
                     <div class="loc-form">
                       <input
+                        hx-input
                         type="text"
                         [id]="'setting-' + item.id"
                         aria-label="Variable name"
@@ -233,6 +346,7 @@
                         (input)="locName.set(value($event))"
                       />
                       <input
+                        hx-input
                         type="text"
                         aria-label="Folder"
                         placeholder="Absolute folder, like D:\Cloud\Books"
@@ -240,11 +354,20 @@
                         (input)="locPath.set(value($event))"
                         (keydown.enter)="saveLocation(item)"
                       />
-                      <button type="button" class="primary" (click)="saveLocation(item)">
+                      <button hx-button type="button" (click)="saveLocation(item)">
                         {{ locPrevious() === null ? "Add" : "Save" }}
                       </button>
                       @if (locPrevious() !== null) {
-                        <button type="button" (click)="cancelLocation()">Cancel</button>
+                        <button
+                          hx-button
+                          type="button"
+                          variant="text"
+                          severity="secondary"
+                          size="small"
+                          (click)="cancelLocation()"
+                        >
+                          Cancel
+                        </button>
                       }
                     </div>
                     @if (locError(); as error) {
@@ -253,7 +376,14 @@
                   </div>
                 }
                 @case ("action") {
-                  <button type="button" [id]="'setting-' + item.id" (click)="item.run()">
+                  <button
+                    hx-button
+                    type="button"
+                    variant="outlined"
+                    severity="secondary"
+                    [id]="'setting-' + item.id"
+                    (click)="item.run()"
+                  >
                     {{ item.buttonLabel }}
                   </button>
                 }
@@ -265,9 +395,9 @@
                 }
               }
             </div>
-          </div>
+          </hx-field>
         }
-      </section>
+      </hx-fieldset>
     } @empty {
       <p class="empty">No matching setting</p>
     }

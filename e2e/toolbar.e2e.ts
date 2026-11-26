@@ -117,13 +117,20 @@ test.describe("properties toggle", () => {
     await page.keyboard.press("ControlOrMeta+,");
     await page.getByRole("searchbox", { name: "Search settings" }).fill("Properties in document");
     const select = page.getByRole("combobox", { name: "Properties in document" });
-    await expect(select.getByRole("option")).toHaveText(["Visible", "Folded", "Hidden"]);
-    for (const [value, pressed] of [
-      ["folded", "true"],
-      ["hidden", "false"],
-      ["visible", "true"],
+    await select.click();
+    await expect(page.locator(".hx-select-panel").getByRole("option")).toHaveText([
+      "Visible",
+      "Folded",
+      "Hidden",
+    ]);
+    await page.keyboard.press("Escape");
+    for (const [label, pressed] of [
+      ["Folded", "true"],
+      ["Hidden", "false"],
+      ["Visible", "true"],
     ] as const) {
-      await select.selectOption(value);
+      await select.click();
+      await page.locator(".hx-select-panel").getByRole("option", { name: label }).click();
       // The toggle is disabled while the settings tab is in front.
       await page.getByRole("tab", { name: "Home" }).click();
       await expect(toggle(page)).toHaveAttribute("aria-pressed", pressed);
