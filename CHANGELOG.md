@@ -5,6 +5,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.18.0] — 2026-11-26
+
+### Features
+- **links**: Links view with cards, table and an unread inbox (#516) (#671)
+
+
 ## [1.17.0] — 2026-11-26
 
 ### Bug Fixes
@@ -16,6 +22,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Update CHANGELOG.md for v1.16.0 [skip ci]
 - **bases**: Embed a .base file in a note (#638) (#649)
 - **adr**: Keep the role suffixes of Angular classes (#657) (#660)
+- Update CHANGELOG.md for v1.17.0 [skip ci]
 
 
 ### Features
