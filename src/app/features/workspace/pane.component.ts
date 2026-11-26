@@ -14,6 +14,7 @@ import { ReviewTabComponent } from "../review/review-tab.component";
 import { EditorComponent } from "../editor/editor.component";
 import { LogComponent } from "../log/log.component";
 import { HealthComponent } from "../health/health.component";
+import { LinksComponent } from "../links/links.component";
 import { StartComponent } from "../start/start.component";
 import { SettingsComponent } from "../settings/settings.component";
 import { ViewerComponent } from "../viewer/viewer.component";
@@ -32,6 +33,7 @@ import { ViewerComponent } from "../viewer/viewer.component";
     EditorComponent,
     EpubComponent,
     HealthComponent,
+    LinksComponent,
     SettingsComponent,
     StartComponent,
     ViewerComponent,

@@ -14,7 +14,7 @@ describe("views registry", () => {
 
   it("puts the views at the top, the actions at the bottom; outline and backlinks are not in it", () => {
     const top = VIEWS.filter((v) => v.position === "top").map((v) => v.id);
-    expect(top).toEqual(["files", "search", "bookmarks", "git", "history"]);
+    expect(top).toEqual(["files", "search", "bookmarks", "links", "git", "history"]);
     expect(VIEWS.filter((v) => v.position === "bottom").map((v) => v.id)).toEqual([
       "daily-note",
       "health",
@@ -40,6 +40,13 @@ describe("views registry", () => {
     expect(findView("health")?.placement).toBe("tab");
     expect(findView("daily-note")?.kind).toBe("action");
     expect(findView("settings")?.command).toBe("open-settings");
+  });
+
+  it("opens the links as a tab with its command, in a vault only", () => {
+    expect(findView("links")).toMatchObject({ placement: "tab", command: "show-links" });
+    expect(isSidebarView("links")).toBe(false);
+    expect(availableViews({ vault: true, git: false }).map((v) => v.id)).toContain("links");
+    expect(availableViews({ vault: false, git: false }).map((v) => v.id)).not.toContain("links");
   });
 
   it("offers only what the vault allows", () => {

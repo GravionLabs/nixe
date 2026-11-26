@@ -6,6 +6,7 @@ import { HOME_NOTE, NOTES, TIME, VAULT } from "./data";
 import { createNixeDemo } from "./demo";
 import { EXCLUDED } from "./excluded";
 import { DemoVault } from "./vault";
+import linksBase from "../../app/features/links/links-base.json";
 
 beforeEach(() => {
   delete window.__demoCalls;
@@ -80,6 +81,18 @@ describe("DemoVault", () => {
       .rows.map((r) => String(r.cells[0]!.value));
     expect(names).toEqual([...names].sort((a, b) => b.localeCompare(a)));
     expect(() => vault().baseQuery(source, 0, null)).toThrow("no table view");
+  });
+
+  it("answers the base of the Links view with the link notes only", () => {
+    const v = vault();
+    v.write(
+      `${v.root}/Links/A.md`,
+      "---\ntype: link\nstatus: unread\nimage: https://example.com/a.png\n---\n",
+    );
+    const result = v.baseQuery(JSON.stringify(linksBase), null, null);
+    expect(result.rows.map((r) => r.path)).toEqual(["Links/A.md"]);
+    expect(result.rows[0]!.cover).toEqual({ type: "url", value: "https://example.com/a.png" });
+    expect(result.unsupported).toEqual([]);
   });
 
   it("searches the text and marks the match", () => {

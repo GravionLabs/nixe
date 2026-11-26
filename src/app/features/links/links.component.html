@@ -1,0 +1,147 @@
+<header>
+  <span class="name">Links</span>
+  <hx-select-button
+    size="small"
+    ariaLabel="Inbox"
+    optionLabel="label"
+    optionValue="value"
+    [options]="tabOptions"
+    [allowEmpty]="false"
+    [value]="view.tab()"
+    (valueChange)="view.tab.set($any($event))"
+  />
+  <label>
+    Collection
+    <select (change)="view.collection.set(chosen($event))">
+      <option value="" [selected]="collection() === null">All</option>
+      @for (option of collections(); track option) {
+        <option [value]="option" [selected]="collection() === option">{{ option }}</option>
+      }
+    </select>
+  </label>
+  <label>
+    Tag
+    <select (change)="view.tag.set(chosen($event))">
+      <option value="" [selected]="tag() === null">All</option>
+      @for (option of tags(); track option) {
+        <option [value]="option" [selected]="tag() === option">{{ option }}</option>
+      }
+    </select>
+  </label>
+  @if (view.tab() === "all") {
+    <label>
+      Status
+      <select (change)="chooseStatus($event)">
+        <option value="" [selected]="view.status() === null">All</option>
+        <option value="unread" [selected]="view.status() === 'unread'">unread</option>
+        <option value="read" [selected]="view.status() === 'read'">read</option>
+      </select>
+    </label>
+  }
+  <hx-select-button
+    class="layout"
+    size="small"
+    ariaLabel="Layout"
+    optionLabel="label"
+    optionValue="value"
+    [options]="layoutOptions"
+    [allowEmpty]="false"
+    [value]="view.layout()"
+    (valueChange)="view.layout.set($any($event))"
+  />
+</header>
+
+@if (error(); as message) {
+  <p class="message error" role="alert">{{ message }}</p>
+} @else if (!links()) {
+  <p class="message" role="status">Loading…</p>
+} @else if (!shown().length) {
+  <p class="message" role="status">
+    @if (!links()!.length) {
+      No links yet. A note with <code>type: link</code> shows here.
+    } @else if (view.tab() === "unread" && collection() === null && tag() === null) {
+      No unread links.
+    } @else {
+      No links match the filters.
+    }
+  </p>
+} @else if (view.layout() === "cards") {
+  <div class="scroll">
+    <div class="cards" role="region" aria-label="Links">
+      @for (link of shown(); track link.path) {
+        <article class="card">
+          <div class="cover">
+            @if (image(link); as source) {
+              <img alt="" loading="lazy" [src]="source" (error)="imageFailed(source)" />
+            } @else {
+              <span class="placeholder">No image</span>
+            }
+          </div>
+          <button
+            type="button"
+            class="card-title"
+            [title]="link.url ? link.path + ' (Ctrl/Cmd+click opens ' + link.url + ')' : link.path"
+            (click)="open(link, $event)"
+          >
+            {{ link.title }}
+          </button>
+          <div class="details">
+            @if (link.site) {
+              <span class="site">{{ link.site }}</span>
+            }
+            @if (link.tags.length) {
+              <ul class="tags" aria-label="Tags">
+                @for (item of link.tags; track $index) {
+                  <li>{{ item }}</li>
+                }
+              </ul>
+            }
+            <button
+              type="button"
+              class="mark"
+              [attr.aria-label]="
+                'Mark ' + link.title + (link.status === 'read' ? ' unread' : ' read')
+              "
+              (click)="toggle(link)"
+            >
+              {{ link.status === "read" ? "Mark unread" : "Mark read" }}
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  </div>
+} @else {
+  <div class="scroll">
+    <hx-data-table [value]="shown()" [columns]="columns" dataKey="path" ariaLabel="Links">
+      <ng-template hxTableBody let-link>
+        <td>
+          <button
+            type="button"
+            class="note-link"
+            [title]="link.url ? link.path + ' (Ctrl/Cmd+click opens ' + link.url + ')' : link.path"
+            (click)="open(link, $event)"
+          >
+            {{ link.title }}
+          </button>
+        </td>
+        <td>{{ link.site }}</td>
+        <td>{{ link.tags.join(", ") }}</td>
+        <td>{{ link.saved }}</td>
+        <td>
+          <span class="status">{{ link.status }}</span>
+          <button
+            type="button"
+            class="mark"
+            [attr.aria-label]="
+              'Mark ' + link.title + (link.status === 'read' ? ' unread' : ' read')
+            "
+            (click)="toggle(link)"
+          >
+            {{ link.status === "read" ? "Mark unread" : "Mark read" }}
+          </button>
+        </td>
+      </ng-template>
+    </hx-data-table>
+  </div>
+}
