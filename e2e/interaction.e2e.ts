@@ -58,6 +58,32 @@ test("editing a note saves it with write_text_file", async ({ page }) => {
     .toEqual({ path: FAKE_NOTE, content: expect.stringContaining("Added by the test.") });
 });
 
+test("the clone dialog focuses the URL, Enter clones and Escape closes it", async ({ page }) => {
+  await page.evaluate(() => {
+    window.__demo!.answer("git_clone_vault", "/demo");
+    window.__demoDialog = { open: "/tmp/vaults" };
+  });
+  await openPalette(page);
+  await page.getByRole("combobox").fill(">Clone vault");
+  await page.getByRole("option", { name: /Clone vault/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Clone vault" });
+  const url = dialog.getByRole("textbox", { name: "Repository URL" });
+  await expect(url).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  await openPalette(page);
+  await page.getByRole("combobox").fill(">Clone vault");
+  await page.getByRole("option", { name: /Clone vault/ }).click();
+  await url.fill("https://github.com/owner/notes.git");
+  await dialog.getByRole("button", { name: "Choose folder…" }).click();
+  await expect(dialog.getByRole("textbox", { name: "Target folder" })).toHaveValue("/tmp/vaults");
+  await url.press("Enter");
+  await expect
+    .poll(async () => (await takeCalls(page, "git_clone_vault")).at(-1)?.args)
+    .toEqual({ url: "https://github.com/owner/notes.git", parent: "/tmp/vaults" });
+});
+
 test.describe("links in the editor (#459)", () => {
   test.beforeEach(async ({ page }) => {
     await ready(page);
