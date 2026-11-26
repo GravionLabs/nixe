@@ -84,6 +84,28 @@ test("the clone dialog focuses the URL, Enter clones and Escape closes it", asyn
     .toEqual({ url: "https://github.com/owner/notes.git", parent: "/tmp/vaults" });
 });
 
+test("the folder choice takes the focus, Enter adds the chosen form", async ({ page }) => {
+  await page.evaluate(() => {
+    window.__demo!.answer("workspace_variable_choices", [
+      { name: "Documents", template: "$Documents/Books", resolved: "/tmp/vaults" },
+    ]);
+    window.__demo!.answer("workspace_add_root", { name: "", roots: [] });
+    window.__demoDialog = { open: "/tmp/vaults" };
+  });
+  await openPalette(page);
+  await page.getByRole("combobox").fill(">Add folder to workspace");
+  await page.getByRole("option", { name: /Add folder to workspace/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Add folder to workspace" });
+  await expect(dialog.getByRole("radio", { name: /Absolute path/ })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await takeCalls(page);
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
+  await expect
+    .poll(async () => (await takeCalls(page, "workspace_add_root")).at(-1)?.args?.["path"])
+    .toBe("$Documents/Books");
+});
+
 test.describe("links in the editor (#459)", () => {
   test.beforeEach(async ({ page }) => {
     await ready(page);
