@@ -112,7 +112,7 @@ describe("editFrontmatter set", () => {
   });
 
   it("changes a key that is a number instead of adding a second one", () => {
-    expect(set("---\n2024: a\n---\n", "2024", "b")).toBe('---\n"2024": b\n---\n');
+    expect(set("---\n2024: a\n---\n", "2024", "b")).toBe("---\n2024: b\n---\n");
   });
 
   it("writes a value for a key without one", () => {
@@ -291,5 +291,49 @@ describe("editFrontmatter move, comments and anchors", () => {
     const text = "---\na: &x 1\nb: *x\n---\n";
     expect(() => move(text, "b", -1)).toThrow(/alias/);
     expect(() => move(text, "a", 1)).toThrow(/alias/);
+  });
+});
+
+describe("editFrontmatter numeric and boolean keys", () => {
+  it.each([
+    ["---\n{2024: a, b: 1}\n---\n", "2024", "---\n{ 2024: z, b: 1 }\n---\n"],
+    ["---\n{true: a}\n---\n", "true", "---\n{ true: z }\n---\n"],
+  ])("sets the existing key of a one-line mapping: %j", (text, key, out) => {
+    expect(set(text, key, "z")).toBe(out);
+  });
+
+  it("renames, removes and moves the numeric key of a one-line mapping", () => {
+    const text = "---\n{2024: a, b: 1}\n---\n";
+    expect(editFrontmatter(text, { kind: "rename", from: "2024", to: "y" })).toBe(
+      "---\n{ y: a, b: 1 }\n---\n",
+    );
+    expect(editFrontmatter(text, { kind: "remove", key: "2024" })).toBe("---\n{ b: 1 }\n---\n");
+    expect(editFrontmatter(text, { kind: "move", key: "2024", direction: 1 })).toBe(
+      "---\n{ b: 1, 2024: a }\n---\n",
+    );
+  });
+
+  it("refuses a rename onto a numeric key of a one-line mapping", () => {
+    expect(() =>
+      editFrontmatter("---\n{2024: a, b: 1}\n---\n", { kind: "rename", from: "b", to: "2024" }),
+    ).toThrow(/already exists/);
+  });
+
+  it.each([
+    ["---\n2024: a\n---\n", "2024", "z", "---\n2024: z\n---\n"],
+    ["---\ntrue: a # c\n---\n", "true", "z", "---\ntrue: z # c\n---\n"],
+    ["---\n'a': x\n---\n", "a", "y", "---\n'a': y\n---\n"],
+    ['---\n"b c": "x"\n---\n', "b c", "y", '---\n"b c": "y"\n---\n'],
+    ["---\n2024:\n---\n", "2024", ["x"], "---\n2024:\n  - x\n---\n"],
+    ["---\n2024: [a]\n---\n", "2024", ["a", "b"], "---\n2024: [a, b]\n---\n"],
+  ])("keeps the key of a block mapping as written: %j", (text, key, value, out) => {
+    expect(set(text, key, value)).toBe(out);
+  });
+
+  it("still edits a note whose one-line mapping already has two such keys", () => {
+    // `2024` and `'2024'` both name the property "2024"; the edit adds no further one.
+    expect(set("---\n{2024: a, '2024': b}\n---\n", "x", 1)).toBe(
+      "---\n{ 2024: a, '2024': b, x: 1 }\n---\n",
+    );
   });
 });
