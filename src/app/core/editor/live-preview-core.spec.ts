@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { disjoint, findBlocks, inlineMarks, sourceSpan, touches } from "./live-preview-core";
+import {
+  baseOrigin,
+  disjoint,
+  findBlocks,
+  inlineMarks,
+  sourceSpan,
+  touches,
+} from "./live-preview-core";
 
 const at = (lines: string[]) => (n: number) => lines[n];
 
@@ -61,6 +68,45 @@ describe("findBlocks", () => {
     const blocks = findBlocks(lines);
     expect(blocks.length).toBe(5000);
     expect(performance.now() - t).toBeLessThan(1000);
+  });
+});
+
+describe("bases", () => {
+  it("finds base fences and lines that only embed a .base file", () => {
+    const lines = [
+      "```Base",
+      "views: []",
+      "```",
+      "![[Books.base]]",
+      "  ![[lib/Books.BASE#Cards|300]]  ",
+      "![[Books]]",
+      "![[a.base]] and ![[b.base]]",
+      "text ![[Books.base]]",
+    ];
+    expect(findBlocks(lines)).toEqual([
+      { kind: "base", start: 0, end: 2 },
+      { kind: "base-embed", start: 3, end: 3 },
+      { kind: "base-embed", start: 4, end: 4 },
+      { kind: "embed", start: 5, end: 5 },
+    ]);
+  });
+
+  it("reads the YAML of a fence without its fences and their indent", () => {
+    expect(baseOrigin("```base\nviews:\n  - type: table\n```", "base")).toEqual({
+      source: "views:\n  - type: table\n",
+    });
+    expect(baseOrigin("  ~~~~base\n  a: 1\n    b: 2\n ~~~~~", "base")).toEqual({
+      source: "a: 1\n  b: 2\n",
+    });
+    // Not closed, and a fence of another kind inside.
+    expect(baseOrigin("````base\n```", "base")).toEqual({ source: "```\n" });
+    expect(baseOrigin("```base", "base")).toEqual({ source: "" });
+  });
+
+  it("reads the target of an embed", () => {
+    expect(baseOrigin("  ![[lib/Books.base#Cards|300]] ", "base-embed")).toEqual({
+      embed: "lib/Books.base#Cards",
+    });
   });
 });
 

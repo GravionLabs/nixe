@@ -149,6 +149,8 @@ export function editorTheme(dark: boolean, zoomPercent: number): Extension {
         wordBreak: "normal",
         overflowWrap: "normal",
       },
+      // No margin: the editor measures the height of a widget without it.
+      ".cm-live-block.cm-live-base": { margin: "0", padding: "0.4em 0" },
       ".cm-live-bullet": { display: "inline-block", width: "1.1em", textAlign: "center" },
       ".cm-live-task": { margin: "0 0.4em 0 0", verticalAlign: "middle", cursor: "pointer" },
       ".cm-live-code": {

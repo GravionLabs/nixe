@@ -1,6 +1,18 @@
 /** Pure block and inline analysis of the live preview (#243); no CodeMirror imports. */
+import { parseEmbed } from "../markdown/embed";
 
-export type BlockKind = "frontmatter" | "code" | "mermaid" | "math" | "table" | "callout" | "embed";
+export type BlockKind =
+  | "frontmatter"
+  | "code"
+  | "mermaid"
+  | "math"
+  | "table"
+  | "callout"
+  | "embed"
+  /** A ```base fence. */
+  | "base"
+  /** A line that is only the embed of a `.base` file. */
+  | "base-embed";
 
 /** A multi-line part of the note. Lines are 0-based and inclusive. */
 export interface Block {
@@ -16,12 +28,41 @@ export const WIDGET_KINDS: ReadonlySet<BlockKind> = new Set([
   "table",
   "callout",
   "embed",
+  "base",
+  "base-embed",
 ]);
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})\s*([^\s`]*)/;
 const TABLE_DELIMITER = /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/;
 const CALLOUT = /^ {0,3}>\s*\[![^\]\s]+\][+-]?/;
 const EMBED = /^\s*!(\[\[[^\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]+\))\s*$/;
+const WIKI_EMBED = /^\s*!\[\[([^[\]\n]+)\]\]\s*$/;
+const FENCE_KINDS: ReadonlyMap<string, BlockKind> = new Map([
+  ["mermaid", "mermaid"],
+  ["base", "base"],
+]);
+
+/** Where a base block comes from: the YAML of a fence, or the target of an embed. */
+export type BaseOrigin = { source: string } | { embed: string };
+
+/** The origin of a `base` or `base-embed` block, read from its source as the reading view does. */
+export function baseOrigin(text: string, kind: "base" | "base-embed"): BaseOrigin {
+  if (kind === "base-embed") {
+    const inner = WIKI_EMBED.exec(text)?.[1] ?? "";
+    return { embed: parseEmbed(inner)?.target ?? "" };
+  }
+  const [open = "", ...lines] = text.split("\n");
+  const indent = open.length - open.trimStart().length;
+  const marker = FENCE.exec(open)?.[1] ?? "```";
+  if (closingFence(marker).test(lines.at(-1) ?? "")) lines.pop();
+  // The lines lose the indent of the opening fence.
+  const strip = new RegExp(`^ {0,${indent}}`);
+  return { source: lines.map((line) => `${line.replace(strip, "")}\n`).join("") };
+}
+
+function closingFence(marker: string): RegExp {
+  return new RegExp(`^ {0,3}${marker[0]}{${marker.length},}\\s*$`);
+}
 
 /** Fenced code, math, tables, callouts, embeds and the frontmatter of a note, in document order. */
 export function findBlocks(lines: readonly string[]): Block[] {
@@ -43,15 +84,15 @@ export function findBlocks(lines: readonly string[]): Block[] {
     if (fence) {
       const marker = fence[1];
       let end = lines.length - 1;
+      const close = closingFence(marker);
       for (let j = i + 1; j < lines.length; j++) {
-        const close = new RegExp(`^ {0,3}${marker[0]}{${marker.length},}\\s*$`);
         if (close.test(lines[j])) {
           end = j;
           break;
         }
       }
       const lang = fence[2].toLowerCase();
-      blocks.push({ kind: lang === "mermaid" ? "mermaid" : "code", start: i, end });
+      blocks.push({ kind: FENCE_KINDS.get(lang) ?? "code", start: i, end });
       i = end + 1;
       continue;
     }
@@ -87,7 +128,9 @@ export function findBlocks(lines: readonly string[]): Block[] {
       continue;
     }
     if (EMBED.test(line)) {
-      blocks.push({ kind: "embed", start: i, end: i });
+      const wiki = WIKI_EMBED.exec(line);
+      const base = wiki && parseEmbed(wiki[1])?.kind === "base";
+      blocks.push({ kind: base ? "base-embed" : "embed", start: i, end: i });
     }
     i++;
   }

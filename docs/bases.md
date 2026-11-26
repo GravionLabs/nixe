@@ -13,7 +13,8 @@ layout. [Vault health](cli.md) does not count a base as an unused attachment.
 
 ## Bases in notes
 
-A fenced `base` block holds the text of a `.base` file; the reading view shows the base in its place:
+A fenced `base` block holds the text of a `.base` file; the reading view and the
+[live preview](#in-the-live-preview) show the base in its place:
 
 ````markdown
 ```base
@@ -34,17 +35,18 @@ views:
   belongs to that note.
 - The block follows changes in the vault. `this` reads the saved note from the index, so unsaved
   changes of its properties and links count after a save.
-- The values are read-only: [cells are edited](#editing-cells) in the tab of a `.base` file.
+- In the reading view the values are read-only: [cells are edited](#editing-cells) in the live
+  preview and in the tab of a `.base` file.
 - Invalid content shows its [error](#errors) in place of the block; the rest of the note is shown.
 - A block of a note outside the open vault, or of an unsaved new note, says that it is not supported.
 - [Export, print](export.md), the published [site](export.md) and the link preview show a note that
-  the base is shown in the reading view. The editor with live preview and the rich diff show the
+  the base is shown in the reading view. The source mode of the editor and the rich diff show the
   block as code.
 
 ### Embedding a base file
 
-`![[Books.base]]` shows the base of a `.base` file in the reading view, `![[Books.base#Cards]]`
-starts with the view of that name:
+`![[Books.base]]` shows the base of a `.base` file in the reading view and the
+[live preview](#in-the-live-preview), `![[Books.base#Cards]]` starts with the view of that name:
 
 ```markdown
 ![[Books.base]]
@@ -59,9 +61,27 @@ starts with the view of that name:
   that the file does not have `View not found: …`, both in place of the base.
 - The embed follows changes of the `.base` file, also when it is created, renamed or deleted.
 - Everything else is as for a `base` block: [`this`](#this) is the note that holds the embed, the
-  values are read-only, and [export, print](export.md) and the link preview show a note that the base
-  is shown in the reading view. The editor with live preview, the rich diff and the published
-  [site](export.md) show the embed as a link to the file.
+  values are read-only in the reading view, and [export, print](export.md) and the link preview show
+  a note that the base is shown in the reading view. The rich diff and the published
+  [site](export.md) show the embed as a link to the file, the source mode of the editor as text.
+
+### In the live preview
+
+The [live preview](frontend/editor.md#live-preview) draws a `base` block, and a line that is only the
+embed of a `.base` file, as a widget with the base:
+
+- The view switcher, sorting by a header, the links to notes and [cell editing](#editing-cells) work
+  in the widget. A cell of the note you are editing changes the text of the editor (the frontmatter),
+  together with your unsaved changes, and saves it.
+- With the cursor or a selection in the block, its source shows. Move there with the keyboard, or
+  click the widget outside its table, cards and view switcher (its header line, or the message of an
+  error). The definition is changed in the source only.
+- The chosen view and a clicked sort stay while the note is shown, also while the source shows or
+  the widget is scrolled out of sight; editing the block or opening another note drops them. A widget
+  that is drawn again shows its last table without a new query while the block and the vault are
+  unchanged.
+- A base inside a callout or an embedded note (`![[Note]]`), and an embed that shares its line with
+  other text, are not drawn in the live preview.
 
 ## What is shown
 
@@ -167,8 +187,8 @@ to the tab: switching the view drops it, and nothing is written to the file.
 
 ## Editing cells
 
-In a table, a cell of a note property is edited in place and written into the frontmatter of the
-note of its row. `file.` fields and formulas are read-only, and so are [cards](#cards).
+In a table (in the tab of a `.base` file and in the [live preview](#in-the-live-preview)), a cell
+of a note property is edited in place and written into the frontmatter of the note of its row. `file.` fields and formulas are read-only, and so are [cards](#cards).
 
 A click on a cell shows its input; a checkbox is switched at once. Enter or leaving the cell takes
 the value, Escape drops it.
@@ -552,11 +572,15 @@ An error in the formula of a column stays in its cell; the other cells and rows 
 
 ## How it works
 
+In the live preview, `findBlocks` (`core/editor/live-preview-core.ts`) marks the blocks and
+`BaseWidget` mounts the component through the hook `mountBase` (`features/editor/live-bases.ts`).
+
 The frontend reads the file (also that of an embed), or takes the text of the block, and passes it to the commands
 `base_views` and `base_query` ([Tauri commands](backend/tauri-commands.md)), with the path of the
 file `this` stands for. The Markdown renderer turns a `base` fence into a placeholder
 (`core/markdown/plugins/base-fence.plugin.ts`, for an embed `embed.plugin.ts`); the reading view puts a base component in its place
-(`features/bases/base-blocks.ts`) and destroys it before the note is rendered again. The Rust core (`src-tauri/src/bases/`) parses the YAML
+(`features/bases/base-blocks.ts`) and destroys it before the note is rendered again (the live preview
+destroys it with its widget). The Rust core (`src-tauri/src/bases/`) parses the YAML
 and answers the view from the [vault index](architecture.md), sorted, grouped and limited, with the
 cover of each card resolved; the frontend only renders the result. Only the answer of the newest query is shown.
 

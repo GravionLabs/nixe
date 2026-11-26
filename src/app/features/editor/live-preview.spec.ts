@@ -260,3 +260,68 @@ describe("livePreview", () => {
     });
   });
 });
+
+describe("livePreview bases", () => {
+  const BASES = "```base\nviews: []\n```\n\n```base\nviews: []\n```\n\n![[A.base]]\n\nend";
+
+  function mountBases(doc: string) {
+    const mounted: string[] = [];
+    const destroyed: string[] = [];
+    const parent = document.body.appendChild(document.createElement("div"));
+    view = new EditorView({
+      parent,
+      state: EditorState.create({
+        doc,
+        selection: { anchor: doc.length },
+        extensions: livePreview({
+          render: () => undefined,
+          mountBase: (el, origin, occurrence) => {
+            const id = `${JSON.stringify(origin)} ${occurrence}`;
+            mounted.push(id);
+            el.innerHTML = '<header>h</header><div class="table"><span>cell</span></div>';
+            return { destroy: () => void destroyed.push(id) };
+          },
+        }),
+      }),
+    });
+    return { v: view, mounted, destroyed };
+  }
+
+  it("mounts one base per block and embed and counts equal ones", () => {
+    const { mounted } = mountBases(BASES);
+    expect(mounted).toEqual([
+      '{"source":"views: []\\n"} 0',
+      '{"source":"views: []\\n"} 1',
+      '{"embed":"A.base"} 0',
+    ]);
+  });
+
+  it("removes only the base the cursor enters, and keeps the others mounted", () => {
+    const { v, mounted, destroyed } = mountBases(BASES);
+    v.dispatch({ selection: { anchor: 3 } });
+    expect(destroyed).toEqual(['{"source":"views: []\\n"} 0']);
+    v.dispatch({ changes: { from: v.state.doc.length, insert: " more" } });
+    expect(mounted.length).toBe(3);
+    v.destroy();
+    expect(destroyed.length).toBe(3);
+    view = undefined;
+  });
+
+  it("keeps the source without the hook", () => {
+    const v = mount(BASES, BASES.length);
+    expect(v.dom.querySelector(".cm-live-base")).toBeNull();
+    expect(v.dom.textContent).toContain("![[A.base]]");
+  });
+
+  it("puts the cursor into the block on a click outside its own parts only", () => {
+    const { v } = mountBases(BASES);
+    const press = (selector: string) =>
+      v.dom
+        .querySelector(selector)!
+        .dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    press(".cm-live-base .table span");
+    expect(v.state.selection.main.head).toBe(BASES.length);
+    press(".cm-live-base header");
+    expect(v.state.selection.main.head).toBe("```base".length);
+  });
+});
