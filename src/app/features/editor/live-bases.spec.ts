@@ -259,6 +259,20 @@ describe("bases in the live preview", () => {
     expect(live.widgets()[0]!.querySelector("th[aria-sort='ascending']")).not.toBeNull();
   });
 
+  it("starts with the first view again after another note, also one without a base", async () => {
+    const live = mount(`${BLOCK}\n\nend`);
+    await live.settle();
+    live.widgets()[0]!.querySelectorAll<HTMLElement>(".views button")[1]!.click();
+    await live.settle();
+
+    bases!.enter("/vault/Other.md");
+    bases!.enter(NOTE);
+    live.moveTo("views:");
+    live.moveOut();
+    await live.settle();
+    expect(live.queries().at(-1)?.view).toBe(0);
+  });
+
   it("opens the note of a row", async () => {
     const live = mount(`${BLOCK}\n\nend`);
     await live.settle();

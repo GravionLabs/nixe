@@ -307,6 +307,11 @@ describe("livePreview bases", () => {
     view = undefined;
   });
 
+  it("counts bases that show the same, however they are written", () => {
+    const { mounted } = mountBases("![[A.base]]\n![[A.base|300]]\n\nend");
+    expect(mounted).toEqual(['{"embed":"A.base"} 0', '{"embed":"A.base"} 1']);
+  });
+
   it("keeps the source without the hook", () => {
     const v = mount(BASES, BASES.length);
     expect(v.dom.querySelector(".cm-live-base")).toBeNull();

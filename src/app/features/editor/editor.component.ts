@@ -260,6 +260,8 @@ export class EditorComponent implements OnDestroy {
     };
     this.session = session;
     this.editor.unsaved.set(false);
+    // Also for a note without a base, which drops the chosen views of the one before.
+    this.bases.enter(current);
 
     this.loading = true;
     const state = EditorState.create({

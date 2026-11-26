@@ -138,6 +138,9 @@ class BaseWidget extends WidgetType {
   }
 
   override ignoreEvent(event: Event): boolean {
+    // A text selection inside the widget (a click into a cell, a drag over its text) stays there:
+    // the editor would else move its cursor to the block and show the source.
+    if (event.type === "selectionchange") return true;
     return event.target instanceof Element && event.target.closest(BASE_OWN_EVENTS) !== null;
   }
 }
@@ -342,8 +345,10 @@ function blockDecorations(state: EditorState, hooks: LivePreviewHooks): Decorati
     const from = state.doc.line(block.start + 1).from;
     const to = state.doc.line(block.end + 1).to;
     const source = state.sliceDoc(from, to);
-    const occurrence = base ? (bases.get(source) ?? 0) : 0;
-    if (base) bases.set(source, occurrence + 1);
+    // Equal by what they show, not by how they are written (`~~~`, `|300`).
+    const id = base ? JSON.stringify(baseOrigin(source, kind)) : "";
+    const occurrence = bases.get(id) ?? 0;
+    if (base) bases.set(id, occurrence + 1);
     if (state.selection.ranges.some((r) => touches(r.from, r.to, from, to))) continue;
     ranges.push(
       Decoration.replace({

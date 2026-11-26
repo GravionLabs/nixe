@@ -176,6 +176,20 @@ test("the live preview shows a base block and an embed as interactive widgets", 
     .toMatchObject({ view: 1, sort: { property: "title", direction: "ASC" } });
   await expect(widgets).toHaveCount(2);
 
+  // With the editor focused, a click into a cell or a selection of its text keeps the base.
+  await editor.getByText("The end.").click();
+  const cell = widgets.first().getByRole("cell").last();
+  const box = (await cell.boundingBox())!;
+  // Beside the value, where no button takes the click; then a drag over the text of a cell.
+  await page.mouse.click(box.x + box.width - 5, box.y + box.height / 2);
+  await page.mouse.move(box.x + box.width - 5, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 5, box.y + 5, { steps: 5 });
+  await page.mouse.up();
+  // CodeMirror reads a changed selection in a later task.
+  await page.waitForTimeout(200);
+  await expect(widgets).toHaveCount(2);
+
   // A property of the open note is edited into the editor and saved.
   await takeCalls(page);
   await widgets.first().getByRole("button", { name: "Edit Title of Home: Draft" }).click();

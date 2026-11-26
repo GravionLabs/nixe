@@ -77,8 +77,8 @@ export class BaseBlocks {
     return () => this.remove(el);
   }
 
-  /** Another note starts with the first views again. */
-  private enter(note: string | null): void {
+  /** `note` is shown now: another note than before starts with the first views again. */
+  enter(note: string | null): void {
     if (note === this.note) return;
     this.note = note;
     this.kept.clear();
