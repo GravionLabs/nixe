@@ -17,8 +17,9 @@ and `nixe export <folder> --format pdf --out <dir>` writes a [folder as PDFs](#f
 - Styles, images, the diagrams (Mermaid, as SVG) and the math (KaTeX, with its fonts) are inlined: the
   file has no script and no link to another file. Remote images keep their address.
 - `![[embeds]]` of notes, headings and blocks are resolved like in the viewer.
-- A [`base` block](bases.md#bases-in-notes) is replaced by a note that it is shown in the reading
-  view; neither its table nor its source is exported.
+- A [`base` block](bases.md#bases-in-notes) or an [embedded `.base` file](bases.md#embedding-a-base-file)
+  is replaced by a note that it is shown in the reading view; neither its table nor its source is
+  exported.
 - Wikilinks become plain text; Markdown links keep their address.
 - Comments (`%%…%%`) never appear: the renderer drops them before the export sees the note.
 - The properties panel and the viewer's controls (copy buttons) are left out.

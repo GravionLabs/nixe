@@ -69,8 +69,9 @@ export function stripAppControls(root: ParentNode): void {
     .querySelectorAll(".code-tools, .code-copy, [contenteditable], script")
     .forEach((el) => el.remove());
   // The source of a base is not part of the exported document.
-  for (const el of Array.from(root.querySelectorAll("[data-base]"))) {
+  for (const el of Array.from(root.querySelectorAll("[data-base], [data-base-embed]"))) {
     el.removeAttribute("data-base");
+    el.removeAttribute("data-base-embed");
   }
   for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-line], [data-zoomable]"))) {
     el.removeAttribute("data-line");

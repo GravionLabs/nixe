@@ -3,6 +3,16 @@ import type { MarkdownIt } from "markdown-it";
 /** The class of the element a ```base fence renders to. */
 export const BASE_BLOCK_CLASS = "base-block";
 
+/** Encoded, so that the sanitizer keeps the attribute whatever the value holds (`-->`). */
+export function encodeBaseAttribute(value: string): string {
+  return encodeURIComponent(value.replace(/\p{Surrogate}/gu, "\uFFFD"));
+}
+
+/** The HTML of a base block; `attributes` say where its base comes from. */
+export function baseBlockHtml(attributes: string): string {
+  return `<div class="${BASE_BLOCK_CLASS}" ${attributes}><p class="base-placeholder">${BASE_PLACEHOLDER}</p></div>`;
+}
+
 /** What the block says where it is not shown as its base: export, link preview. */
 export const BASE_PLACEHOLDER = "Base: shown in the reading view of Nixe.";
 
@@ -20,8 +30,7 @@ export function baseFencePlugin(md: MarkdownIt): void {
       return fallback(tokens, idx, options, env, self);
     }
     const line = token.map ? ` data-line="${token.map[0]}"` : "";
-    // Encoded, so that the sanitizer keeps the attribute whatever the source holds (`-->`).
-    const source = encodeURIComponent(token.content.replace(/\p{Surrogate}/gu, "�"));
-    return `<div class="${BASE_BLOCK_CLASS}" data-base="${source}"${line}><p class="base-placeholder">${BASE_PLACEHOLDER}</p></div>\n`;
+    const source = encodeBaseAttribute(token.content);
+    return `${baseBlockHtml(`data-base="${source}"${line}`)}\n`;
   };
 }

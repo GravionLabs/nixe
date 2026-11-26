@@ -26,8 +26,9 @@ import type {
 import { backend } from "../../core/file/backend";
 import { NoteEditService } from "../../core/file/note-edit.service";
 import { IndexService } from "../../core/index/index.service";
-import { basename, isMarkdownPath, joinPath } from "../../core/markdown/paths";
+import { basename, isBasePath, isMarkdownPath, joinPath } from "../../core/markdown/paths";
 import type { PropertyChange } from "../../core/markdown/property-change";
+import { parseWikilinkTarget, resolveWikilink } from "../../core/markdown/wikilink-resolver";
 import { SettingsService } from "../../core/settings/settings.service";
 import type { BaseChoice } from "../../core/tabs/tabs.service";
 import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
@@ -90,22 +91,29 @@ interface ViewRow {
   cover: BaseCover | null;
 }
 
-/** A base written in a ```base block of a note. */
-export interface BaseBlock {
-  /** The YAML of the base. */
-  source: string;
+/** A base shown in a note: a ```base block, or an embed of a `.base` file. */
+export type BaseBlock = (
+  | {
+      /** The YAML of the base. */
+      source: string;
+    }
+  | {
+      /** The target of the embed: `File.base` or `File.base#View name`. */
+      embed: string;
+    }
+) & {
   /** The note that embeds the base, as an absolute path: `this` in its expressions. */
   note: string | null;
   /** The view and sort chosen in the block. */
   choice: WritableSignal<BaseChoice>;
-}
+};
 
-/** Provided to a `BaseComponent` that shows a block of a note instead of the file of its tab. */
+/** Provided to a `BaseComponent` that shows a base in a note instead of the file of its tab. */
 export const BASE_BLOCK = new InjectionToken<BaseBlock>("BASE_BLOCK");
 
 /**
- * A base: the tab of a `.base` file, or a ```base block of a note. The core answers its view from
- * the index.
+ * A base: the tab of a `.base` file, a ```base block of a note or an embed of a `.base` file in one.
+ * The core answers its view from the index.
  */
 @Component({
   selector: "app-base",
@@ -127,7 +135,27 @@ export class BaseComponent {
   private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
 
-  protected readonly name = computed(() => (this.block ? "Base" : basename(this.file() ?? "")));
+  /** The file and view an embed names; null for a tab and a ```base block. */
+  private readonly embed =
+    this.block && "embed" in this.block ? parseWikilinkTarget(this.block.embed) : null;
+  /** The view an embed names, also one that starts with `^`. */
+  private readonly embedView =
+    this.embed?.heading ?? (this.embed?.block ? `^${this.embed.block}` : null);
+  /**
+   * The `.base` file of an embed, relative to the vault, resolved like a link. Null when there is
+   * none, undefined while the files of the vault are not listed yet.
+   */
+  private readonly embedded = computed(() => {
+    if (!this.embed) return undefined;
+    const files = this.workspace.vaultFiles();
+    if (!files) return undefined;
+    return resolveWikilink(this.embed.note, files.filter(isBasePath));
+  });
+
+  protected readonly name = computed(() => {
+    if (!this.block) return basename(this.file() ?? "");
+    return this.embed ? basename(this.embed.note) : "Base";
+  });
   /** The last answered table; null while loading and after a failure. */
   protected readonly result = signal<BaseResult | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -213,6 +241,7 @@ export class BaseComponent {
   private readonly key = computed(() =>
     [
       this.file(),
+      this.embedded(),
       JSON.stringify(this.choice()),
       this.workspace.vaultRoot(),
       this.index.status().state,
@@ -235,14 +264,16 @@ export class BaseComponent {
   private async refresh(): Promise<void> {
     const request = ++this.request;
     const path = this.file();
+    const embedded = this.embedded();
     // The table of another file is not shown while this one is read.
-    if (path !== this.shown) {
+    const shown = `${path}\n${embedded}`;
+    if (shown !== this.shown) {
       this.result.set(null);
       this.error.set(null);
       this.edited.set(new Map());
       this.views.set([]);
       this.active.set(null);
-      this.shown = path;
+      this.shown = shown;
     }
     // A tab without a base has nothing to show; a block of an unsaved note is outside the vault.
     if (path === null && !this.block) return;
@@ -260,13 +291,21 @@ export class BaseComponent {
       this.error.set(state === "error" ? "The vault index is not available." : null);
       return;
     }
+    if (this.embed && !embedded) {
+      if (embedded === null) this.missing(`Base not found: ${this.embed.note}`);
+      return;
+    }
     try {
-      const source = this.block ? this.block.source : await backend.readTextFile(path);
+      const source =
+        this.block && "source" in this.block
+          ? this.block.source
+          : await backend.readTextFile(embedded ? joinPath(root!, embedded) : path);
       if (request !== this.request) return;
       const views = await backend.baseViews(source);
       if (request !== this.request) return;
       let { view, sort } = this.choice();
-      const index = shownView(views, view);
+      const named = view ? null : this.embedView;
+      const index = named === null ? shownView(views, view) : namedView(views, named);
       // The chosen view is gone: its sort does not apply to the one shown instead.
       // Unnamed views can only be told apart by their place.
       const moved = view?.name === null && index !== view.index;
@@ -276,6 +315,11 @@ export class BaseComponent {
       }
       this.views.set(views);
       this.active.set(index);
+      if (named !== null && index === null) {
+        this.result.set(null);
+        this.error.set(`View not found: ${named} in ${embedded}`);
+        return;
+      }
       const result = await backend.baseQuery(source, index, sort, path.slice(prefix.length));
       if (request !== this.request) return;
       // An image that was missing may be there now.
@@ -290,6 +334,14 @@ export class BaseComponent {
       this.result.set(null);
       this.error.set(String(err));
     }
+  }
+
+  /** Shows why there is no base, without the views of the one shown before. */
+  private missing(message: string): void {
+    this.views.set([]);
+    this.active.set(null);
+    this.result.set(null);
+    this.error.set(message);
   }
 
   /**
@@ -405,6 +457,13 @@ function shownView(views: BaseView[], chosen: BaseChoice["view"]): number | null
     views.findIndex((v) => v.type === "table"),
     0,
   );
+}
+
+/** The index of the view called `name`, else of one that differs in case only; null without one. */
+function namedView(views: BaseView[], name: string): number | null {
+  let index = views.findIndex((v) => v.name === name);
+  if (index < 0) index = views.findIndex((v) => v.name?.toLowerCase() === name.toLowerCase());
+  return index < 0 ? null : index;
 }
 
 function groupRow(label: string, group: BaseGroup, index: number): ViewRow {

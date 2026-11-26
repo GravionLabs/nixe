@@ -18,7 +18,7 @@ export interface RenderContext {
   vaultFiles?: readonly string[] | null;
   /** Absolute vault root; resolves embedded images and notes. */
   vaultRoot?: string | null;
-  /** ```base fences become base blocks (reading view, export, preview) instead of code. */
+  /** ```base fences and `.base` embeds become base blocks (reading view, export, preview). */
   bases?: boolean;
 }
 

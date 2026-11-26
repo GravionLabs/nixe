@@ -25,7 +25,7 @@ links and Mermaid rendering all at once.
 - [Portable workspaces](adr/0008-location-variables-and-own-root-names-for-portable-workspaces.md) — location variables in root paths, own root names
 - [EPUB reader](adr/0009-epub-reader-foliate-js-sandbox-and-storage.md) — foliate-js, the sandboxed iframe, files through the Rust core, books outside git
 - [Links](links.md) — the bookmark library in the vault: the link note, the folder role `links`, the archive ([ADR 0010](adr/0010-links-a-bookmark-library-in-the-vault.md))
-- [bases.md](bases.md) — `.base` files and `base` blocks as tables and cards of the notes
+- [bases.md](bases.md) — `.base` files, their embeds and `base` blocks as tables and cards of the notes
 - [Agent scripts](adr/0011-agent-scripts-in-nixe.md) — saved agent prompts in the vault: storage, trust, tools, outputs, the folder trigger
 - [adr/](adr/) — architecture decisions
 - [backend/README.md](backend/README.md) — the Rust core (`src-tauri/`)
