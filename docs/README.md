@@ -27,6 +27,7 @@ links and Mermaid rendering all at once.
 - [Links](links.md) — the bookmark library in the vault: the link note, the folder role `links`, the archive ([ADR 0010](adr/0010-links-a-bookmark-library-in-the-vault.md))
 - [bases.md](bases.md) — `.base` files, their embeds and `base` blocks as tables and cards of the notes
 - [Agent scripts](adr/0011-agent-scripts-in-nixe.md) — saved agent prompts in the vault: storage, trust, tools, outputs, the folder trigger
+- [Angular naming](adr/0012-keep-the-role-suffixes-of-angular-classes.md) — role suffixes of components, services and directives
 - [adr/](adr/) — architecture decisions
 - [backend/README.md](backend/README.md) — the Rust core (`src-tauri/`)
   - [backend/tauri-commands.md](backend/tauri-commands.md) — the command surface
