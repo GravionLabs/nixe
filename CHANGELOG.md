@@ -5,6 +5,92 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.17.0] — 2026-11-26
+
+### Bug Fixes
+- **bases**: Cards view (#635) (#646)
+- **properties**: A numeric or boolean key is duplicated or quoted when its value is set (#652) (#655)
+
+
+### Documentation
+- Update CHANGELOG.md for v1.16.0 [skip ci]
+- **bases**: Embed a .base file in a note (#638) (#649)
+- **adr**: Keep the role suffixes of Angular classes (#657) (#660)
+
+
+### Features
+- **bases**: Open a .base file as a table of the notes (#630) (#641)
+- **bases**: Filter notes with expressions and file fields (#631) (#642)
+- **bases**: Formulas and text and number functions (#632) (#643)
+- **bases**: Date, duration and list functions (#633) (#644)
+- **bases**: Switch views, sort, limit and group (#634) (#645)
+- **bases**: Cards view (#635) (#646)
+- **bases**: Edit cells and write them into the frontmatter (#636) (#647)
+- **bases**: Render base code blocks in the reading view (#637) (#648)
+- **bases**: Embed a .base file in a note (#638) (#649)
+- **bases**: Show embedded bases in the live preview (#639) (#650)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+
+
+### Refactoring
+- **app**: Move NavIconDirective into its own file (#659) (#663)
+
+
+### Reverts
+- **bases**: Switch views, sort, limit and group (#634) (#645)
+
+
+### Security
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+- **terminal**: Offer to enable the terminal and fall back to the shell when an agent CLI is missing (#661) (#664)
+
+
 ## [1.16.0] — 2026-11-25
 
 ### Bug Fixes
