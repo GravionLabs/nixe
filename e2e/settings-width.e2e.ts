@@ -43,6 +43,9 @@ test("the selects and fields of the settings rows have the same box", async ({ p
   const boxes: { width: number; height: number; right: number }[] = [];
   for (const section of await sections.all()) {
     await section.click();
+    // The controls are collected only once the clicked section is the one shown.
+    const title = (await section.innerText()).trim();
+    await expect(region.getByRole("heading", { level: 2, name: title })).toBeVisible();
     const controls = region.locator(
       '.control > select, .control > input[type="text"], .control > input[type="number"]',
     );
