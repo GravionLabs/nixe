@@ -1,6 +1,10 @@
 import {
+  ApplicationRef,
   Component,
+  DestroyRef,
   ElementRef,
+  EnvironmentInjector,
+  Injector,
   computed,
   effect,
   inject,
@@ -40,6 +44,7 @@ import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { OutlineService } from "../../core/outline/outline.service";
 import { ShellService } from "../../core/shell/shell.service";
 import { TabsService } from "../../core/tabs/tabs.service";
+import { BaseBlocks } from "../bases/base-blocks";
 import { PropertiesComponent } from "../properties/properties.component";
 import { SearchService } from "../../core/index/search.service";
 import { VaultOpsService } from "../../core/workspace/vault-ops.service";
@@ -82,6 +87,11 @@ export class ViewerComponent {
   private readonly dialogContent = viewChild<ElementRef<HTMLElement>>("dialogContent");
   private readonly findInput = viewChild<ElementRef<HTMLInputElement>>("findInput");
   private readonly mermaid = new MermaidRenderer();
+  private readonly bases = new BaseBlocks(
+    inject(ApplicationRef),
+    inject(EnvironmentInjector),
+    inject(Injector),
+  );
   private renderedPath: string | null = null;
   /** Text this viewer just saved from a checkbox: its DOM is already right, so that render is skipped. */
   private toggledText: string | null = null;
@@ -125,6 +135,7 @@ export class ViewerComponent {
   private dialogNaturalSize: { width: number; height: number } | null = null;
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.bases.clear());
     effect(() => {
       const el = this.content().nativeElement;
       const html = this.html();
@@ -133,6 +144,7 @@ export class ViewerComponent {
         const skip = this.toggledText !== null && this.toggledText === this.doc.content();
         this.toggledText = null;
         if (skip) return;
+        this.bases.clear();
         el.innerHTML = html; // already sanitized with DOMPurify
         // A newly opened document starts at the top (external reloads keep the position).
         const path = this.doc.path();
@@ -143,6 +155,8 @@ export class ViewerComponent {
         this.findMarks = [];
         decorateCodeBlocks(el);
         decorateImages(el);
+        // After the images: those of a base are its own.
+        this.bases.mount(el, path);
         this.enableTasks();
         void this.syncFolds();
         this.applyPendingAnchor(false);
@@ -158,12 +172,15 @@ export class ViewerComponent {
             math: this.settings.math(),
             vaultFiles: this.workspace.vaultFiles(),
             vaultRoot: this.workspace.vaultRoot(),
+            bases: true,
           })
           .catch(() => undefined)
           .then(() => this.mermaid.render(el, dark))
           .then(() => {
             decorateCodeBlocks(el);
             decorateImages(el);
+            // The blocks of embedded notes; a render that came meanwhile shows another note.
+            this.bases.mount(el, this.renderedPath);
           })
           .then(() => this.syncFolds())
           .then(() => {
@@ -360,7 +377,8 @@ export class ViewerComponent {
     const root = this.content().nativeElement;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: (node) =>
-        node.parentElement?.closest("svg, script, style, .mermaid-diagram") || !(node as Text).data
+        node.parentElement?.closest("svg, script, style, .mermaid-diagram, .base-block") ||
+        !(node as Text).data
           ? NodeFilter.FILTER_REJECT
           : NodeFilter.FILTER_ACCEPT,
     });

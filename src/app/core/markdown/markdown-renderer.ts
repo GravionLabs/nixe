@@ -5,6 +5,7 @@ import taskLists from "markdown-it-task-lists";
 import * as katexModule from "@vscode/markdown-it-katex";
 import hljs from "highlight.js/lib/common";
 
+import { baseFencePlugin } from "./plugins/base-fence.plugin";
 import { adoMermaidPlugin } from "./plugins/ado-mermaid.plugin";
 import { adoTocPlugin } from "./plugins/ado-toc.plugin";
 import { embedPlugin } from "./plugins/embed.plugin";
@@ -18,6 +19,8 @@ import { tagPlugin } from "./plugins/tag.plugin";
 export interface RendererOptions {
   /** Enables LaTeX math via KaTeX (`$…$`, `$$…$$`, ```math fences). */
   math: boolean;
+  /** Renders ```base fences as base blocks instead of code. */
+  bases?: boolean;
 }
 
 type MarkdownItPlugin = (md: MarkdownIt, options?: unknown) => void;
@@ -74,6 +77,9 @@ export function createMarkdownRenderer(options: RendererOptions): MarkdownIt {
     .use(wikilinkPlugin)
     .use(sourceLinePlugin);
 
+  if (options.bases) {
+    md.use(baseFencePlugin);
+  }
   if (options.math) {
     md.use(katexPlugin, { throwOnError: false, enableFencedBlocks: true });
   }

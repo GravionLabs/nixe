@@ -210,6 +210,14 @@ pub enum Expr {
     Call(Function, Vec<Expr>),
     /// A formula of the base, by name.
     Formula(String),
+    /// `this` and `this.file`: the file the base is shown in, as a link to it.
+    This,
+    /// A property of the file of `this`, by name.
+    ThisProperty(String),
+    /// A `file.` field of the file of `this`.
+    ThisFile(Field),
+    /// A file function of the file of `this`; the arguments are those of the row.
+    ThisCall(Function, Vec<Expr>),
     Global(Global, Vec<Expr>),
     Method(Box<Expr>, Method, Vec<Expr>),
     /// `.length` of a value.
@@ -226,9 +234,18 @@ impl Expr {
     pub fn formulas<'a>(&'a self, names: &mut Vec<&'a str>) {
         match self {
             Expr::Formula(name) => names.push(name),
-            Expr::Text(_) | Expr::Number(_) | Expr::Bool(_) | Expr::Property(_) | Expr::File(_) => {
-            }
-            Expr::List(items) | Expr::Call(_, items) | Expr::Global(_, items) => {
+            Expr::Text(_)
+            | Expr::Number(_)
+            | Expr::Bool(_)
+            | Expr::Property(_)
+            | Expr::File(_)
+            | Expr::This
+            | Expr::ThisProperty(_)
+            | Expr::ThisFile(_) => {}
+            Expr::List(items)
+            | Expr::Call(_, items)
+            | Expr::ThisCall(_, items)
+            | Expr::Global(_, items) => {
                 items.iter().for_each(|i| i.formulas(names));
             }
             Expr::Method(receiver, _, args) => {
@@ -495,7 +512,7 @@ impl Parser {
             "file" => self.file(),
             "note" => self.member("note").map(Expr::Property),
             "formula" => self.member("formula").map(Expr::Formula),
-            "this" => Err("`this` is not supported yet".into()),
+            "this" => self.this(),
             _ => Ok(Expr::Property(name)),
         }
     }
@@ -518,6 +535,33 @@ impl Parser {
         Err(format!(
             "syntax error: expected `{of}.name` or `{of}[\"name\"]`"
         ))
+    }
+
+    /// What follows `this`: nothing, `.file`, `.file.field`, `.file.function(…)` or a property
+    /// (`.x`, `["x"]`, `.note.x`).
+    fn this(&mut self) -> Result<Expr, String> {
+        if matches!(self.peek(), Some(Token::Symbol("["))) {
+            return self.member("this").map(Expr::ThisProperty);
+        }
+        if !self.eat(".") {
+            return Ok(Expr::This);
+        }
+        let Some(Token::Name(name)) = self.take() else {
+            return Err("syntax error: expected a name after `this.`".into());
+        };
+        if self.eat("(") {
+            return Err(format!("unknown function `this.{name}`"));
+        }
+        match name.as_str() {
+            "file" if matches!(self.peek(), Some(Token::Symbol("."))) => Ok(match self.file()? {
+                Expr::File(field) => Expr::ThisFile(field),
+                Expr::Call(function, args) => Expr::ThisCall(function, args),
+                other => other,
+            }),
+            "file" => Ok(Expr::This),
+            "note" => self.member("note").map(Expr::ThisProperty),
+            _ => Ok(Expr::ThisProperty(name)),
+        }
     }
 
     /// What follows `file`: `.field` or `.function(…)`.
@@ -662,7 +706,11 @@ mod tests {
             ("note", "expected `note.name`"),
             ("note[1]", "expected `note.name`"),
             ("tags[0]", "only supported after `note`"),
-            ("file.hasLink(this.file)", "`this` is not supported"),
+            ("this.", "expected a name after `this.`"),
+            ("this.file.hasTag()", "at least one argument"),
+            ("this.file.nope", "unknown field `file.nope`"),
+            ("this.lower()", "unknown function `this.lower`"),
+            ("this[0]", "expected `this.name`"),
             ("file.hasTag()", "at least one argument"),
             ("file.inFolder()", "exactly one argument"),
             ("file.hasLink('a', 'b')", "exactly one argument"),

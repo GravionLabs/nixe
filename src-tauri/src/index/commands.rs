@@ -247,11 +247,19 @@ pub async fn base_query(
     source: String,
     view: Option<usize>,
     sort: Option<SortKey>,
+    this_file: Option<String>,
 ) -> Result<BaseResult, String> {
     let conn = state.conn()?;
     let now = chrono::Utc::now().timestamp_millis();
     tauri::async_runtime::spawn_blocking(move || {
-        bases::query(&conn, &source, view, sort.as_ref(), now)
+        bases::query(
+            &conn,
+            &source,
+            view,
+            sort.as_ref(),
+            this_file.as_deref(),
+            now,
+        )
     })
     .await
     .map_err(|e| e.to_string())?

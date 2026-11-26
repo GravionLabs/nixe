@@ -154,6 +154,8 @@ describe("BaseComponent", () => {
       source: "source of /vault/Library.base",
       view: 0,
       sort: null,
+      // `this` of a base opened directly is the base file.
+      thisFile: "Library.base",
     });
     const headers = [...view.el.querySelectorAll("thead th")].map((th) => th.textContent!.trim());
     expect(headers).toEqual(["file.name", "Count", "done", "tags"]);

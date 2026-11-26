@@ -165,3 +165,40 @@ header {
 .note-link:hover {
   text-decoration: underline;
 }
+
+/* A ```base block in a note: as tall as its content, and without the markdown styles of the note
+   on its tables and lists. */
+:host(.embedded) {
+  flex: none;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  white-space: normal;
+}
+
+:host(.embedded) .table,
+:host(.embedded) .cards-scroll {
+  flex: none;
+  max-height: 70vh;
+}
+
+:host(.embedded) ::ng-deep table {
+  display: table;
+  width: 100%;
+  margin: 0;
+}
+
+:host(.embedded) h3.group {
+  margin: 0;
+  border: 0;
+}
+
+:host(.embedded) dt {
+  padding: 0;
+  font-style: normal;
+  font-weight: 400;
+}
+
+:host(.embedded) .card dd {
+  padding: 0;
+}
