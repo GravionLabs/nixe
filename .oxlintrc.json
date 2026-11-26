@@ -57,6 +57,9 @@
       "error",
       { "template": 0, "styles": 1000, "animations": 1000 }
     ],
+    // The role suffixes of ADR 0012.
+    "@angular-eslint/component-class-suffix": "error",
+    "@angular-eslint/directive-class-suffix": "error",
     "@angular-eslint/component-selector": [
       "error",
       { "type": "element", "prefix": "app", "style": "kebab-case" }
