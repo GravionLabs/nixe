@@ -95,7 +95,8 @@ traces.
 (default folder `site/public/screenshots`). `scripts/browser/playwright.mjs` installs Chromium when
 it is missing, starts the demo server (or reuses the running one) and opens a page per theme with a
 fixed clock, no animation and a 1280×800 window, so two runs give the same images.
-`scripts/screenshots/views.mjs` lists the views (`editor`, `backlinks`, `settings-locations`, `search`) and has its own
+`scripts/screenshots/views.mjs` lists the views (`editor`, `backlinks`, `settings-locations`, `epub-reader`, `clone`,
+`search`) and has its own
 step helpers in plain JavaScript; they are not the TypeScript steps of `e2e/steps.ts`, so a renamed
 label is fixed in both places. To add a view, add an entry there with the steps a user would take.
 An unknown view name is an error (exit 2); a command the demo does not answer fails the run with its

@@ -1,5 +1,13 @@
 import { Component, inject } from "@angular/core";
-import { HxDialog } from "@gravionlabs/helix-ui";
+import {
+  HxButton,
+  HxDialog,
+  HxField,
+  HxInput,
+  HxInputGroup,
+  HxMessage,
+  HxProgressBar,
+} from "@gravionlabs/helix-ui";
 
 import { CloneService } from "../../core/git/clone.service";
 import { GitService } from "../../core/git/git.service";
@@ -9,7 +17,7 @@ import { GitService } from "../../core/git/git.service";
   selector: "app-clone",
   templateUrl: "./clone.component.html",
   styleUrl: "./clone.component.css",
-  imports: [HxDialog],
+  imports: [HxButton, HxDialog, HxField, HxInput, HxInputGroup, HxMessage, HxProgressBar],
 })
 export class CloneComponent {
   protected readonly clone = inject(CloneService);

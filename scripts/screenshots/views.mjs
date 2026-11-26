@@ -93,6 +93,16 @@ export const VIEWS = [
     },
   },
   {
+    name: "clone",
+    run: async (page) => {
+      await ready(page);
+      await page.keyboard.press("ControlOrMeta+P");
+      await page.getByRole("combobox").fill(">Clone vault");
+      await page.getByRole("option", { name: /Clone vault/ }).click();
+      await page.getByRole("dialog", { name: "Clone vault" }).waitFor();
+    },
+  },
+  {
     name: "search",
     run: async (page) => {
       await ready(page);
