@@ -1,4 +1,5 @@
 import { Component, inject, output } from "@angular/core";
+import { HxButton } from "@gravionlabs/helix-ui";
 
 import { ConflictService } from "../../core/git/conflict.service";
 import { basename } from "../../core/markdown/paths";
@@ -7,7 +8,7 @@ import { ConflictMergeComponent } from "./conflict-merge.component";
 /** Shown above a note that has a sync conflict: links the two versions and settles the pair. */
 @Component({
   selector: "app-conflict-bar",
-  imports: [ConflictMergeComponent],
+  imports: [ConflictMergeComponent, HxButton],
   templateUrl: "./conflict-bar.component.html",
   styles: `
     .bar {
@@ -29,19 +30,6 @@ import { ConflictMergeComponent } from "./conflict-merge.component";
     }
     .link {
       color: var(--h-primary-color);
-    }
-    button {
-      height: 24px;
-      padding: 0 10px;
-      border: 1px solid var(--h-content-border-color);
-      border-radius: 6px;
-      background: var(--h-content-background);
-      color: var(--h-text-color);
-      font: inherit;
-      cursor: pointer;
-    }
-    button:hover {
-      background: var(--h-surface-hover);
     }
   `,
 })

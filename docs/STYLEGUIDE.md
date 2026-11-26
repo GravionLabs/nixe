@@ -30,7 +30,7 @@ Binding for every UI change. Read the base guide named above first (`pnpm instal
 ## Components
 
 - Git, Changes, Review and History are built from `src/app/shared/panel/` (section, note row, status icon, empty state).
-- Component CSS passes `src/app/component-css.spec.ts`; an exception is an entry with a reason in `src/app/css-allowlist.json`.
+- `pnpm lint` (helix-lint) rejects raw controls in templates and hex, rgb and hsl colors and off-scale font sizes in CSS; an exception is an entry with a reason in `scripts/lint/helix-allow.json`.
 
 ## UX rules
 
@@ -46,8 +46,8 @@ Binding for every UI change. Read the base guide named above first (`pnpm instal
 | --- | --- | --- |
 | STYLEGUIDE.md, Typography: `font-size` is a `--h-font-size-*` step | App base and note text use `--nixe-font-size` and `--nixe-note-font-size` | Themes, snippets and the setting *Text size* change them ([theming.md](theming.md)) |
 | STYLEGUIDE.md, Typography: UI text is `--helix-font-sans`, code `--helix-font-mono` | `--nixe-font-text`, `--nixe-note-text` and `--nixe-font-mono` | Themes and the settings *Text font* and *Code font* change them ([theming.md](theming.md)) |
-| STYLEGUIDE.md, Typography: `font-size` is a `--h-font-size-*` step | The wordmark of the start screen is 44 px | A display size above the type scale (`css-allowlist.json`) |
-| STYLEGUIDE.md, Typography: `font-size` is a `--h-font-size-*` step | The dot of a folder with changed notes is 8 px | A fixed-size icon glyph (`css-allowlist.json`) |
+| STYLEGUIDE.md, Typography: `font-size` is a `--h-font-size-*` step | The wordmark of the start screen is 44 px | A display size above the type scale (`scripts/lint/helix-allow.json`) |
+| STYLEGUIDE.md, Typography: `font-size` is a `--h-font-size-*` step | The dot of a folder with changed notes is 8 px | A fixed-size icon glyph (`scripts/lint/helix-allow.json`) |
 | STYLEGUIDE.md, Tokens: no literal colors, sizes or shadows in app CSS | `src/styles.scss` has literal diff and danger colors, shadows and font sizes | Open: why not `--h-*` tokens? |
 | STYLEGUIDE.md, UX rules: an irreversible action asks through `HxConfirmationService` | Most confirmations use the native `ask` dialog of Tauri | Open: why the native dialog? |
 | ux-rules.md, Confirm or undo: no question before a reversible action | Merge, extract, rename and move ask first, although they offer Undo | Open: why ask before an action that can be undone? |

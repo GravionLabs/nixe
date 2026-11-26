@@ -8,9 +8,36 @@
       }
       <a href="#" class="link" (click)="open($event)">{{ basename(conflict.other() ?? "") }}</a>
     </span>
-    <button type="button" (click)="merge()">Merge</button>
-    <button type="button" (click)="keep('this')">Keep this one</button>
-    <button type="button" (click)="keep('other')">Keep the other</button>
+    <button
+      hx-button
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      type="button"
+      (click)="merge()"
+    >
+      Merge
+    </button>
+    <button
+      hx-button
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      type="button"
+      (click)="keep('this')"
+    >
+      Keep this one
+    </button>
+    <button
+      hx-button
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      type="button"
+      (click)="keep('other')"
+    >
+      Keep the other
+    </button>
   </div>
   <app-conflict-merge (failed)="failed.emit($event)" />
 }
