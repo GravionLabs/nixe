@@ -58,7 +58,7 @@ export class CloneComponent {
     this.submitted() && !this.clone.parent() ? "Choose a target folder" : null,
   );
 
-  /** Escape, the close button or the mask; also fires when the dialog is destroyed after the service closed it. */
+  /** Escape or the close button (both off while cloning); also fires when the dialog is destroyed after the service closed it. */
   protected onHidden(): void {
     if (this.clone.visible()) void this.clone.close();
   }
