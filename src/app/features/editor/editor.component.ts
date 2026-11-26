@@ -75,6 +75,8 @@ interface Session {
   tracker: ExternalChangeTracker;
   /** Why the last write failed; null after one that worked. */
   failure: string | null;
+  /** The disk text the next write expects (an edit from outside the editor); null: none. */
+  expected: string | null;
 }
 
 /** Pause after the last change before the counts are recomputed. */
@@ -252,6 +254,7 @@ export class EditorComponent implements OnDestroy {
       crlf: text.includes("\r\n"),
       tracker: new ExternalChangeTracker(text),
       failure: null,
+      expected: null,
       saver: new AutoSaver({
         write: (t) => this.write(session, t),
         onError: (e) => this.failed.emit(`Saving failed: ${String(e)}`),
@@ -340,6 +343,7 @@ export class EditorComponent implements OnDestroy {
         text: () => view.state.doc.toString(),
         apply: (text) => this.applyText(text),
         readDisk: () => backend.readTextFile(session.path),
+        expectDisk: (disk) => (session.expected = disk),
         external: (disk) => this.onExternal(session.path, disk),
         refusal: () => {
           if (this.session !== session || this.destroyed) return closed;
@@ -475,9 +479,11 @@ export class EditorComponent implements OnDestroy {
 
   private async write(session: Session, text: string): Promise<void> {
     const out = session.crlf ? toCrlf(text) : text;
+    const expected = session.expected ?? undefined;
+    session.expected = null;
     session.tracker.willWrite(out);
     try {
-      await this.doc.write(session.path, out);
+      await this.doc.write(session.path, out, expected);
       session.tracker.written(out);
       session.failure = null;
     } catch (error) {

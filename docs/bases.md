@@ -213,8 +213,10 @@ without frontmatter gets one. A change that cannot be written without damaging t
 key and its value) is refused.
 
 - A note that is **open in an editor** takes the change in the editor, together with its unsaved
-  changes, and is saved at once. The change is refused while the editor asks what to do with a
-  change on disk.
+  changes, and is saved at once, only while the file still holds what the editor last saw: a
+  change made on disk in between is not overwritten, the editor shows it (reload, or Reload/Keep
+  mine) and the cell keeps its old value. The change is refused while the editor asks what to do
+  with a change on disk.
 - Any **other note** is read, changed and written atomically, only while the file still holds what
   was read. A change made in between is not overwritten.
 - Edits of the same note are applied one after the other.
