@@ -21,7 +21,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { countText } from "../../core/editor/text-stats";
-import { editAndSave, watchedChange } from "../../core/editor/buffer-edit";
+import { editAndSave, editsDone, watchedChange } from "../../core/editor/buffer-edit";
 import {
   AutoSaver,
   ExternalChangeTracker,
@@ -55,7 +55,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
-import { textChange } from "./text-change";
+import { dispatchText } from "./text-change";
 import { BaseBlocks } from "../bases/base-blocks";
 import { PropertiesComponent } from "../properties/properties.component";
 import { ExternalCompareComponent } from "./external-compare.component";
@@ -317,10 +317,7 @@ export class EditorComponent implements OnDestroy {
 
   /** A change from outside the text (the properties panel): one undoable transaction. */
   private applyText(next: string): void {
-    const view = this.view;
-    if (!view) return;
-    const change = textChange(view.state.doc.toString(), next);
-    if (change) view.dispatch({ changes: change });
+    if (this.view) dispatchText(this.view, next);
   }
 
   private holdsNote(): boolean {
@@ -338,7 +335,18 @@ export class EditorComponent implements OnDestroy {
         saver: session.saver,
         tracker: session.tracker,
         text: () => view.state.doc.toString(),
-        apply: (text) => this.applyText(text),
+        // The editor may be left while the edit runs: the saver still has to get a taken back edit.
+        apply: (text) =>
+          dispatchText(
+            view,
+            text,
+            this.destroyed
+              ? (t) => {
+                  session.saver.change(t);
+                  this.doc.typed(session.path, t);
+                }
+              : undefined,
+          ),
         readDisk: () => backend.readTextFile(session.path),
         external: (disk) => this.onExternal(session.path, disk),
         refusal: () => {
@@ -493,6 +501,8 @@ export class EditorComponent implements OnDestroy {
    */
   private async settle(): Promise<void> {
     const session = this.session;
+    // An edit that is under way may take itself back or raise a conflict: decide after it.
+    if (session?.saver.busy) await editsDone(session.saver);
     const pending = session?.saver.pendingText ?? null;
     if (!session || this.conflict() === null || pending === null) return this.flush();
     const copy = unsavedCopyPath(session.path);

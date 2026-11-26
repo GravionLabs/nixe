@@ -39,6 +39,14 @@ export function watchedChange(
 }
 
 /**
+ * Resolves when no edit holds the saver. What happens to the pending text when the editor is left
+ * (written, or a conflict that needs a copy) is only known then.
+ */
+export async function editsDone(saver: AutoSaver): Promise<void> {
+  while (saver.busy) await saver.busy;
+}
+
+/**
  * Applies `change` to the text in the editor, with its unsaved changes, and saves it at once.
  * The write goes through only while the disk holds what was checked. Rejects, without the change,
  * when the note changed on disk or cannot be saved; only when the user typed during a failed

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { editAndSave, watchedChange, type EditedBuffer } from "./buffer-edit";
+import { editAndSave, editsDone, watchedChange, type EditedBuffer } from "./buffer-edit";
 import { AutoSaver, ExternalChangeTracker } from "./editor-core";
 
 /** An editor on a note whose disk text is `disk.text`. */
@@ -206,6 +206,19 @@ describe("editAndSave", () => {
     e.type("typed\n");
     await e.saver.flush();
     expect(e.disk.text).toBe("typed\n");
+  });
+
+  it("is done only after the edit took itself back and kept the unsaved text pending", async () => {
+    const e = editor();
+    e.type("a: 1\ntyped\n");
+    e.disk.afterRead = () => (e.disk.text = "external\n");
+    const edit = editAndSave(e.buffer, add).catch((error: unknown) => error);
+    // What leaving the editor waits for before it looks for a conflict and the pending text.
+    await editsDone(e.saver);
+    expect(e.buffer.external).toHaveBeenCalledWith("external\n");
+    expect(e.saver.pendingText).toBe("a: 1\ntyped\n");
+    await expect(edit).resolves.toBeInstanceOf(Error);
+    e.saver.discard();
   });
 
   it("leaves the text alone when the change throws", async () => {
