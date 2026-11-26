@@ -10,9 +10,6 @@ import { BASE_BLOCK_CLASS } from "../../core/markdown/plugins/base-fence.plugin"
 import type { BaseChoice } from "../../core/tabs/tabs.service";
 import { BASE_BLOCK, BaseComponent } from "./base.component";
 
-/** Events of a base that the note around it must not handle. */
-const OWN_EVENTS = ["click", "keydown", "contextmenu"] as const;
-
 /**
  * The bases shown in a rendered note: one `BaseComponent` per base block. `clear` destroys them
  * before the note is rendered again; the chosen views survive that while the note stays.
@@ -22,6 +19,7 @@ export class BaseBlocks {
   /** By note, source and how many equal blocks come before. */
   private readonly choices = new Map<string, WritableSignal<BaseChoice>>();
   private note: string | null = null;
+  private disposed = false;
 
   constructor(
     private readonly app: ApplicationRef,
@@ -34,6 +32,8 @@ export class BaseBlocks {
    * block of an embedded note belongs to that one.
    */
   mount(root: HTMLElement, note: string | null): void {
+    // Embedded notes may arrive after the view is gone.
+    if (this.disposed) return;
     if (note !== this.note) {
       this.note = note;
       this.choices.clear();
@@ -57,7 +57,6 @@ export class BaseBlocks {
         choice = signal<BaseChoice>({ view: null, sort: null });
         this.choices.set(key, choice);
       }
-      for (const type of OWN_EVENTS) el.addEventListener(type, stop);
       const ref = createComponent(BaseComponent, {
         environmentInjector: this.environment,
         elementInjector: Injector.create({
@@ -72,6 +71,12 @@ export class BaseBlocks {
     }
   }
 
+  /** Destroys the bases and mounts no further ones: the view of the note is gone. */
+  dispose(): void {
+    this.clear();
+    this.disposed = true;
+  }
+
   clear(): void {
     for (const ref of this.shown.values()) {
       this.app.detachView(ref.hostView);
@@ -79,10 +84,6 @@ export class BaseBlocks {
     }
     this.shown.clear();
   }
-}
-
-function stop(event: Event): void {
-  event.stopPropagation();
 }
 
 /** The source of a block; null for an attribute written by hand that is no encoded text. */

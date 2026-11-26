@@ -135,7 +135,7 @@ export class ViewerComponent {
   private dialogNaturalSize: { width: number; height: number } | null = null;
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => this.bases.clear());
+    inject(DestroyRef).onDestroy(() => this.bases.dispose());
     effect(() => {
       const el = this.content().nativeElement;
       const html = this.html();
@@ -575,6 +575,8 @@ export class ViewerComponent {
 
   async onClick(event: MouseEvent): Promise<void> {
     const target = event.target as Element;
+    // A base handles its own clicks.
+    if (target.closest(".base-block")) return;
     if (await handleCopyClick(target)) return;
 
     const marker = target.closest<HTMLElement>(".fold-marker");

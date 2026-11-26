@@ -277,6 +277,45 @@ describe("ViewerComponent base blocks", () => {
     expect(queries().length).toBe(count);
   });
 
+  it("mounts no base for an embed that is read after the view is gone", async () => {
+    fakeBackend();
+    const answer = invokeMock.getMockImplementation()!;
+    let read!: () => void;
+    invokeMock.mockImplementation((command, args) =>
+      command === "read_text_file"
+        ? new Promise((resolve) => (read = () => resolve("```base\nlate\n```\n")))
+        : answer(command, args),
+    );
+    const view = render("![[Embedded]]\n");
+    await view.settle();
+
+    view.fixture.destroy();
+    read();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.index.revision.set(1);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(queries()).toEqual([]);
+  });
+
+  it("lets the keys pressed in a base reach the shortcuts of the app", async () => {
+    fakeBackend();
+    const view = render();
+    await view.settle();
+    document.body.append(view.el);
+    const heard = vi.fn();
+    document.addEventListener("keydown", heard);
+
+    view
+      .blocks()[0]!
+      .querySelector("button")!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, bubbles: true }));
+
+    document.removeEventListener("keydown", heard);
+    view.el.remove();
+    expect(heard).toHaveBeenCalled();
+  });
+
   it("binds `this` of a block in an embedded note to that note", async () => {
     fakeBackend();
     const view = render("![[Embedded]]\n");
