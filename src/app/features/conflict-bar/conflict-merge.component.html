@@ -6,12 +6,8 @@
     position="top"
     width="min(1100px, 94vw)"
   >
-    <div class="merge">
-      <div class="head">
-        <span class="count">{{ hunkCount() }} {{ hunkCount() === 1 ? "change" : "changes" }}</span>
-        <button type="button" (click)="cancel()">Cancel</button>
-        <button type="button" class="primary" [disabled]="saving()" (click)="save()">Save</button>
-      </div>
+    <form id="merge-form" class="merge" (submit)="submit($event)">
+      <span class="count">{{ hunkCount() }} {{ hunkCount() === 1 ? "change" : "changes" }}</span>
       <div class="columns">
         <div class="titles"><span>This note</span><span>The other note</span></div>
         <div class="hunks" aria-label="Hunks">
@@ -24,27 +20,16 @@
               <div class="hunk" [attr.data-choice]="choice(part.index)">
                 <div class="hunk-head">
                   <span>Change {{ part.index + 1 }}</span>
-                  <button
-                    type="button"
-                    [class.on]="choice(part.index) === 'this'"
-                    (click)="pick(part.index, 'this')"
-                  >
-                    Take this
-                  </button>
-                  <button
-                    type="button"
-                    [class.on]="choice(part.index) === 'other'"
-                    (click)="pick(part.index, 'other')"
-                  >
-                    Take the other
-                  </button>
-                  <button
-                    type="button"
-                    [class.on]="choice(part.index) === 'both'"
-                    (click)="pick(part.index, 'both')"
-                  >
-                    Take both
-                  </button>
+                  <hx-select-button
+                    size="small"
+                    optionLabel="label"
+                    optionValue="value"
+                    [options]="choiceOptions"
+                    [allowEmpty]="false"
+                    [ariaLabel]="'Change ' + (part.index + 1)"
+                    [value]="choice(part.index)"
+                    (valueChange)="pick(part.index, $any($event))"
+                  />
                 </div>
                 <div class="sides">
                   <pre class="del" [class.taken]="choice(part.index) !== 'other'">{{
@@ -59,15 +44,21 @@
           }
         </div>
       </div>
-      <label class="result">
-        <span>Result</span>
+      <hx-field label="Result">
         <textarea
-          aria-label="Result"
+          hx-input
+          fluid
+          class="result"
           rows="8"
           [value]="result()"
           (input)="typed.set($any($event.target).value)"
         ></textarea>
-      </label>
+      </hx-field>
+    </form>
+
+    <div hxDialogFooter>
+      <button hx-button type="button" variant="text" (click)="cancel()">Cancel</button>
+      <button hx-button type="submit" form="merge-form" [loading]="saving()">Save</button>
     </div>
   </hx-dialog>
 }

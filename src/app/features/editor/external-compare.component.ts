@@ -1,5 +1,5 @@
 import { Component, Input, computed, output, signal } from "@angular/core";
-import { HxDialog } from "@gravionlabs/helix-ui";
+import { HxButton, HxDialog } from "@gravionlabs/helix-ui";
 
 import { diffLines, diffStat } from "../../core/git/line-diff";
 
@@ -11,7 +11,7 @@ import { diffLines, diffStat } from "../../core/git/line-diff";
   selector: "app-external-compare",
   templateUrl: "./external-compare.component.html",
   styleUrl: "./external-compare.component.css",
-  imports: [HxDialog],
+  imports: [HxButton, HxDialog],
 })
 export class ExternalCompareComponent {
   private readonly diskText = signal("");

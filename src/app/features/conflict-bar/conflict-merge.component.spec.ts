@@ -12,6 +12,16 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 import { ConflictService } from "../../core/git/conflict.service";
 import { ConflictMergeComponent } from "./conflict-merge.component";
 
+const escape = (el: HTMLElement) =>
+  el
+    .querySelector("[role=dialog]")!
+    .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
+const footer = (el: HTMLElement) => [
+  ...el.querySelectorAll<HTMLButtonElement>(".hx-dialog-footer button"),
+];
+const primary = (el: HTMLElement) =>
+  footer(el).filter((b) => !b.matches(".hx-button-text, .hx-button-outlined, .hx-button-link"));
+
 function render(merging: { mine: string; theirs: string } | null) {
   const service = {
     merging: signal(merging),
@@ -88,6 +98,37 @@ describe("ConflictMergeComponent", () => {
     click("Cancel");
     expect(service.cancelMerge).toHaveBeenCalled();
     expect(service.saveMerge).not.toHaveBeenCalled();
+  });
+
+  it("has Cancel as text button before the primary Save, which submits the form", async () => {
+    const { el, service, fixture } = render(texts);
+    expect(footer(el).map((b) => b.textContent?.trim())).toEqual(["Cancel", "Save"]);
+    expect(footer(el)[0].classList).toContain("hx-button-text");
+    expect(primary(el)).toEqual([footer(el)[1]]);
+    expect(primary(el)[0].type).toBe("submit");
+    expect(primary(el)[0].form).toBe(el.querySelector("textarea")!.form);
+    primary(el)[0].click();
+    await fixture.whenStable();
+    expect(service.saveMerge).toHaveBeenCalledWith(texts.mine);
+  });
+
+  it("cancels with Escape", async () => {
+    const { el, service, fixture } = render(texts);
+    escape(el);
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(service.cancelMerge).toHaveBeenCalled();
+    });
+    expect(service.saveMerge).not.toHaveBeenCalled();
+  });
+
+  it("marks the choice of a hunk", () => {
+    const { el, click } = render(texts);
+    const pressed = () =>
+      [...el.querySelectorAll(".hunk button[aria-pressed=true]")].map((b) => b.textContent?.trim());
+    expect(pressed()).toEqual(["Take this", "Take this"]);
+    click("Take both", 1);
+    expect(pressed()).toEqual(["Take this", "Take both"]);
   });
 
   it("reports a failed save", async () => {

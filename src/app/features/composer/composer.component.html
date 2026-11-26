@@ -7,18 +7,24 @@
   position="top"
   width="min(560px, 90vw)"
 >
-  <input
-    #input
-    type="text"
-    [placeholder]="composer.title()"
-    aria-label="Find a note or type the name of a new one"
-    role="combobox"
-    aria-expanded="true"
-    aria-controls="composer-list"
-    [value]="composer.query()"
-    (input)="onInput($event)"
-    (keydown)="onKeydown($event)"
-  />
+  <form id="composer-form" class="search" (submit)="submit($event)">
+    <hx-field [label]="composer.title()">
+      <input
+        #input
+        hx-input
+        fluid
+        type="text"
+        autocomplete="off"
+        placeholder="Find a note or type the name of a new one"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="composer-list"
+        [value]="composer.query()"
+        (input)="onInput($event)"
+        (keydown)="onKeydown($event)"
+      />
+    </hx-field>
+  </form>
   <ul id="composer-list" role="listbox">
     @for (option of composer.options(); track option.path; let i = $index) {
       <li
@@ -26,7 +32,18 @@
         [attr.aria-selected]="i === composer.selected()"
         [class.selected]="i === composer.selected()"
       >
-        <button type="button" tabindex="-1" (click)="choose(option)" [title]="option.path">
+        <button
+          hx-button
+          type="button"
+          variant="text"
+          severity="secondary"
+          size="small"
+          fluid
+          class="row"
+          tabindex="-1"
+          (click)="choose(option)"
+          [title]="option.path"
+        >
           <span class="name">{{ option.create ? "New: " : "" }}{{ option.path }}</span>
         </button>
       </li>
@@ -34,4 +51,11 @@
       <li class="empty">No matching note</li>
     }
   </ul>
+
+  <div hxDialogFooter>
+    <button hx-button type="button" variant="text" (click)="composer.close()">Cancel</button>
+    <button hx-button type="submit" form="composer-form" [disabled]="!composer.options().length">
+      Choose
+    </button>
+  </div>
 </hx-dialog>

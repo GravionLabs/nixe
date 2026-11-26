@@ -1,5 +1,6 @@
 import type { ElementRef } from "@angular/core";
 import { Component, effect, inject, viewChild } from "@angular/core";
+import { HxButton, HxField, HxInput, HxMessage } from "@gravionlabs/helix-ui";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
@@ -17,6 +18,7 @@ export const CAPTURE_SHOWN_EVENT = "capture-shown";
   selector: "app-capture",
   templateUrl: "./capture.component.html",
   styleUrl: "./capture.component.css",
+  imports: [HxButton, HxField, HxInput, HxMessage],
 })
 export class CaptureComponent {
   protected readonly capture = inject(CaptureService);

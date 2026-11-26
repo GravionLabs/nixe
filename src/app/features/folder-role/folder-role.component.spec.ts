@@ -12,6 +12,16 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 import { FolderRolesService } from "../../core/workspace/folder-roles.service";
 import { FolderRoleComponent } from "./folder-role.component";
 
+const escape = (el: HTMLElement) =>
+  el
+    .querySelector("[role=dialog]")!
+    .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
+const footer = (el: HTMLElement) => [
+  ...el.querySelectorAll<HTMLButtonElement>(".hx-dialog-footer button"),
+];
+const primary = (el: HTMLElement) =>
+  footer(el).filter((b) => !b.matches(".hx-button-text, .hx-button-outlined, .hx-button-link"));
+
 function render(current: { role: string; description: string | null } | null = null) {
   const service = {
     dialog: signal({ path: "/v/Work", rel: "Work", current }),
@@ -88,6 +98,44 @@ describe("FolderRoleComponent", () => {
     remove.click();
     await vi.waitFor(() => expect(service.remove).toHaveBeenCalledWith("Work"));
     expect(service.closeDialog).toHaveBeenCalled();
+  });
+
+  it("focuses the role field on open", async () => {
+    // jsdom has no layout, so the focus trap would take every element for invisible.
+    const rects = vi
+      .spyOn(Element.prototype, "getClientRects")
+      .mockReturnValue([{}] as unknown as DOMRectList);
+    const { el } = render();
+    await vi.waitFor(() => expect(document.activeElement).toBe(el.querySelector("input[list]")));
+    rects.mockRestore();
+  });
+
+  it("saves with the one primary button of the footer, which Enter presses", async () => {
+    const { service, el } = render({ role: "exams", description: "all exams" });
+    expect(footer(el).map((b) => b.textContent?.trim())).toEqual([
+      "Cancel",
+      "Remove folder role",
+      "Save",
+    ]);
+    expect(footer(el)[0].classList).toContain("hx-button-text");
+    expect(footer(el)[1].classList).toContain("hx-button-danger");
+    expect(primary(el)).toEqual([footer(el)[2]]);
+    expect(primary(el)[0].type).toBe("submit");
+    expect(primary(el)[0].form).toBe(el.querySelector<HTMLInputElement>("input[list]")!.form);
+    primary(el)[0].click();
+    await vi.waitFor(() => expect(service.set).toHaveBeenCalledWith("Work", "exams", "all exams"));
+  });
+
+  it("closes with Escape and with Cancel without saving", async () => {
+    for (const close of [escape, (el: HTMLElement) => footer(el)[0].click()]) {
+      const { service, el, fixture } = render();
+      close(el);
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        expect(service.closeDialog).toHaveBeenCalled();
+      });
+      expect(service.set).not.toHaveBeenCalled();
+    }
   });
 
   it("has no removal for a folder without a role", () => {
