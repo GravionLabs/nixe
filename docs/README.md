@@ -43,6 +43,7 @@ links and Mermaid rendering all at once.
   - [frontend/terminal.md](frontend/terminal.md) — the terminal panel with xterm.js
   - [frontend/demo.md](frontend/demo.md) — the demo build, e2e tests and screenshots
 - [theming.md](theming.md) — themes, CSS snippets and the CSS variables
+- [STYLEGUIDE.md](STYLEGUIDE.md) — UI rules of Nixe and its deviations from the Helix base guide
 
 ## System at a glance
 
