@@ -17,4 +17,14 @@ describe("settings layout", () => {
   it("keeps the scrollbar at the page edge: .content has no maximum width (#544)", () => {
     expect(css).not.toMatch(/\.content\s*\{[^}]*max-width/);
   });
+
+  it("gives selects, text and number inputs the same box, width and height (#629)", () => {
+    const rule =
+      /\.control > input\[type="text"\],\s*\.control > input\[type="number"\],\s*\.control > select\s*\{([^}]*)\}/.exec(
+        css,
+      )?.[1];
+    expect(rule).toMatch(/box-sizing: border-box;/);
+    expect(rule).toMatch(/\bwidth: 200px;/);
+    expect(rule).toMatch(/\bheight: 28px;/);
+  });
 });
