@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 mod appearance;
 mod attachments;
+mod bases;
 mod bookmarks;
 #[cfg(desktop)]
 mod capture;
@@ -396,6 +397,20 @@ fn write_text_file(
     let open = state.open_file.lock().unwrap().clone();
     let root = write::write_root(vault.as_deref(), open.as_deref(), Path::new(&path))?;
     write::write_text_file(&root, Path::new(&path), &content)
+}
+
+/// `write_text_file` for an existing note, only while it still holds `expected`.
+#[tauri::command]
+fn replace_text_file(
+    state: State<'_, AppState>,
+    path: String,
+    expected: String,
+    content: String,
+) -> Result<(), String> {
+    let vault = state.vault_root.lock().unwrap().clone();
+    let open = state.open_file.lock().unwrap().clone();
+    let root = write::write_root(vault.as_deref(), open.as_deref(), Path::new(&path))?;
+    write::replace_text_file(&root, Path::new(&path), &expected, &content)
 }
 
 /// The vault root the file operations are confined to.
@@ -1673,6 +1688,7 @@ pub fn run() {
         read_epub_position,
         write_epub_position,
         write_text_file,
+        replace_text_file,
         create_file,
         create_dir,
         rename_path,
@@ -1739,6 +1755,8 @@ pub fn run() {
         index::commands::unlinked_mentions,
         link_mention,
         index::commands::tags,
+        index::commands::base_views,
+        index::commands::base_query,
         index::commands::search_notes,
         index::commands::workspace_index,
         index::commands::search_workspace,
@@ -1832,6 +1850,7 @@ pub fn run() {
         read_epub_position,
         write_epub_position,
         write_text_file,
+        replace_text_file,
         create_file,
         create_dir,
         rename_path,
@@ -1894,6 +1913,8 @@ pub fn run() {
         index::commands::unlinked_mentions,
         link_mention,
         index::commands::tags,
+        index::commands::base_views,
+        index::commands::base_query,
         index::commands::search_notes,
         index::commands::workspace_index,
         index::commands::search_workspace,

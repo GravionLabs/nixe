@@ -3,6 +3,7 @@ import type { MarkdownIt } from "markdown-it";
 import { parseEmbed } from "../embed";
 import { joinPath } from "../paths";
 import { resolveWikilink } from "../wikilink-resolver";
+import { baseBlockHtml, encodeBaseAttribute } from "./base-fence.plugin";
 
 /** Render environment for embeds. */
 export interface EmbedEnv {
@@ -15,8 +16,10 @@ export interface EmbedEnv {
  * Obsidian `![[Note]]`, `![[Note#Heading]]`, `![[Note#^block]]`, `![[image.png|300x200]]` and
  * `![[file.pdf]]`. Notes become an `<div class="embed" data-embed="…">` placeholder that the viewer
  * fills asynchronously (see embed-expander.ts); images become `<img>`, other files a link.
+ * With `bases`, `![[File.base]]` and `![[File.base#View]]` become base blocks that carry the target
+ * (see `features/bases/base-blocks.ts`); without it they are links like other files.
  */
-export function embedPlugin(md: MarkdownIt): void {
+export function embedPlugin(md: MarkdownIt, options: { bases?: boolean } = {}): void {
   md.inline.ruler.before("image", "embed", (state, silent) => {
     const src = state.src;
     const start = state.pos;
@@ -57,6 +60,8 @@ export function embedPlugin(md: MarkdownIt): void {
         if (embed.height !== null) img.attrSet("height", String(embed.height));
         img.children = [];
         img.content = embed.target;
+      } else if (embed.kind === "base" && options.bases) {
+        state.push("base_embed", "", 0).content = embed.target;
       } else {
         const open = state.push("wikilink_open", "a", 1);
         open.attrSet(
@@ -72,6 +77,9 @@ export function embedPlugin(md: MarkdownIt): void {
     state.pos = end + 2;
     return true;
   });
+
+  md.renderer.rules["base_embed"] = (tokens, idx) =>
+    baseBlockHtml(`data-base-embed="${encodeBaseAttribute(tokens[idx].content)}"`);
 
   md.renderer.rules["embed"] = (tokens, idx) => {
     const t = tokens[idx];

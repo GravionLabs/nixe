@@ -28,8 +28,9 @@ function oxlint(): string[] {
 }
 
 describe("lint probe", () => {
-  it("oxlint reports the Angular class rules, the inline template and a type-aware rule", () => {
+  it("oxlint reports the Angular class rules, the inline template, the class suffixes and a type-aware rule", () => {
     expect(oxlint().sort()).toEqual([
+      "inline-template.component.ts @angular-eslint(component-class-suffix)",
       "inline-template.component.ts @angular-eslint(component-max-inline-declarations)",
       "probe.component.ts @angular-eslint(component-selector)",
       "probe.component.ts @angular-eslint(no-empty-lifecycle-method)",
@@ -39,6 +40,7 @@ describe("lint probe", () => {
       "probe.component.ts @angular-eslint(prefer-standalone)",
       "probe.component.ts @angular-eslint(use-lifecycle-interface)",
       "probe.component.ts typescript(no-floating-promises)",
+      "suffix-probe.directive.ts @angular-eslint(directive-class-suffix)",
     ]);
   }, 60_000);
 

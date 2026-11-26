@@ -4,12 +4,13 @@ import { StateField } from "@codemirror/state";
 import type { DecorationSet, ViewUpdate } from "@codemirror/view";
 import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 
-import type { Block, BlockKind } from "../../core/editor/live-preview-core";
+import type { BaseOrigin, Block, BlockKind } from "../../core/editor/live-preview-core";
 import { splitFrontmatter } from "../../core/markdown/frontmatter";
 import { TableWidget } from "./table-widget";
 import type { PropertiesDisplay } from "../../core/settings/settings-core";
 import {
   WIDGET_KINDS,
+  baseOrigin,
   disjoint,
   findBlocks,
   inlineMarks,
@@ -27,6 +28,11 @@ export interface LivePreviewHooks {
    * puts the cursor into it.
    */
   mountProperties?(el: HTMLElement, source: string, actions: PropertiesActions): PropertiesHandle;
+  /**
+   * Draws a ```base block or a `.base` embed as the base. `occurrence` counts the equal blocks
+   * before it, so each keeps its own view and sort. Absent: the block stays source.
+   */
+  mountBase?(el: HTMLElement, origin: BaseOrigin, occurrence: number): BaseHandle;
   /** How the properties show in the document; `hidden` draws no frontmatter at all. */
   propertiesDisplay?(): PropertiesDisplay;
   /** A click on a link drawn in a table cell opens it (`newTab` with ⌘/Ctrl). Absent: the click edits the cell. */
@@ -44,6 +50,14 @@ export interface PropertiesHandle {
   update(source: string): void;
   destroy(): void;
 }
+
+/** A mounted base: removed with the widget. */
+export interface BaseHandle {
+  destroy(): void;
+}
+
+/** The parts of a base that take their own events; elsewhere a click shows the source. */
+const BASE_OWN_EVENTS = "a, button, input, textarea, .views, .table, .cards-scroll";
 
 /** Elements of a rendered block with a click of their own: links, checkboxes, zoomable images, diagrams. */
 const OWN_CLICK = "a, button, input, summary, img, [data-zoomable], .mermaid-diagram";
@@ -85,6 +99,49 @@ class BlockWidget extends WidgetType {
   /** Pointer events reach the editor, so a click puts the cursor into the block; own clicks stay with the element. */
   override ignoreEvent(event: Event): boolean {
     return hasOwnClick(event.target);
+  }
+}
+
+/** A base; its component lives as long as the DOM of the widget. */
+class BaseWidget extends WidgetType {
+  private static readonly handles = new WeakMap<HTMLElement, BaseHandle>();
+
+  constructor(
+    private readonly source: string,
+    private readonly kind: "base" | "base-embed",
+    private readonly occurrence: number,
+    private readonly hooks: LivePreviewHooks,
+  ) {
+    super();
+  }
+
+  override eq(other: BaseWidget): boolean {
+    return (
+      other.source === this.source &&
+      other.kind === this.kind &&
+      other.occurrence === this.occurrence
+    );
+  }
+
+  override toDOM(): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "cm-live-block cm-live-base";
+    const origin = baseOrigin(this.source, this.kind);
+    const handle = this.hooks.mountBase?.(el, origin, this.occurrence);
+    if (handle) BaseWidget.handles.set(el, handle);
+    return el;
+  }
+
+  override destroy(dom: HTMLElement): void {
+    BaseWidget.handles.get(dom)?.destroy();
+    BaseWidget.handles.delete(dom);
+  }
+
+  override ignoreEvent(event: Event): boolean {
+    // A text selection inside the widget (a click into a cell, a drag over its text) stays there:
+    // the editor would else move its cursor to the block and show the source.
+    if (event.type === "selectionchange") return true;
+    return event.target instanceof Element && event.target.closest(BASE_OWN_EVENTS) !== null;
   }
 }
 
@@ -278,18 +335,28 @@ function blockDecorations(state: EditorState, hooks: LivePreviewHooks): Decorati
     hooks,
     hooks.propertiesDisplay?.() ?? "visible",
   );
+  // How many equal bases came before: counted over all blocks, also those that show their source.
+  const bases = new Map<string, number>();
   for (const block of state.field(blocksField)) {
     if (!WIDGET_KINDS.has(block.kind)) continue;
+    const { kind } = block;
+    const base = kind === "base" || kind === "base-embed";
+    if (base && !hooks.mountBase) continue;
     const from = state.doc.line(block.start + 1).from;
     const to = state.doc.line(block.end + 1).to;
-    if (state.selection.ranges.some((r) => touches(r.from, r.to, from, to))) continue;
     const source = state.sliceDoc(from, to);
+    // Equal by what they show, not by how they are written (`~~~`, `|300`).
+    const id = base ? JSON.stringify(baseOrigin(source, kind)) : "";
+    const occurrence = bases.get(id) ?? 0;
+    if (base) bases.set(id, occurrence + 1);
+    if (state.selection.ranges.some((r) => touches(r.from, r.to, from, to))) continue;
     ranges.push(
       Decoration.replace({
-        widget:
-          block.kind === "table"
+        widget: base
+          ? new BaseWidget(source, kind, occurrence, hooks)
+          : kind === "table"
             ? new TableWidget(source, tableHooks(hooks))
-            : new BlockWidget(source, block.kind, hooks),
+            : new BlockWidget(source, kind, hooks),
         block: true,
       }).range(from, to),
     );
@@ -332,7 +399,7 @@ function inlineDecorations(view: EditorView): DecorationSet {
       while (b < blocks.length && blocks[b].end < n) b++;
       const block = blocks[b]?.start <= n ? blocks[b] : undefined;
       if (block) {
-        if (block.kind === "code")
+        if (block.kind === "code" || block.kind === "base")
           ranges.push(Decoration.line({ class: "cm-live-code" }).range(line.from));
         else if (block.kind === "frontmatter")
           ranges.push(Decoration.line({ class: "cm-live-frontmatter" }).range(line.from));

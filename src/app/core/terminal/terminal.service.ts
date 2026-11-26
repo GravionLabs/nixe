@@ -8,11 +8,14 @@ import { WorkspaceService } from "../workspace/workspace.service";
 import { TerminalBackend } from "./terminal-backend";
 import { TERMINAL_PRESETS, type TerminalPreset } from "./terminal-presets";
 
-export const TERMINAL_OFF_NOTICE =
-  "The terminal is off. Turn on “Enable terminal” in the settings to use it.";
-
 export const TERMINAL_CONFIRM =
   "The terminal runs commands with your rights, like any program you start. A vault from someone else, or a note that tells you to paste a command, can harm your computer. Enable the terminal?";
+
+/** The question of an action that needs the terminal, once the user has confirmed it before. */
+export const TERMINAL_OFF_QUESTION = "The terminal is off. Enable the terminal?";
+
+/** The same question with the security warning, while the user has never confirmed. */
+export const TERMINAL_OFF_CONFIRM = `The terminal is off. ${TERMINAL_CONFIRM}`;
 
 /** One tab of the panel: its own session; `key` is stable for the life of the tab. */
 export interface TerminalTab {
@@ -51,6 +54,8 @@ export class TerminalService {
   /** The first tab of a vault was opened; closing the last tab then leaves the panel empty. */
   private seeded = false;
   private readonly exitHandlers = new Map<number, () => void>();
+  /** A dialog to enable the terminal is open, or its answer is being saved. */
+  private enabling = false;
 
   constructor() {
     if (!this.supported) return;
@@ -88,47 +93,91 @@ export class TerminalService {
     });
   }
 
-  /** Shows or hides the panel; the session lives on. While the terminal is off it explains the setting. */
+  /** Shows or hides the panel; the session lives on. While the terminal is off it offers to enable it, then shows the panel. */
   toggle(): void {
     if (!this.supported) return;
-    if (!this.settings.terminalEnabled()) {
-      this.notice.set(TERMINAL_OFF_NOTICE);
+    if (this.ready()) {
+      this.settings.terminalVisible.update((v) => !v);
       return;
     }
-    this.settings.terminalVisible.update((v) => !v);
+    void this.offerEnable().then((ok) => {
+      if (ok) this.settings.terminalVisible.set(true);
+    });
   }
 
-  /** Opens a tab with its own session and shows it, also the panel. While the terminal is off it explains the setting. */
+  /** Opens a tab with its own session and shows it, also the panel. While the terminal is off it offers to enable it first. */
   newTab(): void {
     if (!this.supported) return;
-    if (!this.settings.terminalEnabled()) {
-      this.notice.set(TERMINAL_OFF_NOTICE);
+    if (this.ready()) {
+      this.showTab();
       return;
     }
-    this.settings.terminalVisible.set(true);
-    this.addTab();
+    void this.offerEnable().then((ok) => {
+      if (ok) this.showTab();
+    });
   }
 
   /**
-   * Opens a tab that runs the CLI of `preset` in the vault root. A missing CLI is found out before:
-   * the notice carries the install hint and no tab opens.
+   * Opens a tab that runs the CLI of `preset` in the vault root. While the terminal is off it offers to
+   * enable it first. A missing CLI is found out before: the notice carries the install hint, and a
+   * preset of `TERMINAL_PRESETS` opens a tab with the default shell instead. Returns whether the tab of
+   * the preset opened.
    */
   async openPreset(preset: TerminalPreset, onExit?: () => void): Promise<boolean> {
     if (!this.supported) return false;
-    if (!this.settings.terminalEnabled()) {
-      this.notice.set(TERMINAL_OFF_NOTICE);
-      return false;
-    }
+    if (!this.ready() && !(await this.offerEnable())) return false;
     try {
       await this.backend.checkPreset(preset.id);
     } catch (err) {
       this.notice.set(String(err));
+      if (TERMINAL_PRESETS.includes(preset)) this.showTab();
       return false;
     }
-    this.settings.terminalVisible.set(true);
-    const key = this.addTab(preset);
+    const key = this.showTab(preset);
     if (onExit) this.exitHandlers.set(key, onExit);
     return true;
+  }
+
+  /** The terminal is on and its setting is saved: an action can run at once. */
+  private ready(): boolean {
+    return this.settings.terminalEnabled() && !this.enabling;
+  }
+
+  /**
+   * Asks whether to enable the terminal, with the security warning while it was never confirmed.
+   * Resolves to true once it is enabled and saved (the Rust core reads the settings file), and to
+   * false when declined or while another such dialog is open.
+   */
+  private async offerEnable(): Promise<boolean> {
+    const confirmed = this.settings.terminalConfirmed();
+    return this.exclusively(async () => {
+      if (!(await this.confirm(confirmed ? TERMINAL_OFF_QUESTION : TERMINAL_OFF_CONFIRM)))
+        return false;
+      this.settings.terminalConfirmed.set(true);
+      this.settings.terminalEnabled.set(true);
+      await this.settings.save();
+      return true;
+    });
+  }
+
+  /** Runs `enable` unless one is running already; then it resolves to false at once. */
+  private async exclusively(enable: () => Promise<boolean>): Promise<boolean> {
+    if (this.enabling) return false;
+    this.enabling = true;
+    try {
+      return await enable();
+    } finally {
+      this.enabling = false;
+    }
+  }
+
+  private confirm(message: string): Promise<boolean> {
+    return ask(message, { title: "Enable terminal", okLabel: "Enable", kind: "warning" });
+  }
+
+  private showTab(preset: TerminalPreset | null = null): number {
+    this.settings.terminalVisible.set(true);
+    return this.addTab(preset);
   }
 
   /** The panel reports that the process of a tab ended; a handler of `openPreset` runs once. */
@@ -180,11 +229,7 @@ export class TerminalService {
   async setEnabled(value: boolean): Promise<boolean> {
     if (!this.supported) return false;
     if (value && !this.settings.terminalConfirmed()) {
-      const ok = await ask(TERMINAL_CONFIRM, {
-        title: "Enable terminal",
-        okLabel: "Enable",
-        kind: "warning",
-      });
+      const ok = await this.exclusively(() => this.confirm(TERMINAL_CONFIRM));
       if (!ok) return false;
       this.settings.terminalConfirmed.set(true);
     }

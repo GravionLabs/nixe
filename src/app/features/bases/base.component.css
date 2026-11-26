@@ -1,0 +1,204 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--h-surface-frame);
+  color: var(--h-text-color);
+  font-size: 13px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 34px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--h-content-border-color);
+  font-weight: 600;
+}
+
+.views {
+  min-width: 0;
+  overflow-x: auto;
+  font-weight: 400;
+}
+
+.group {
+  text-align: left;
+}
+
+.count {
+  margin-left: 4px;
+  color: var(--h-text-muted-color);
+  font-weight: 400;
+}
+
+.message {
+  margin: 8px 12px;
+  color: var(--h-text-muted-color);
+}
+
+.error {
+  color: light-dark(var(--h-red-700), var(--h-red-300));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.table,
+.cards-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.cards {
+  display: grid;
+  /* A card is never wider than the pane. */
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--card-size), 100%), 1fr));
+  align-items: start;
+  gap: 12px;
+  padding: 12px;
+}
+
+.cards > .group,
+.cards > .message {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: inherit;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 8px;
+  background: var(--h-content-background);
+  overflow-wrap: anywhere;
+}
+
+.card:hover {
+  border-color: var(--h-primary-color);
+}
+
+/* The image is out of the flow, so it never changes the shape of the cover. */
+.cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  overflow: hidden;
+  background: var(--h-surface-frame);
+  border-bottom: 1px solid var(--h-content-border-color);
+}
+
+.cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.placeholder {
+  color: var(--h-text-muted-color);
+  font-size: 12px;
+}
+
+.card-title {
+  padding: 8px 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The whole card opens the note; the links of its values lie above. */
+.card-title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.card dl {
+  margin: 0;
+  padding: 0 10px 10px;
+}
+
+.card dl > div + div {
+  margin-top: 6px;
+}
+
+.card dt {
+  color: var(--h-text-muted-color);
+  font-size: 11px;
+}
+
+.card dd {
+  margin: 0;
+}
+
+.card dd .note-link {
+  position: relative;
+  z-index: 1;
+}
+
+.note-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--h-primary-color);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-link:hover {
+  text-decoration: underline;
+}
+
+/* A ```base block in a note: as tall as its content, and without the markdown styles of the note
+   on its tables and lists. */
+:host(.embedded) {
+  flex: none;
+  border: 1px solid var(--h-content-border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  white-space: normal;
+}
+
+:host(.embedded) .table,
+:host(.embedded) .cards-scroll {
+  flex: none;
+  max-height: 70vh;
+}
+
+:host(.embedded) ::ng-deep table {
+  display: table;
+  width: 100%;
+  margin: 0;
+}
+
+:host(.embedded) h3.group {
+  margin: 0;
+  border: 0;
+}
+
+:host(.embedded) dt {
+  padding: 0;
+  font-style: normal;
+  font-weight: 400;
+}
+
+:host(.embedded) .card dd {
+  padding: 0;
+}

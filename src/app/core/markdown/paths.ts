@@ -84,6 +84,11 @@ export function isRemoteEpubUrl(url: string): boolean {
   }
 }
 
+/** A base (a table of the notes) opens in the table tab, not as text. */
+export function isBasePath(p: string): boolean {
+  return extname(p) === ".base";
+}
+
 export function isMarkdownPath(p: string): boolean {
   return MARKDOWN_EXTENSIONS.has(extname(p));
 }

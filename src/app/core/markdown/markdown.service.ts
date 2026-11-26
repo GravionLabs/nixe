@@ -18,6 +18,8 @@ export interface RenderContext {
   vaultFiles?: readonly string[] | null;
   /** Absolute vault root; resolves embedded images and notes. */
   vaultRoot?: string | null;
+  /** ```base fences and `.base` embeds become base blocks (reading view, export, preview). */
+  bases?: boolean;
 }
 
 /** DOMPurify keeps the TeX source of a math block (`<annotation>`), which its copy button reads. */
@@ -26,7 +28,7 @@ export const SANITIZE = { ADD_TAGS: ["annotation"], ADD_ATTR: ["encoding"] };
 /** Markdown → sanitized HTML, with local image paths mapped to Tauri's asset protocol. */
 @Injectable({ providedIn: "root" })
 export class MarkdownService {
-  private readonly renderers = new Map<boolean, MarkdownIt>();
+  private readonly renderers = new Map<string, MarkdownIt>();
   /** Context of the render in progress, read by the (global) DOMPurify hook. */
   private current: RenderContext | null = null;
 
@@ -45,10 +47,12 @@ export class MarkdownService {
 
   /** Sanitized HTML plus the note's properties and collected tags. */
   renderNote(text: string, ctx: RenderContext): RenderedNote {
-    let md = this.renderers.get(ctx.math);
+    const options = { math: ctx.math, bases: ctx.bases ?? false };
+    const key = `${options.math} ${options.bases}`;
+    let md = this.renderers.get(key);
     if (!md) {
-      md = createMarkdownRenderer({ math: ctx.math });
-      this.renderers.set(ctx.math, md);
+      md = createMarkdownRenderer(options);
+      this.renderers.set(key, md);
     }
     this.current = ctx;
     try {

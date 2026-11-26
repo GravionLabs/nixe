@@ -20,6 +20,13 @@ export interface EditorHandle {
   blocked(): boolean;
   /** Writes the text in the editor to a copy next to the note (the note itself is gone). */
   saveCopy(): Promise<void>;
+  /** True once the editor holds the text of the note of its tab. */
+  holdsNote?(): boolean;
+  /**
+   * Applies `change` to the text in the editor, with its unsaved changes, and saves it at once.
+   * Rejects, without the change, when the note changed on disk or cannot be saved.
+   */
+  editText?(change: (text: string) => string): Promise<void>;
   /** Replaces the note text with `text` as one change the editor can undo (only the differing part is touched). */
   applyText?(text: string): void;
   /** Inserts an expanded template at the cursor and merges its frontmatter into the note's. */
@@ -62,6 +69,8 @@ export class EditorService {
   /** Words and characters of the open editor (its selection when there is one); null when none is open. */
   readonly stats = signal<TextStats | null>(null);
   handle: EditorHandle | null = null;
+  /** The last save of an editor that was closed; settled while nothing is being written. */
+  settling: Promise<void> = Promise.resolve();
 
   private modeChosen = false;
 

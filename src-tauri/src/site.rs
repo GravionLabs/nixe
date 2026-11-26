@@ -11,7 +11,9 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use pulldown_cmark::{html, CowStr, Event, Options, Parser, Tag, TagEnd, TextMergeStream};
+use pulldown_cmark::{
+    html, CodeBlockKind, CowStr, Event, Options, Parser, Tag, TagEnd, TextMergeStream,
+};
 use regex::Regex;
 use serde_json::Value;
 
@@ -459,6 +461,7 @@ fn render(ctx: &Ctx, vault: &str, body: &str) -> Rendered {
     let mut out: Vec<Event> = Vec::with_capacity(events.len());
     let mut kept: Vec<bool> = Vec::new();
     let mut in_code = false;
+    let mut in_base = false;
     let mut used_ids: HashMap<String, usize> = HashMap::new();
     let mut i = 0;
     while i < events.len() {
@@ -542,6 +545,13 @@ fn render(ctx: &Ctx, vault: &str, body: &str) -> Rendered {
                 plain.push(' ');
                 out.push(Event::Code(c));
             }
+            // A base needs the vault index: the published page says so instead of its source.
+            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) if is_base(&info) => {
+                in_base = true;
+                out.push(Event::Html(CowStr::from(BASE_PLACEHOLDER)));
+            }
+            Event::Text(_) if in_base => {}
+            Event::End(TagEnd::CodeBlock) if in_base => in_base = false,
             Event::Start(Tag::CodeBlock(kind)) => {
                 in_code = true;
                 out.push(Event::Start(Tag::CodeBlock(kind)));
@@ -656,6 +666,17 @@ fn push_text<'a>(out: &mut Vec<Event<'a>>, plain: &mut String, s: &str) {
         plain.push_str(s);
         out.push(Event::Text(CowStr::from(s.to_string())));
     }
+}
+
+/// What a published page shows instead of a `base` block.
+const BASE_PLACEHOLDER: &str =
+    "<p class=\"base-placeholder\"><em>Base: shown in the reading view of Nixe.</em></p>\n";
+
+/// Whether the info string of a fence names a base.
+fn is_base(info: &str) -> bool {
+    info.split_whitespace()
+        .next()
+        .is_some_and(|lang| lang.eq_ignore_ascii_case("base"))
 }
 
 fn is_image(path: &str) -> bool {
@@ -807,6 +828,29 @@ fn layout(site: &str, title: &str, page: &str, content: &str, entries: &[(&str, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_base_block_is_a_placeholder_on_the_published_page() {
+        let dir = crate::test_dir::TestDir::new("nixe-site-base-");
+        let (vault, out) = (dir.join("vault"), dir.join("out"));
+        fs::create_dir_all(&vault).unwrap();
+        fs::write(
+            vault.join("Index.md"),
+            "```Base\nviews:\n  - type: table\n```\n\n```yaml\nkept: 1\n```\n\nafter\n",
+        )
+        .unwrap();
+        export_site(&SiteOptions {
+            root: vault.clone(),
+            folder: vault,
+            out: out.clone(),
+            exclude: Vec::new(),
+        })
+        .unwrap();
+        let page = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(page.contains(BASE_PLACEHOLDER), "{page}");
+        assert!(!page.contains("type: table"), "{page}");
+        assert!(page.contains("kept: 1") && page.contains("after"), "{page}");
+    }
 
     #[test]
     fn paths_are_encoded_and_decoded() {

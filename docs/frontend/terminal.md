@@ -10,7 +10,7 @@ The PTY lives in the Rust core (`terminal_open`, `terminal_write`, `terminal_res
 
 | Part | Role |
 |---|---|
-| `core/terminal/terminal.service.ts` | The commands `toggle-terminal` (shortcut `Mod+\``), `new-terminal-tab` and `close-terminal-tab` (need an open vault), the tab state (`tabs`, `activeKey`), the opt-in and its confirmation, the `open` signal, a `notice` for the toast. |
+| `core/terminal/terminal.service.ts` | The commands `toggle-terminal` (shortcut `Mod+\``), `new-terminal-tab` and `close-terminal-tab` (need an open vault), the tab state (`tabs`, `activeKey`), the opt-in and its dialogs, the `open` signal, a `notice` for the toast. |
 | `core/terminal/terminal-backend.ts` | `invoke` and `listen` wrappers for the four commands and the events `terminal-output-<id>` (base64 bytes) and `terminal-exit-<id>`. A spec replaces it by a fake. |
 | `core/terminal/terminal-height.ts` | Pure height rules: default 240, minimum 80, the note keeps 160px, keys and sanitising. |
 | `features/terminal/terminal-panel.component.ts` | The panel: the tab strip, one xterm with its fit addon and session per tab, the drag handle (a horizontal separator on the top edge). |
@@ -34,8 +34,16 @@ panel and ends the session.
 ## Behaviour
 
 - **Toggle:** with the terminal on, `toggle-terminal` shows or hides the panel. Hiding keeps the
-  component mounted, so the session lives on. With the terminal off the command changes nothing and
-  shows a toast that names the setting.
+  component mounted, so the session lives on.
+- **Terminal off:** `toggle-terminal`, `new-terminal-tab`, `open-claude-in-vault` and
+  `open-copilot-in-vault` (also "Update vault skills" and the vault setup) show a dialog that says the
+  terminal is off and asks whether to enable it. While the user never confirmed, it carries the
+  security warning, and accepting sets `terminalConfirmed`, so there is only this one dialog. After
+  "Enable" the setting is saved (the Rust core reads it) and the action runs: the panel opens, with the
+  new tab or the preset tab. Declining changes nothing and the next attempt asks again. While the
+  dialog is open, a further trigger does nothing.
+- **Missing agent CLI:** when the CLI of the `claude` or `copilot` preset is not installed, a tab with
+  the default shell opens in the vault root instead, and a toast shows the install hint.
 - **Tabs:** `new-terminal-tab` (or the `+` button) opens a tab with its own session and shows the panel; switching keeps the output of every tab (each has its own xterm, the others are hidden). Closing a tab (`close-terminal-tab` or its ×) ends only its session; hiding the panel ends none. Closing the last tab leaves the panel open and empty with a "New terminal" button. The first tab of a vault opens when the panel is first shown. Turning the terminal off or opening another vault ends all sessions and forgets the tabs.
 - **Session:** a tab's session starts when the tab is first shown, in the vault root, with the size of the
   terminal. Input goes to `terminal_write`; the panel and the window resize the PTY through the fit
@@ -51,8 +59,9 @@ panel and ends the session.
 A vault with a `skills-lock.json` (skills from GravionLabs/skills) offers the command "Update vault
 skills" in the palette and a button in the section Vault of the settings (`core/workspace/vault-skills.service.ts`).
 It opens a terminal tab in the vault that runs `npx skills update -y` (the Rust preset `skills-update`),
-so the output and a failure are visible. Without `npx` on the PATH no tab opens and a message names
-Node.js; with the terminal off the usual message points to the setting. When the process has ended,
+so the output and a failure are visible. Without `npx` on the PATH no tab opens (also no shell
+instead) and a message names Node.js; the same holds for a missing Claude at the vault setup. With the
+terminal off the usual dialog asks to enable it. When the process has ended,
 Nixe asks whether to start `/vault-setup update` (it updates the core rules of `CLAUDE.md`) with
 Claude in a new tab (the preset `claude-vault-setup`). Nixe commits nothing: the changed files are
 ordinary changes of the Git view.

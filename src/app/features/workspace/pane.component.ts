@@ -7,6 +7,7 @@ import { MarkdownService } from "../../core/markdown/markdown.service";
 import { SettingsService } from "../../core/settings/settings.service";
 import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
+import { BaseComponent } from "../bases/base.component";
 import { CompareComponent } from "../compare/compare.component";
 import { EpubComponent } from "../epub/epub.component";
 import { ReviewTabComponent } from "../review/review-tab.component";
@@ -24,6 +25,7 @@ import { ViewerComponent } from "../viewer/viewer.component";
 @Component({
   selector: "app-pane",
   imports: [
+    BaseComponent,
     CompareComponent,
     LogComponent,
     ReviewTabComponent,
@@ -97,6 +99,7 @@ export class PaneComponent implements OnDestroy {
         math: this.settings.math(),
         vaultFiles: this.workspace.vaultFiles(),
         vaultRoot: this.workspace.vaultRoot(),
+        bases: true,
       }).body,
   );
 

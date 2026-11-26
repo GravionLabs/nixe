@@ -49,6 +49,7 @@ any thread:
 | `lib.rs`    | App setup, `AppState`, all `#[tauri::command]` functions, CLI/file-assoc glue. |
 | `menu.rs`   | Builds the native `Menu` (File/Edit/View, +App/Window on macOS) and forwards custom item clicks as a `"menu"` event. |
 | `tree.rs`   | `list_dir()`: turns a directory into the sidebar's `DirEntry[]`, `.order`-aware. |
+| `bases/`    | Parses `.base` files and answers a table view from the vault index ([bases](../bases.md)). |
 
 Continue with [tauri-commands.md](tauri-commands.md) for the full IPC surface, or
 [file-watching.md](file-watching.md) for how disk changes reach the UI.
@@ -66,7 +67,7 @@ link target to a file (exact path, then unique basename, case-insensitive) like
 ## Vault index (`index/`)
 
 A SQLite file per vault at `<app-data>/index/<vault-hash>.sqlite` (`rusqlite`, bundled). It holds
-`files` (scan state), `notes`, `links` (target, resolved path, kind `link`/`embed`/`markdown`),
+`files` (scan state, size, modification and creation time), `notes`, `links` (target, resolved path, kind `link`/`embed`/`markdown`),
 `tags`, `headings`, typed `properties` and the FTS5 table `notes_fts` (rowid = note id). The
 schema version is `PRAGMA user_version`; a different version, or a file that is not a database,
 is deleted and rebuilt. The index is derived data and is never written into the vault.

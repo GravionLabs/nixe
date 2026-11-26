@@ -445,6 +445,96 @@ export interface RecentNote {
   message: string;
 }
 
+export interface BaseColumn {
+  /** The property id as written in the view's `order` (`file.name`, `status`, `note.status`). */
+  id: string;
+  label: string;
+  /** The note property the column shows; null for a `file.` field and a formula. */
+  property?: string | null;
+}
+
+/** The value of a `link` cell: `path` is the vault file the link names, `url` a web address. */
+export interface BaseLink {
+  text: string;
+  path: string | null;
+  url: string | null;
+}
+
+/**
+ * A value of a row; `type` and `value` are null when there is none. The value of an `error` cell is
+ * the message, that of a `link` cell a `BaseLink`.
+ */
+export interface BaseCell {
+  type: "text" | "number" | "checkbox" | "date" | "list" | "link" | "error" | null;
+  value: unknown;
+}
+
+export interface BaseRow {
+  /** Vault-relative path of the note. */
+  path: string;
+  /** One cell per column, in their order. */
+  cells: BaseCell[];
+  /** The cover of the card; null in a table and without an image that can be shown. */
+  cover: BaseCover | null;
+}
+
+/** A cover image: a vault-relative `path`, a web address (`url`) or a hex `color`. */
+export interface BaseCover {
+  type: "path" | "url" | "color";
+  value: string;
+}
+
+/** The settings of a `cards` view (bases/cards.rs `BaseCards`). */
+export interface BaseCards {
+  /** Whether the cards have a cover. */
+  image: boolean;
+  imageFit: "cover" | "contain";
+  /** The height of the cover as a multiple of its width. */
+  imageAspectRatio: number;
+  /** The width of a card in pixels. */
+  cardSize: number;
+}
+
+/** One group of a grouped base table. */
+export interface BaseGroup {
+  /** The value the rows of the group share. */
+  value: BaseCell;
+  /** How many of the rows belong to it; they follow those of the groups before it. */
+  rows: number;
+}
+
+export interface BaseGrouping {
+  /** The header of the property the rows are grouped by. */
+  label: string;
+  groups: BaseGroup[];
+}
+
+/** A view of a `.base` file (bases/mod.rs `BaseView`). */
+export interface BaseView {
+  name: string | null;
+  /** `table`, `cards`, … */
+  type: string;
+}
+
+/** A property and a direction rows are sorted by (bases/arrange.rs `SortKey`). */
+export interface BaseSort {
+  property: string;
+  direction: "ASC" | "DESC";
+}
+
+/** The answer to a view of a `.base` file (bases/mod.rs `BaseResult`). */
+export interface BaseResult {
+  view: string | null;
+  columns: BaseColumn[];
+  /** In the order they show: group by group when the view groups them. */
+  rows: BaseRow[];
+  grouping: BaseGrouping | null;
+  /** Set for a view of type `cards`. */
+  cards: BaseCards | null;
+  /** Parts of the file that are not supported yet and therefore not applied. */
+  unsupported: string[];
+}
+
 /** Typed wrappers around the Rust commands in src-tauri/src/lib.rs. */
 export type RootKind = "obsidian" | "wiki" | "folder";
 
@@ -497,6 +587,12 @@ export const backend = {
   /** Atomic write; the Rust side only accepts the open note or a note inside the vault. */
   writeTextFile: (path: string, content: string) =>
     invoke<void>("write_text_file", { path, content }),
+  /**
+   * `writeTextFile` of an existing note that writes only while the file still holds `expected`:
+   * a change made in between is not overwritten, the call rejects.
+   */
+  replaceTextFile: (path: string, expected: string, content: string) =>
+    invoke<void>("replace_text_file", { path, expected, content }),
   /** Creates an empty file inside the vault; fails when it exists. */
   createFile: (path: string) => invoke<void>("create_file", { path }),
   /** Creates a folder and its missing parents inside the vault. */
@@ -678,6 +774,20 @@ export const backend = {
     invoke<SearchHit[]>("search_workspace", { roots, query }),
   /** The notes of all roots, for the quick switcher. */
   workspaceNotes: (roots: RootArg[]) => invoke<WorkspaceNote[]>("workspace_notes", { roots }),
+  /** The views of the text of a `.base` file. */
+  baseViews: (source: string) => invoke<BaseView[]>("base_views", { source }),
+  /**
+   * The table of a view (null: the first table view) of the `.base` file with the text `source`,
+   * answered from the index; rejects with a message for invalid YAML or another view type.
+   * `view` is an index into `baseViews`; `sort` comes before the sort of the view. `thisFile` is
+   * the vault-relative file `this` refers to in expressions.
+   */
+  baseQuery: (
+    source: string,
+    view: number | null = null,
+    sort: BaseSort | null = null,
+    thisFile: string | null = null,
+  ) => invoke<BaseResult>("base_query", { source, view, sort, thisFile }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Requests the address of every link note (network); `force` ignores results of the last 7 days. */

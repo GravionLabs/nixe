@@ -656,7 +656,7 @@ describe("TabsService", () => {
 
   it("gives components created with a tab's injector that tab's services", async () => {
     @Component({ selector: "app-probe", template: "{{ doc.path() }}" })
-    class Probe {
+    class ProbeComponent {
       readonly doc = inject(DocumentService);
     }
     @Component({
@@ -664,15 +664,39 @@ describe("TabsService", () => {
       imports: [NgComponentOutlet],
       template: '<ng-container *ngComponentOutlet="probe; injector: injector" />',
     })
-    class Host {
-      probe = Probe;
+    class HostComponent {
+      probe = ProbeComponent;
       injector = tabs.panes()[0].tabs[0].injector;
     }
     await TestBed.inject(DocumentService).open("/v/a.md");
     await tabs.openInNewTab("/v/b.md");
-    const fixture = TestBed.createComponent(Host);
+    const fixture = TestBed.createComponent(HostComponent);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toBe("/v/a.md");
+  });
+
+  describe("openBase", () => {
+    it("opens a tab with the view base and focuses it when the file is opened again", async () => {
+      const tab = tabs.openBase("/v/Library.base");
+
+      expect(tab.view()).toBe("base");
+      expect(tab.base()).toBe("/v/Library.base");
+      expect(tabs.activeTab()).toBe(tab);
+      expect(tabs.showWorkspace()).toBe(true);
+
+      await tabs.openInNewTab("/v/a.md");
+      expect(tabs.openBase("/v/Library.base")).toBe(tab);
+      expect(tabs.activeTab()).toBe(tab);
+      expect(tabs.panes()[0].tabs.length).toBe(3);
+
+      expect(tabs.openBase("/v/Other.base")).not.toBe(tab);
+    });
+
+    it("does not store the table tab with the layout", () => {
+      tabs.openBase("/v/Library.base");
+
+      expect(tabs.snapshot().panes[0].tabs.at(-1)?.view).toBeNull();
+    });
   });
 
   describe("openEpub", () => {

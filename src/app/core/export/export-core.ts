@@ -68,6 +68,11 @@ export function stripAppControls(root: ParentNode): void {
   root
     .querySelectorAll(".code-tools, .code-copy, [contenteditable], script")
     .forEach((el) => el.remove());
+  // The source of a base is not part of the exported document.
+  for (const el of Array.from(root.querySelectorAll("[data-base], [data-base-embed]"))) {
+    el.removeAttribute("data-base");
+    el.removeAttribute("data-base-embed");
+  }
   for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-line], [data-zoomable]"))) {
     el.removeAttribute("data-line");
     el.removeAttribute("data-zoomable");
@@ -102,7 +107,7 @@ export async function inlineImages(
 const FONT_FACE = /^@font-face/u;
 const THEME_ROOT = /^(?::root|html)[^{]*\{[^}]*--h-/u;
 const CONTENT_RULE =
-  /\.(?:markdown-body|katex|hljs|callout|mermaid-diagram|mermaid-error|properties?|property-[\w-]+|frontmatter-warning|tag|embed[\w-]*)\b/u;
+  /\.(?:markdown-body|katex|hljs|callout|mermaid-diagram|mermaid-error|properties?|property-[\w-]+|frontmatter-warning|tag|embed[\w-]*|base-placeholder)\b/u;
 
 /** True for a rule of the page stylesheet that styles rendered note content. */
 export function isContentRule(cssText: string): boolean {
@@ -177,6 +182,7 @@ const BASE_CSS = `body { margin: 0; }
 .markdown-body .callout { margin: 1em 0; padding: 0.5em 1em; border: 1px solid #8b949e66; border-radius: 6px; }
 .markdown-body .callout-title { font-weight: 600; }
 .markdown-body .mermaid-error { color: #cf222e; }
+.markdown-body .base-placeholder { padding: 0.5em 1em; border: 1px dashed #8b949e66; border-radius: 6px; font-style: italic; opacity: 0.7; }
 .markdown-body .timeline-vertical { margin: 1em 0; white-space: pre-line; overflow-wrap: anywhere; }
 .markdown-body .timeline-title { font-size: 1.25em; font-weight: 600; text-align: center; margin-bottom: 0.5em; }
 .markdown-body .timeline-keep, .markdown-body .timeline-row { break-inside: avoid; page-break-inside: avoid; }

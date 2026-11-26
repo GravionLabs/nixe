@@ -3,6 +3,7 @@ import {
   ApplicationRef,
   Component,
   EnvironmentInjector,
+  Injector,
   computed,
   createComponent,
   effect,
@@ -20,6 +21,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 import { countText } from "../../core/editor/text-stats";
+import { editAndSave, editsDone, watchedChange } from "../../core/editor/buffer-edit";
 import {
   AutoSaver,
   ExternalChangeTracker,
@@ -53,11 +55,13 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import type { CompletionData } from "./completion";
 import { FoldStateService } from "../../core/fold/fold-state.service";
 import { editorBehavior, editorTheme } from "./editor-extensions";
-import { textChange } from "./text-change";
+import { dispatchText } from "./text-change";
+import { BaseBlocks } from "../bases/base-blocks";
 import { PropertiesComponent } from "../properties/properties.component";
 import { ExternalCompareComponent } from "./external-compare.component";
 import type { LivePreviewHooks, PropertiesHandle } from "./live-preview";
 import { isRenderedLine, livePreview } from "./live-preview";
+import { mountLiveBase } from "./live-bases";
 import type { FoldAction } from "./folding";
 import { foldAction, folding, restoreFolds } from "./folding";
 import { headingLineAt } from "../../core/composer/composer-core";
@@ -69,6 +73,8 @@ interface Session {
   crlf: boolean;
   saver: AutoSaver;
   tracker: ExternalChangeTracker;
+  /** Why the last write failed; null after one that worked. */
+  failure: string | null;
 }
 
 /** Pause after the last change before the counts are recomputed. */
@@ -113,6 +119,8 @@ export class EditorComponent implements OnDestroy {
   private readonly live = new Compartment();
   private readonly markdown = inject(MarkdownService);
   private readonly mermaid = new MermaidRenderer();
+  /** The bases of the live preview. */
+  private readonly bases = new BaseBlocks(this.appRef, this.injector, inject(Injector));
   private view: EditorView | undefined;
   private session: Session | null = null;
   private loading = false;
@@ -130,12 +138,14 @@ export class EditorComponent implements OnDestroy {
       saveCopy: () => this.saveCopy(),
       insertTemplate: (template) => this.insertTemplate(template),
       applyText: (text) => this.applyText(text),
+      holdsNote: () => this.holdsNote(),
+      editText: (change) => this.editText(change),
       attachPaths: (paths) => this.attachPaths(paths),
       fold: (action) => this.fold(action),
       selection: () => this.selection(),
       headingLine: () => this.headingLine(),
     };
-    this.doc.editorHook = (path, text) => this.onExternal(path, text);
+    this.doc.editorHook = (path, text) => this.onWatched(path, text);
     this.doc.remoteHook = (text, saved) => this.onRemote(text, saved);
 
     effect(() => this.editor.blocked.set(this.conflict() !== null));
@@ -195,7 +205,7 @@ export class EditorComponent implements OnDestroy {
     this.editor.stats.set(null);
     this.unlistenClose?.();
     this.dropUndo();
-    void this.settle();
+    this.editor.settling = this.settle();
     this.editor.handle = null;
     this.outline.editorText.set(null);
     this.outline.topLine.set(null);
@@ -203,6 +213,7 @@ export class EditorComponent implements OnDestroy {
     this.doc.editorHook = null;
     this.doc.remoteHook = null;
     this.view?.destroy();
+    this.bases.dispose();
   }
 
   private async watchWindowClose(): Promise<void> {
@@ -240,14 +251,17 @@ export class EditorComponent implements OnDestroy {
       path: current,
       crlf: text.includes("\r\n"),
       tracker: new ExternalChangeTracker(text),
+      failure: null,
       saver: new AutoSaver({
-        write: (t) => this.write(session, t),
+        write: (t, expected) => this.write(session, t, expected),
         onError: (e) => this.failed.emit(`Saving failed: ${String(e)}`),
         onDirtyChange: (dirty) => this.editor.unsaved.set(dirty),
       }),
     };
     this.session = session;
     this.editor.unsaved.set(false);
+    // Also for a note without a base, which drops the chosen views of the one before.
+    this.bases.enter(current);
 
     this.loading = true;
     const state = EditorState.create({
@@ -303,10 +317,49 @@ export class EditorComponent implements OnDestroy {
 
   /** A change from outside the text (the properties panel): one undoable transaction. */
   private applyText(next: string): void {
+    if (this.view) dispatchText(this.view, next);
+  }
+
+  private holdsNote(): boolean {
+    return !!this.view && this.session !== null && this.session.path === this.doc.path();
+  }
+
+  /** An edit from outside the editor (a cell of a base), saved at once. */
+  private async editText(change: (text: string) => string): Promise<void> {
+    const session = this.session;
     const view = this.view;
-    if (!view) return;
-    const change = textChange(view.state.doc.toString(), next);
-    if (change) view.dispatch({ changes: change });
+    const closed = "The note was closed while it was changed.";
+    if (!session || !view) throw new Error(closed);
+    await editAndSave(
+      {
+        saver: session.saver,
+        tracker: session.tracker,
+        text: () => view.state.doc.toString(),
+        // The editor may be left while the edit runs: the saver still has to get a taken back edit.
+        apply: (text) =>
+          dispatchText(
+            view,
+            text,
+            this.destroyed
+              ? (t) => {
+                  session.saver.change(t);
+                  this.doc.typed(session.path, t);
+                }
+              : undefined,
+          ),
+        readDisk: () => backend.readTextFile(session.path),
+        external: (disk) => this.onExternal(session.path, disk),
+        refusal: () => {
+          if (this.session !== session || this.destroyed) return closed;
+          if (this.conflict() !== null)
+            return "The note changed on disk: choose Reload or Keep mine first.";
+          return this.doc.missing() ? "The file of the note was not found." : null;
+        },
+        failure: () => session.failure,
+        clearFailure: () => (session.failure = null),
+      },
+      change,
+    );
   }
 
   private liveMode(source: boolean): Extension {
@@ -339,6 +392,10 @@ export class EditorComponent implements OnDestroy {
         },
       };
     },
+    mountBase: (el, origin, occurrence) =>
+      mountLiveBase(this.bases, el, origin, occurrence, this.session?.path ?? null, () =>
+        this.view?.requestMeasure(),
+      ),
     render: (el, source) => {
       const ctx = {
         filePath: this.doc.path(),
@@ -424,14 +481,16 @@ export class EditorComponent implements OnDestroy {
     return backend.readTextFile(joinPath(root, rel)).catch(() => "");
   }
 
-  private async write(session: Session, text: string): Promise<void> {
+  private async write(session: Session, text: string, expected?: string): Promise<void> {
     const out = session.crlf ? toCrlf(text) : text;
     session.tracker.willWrite(out);
     try {
-      await this.doc.write(session.path, out);
+      await this.doc.write(session.path, out, expected);
       session.tracker.written(out);
+      session.failure = null;
     } catch (error) {
       session.tracker.failed(out);
+      session.failure = String(error);
       throw error;
     }
   }
@@ -442,6 +501,8 @@ export class EditorComponent implements OnDestroy {
    */
   private async settle(): Promise<void> {
     const session = this.session;
+    // An edit that is under way may take itself back or raise a conflict: decide after it.
+    if (session?.saver.busy) await editsDone(session.saver);
     const pending = session?.saver.pendingText ?? null;
     if (!session || this.conflict() === null || pending === null) return this.flush();
     const copy = unsavedCopyPath(session.path);
@@ -560,6 +621,18 @@ export class EditorComponent implements OnDestroy {
   }
 
   /** The watcher reported a change of the note; `diskText` is what is on disk now. */
+  private onWatched(path: string, diskText: string): void {
+    const session = this.session;
+    if (!session || session.path !== path) return;
+    watchedChange(
+      session.saver,
+      diskText,
+      () => backend.readTextFile(session.path),
+      (disk) => this.onExternal(path, disk),
+    );
+  }
+
+  /** Takes over a disk text that differs: reloads, or asks the user. */
   private onExternal(path: string, diskText: string): void {
     const session = this.session;
     if (!session || session.path !== path) return;

@@ -57,6 +57,39 @@ export function listItems(value: unknown): string[] {
   return items.map((v) => String(v ?? "").trim()).filter(Boolean);
 }
 
+/** The stored items of a list-like value, unchanged: a chip edit writes them back as they are. */
+export function storedItems(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  return value === null || value === undefined || value === "" ? [] : [value];
+}
+
+/** One chip: its text and the place of its item among the stored items. */
+export interface Chip {
+  text: string;
+  index: number;
+}
+
+/** A mapping or a list as JSON, anything else as its trimmed text. */
+const chipTextOf = (item: unknown): string =>
+  typeof item === "object" && item !== null
+    ? JSON.stringify(item)
+    : String((item as string | number | boolean | null | undefined) ?? "").trim();
+
+/** The chips of a list-like value; an empty item has none but keeps its place. */
+export function chipsOf(value: unknown): Chip[] {
+  return storedItems(value)
+    .map((item, index) => ({
+      text: chipTextOf(item),
+      index,
+    }))
+    .filter((chip) => chip.text);
+}
+
+/** A list with a mapping or a list in it cannot be changed chip by chip without losing parts. */
+export function chipsEditable(value: unknown): boolean {
+  return storedItems(value).every((item) => item === null || typeof item !== "object");
+}
+
 /** A tag is stored without its `#`; other chips are kept as typed. */
 export function chipText(key: string, raw: string): string {
   const text = raw.trim();

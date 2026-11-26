@@ -1,8 +1,15 @@
 // An in-memory vault for the demo backend (#400): the files, a listing like `list_dir`, and the little
 // index the side panels need (links, backlinks, tags, search). It is no port of the Rust index, only
 // enough of it to show what the app does with the answers.
+import { parse } from "yaml";
+
+import { cellText } from "../../app/features/bases/cell-text";
 import type {
   Backlink,
+  BaseCell,
+  BaseResult,
+  BaseSort,
+  BaseView,
   DirEntry,
   IndexedLink,
   NoteRecord,
@@ -17,6 +24,21 @@ const TAG = /(?:^|\s)#([A-Za-z][\w/-]*)/g;
 const dirname = (path: string): string => path.slice(0, Math.max(0, path.lastIndexOf("/")));
 const basename = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 const stem = (path: string): string => basename(path).replace(/\.md$/, "");
+
+interface DemoBase {
+  filters?: unknown;
+  formulas?: unknown;
+  properties?: Record<string, { displayName?: string }>;
+  views?: { type?: string; name?: string; order?: string[] }[];
+}
+
+function demoCell(value: unknown): BaseCell {
+  if (value === undefined || value === null) return { type: null, value: null };
+  if (Array.isArray(value)) return { type: "list", value };
+  if (typeof value === "number") return { type: "number", value };
+  if (typeof value === "boolean") return { type: "checkbox", value };
+  return { type: "text", value };
+}
 
 export class DemoVault {
   /** Absolute path → text. */
@@ -172,6 +194,55 @@ export class DemoVault {
     return [...counts]
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  }
+
+  baseViews(source: string): BaseView[] {
+    const base = (parse(source) ?? {}) as DemoBase;
+    return (base.views ?? []).map((v) => ({ name: v.name ?? null, type: v.type ?? "" }));
+  }
+
+  /**
+   * The table of a table view (default: the first): `file.name` and note properties; nothing is
+   * filtered, grouped or limited, and only a clicked column sorts.
+   */
+  baseQuery(source: string, index: number | null, sort: BaseSort | null): BaseResult {
+    const base = (parse(source) ?? {}) as DemoBase;
+    const view = index === null ? base.views?.find((v) => v.type === "table") : base.views?.[index];
+    if (view?.type !== "table") throw "The base defines no table view.";
+    const ids = (view.order ?? []).filter((id) => !/^(formula\.|file\.(?!name$))/.test(id));
+    if (ids.length === 0) ids.push("file.name");
+    const key = (id: string) => id.replace(/^note\./, "");
+    const result: BaseResult = {
+      view: view.name ?? null,
+      columns: ids.map((id) => ({
+        id,
+        label: base.properties?.[id]?.displayName ?? key(id),
+        property: id.startsWith("file.") ? null : key(id),
+      })),
+      rows: this.notePaths().map((path) => {
+        const frontmatter = /^---\n([\s\S]*?)\n---\n/.exec(this.read(`${this.root}/${path}`));
+        const values = (frontmatter ? parse(frontmatter[1]!) : null) ?? {};
+        return {
+          path,
+          cover: null,
+          cells: ids.map((id): BaseCell =>
+            id === "file.name"
+              ? { type: "text", value: stem(path) }
+              : demoCell((values as Record<string, unknown>)[key(id)]),
+          ),
+        };
+      }),
+      grouping: null,
+      cards: null,
+      unsupported: (["filters", "formulas"] as const).filter((k) => base[k] !== undefined),
+    };
+    const column = sort ? ids.indexOf(sort.property) : -1;
+    if (column >= 0) {
+      const text = (row: BaseResult["rows"][number]) => cellText(row.cells[column]!);
+      const direction = sort?.direction === "DESC" ? -1 : 1;
+      result.rows.sort((a, b) => direction * text(a).localeCompare(text(b)));
+    }
+    return result;
   }
 
   search(query: string): SearchHit[] {

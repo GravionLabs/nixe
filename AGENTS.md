@@ -32,4 +32,5 @@ Run `pnpm format` (oxfmt, `.oxfmtrc.json`) and `cargo fmt --manifest-path src-ta
 ## Conventions
 
 - Every change ships with tests. A Rust test that needs a directory uses `TestDir` or `tempfile::TempDir`, never a hand-made name under `env::temp_dir()` (`docs/backend/tests.md`, `pnpm check:temp-dirs`).
+- Angular classes keep their role suffix: `*.component.ts` / `…Component`, `*.service.ts` / `…Service`, `*.directive.ts` / `…Directive`, one class per file ([ADR 0012](docs/adr/0012-keep-the-role-suffixes-of-angular-classes.md), also for the allowed exceptions).
 - Commits and branches follow the `github-issue` skill; pull requests target `release/next`.

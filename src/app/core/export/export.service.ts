@@ -199,6 +199,7 @@ export class ExportService {
       math: this.settings.math(),
       vaultFiles: source.vaultFiles,
       vaultRoot: source.vaultRoot,
+      bases: true,
     };
     const host = document.createElement("div");
     // Diagrams measure text, so the host sits in the document, out of sight.

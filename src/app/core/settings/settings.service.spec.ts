@@ -62,6 +62,15 @@ describe("SettingsService storage", () => {
     expect(JSON.parse(write.mock.calls.at(-1)![0]).activeView).toBe("search");
   });
 
+  it("save() writes a change at once, before the effect runs", async () => {
+    read.mockResolvedValue(JSON.stringify({}));
+    const settings = TestBed.inject(SettingsService);
+    await settings.load();
+    settings.terminalEnabled.set(true);
+    await settings.save();
+    expect(JSON.parse(write.mock.calls.at(-1)![0]).terminalEnabled).toBe(true);
+  });
+
   it("migrates the localStorage entry into the file on the first start", async () => {
     localStorage.setItem(
       LEGACY_STORAGE_KEY,

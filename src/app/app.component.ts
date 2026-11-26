@@ -1,12 +1,9 @@
 import { CaptureShortcutService } from "./core/capture/capture-shortcut.service";
 import {
   Component,
-  Directive,
-  TemplateRef,
   computed,
   effect,
   inject,
-  input,
   isDevMode,
   signal,
   untracked,
@@ -90,13 +87,7 @@ import { WorkspaceComponent } from "./features/workspace/workspace.component";
 import { TabsService } from "./core/tabs/tabs.service";
 import { FocusService } from "./core/shell/focus.service";
 import { ShellService } from "./core/shell/shell.service";
-
-/** Marks the template of an activity bar icon with the icon name of the views registry. */
-@Directive({ selector: "ng-template[appNavIcon]" })
-export class NavIconDirective {
-  readonly name = input.required<string>({ alias: "appNavIcon" });
-  readonly template = inject(TemplateRef);
-}
+import { NavIconDirective } from "./nav-icon.directive";
 
 @Component({
   selector: "app-root",

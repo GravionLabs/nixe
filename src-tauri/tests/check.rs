@@ -112,6 +112,8 @@ fn used_attachments_are_not_reported_and_unused_ones_are() {
     fs::write(vault.join("B.md"), "[[A]]\n").unwrap();
     fs::write(vault.join("assets/used.png"), "x").unwrap();
     fs::write(vault.join("assets/unused.png"), "x").unwrap();
+    // A base is no attachment, although nothing links to it.
+    fs::write(vault.join("Library.base"), "views: []\n").unwrap();
     fs::create_dir_all(vault.join(".hidden")).unwrap();
     fs::write(vault.join(".hidden/x.json"), "{}").unwrap();
     let r = report("att", &vault, &[]);

@@ -18,13 +18,14 @@ pub use scan::scan;
 pub use search::SearchHit;
 
 /// Bump on every schema change; a different version on disk means "drop and rebuild".
-pub const SCHEMA_VERSION: i32 = 2;
+pub const SCHEMA_VERSION: i32 = 3;
 
 const SCHEMA: &str = "
 CREATE TABLE files (
     path TEXT PRIMARY KEY,
     size INTEGER NOT NULL,
-    mtime_ns INTEGER NOT NULL
+    mtime_ns INTEGER NOT NULL,
+    ctime_ns INTEGER NOT NULL
 );
 CREATE TABLE notes (
     id INTEGER PRIMARY KEY,

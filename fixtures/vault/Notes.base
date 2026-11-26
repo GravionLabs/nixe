@@ -1,0 +1,45 @@
+# A base of the fixture vault: the notes with some of their properties (docs/bases.md).
+filters:
+  and:
+    - file.hasTag("project/nixe")
+properties:
+  title:
+    displayName: Title
+  note.count:
+    displayName: Count
+formulas:
+  cover: '"assets/image.svg"'
+views:
+  - type: table
+    name: All notes
+    order:
+      - file.name
+      - title
+      - note.count
+      - published
+      - created
+      - tags
+  - type: table
+    name: By publication
+    groupBy:
+      property: published
+      direction: DESC
+    sort:
+      - property: note.count
+        direction: DESC
+      - property: file.name
+        direction: ASC
+    limit: 5
+    order:
+      - file.name
+      - note.count
+  - type: cards
+    name: Gallery
+    image: formula.cover
+    imageFit: contain
+    imageAspectRatio: 0.6
+    cardSize: 220
+    order:
+      - file.name
+      - title
+      - note.count

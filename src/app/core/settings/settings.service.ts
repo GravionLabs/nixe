@@ -360,6 +360,12 @@ export class SettingsService {
       .catch((err) => console.warn("settings not saved", err));
   }
 
+  /** Writes the settings as they are now, without waiting for the effect, and resolves when done. */
+  save(): Promise<void> {
+    this.persist(this.snapshot());
+    return this.writing;
+  }
+
   /** Resolves when the writes started so far are done. */
   flush(): Promise<void> {
     return this.writing;

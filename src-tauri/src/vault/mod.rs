@@ -44,6 +44,8 @@ pub struct VaultFile {
     pub size: u64,
     /// Modification time in nanoseconds since the Unix epoch (0 when unknown).
     pub mtime_ns: i64,
+    /// Creation time like `mtime_ns`; the modification time where the file system has none.
+    pub ctime_ns: i64,
 }
 
 /// Every file below `root`, sorted by path.
@@ -70,15 +72,18 @@ pub fn walk_vault(root: &Path) -> Vec<VaultFile> {
         .filter_map(|entry| {
             let rel = entry.path().strip_prefix(root).ok()?;
             let meta = entry.metadata().ok()?;
-            let mtime_ns = meta
-                .modified()
-                .ok()
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map_or(0, |d| d.as_nanos() as i64);
+            let nanos = |time: std::io::Result<std::time::SystemTime>| {
+                time.ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_nanos() as i64)
+            };
+            let mtime_ns = nanos(meta.modified()).unwrap_or(0);
+            let ctime_ns = nanos(meta.created()).unwrap_or(mtime_ns);
             Some(VaultFile {
                 path: rel.to_string_lossy().replace('\\', "/"),
                 size: meta.len(),
                 mtime_ns,
+                ctime_ns,
             })
         })
         .collect();

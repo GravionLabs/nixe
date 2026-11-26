@@ -180,6 +180,150 @@ pub fn note_meta(conn: &Connection, path: &str) -> rusqlite::Result<Option<NoteR
     }))
 }
 
+/// A link or embed of a note, as the bases query it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NoteLink {
+    /// The target as written; empty for a link to the note itself.
+    pub target: String,
+    /// Vault-relative path of the target, `None` when missing or ambiguous.
+    pub resolved: Option<String>,
+    pub embed: bool,
+}
+
+/// A note with everything the bases filter and show.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct NoteFile {
+    pub path: String,
+    pub title: String,
+    pub size: u64,
+    pub ctime_ns: i64,
+    pub mtime_ns: i64,
+    /// In the order of the frontmatter.
+    pub properties: Vec<IndexedProperty>,
+    pub tags: Vec<String>,
+    /// In document order, wikilinks before Markdown links.
+    pub links: Vec<NoteLink>,
+    /// The other notes that link to or embed this one, sorted.
+    pub backlinks: Vec<String>,
+}
+
+/// What a base is answered from.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BaseNotes {
+    /// Every note, sorted by path.
+    pub notes: Vec<NoteFile>,
+    /// The path of every file of the vault, sorted.
+    pub files: Vec<String>,
+}
+
+/// Every note with its file data, properties, tags and links.
+pub fn base_notes(conn: &Connection) -> rusqlite::Result<BaseNotes> {
+    // One transaction, so every statement sees the same state of the index.
+    let tx = conn.unchecked_transaction()?;
+    let files = tx
+        .prepare("SELECT path FROM files ORDER BY path")?
+        .query_map([], |r| r.get(0))?
+        .collect::<Result<_, _>>()?;
+
+    let mut notes: Vec<NoteFile> = Vec::new();
+    // Row id and path of a note to its position in `notes`.
+    let mut by_id: HashMap<i64, usize> = HashMap::new();
+    let mut by_path: HashMap<String, usize> = HashMap::new();
+    let mut stmt = tx.prepare(
+        "SELECT n.id, n.path, n.title, f.size, f.ctime_ns, f.mtime_ns
+         FROM notes n JOIN files f ON f.path = n.path ORDER BY n.path",
+    )?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let path: String = row.get(1)?;
+        by_id.insert(row.get(0)?, notes.len());
+        by_path.insert(path.clone(), notes.len());
+        notes.push(NoteFile {
+            path,
+            title: row.get(2)?,
+            size: row.get::<_, i64>(3)? as u64,
+            ctime_ns: row.get(4)?,
+            mtime_ns: row.get(5)?,
+            ..NoteFile::default()
+        });
+    }
+
+    let mut stmt = tx.prepare("SELECT note_id, key, type, value FROM properties ORDER BY rowid")?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        if let Some(&i) = by_id.get(&row.get(0)?) {
+            let value: String = row.get(3)?;
+            notes[i].properties.push(IndexedProperty {
+                key: row.get(1)?,
+                kind: row.get(2)?,
+                value: serde_json::from_str(&value).unwrap_or(Value::Null),
+            });
+        }
+    }
+
+    let mut stmt = tx.prepare("SELECT note_id, tag FROM tags ORDER BY rowid")?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        if let Some(&i) = by_id.get(&row.get(0)?) {
+            notes[i].tags.push(row.get(1)?);
+        }
+    }
+
+    let mut stmt = tx.prepare("SELECT source_id, target, resolved, kind FROM links ORDER BY id")?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let Some(&source) = by_id.get(&row.get(0)?) else {
+            continue;
+        };
+        let link = NoteLink {
+            target: row.get(1)?,
+            resolved: row.get(2)?,
+            embed: row.get::<_, String>(3)? == "embed",
+        };
+        if let Some(&target) = link.resolved.as_ref().and_then(|p| by_path.get(p)) {
+            if target != source {
+                let from = notes[source].path.clone();
+                notes[target].backlinks.push(from);
+            }
+        }
+        notes[source].links.push(link);
+    }
+    for note in &mut notes {
+        note.backlinks.sort();
+        note.backlinks.dedup();
+    }
+    Ok(BaseNotes { notes, files })
+}
+
+/// A file that is no indexed note, like a `.base` file, with what the index knows of it: its
+/// data and the notes that link to or embed it. An unknown file has its path alone.
+pub fn base_file(conn: &Connection, path: &str) -> rusqlite::Result<NoteFile> {
+    let name = path.rsplit_once('/').map_or(path, |(_, name)| name);
+    let mut file = NoteFile {
+        path: path.to_string(),
+        title: name.rsplit_once('.').map_or(name, |(stem, _)| stem).into(),
+        ..NoteFile::default()
+    };
+    let data = conn
+        .query_row(
+            "SELECT size, ctime_ns, mtime_ns FROM files WHERE path = ?1",
+            params![path],
+            |r| Ok((r.get::<_, i64>(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()?;
+    if let Some((size, ctime_ns, mtime_ns)) = data {
+        (file.size, file.ctime_ns, file.mtime_ns) = (size as u64, ctime_ns, mtime_ns);
+    }
+    file.backlinks = conn
+        .prepare(
+            "SELECT DISTINCT n.path FROM links l JOIN notes n ON n.id = l.source_id
+             WHERE l.resolved = ?1 AND n.path <> ?1 ORDER BY n.path",
+        )?
+        .query_map(params![path], |r| r.get(0))?
+        .collect::<Result<_, _>>()?;
+    Ok(file)
+}
+
 /// Links whose resolved target is `path`, a note linking to itself excluded.
 pub fn backlinks(conn: &Connection, path: &str) -> rusqlite::Result<Vec<Backlink>> {
     let mut stmt = conn.prepare(

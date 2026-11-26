@@ -163,9 +163,13 @@ export class DocumentService {
     this.remoteHook?.(text, saved);
   }
 
-  /** Writes `text` and, when it is still the open note, makes it the content. */
-  async write(path: string, text: string): Promise<void> {
-    await backend.writeTextFile(path, text);
+  /**
+   * Writes `text` and, when it is still the open note, makes it the content. With `expected` the
+   * note is written only while the disk still holds it (`replace_text_file`).
+   */
+  async write(path: string, text: string, expected?: string): Promise<void> {
+    if (expected === undefined) await backend.writeTextFile(path, text);
+    else await backend.replaceTextFile(path, expected, text);
     if (this.path() === path) this.content.set(text);
     this.tabsHook?.wrote(this, path, text);
   }

@@ -1,3 +1,4 @@
+import type { BaseSort } from "../../app/core/file/backend";
 // The answers of the demo backend (#400, #403): the commands the app calls when it starts, opens a
 // vault, shows a note and edits it, and those of the Git views, the workspaces and the terminal. A command that is not answered here fails the run with its name
 // (`kit/backend.ts`), so a new feature shows up as a red e2e test, not as a silent empty panel.
@@ -148,6 +149,12 @@ export function createNixeDemo(): NixeDemo {
       return [...DEMO_BOOK];
     },
     write_text_file: (a) => vault.write(str(a, "path"), str(a, "content")),
+    replace_text_file: (a) => {
+      const path = str(a, "path");
+      if (vault.read(path) !== str(a, "expected"))
+        throw `${path}: the note changed on disk; nothing was written`;
+      vault.write(path, str(a, "content"));
+    },
     create_file: (a) => {
       if (vault.exists(str(a, "path"))) throw "already exists";
       vault.write(str(a, "path"), "");
@@ -161,6 +168,13 @@ export function createNixeDemo(): NixeDemo {
     note_meta: (a) => vault.meta(str(a, "path")),
     backlinks: (a) => vault.backlinks(str(a, "path")),
     tags: () => vault.tags(),
+    base_views: (a) => vault.baseViews(str(a, "source")),
+    base_query: (a) =>
+      vault.baseQuery(
+        str(a, "source"),
+        (a?.["view"] as number | null | undefined) ?? null,
+        (a?.["sort"] as BaseSort | null | undefined) ?? null,
+      ),
     search_notes: (a) => vault.search(str(a, "query")),
     capture_note_names: () => vault.notes().map((n) => n.title),
     // The spike editor lists the notes by name when the app starts (`editor-spike.component.ts`).

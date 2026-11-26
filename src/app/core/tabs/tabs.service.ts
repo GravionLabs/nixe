@@ -10,7 +10,7 @@ import {
 } from "@angular/core";
 
 import { EditorService } from "../editor/editor.service";
-import { backend } from "../file/backend";
+import { backend, type BaseSort } from "../file/backend";
 import { DocumentService } from "../file/document.service";
 import { OutlineService } from "../outline/outline.service";
 import { SettingsService } from "../settings/settings.service";
@@ -27,6 +27,13 @@ export interface ViewerHandle {
   topLine(): number | null;
   openFind(): void;
   fold(action: "fold" | "unfold" | "fold-all" | "unfold-all"): void;
+}
+
+export interface BaseChoice {
+  /** The chosen view, by its place and name; null for the default one. */
+  view: { index: number; name: string | null } | null;
+  /** The sort of a clicked column header. */
+  sort: BaseSort | null;
 }
 
 /**
@@ -55,6 +62,10 @@ export interface Tab {
   readonly compare: WritableSignal<CompareInput | null>;
   /** The book the epub view of this tab shows; set together with the view `epub` (#487). */
   readonly epub: WritableSignal<EpubBook | null>;
+  /** The path of the `.base` file the base view of this tab shows; set with the view `base`. */
+  readonly base: WritableSignal<string | null>;
+  /** What was chosen in the base view of this tab; it is never written to the file. */
+  readonly baseChoice: WritableSignal<BaseChoice>;
   /** Set by the pane while the viewer of the tab is shown. */
   viewer: ViewerHandle | null;
   /** 1-based first visible line, kept while the tab is not shown. */
@@ -221,6 +232,22 @@ export class TabsService {
     const tab = this.newTab();
     tab.epub.set(book);
     tab.view.set("epub");
+    return tab;
+  }
+
+  /** Opens the `.base` file at `path` in a table tab; the tab that shows it already is focused. */
+  openBase(path: string): Tab {
+    path = toSlashes(path);
+    for (const pane of this.panes()) {
+      const found = pane.tabs.find((t) => t.view() === "base" && t.base() === path);
+      if (found) {
+        this.activate(pane.id, found.id);
+        return found;
+      }
+    }
+    const tab = this.newTab();
+    tab.base.set(path);
+    tab.view.set("base");
     return tab;
   }
 
@@ -543,9 +570,14 @@ export class TabsService {
     this.ratio.set(clampRatio(ratio));
   }
 
+  /** The tabs, in either pane, whose note is `path`. */
+  tabsOf(path: string): Tab[] {
+    return this.allTabs().filter((t) => t.doc.path() === toSlashes(path));
+  }
+
   /** The watcher reported a change of `path`: every tab showing it takes the change. */
   async onExternalChange(path: string): Promise<void> {
-    const tabs = this.allTabs().filter((t) => t.doc.path() === toSlashes(path));
+    const tabs = this.tabsOf(path);
     await Promise.all(tabs.map((t) => t.doc.onExternalChange(path)));
   }
 
@@ -719,6 +751,8 @@ export class TabsService {
       pinned: signal(pinned),
       compare: signal<CompareInput | null>(null),
       epub: signal<EpubBook | null>(null),
+      base: signal<string | null>(null),
+      baseChoice: signal<BaseChoice>({ view: null, sort: null }),
       viewer: null,
       scrollLine: null,
     };

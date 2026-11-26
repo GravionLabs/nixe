@@ -25,6 +25,18 @@ describe("DocumentService writing", () => {
     expect(doc.content()).toBe("new");
   });
 
+  it("writes only while the disk holds the expected text when one is given", async () => {
+    const doc = await opened();
+    await doc.write("/v/a.md", "new", "old");
+    expect(invoke).toHaveBeenCalledWith("replace_text_file", {
+      path: "/v/a.md",
+      expected: "old",
+      content: "new",
+    });
+    expect(invoke).not.toHaveBeenCalledWith("write_text_file", expect.anything());
+    expect(doc.content()).toBe("new");
+  });
+
   it("leaves the content alone when another note is open by now", async () => {
     const doc = await opened();
     await doc.write("/v/other.md", "other");
