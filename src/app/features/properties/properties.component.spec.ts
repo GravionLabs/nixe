@@ -109,6 +109,46 @@ describe("PropertiesComponent", () => {
     expect(content()).not.toContain("  - a\n");
   });
 
+  it("keeps numbers and their comments when another chip is removed", async () => {
+    const text = "---\ntags:\n  - 2024 # year\n  - b\n---\n";
+    const { el, content, settle } = render(text);
+    el.querySelector<HTMLButtonElement>('button[aria-label="Remove b"]')!.click();
+    await settle();
+    expect(content()).toBe("---\ntags:\n  - 2024 # year\n---\n");
+  });
+
+  it("keeps numbers when a chip is added", async () => {
+    const { el, content, change } = render("---\nk:\n  - 1\n  - 2\n---\n");
+    await change(el.querySelector<HTMLInputElement>(".chip-field")!, "x");
+    expect(content()).toBe("---\nk:\n  - 1\n  - 2\n  - x\n---\n");
+  });
+
+  it("removes the chip it shows, also after an empty item", async () => {
+    const { el, content, settle } = render("---\nk:\n  -\n  - a\n  - b\n---\n");
+    el.querySelector<HTMLButtonElement>('button[aria-label="Remove a"]')!.click();
+    await settle();
+    // The empty item stays (written as `null`, the list has no line-by-line form then).
+    expect(content()).toBe("---\nk:\n  - null\n  - b\n---\n");
+  });
+
+  it("removes the last chip with Backspace in the empty field", async () => {
+    const { el, content, settle } = render("---\nk:\n  - 1\n  - 2\n---\n");
+    const field = el.querySelector<HTMLInputElement>(".chip-field")!;
+    field.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace" }));
+    await settle();
+    expect(content()).toBe("---\nk:\n  - 1\n---\n");
+  });
+
+  it("shows a list with a mapping item read-only", () => {
+    const text = "---\nk:\n  - {x: 1}\n  - b\n  - c\n---\n";
+    const { el, write } = render(text);
+    const chips = [...el.querySelectorAll(".property-chip")].map((c) => c.textContent?.trim());
+    expect(chips).toEqual(['{"x":1}', "b", "c"]);
+    expect(el.querySelectorAll(".property-chip button").length).toBe(0);
+    expect(el.querySelector(".chip-field")).toBeNull();
+    expect(write).not.toHaveBeenCalled();
+  });
+
   it("offers the tags of the index", async () => {
     const { el, settle } = render(NOTE);
     el.querySelector<HTMLInputElement>(".chip-field")!.dispatchEvent(new Event("focus"));
