@@ -1,4 +1,5 @@
 import { Component, inject } from "@angular/core";
+import { HxList, HxListRow } from "@gravionlabs/helix-ui";
 
 import type { ReviewBranch } from "../../core/file/backend";
 import { ReviewService } from "../../core/git/review.service";
@@ -13,7 +14,7 @@ import { formatCommitTime } from "../history/history.component";
  */
 @Component({
   selector: "app-review",
-  imports: [PanelSectionComponent, EmptyStateComponent],
+  imports: [PanelSectionComponent, EmptyStateComponent, HxList, HxListRow],
   templateUrl: "./review.component.html",
   styleUrl: "./review.component.css",
 })

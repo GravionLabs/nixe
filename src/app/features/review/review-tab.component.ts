@@ -1,5 +1,13 @@
 import { Component, computed, effect, inject, signal, untracked } from "@angular/core";
-import { HxList, HxListRow } from "@gravionlabs/helix-ui";
+import {
+  HxButton,
+  HxConfirmationService,
+  HxInput,
+  HxList,
+  HxListRow,
+  HxSelectButton,
+  HxTooltip,
+} from "@gravionlabs/helix-ui";
 
 import type { ReviewHunk } from "../../core/file/backend";
 import { diffLines, diffStat } from "../../core/git/line-diff";
@@ -20,8 +28,12 @@ import { NoteTitleComponent } from "../../shared/panel/note-title.component";
     DiffComponent,
     NoteRowComponent,
     NoteTitleComponent,
+    HxButton,
+    HxInput,
     HxList,
     HxListRow,
+    HxSelectButton,
+    HxTooltip,
     EmptyStateComponent,
   ],
   templateUrl: "./review-tab.component.html",
@@ -32,9 +44,22 @@ export class ReviewTabComponent {
   private readonly tabs = inject(TabsService);
   private readonly tab = inject(CURRENT_TAB);
 
+  private readonly confirmation = inject(HxConfirmationService);
+
   protected readonly mode = signal<"sections" | "source" | "rendered">("sections");
-  /** The finish button asked and waits for the user to confirm. */
-  protected readonly confirming = signal(false);
+  protected readonly modes = [
+    { label: "Sections", value: "sections" },
+    { label: "Source", value: "source" },
+    { label: "Rendered", value: "rendered" },
+  ];
+  protected readonly resolutions = [
+    { label: "Keep mine", value: "mine" },
+    { label: "Use suggestion", value: "branch" },
+  ];
+  protected readonly verdicts = [
+    { label: "Accept section", value: true },
+    { label: "Reject section", value: false },
+  ];
   /** The section whose text is being edited, as `path#index`. */
   protected readonly editing = signal<string | null>(null);
 
@@ -66,8 +91,21 @@ export class ReviewTabComponent {
     this.editing.set(null);
   }
 
+  /** Asks first: taking the suggestion over removes it, which cannot be undone. */
   protected async finish(): Promise<void> {
-    this.confirming.set(false);
+    const asked = this.review.open();
+    if (!asked) return;
+    const notes = this.review.accepted();
+    const confirmed = await this.confirmation.confirmAsync({
+      header: "Finish review",
+      message: `Take over ${notes} ${notes === 1 ? "note" : "notes"} and remove the suggestion?`,
+      acceptLabel: "Confirm",
+      acceptSeverity: "danger",
+      rejectLabel: "Cancel",
+    });
+    // The suggestion can change while the question is open: the answer is for the one asked about.
+    const open = this.review.open();
+    if (!confirmed || open?.name !== asked.name || open.tip !== asked.tip) return;
     await this.review.finish();
     if (this.review.open() !== null) return;
     // The suggestion is taken over and gone: its tab goes with it.

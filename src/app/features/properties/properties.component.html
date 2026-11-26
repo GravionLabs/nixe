@@ -5,8 +5,13 @@
 } @else if (display() === "folded") {
   @if (props().length) {
     <button
+      hx-button
       type="button"
       class="properties-summary"
+      variant="text"
+      severity="secondary"
+      size="small"
+      fluid
       aria-expanded="false"
       aria-label="Unfold properties"
       (click)="toggle()"
@@ -21,8 +26,12 @@
       <p class="properties-empty">No properties</p>
     } @else if (props().length && !panel()) {
       <button
+        hx-button
         type="button"
         class="properties-header"
+        variant="text"
+        severity="secondary"
+        size="small"
         aria-expanded="true"
         aria-label="Fold properties"
         (click)="toggle()"
@@ -32,17 +41,22 @@
     }
     @for (p of props(); track p.key; let first = $first; let last = $last) {
       <div class="prop" [attr.data-type]="p.type">
-        <input
-          class="prop-key"
-          type="text"
-          [value]="p.key"
-          [attr.aria-label]="'Name of property ' + p.key"
-          (change)="rename(p.key, $any($event.target))"
-        />
+        <div class="prop-key">
+          <input
+            hx-input
+            type="text"
+            size="small"
+            fluid
+            [value]="p.key"
+            [attr.aria-label]="'Name of property ' + p.key"
+            (change)="rename(p.key, $any($event.target))"
+          />
+        </div>
         <div class="prop-value">
           @switch (p.type) {
             @case ("checkbox") {
               <input
+                hx-checkbox
                 type="checkbox"
                 [checked]="p.value === true"
                 [attr.aria-label]="p.key"
@@ -51,6 +65,9 @@
             }
             @case ("number") {
               <input
+                hx-input
+                size="small"
+                fluid
                 type="number"
                 step="any"
                 [value]="p.value"
@@ -60,6 +77,9 @@
             }
             @case ("date") {
               <input
+                hx-input
+                size="small"
+                fluid
                 [type]="isDateOnly(p.value) ? 'date' : 'text'"
                 [value]="p.value"
                 [attr.aria-label]="p.key"
@@ -76,10 +96,21 @@
             }
             @default {
               @if (isObject(p.value)) {
-                <input type="text" disabled [value]="json(p.value)" [attr.aria-label]="p.key" />
+                <input
+                  hx-input
+                  type="text"
+                  size="small"
+                  fluid
+                  disabled
+                  [value]="json(p.value)"
+                  [attr.aria-label]="p.key"
+                />
               } @else {
                 <input
+                  hx-input
                   type="text"
+                  size="small"
+                  fluid
                   [value]="p.value ?? ''"
                   [attr.aria-label]="p.key"
                   (change)="set(p.key, $any($event.target).value)"
@@ -90,57 +121,113 @@
         </div>
         @if (panel()) {
           <button
+            hx-button
             type="button"
+            variant="text"
+            severity="secondary"
+            size="small"
+            iconOnly
             class="prop-move"
             [disabled]="first"
             [attr.aria-label]="'Move property ' + p.key + ' up'"
+            hx-tooltip="Move up"
             (click)="move(p.key, -1)"
           >
-            ↑
+            <span aria-hidden="true">↑</span>
           </button>
           <button
+            hx-button
             type="button"
+            variant="text"
+            severity="secondary"
+            size="small"
+            iconOnly
             class="prop-move"
             [disabled]="last"
             [attr.aria-label]="'Move property ' + p.key + ' down'"
+            hx-tooltip="Move down"
             (click)="move(p.key, 1)"
           >
-            ↓
+            <span aria-hidden="true">↓</span>
           </button>
         }
-        <button
-          type="button"
-          class="prop-remove"
-          [attr.aria-label]="'Remove property ' + p.key"
-          (click)="remove(p.key)"
-        >
-          ✕
-        </button>
+        <span class="prop-remove">
+          <button
+            hx-button
+            type="button"
+            variant="text"
+            severity="secondary"
+            size="small"
+            iconOnly
+            [attr.aria-label]="'Remove property ' + p.key"
+            hx-tooltip="Remove property"
+            (click)="remove(p.key)"
+          >
+            <span aria-hidden="true">✕</span>
+          </button>
+        </span>
       </div>
     }
 
     @if (inEditor()) {
-      <button type="button" class="prop-add" (click)="editSource.emit()">Edit as source</button>
+      <button
+        hx-button
+        type="button"
+        class="prop-add"
+        variant="text"
+        severity="secondary"
+        size="small"
+        (click)="editSource.emit()"
+      >
+        Edit as source
+      </button>
     }
     @if (adding()) {
-      <form class="prop prop-new" (submit)="$event.preventDefault(); add(name, kind)">
-        <input
-          #name
-          class="prop-key"
-          type="text"
-          placeholder="Name"
-          aria-label="New property name"
+      <form class="prop prop-new" (submit)="$event.preventDefault(); add(name)">
+        <div class="prop-key">
+          <input
+            #name
+            hx-input
+            type="text"
+            size="small"
+            fluid
+            placeholder="Name"
+            aria-label="New property name"
+            [attr.aria-invalid]="nameTaken() ? 'true' : null"
+            (input)="nameTaken.set(false)"
+          />
+        </div>
+        <hx-select
+          size="small"
+          ariaLabel="Type of the new property"
+          [options]="types"
+          optionLabel="label"
+          optionValue="type"
+          [value]="newType()"
+          (valueChange)="newType.set($any($event))"
         />
-        <select #kind aria-label="Type of the new property">
-          @for (t of types; track t.type) {
-            <option [value]="t.type">{{ t.label }}</option>
-          }
-        </select>
-        <button type="submit">Add</button>
-        <button type="button" (click)="adding.set(false)">Cancel</button>
+        <button
+          hx-button
+          type="button"
+          variant="text"
+          severity="secondary"
+          size="small"
+          (click)="adding.set(false)"
+        >
+          Cancel
+        </button>
+        <button hx-button type="submit" size="small">Add</button>
       </form>
     } @else {
-      <button type="button" class="prop-add" (click)="adding.set(true)">
+      <button
+        hx-button
+        type="button"
+        class="prop-add"
+        variant="text"
+        severity="secondary"
+        size="small"
+        (click)="startAdding()"
+      >
         {{ panel() ? "Add property" : "+ Add property" }}
       </button>
     }
@@ -154,26 +241,37 @@
         {{ chip.text }}
         @if (chipsEditable(p.value)) {
           <button
+            hx-button
             type="button"
+            variant="text"
+            severity="secondary"
+            size="small"
+            iconOnly
             [attr.aria-label]="'Remove ' + chip.text"
+            hx-tooltip="Remove"
             (click)="removeChip(p, chip.index)"
           >
-            ✕
+            <span aria-hidden="true">✕</span>
           </button>
         }
       </span>
     }
     @if (chipsEditable(p.value)) {
-      <input
-        type="text"
-        class="chip-field"
-        [attr.list]="suggestId(p.key)"
-        [attr.aria-label]="'Add to ' + p.key"
-        placeholder="Add…"
-        (focus)="loadSuggestions()"
-        (keydown)="onChipKey($event, p)"
-        (change)="addChip(p, $any($event.target))"
-      />
+      <span class="chip-field-box">
+        <input
+          hx-input
+          type="text"
+          class="chip-field"
+          size="small"
+          fluid
+          [attr.list]="suggestId(p.key)"
+          [attr.aria-label]="'Add to ' + p.key"
+          placeholder="Add…"
+          (focus)="loadSuggestions()"
+          (keydown)="onChipKey($event, p)"
+          (change)="addChip(p, $any($event.target))"
+        />
+      </span>
       <datalist [id]="suggestId(p.key)">
         @for (s of suggest(source, p); track s) {
           <option [value]="s"></option>

@@ -25,37 +25,9 @@ header {
   color: var(--h-text-muted-color);
 }
 
-input {
-  margin: 8px 12px;
-  padding: 5px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
-}
-
 .status {
   margin: 4px 12px;
   color: var(--h-text-muted-color);
-}
-
-button:where(:not([hx-list-row])) {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 4px 12px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-button:where(:not([hx-list-row])):hover {
-  background: var(--h-surface-hover);
 }
 
 .detail {
@@ -67,6 +39,8 @@ button:where(:not([hx-list-row])):hover {
 }
 
 .summary {
+  display: flex;
+  flex-direction: column;
   padding: 8px 0;
 }
 
@@ -81,17 +55,9 @@ button:where(:not([hx-list-row])):hover {
   color: var(--h-text-muted-color);
 }
 
-button.sync {
-  align-items: center;
-  width: auto;
+.sync {
+  align-self: flex-start;
   margin: 0 12px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-}
-
-button.sync:disabled {
-  cursor: default;
-  opacity: 0.5;
 }
 
 .detail-box {
@@ -109,59 +75,17 @@ button.sync:disabled {
 form {
   display: flex;
   flex-direction: column;
-  padding: 12px 0;
-  font-size: 11px;
-  color: var(--h-text-muted-color);
+  gap: 8px;
+  padding: 12px;
 }
 
-form label,
-form details {
-  padding: 0 12px;
+.primary {
+  align-self: flex-start;
 }
 
-form input {
-  display: block;
-  box-sizing: border-box;
-  width: calc(100% - 24px);
-}
-
-form button.primary {
-  align-items: center;
-  width: auto;
-  margin: 8px 12px 0;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-primary-color);
-  color: #fff;
-}
-
-form button.primary:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
-button.open {
-  width: auto;
-  padding: 2px 6px;
-  font-size: 11px;
-}
-
-button.link {
-  display: inline;
-  width: auto;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--h-primary-color);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-input.check {
-  width: auto;
-  margin: 0 0 0 12px;
-  padding: 0;
-  accent-color: var(--h-primary-color, currentColor);
+.check {
+  display: inline-flex;
+  margin-left: 12px;
 }
 
 .ignore-hint {
@@ -173,6 +97,6 @@ input.check {
   margin: 0 0 4px;
 }
 
-.ignore-hint button.link {
+.ignore-hint .link {
   margin-right: 10px;
 }

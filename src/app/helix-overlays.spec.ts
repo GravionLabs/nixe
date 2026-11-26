@@ -66,6 +66,11 @@ describe("helix overlays", () => {
     expect(html.match(/<hx-toast/g)).toHaveLength(1);
   });
 
+  it("has one hx-confirm-dialog in the root component, which answers HxConfirmationService", () => {
+    const html = readFileSync(resolve(root, "app.component.html"), "utf8");
+    expect(html.match(/<hx-confirm-dialog/g)).toHaveLength(1);
+  });
+
   it("opens the file tree menus with hx-menu", () => {
     const html = readFileSync(resolve(root, "features/sidebar/sidebar.component.html"), "utf8");
     expect(html.match(/<hx-menu\s/g)).toHaveLength(2);
