@@ -144,7 +144,7 @@ describe("SettingsComponent token layout", () => {
     const css = readFileSync("src/app/features/settings/settings.component.css", "utf8");
     expect(css).toMatch(/\.token \{[^}]*max-width: 320px/);
     expect(css).toMatch(/\.token > \* \{[^}]*max-width: 100%/);
-    expect(css).toMatch(/\.token-manual input \{[^}]*min-width: 0/);
+    expect(css).toMatch(/\.token-manual > \.grow \{[^}]*min-width: 0/);
   });
 });
 

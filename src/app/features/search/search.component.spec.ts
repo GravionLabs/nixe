@@ -3,6 +3,8 @@ import "@angular/compiler";
 import { readFileSync } from "node:fs";
 import { ApplicationRef, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
+import { By } from "@angular/platform-browser";
+import { HxSelect } from "@gravionlabs/helix-ui";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -104,6 +106,7 @@ function render(
   const fixture = TestBed.createComponent(SearchComponent);
   fixture.detectChanges();
   return {
+    fixture,
     el: fixture.nativeElement as HTMLElement,
     open,
     openPinned,
@@ -184,23 +187,24 @@ describe("SearchComponent", () => {
   it("sorts by relevance, name or modified time and keeps the choice", () => {
     localStorage.clear();
     const a: SearchHit = { path: "z/a.md", title: "a", modified: 50, matches: 0, snippets: [] };
-    const { el } = render("ready", [hit, a]);
+    const { el, fixture } = render("ready", [hit, a]);
     const names = () =>
       [...el.querySelectorAll("button.note .name")].map((n) => n.textContent?.trim());
     expect(names()).toEqual(["b", "a"]);
-    const select = el.querySelector<HTMLSelectElement>("select.sort")!;
-    select.value = "name";
-    select.dispatchEvent(new Event("change"));
+    const choose = (value: string) =>
+      fixture.debugElement.query(By.directive(HxSelect)).componentInstance.value.set(value);
+    choose("name");
     tick();
     expect(names()).toEqual(["a", "b"]);
     expect(localStorage.getItem("nixe.search.sort")).toBe("name");
-    select.value = "modified";
-    select.dispatchEvent(new Event("change"));
+    choose("modified");
     tick();
     expect(names()).toEqual(["b", "a"]);
     // a new panel starts with the stored choice
-    const again = render("ready", [hit, a]).el;
-    expect(again.querySelector<HTMLSelectElement>("select.sort")!.value).toBe("modified");
+    const again = render("ready", [hit, a]).fixture;
+    expect(again.debugElement.query(By.directive(HxSelect)).componentInstance.value()).toBe(
+      "modified",
+    );
     localStorage.clear();
   });
 

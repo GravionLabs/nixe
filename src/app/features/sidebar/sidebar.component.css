@@ -8,7 +8,7 @@
   min-width: 0;
   background: var(--h-surface-frame);
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -16,9 +16,10 @@
 header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--h-space-1);
   height: 34px;
-  padding: 0 6px 0 12px;
+  --h-button-sm-icon-only-width: 26px;
+  padding: 0 6px 0 var(--h-space-3);
   border-bottom: 1px solid var(--h-content-border-color);
 }
 
@@ -28,35 +29,11 @@ header {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--h-text-muted-color);
-}
-
-button.icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--h-text-muted-color);
-  cursor: pointer;
-}
-
-button.icon:hover {
-  background: var(--h-surface-hover);
-  color: var(--h-text-color);
-}
-
-button.icon.active {
-  background: var(--h-surface-hover);
-  color: var(--h-text-color);
 }
 
 svg {
@@ -72,15 +49,15 @@ svg {
 .tree {
   flex: 1;
   overflow: auto;
-  padding: 4px 0 12px;
+  padding: var(--h-space-1) 0 var(--h-space-3);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--h-space-1);
   height: 26px;
-  padding-right: 8px;
+  padding-right: var(--h-space-2);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -147,7 +124,7 @@ svg {
 }
 
 .empty {
-  margin: 12px;
+  margin: var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
@@ -155,12 +132,7 @@ svg {
   flex: 1;
   min-width: 0;
   height: 20px;
-  padding: 0 4px;
-  border: 1px solid var(--h-primary-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: var(--h-text-color);
-  font: inherit;
+  --h-inputtext-sm-padding-y: 0;
   user-select: text;
   -webkit-user-select: text;
 }
@@ -172,7 +144,7 @@ svg {
   border: 1px solid var(--h-primary-color);
   border-radius: 8px;
   color: var(--h-primary-color);
-  font-size: 10px;
+  font-size: var(--h-font-size-xs);
 }
 
 .dot {
@@ -185,19 +157,8 @@ svg {
 }
 
 .filter-box {
-  padding: 6px 8px;
+  padding: 6px var(--h-space-2);
   border-bottom: 1px solid var(--h-content-border-color);
-}
-
-.filter {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 3px 6px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: var(--h-text-color);
-  font: inherit;
 }
 
 mark {
@@ -211,7 +172,7 @@ mark {
   flex-shrink: 0;
   margin-left: auto;
   padding-left: 6px;
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 600;
 }
 

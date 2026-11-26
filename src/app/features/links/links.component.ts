@@ -1,6 +1,12 @@
 import { Component, DestroyRef, computed, effect, inject, signal, untracked } from "@angular/core";
 import type { HxColumn } from "@gravionlabs/helix-ui";
-import { HxDataTable, HxSelectButton, HxTableBody } from "@gravionlabs/helix-ui";
+import {
+  HxButton,
+  HxDataTable,
+  HxSelect,
+  HxSelectButton,
+  HxTableBody,
+} from "@gravionlabs/helix-ui";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import type { BaseResult } from "../../core/file/backend";
@@ -41,7 +47,7 @@ interface Marked {
  */
 @Component({
   selector: "app-links",
-  imports: [HxDataTable, HxSelectButton, HxTableBody],
+  imports: [HxButton, HxDataTable, HxSelect, HxSelectButton, HxTableBody],
   templateUrl: "./links.component.html",
   styleUrl: "./links.component.css",
 })
@@ -62,6 +68,7 @@ export class LinksComponent {
     { value: "cards", label: "Cards" },
     { value: "table", label: "Table" },
   ];
+  protected readonly statusOptions = filterOptions(["unread", "read"]);
   protected readonly columns: HxColumn[] = [
     { field: "title", header: "Title" },
     { field: "site", header: "Site" },
@@ -91,6 +98,8 @@ export class LinksComponent {
   });
   protected readonly collections = computed(() => collections(this.links() ?? []));
   protected readonly tags = computed(() => linkTags(this.links() ?? []));
+  protected readonly collectionOptions = computed(() => filterOptions(this.collections()));
+  protected readonly tagFilterOptions = computed(() => filterOptions(this.tags()));
   /** The chosen collection and tag, as long as a link has them. */
   protected readonly collection = computed(() => known(this.view.collection(), this.collections()));
   protected readonly tag = computed(() => known(this.view.tag(), this.tags()));
@@ -214,14 +223,19 @@ export class LinksComponent {
     this.failed.update((failed) => new Set(failed).add(image));
   }
 
-  protected chosen(event: Event): string | null {
-    return (event.target as HTMLSelectElement).value || null;
+  /** The empty value of the "All" option stands for no filter. */
+  protected chosen(value: string | null): string | null {
+    return value || null;
   }
 
-  protected chooseStatus(event: Event): void {
-    const value = this.chosen(event);
+  protected chooseStatus(value: string | null): void {
     this.view.status.set(value === "read" || value === "unread" ? value : null);
   }
+}
+
+/** The options of a filter: "All" with the empty value, then the values as they are. */
+function filterOptions(values: readonly string[]): { value: string; label: string }[] {
+  return [{ value: "", label: "All" }, ...values.map((value) => ({ value, label: value }))];
 }
 
 function known(value: string | null, options: readonly string[]): string | null {

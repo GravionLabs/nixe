@@ -1,5 +1,6 @@
 @if (editor === "checkbox") {
   <input
+    hx-checkbox
     type="checkbox"
     [checked]="value === true"
     [indeterminate]="value === null"
@@ -8,6 +9,11 @@
   />
 } @else if (draft() === null) {
   <button
+    hx-button
+    variant="text"
+    severity="contrast"
+    size="small"
+    fluid
     type="button"
     class="value"
     [attr.aria-label]="'Edit ' + label + (text ? ': ' + text : '')"
@@ -21,6 +27,10 @@
       <span class="item">
         {{ item }}
         <button
+          hx-button
+          variant="text"
+          severity="secondary"
+          size="small"
           type="button"
           [attr.aria-label]="'Remove ' + item"
           (mousedown)="$event.preventDefault()"
@@ -31,6 +41,10 @@
       </span>
     }
     <input
+      class="edit"
+      hx-input
+      size="small"
+      fluid
       #field
       type="text"
       placeholder="Add…"
@@ -40,6 +54,10 @@
   </span>
 } @else if (draft()?.includes("\n")) {
   <textarea
+    class="edit"
+    hx-input
+    size="small"
+    fluid
     #field
     rows="3"
     [value]="draft()"
@@ -49,6 +67,10 @@
   ></textarea>
 } @else {
   <input
+    class="edit"
+    hx-input
+    size="small"
+    fluid
     #field
     [type]="editor"
     step="any"

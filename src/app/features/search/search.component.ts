@@ -1,5 +1,5 @@
 import type { ElementRef } from "@angular/core";
-import { HxList, HxListRow } from "@gravionlabs/helix-ui";
+import { HxButton, HxCheckbox, HxInput, HxList, HxListRow, HxSelect } from "@gravionlabs/helix-ui";
 import {
   Component,
   computed,
@@ -53,10 +53,16 @@ function storedSort(): SearchSort {
   }
 }
 
+const SORT_LABELS: Record<SearchSort, string> = {
+  relevance: "Relevance",
+  name: "Name",
+  modified: "Modified",
+};
+
 /** Left-hand search panel: results grouped by note, with highlighted snippets. */
 @Component({
   selector: "app-search",
-  imports: [HxList, HxListRow],
+  imports: [HxList, HxListRow, HxButton, HxCheckbox, HxInput, HxSelect],
   templateUrl: "./search.component.html",
   styleUrl: "./search.component.css",
 })
@@ -76,7 +82,10 @@ export class SearchComponent {
     this.workspaces.searchRoots() ? [...SEARCH_OPERATORS, ROOT_OPERATOR] : [...SEARCH_OPERATORS],
   );
   protected readonly hitKey = hitKey;
-  protected readonly sorts = SEARCH_SORTS;
+  protected readonly sortOptions = SEARCH_SORTS.map((value) => ({
+    value,
+    label: SORT_LABELS[value],
+  }));
   protected readonly sort = signal<SearchSort>(storedSort());
   protected readonly helpOpen = signal(false);
   /** Paths of the notes whose snippets are folded away. */
@@ -111,8 +120,7 @@ export class SearchComponent {
     });
   }
 
-  protected setSort(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value as SearchSort;
+  protected setSort(value: SearchSort): void {
     if (!SEARCH_SORTS.includes(value)) return;
     this.sort.set(value);
     try {

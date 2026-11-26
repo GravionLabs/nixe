@@ -1,53 +1,34 @@
 :host {
   display: block;
+  /* The cell reads like the text of the table: no room around the value and a normal weight. */
+  --h-button-sm-padding-x: 0;
+  --h-button-sm-padding-y: 0;
+  --h-button-label-font-weight: 400;
 }
 
 /* An empty value stays a place to click. */
 .value {
-  display: block;
-  width: 100%;
+  justify-content: flex-start;
   min-height: 1.5em;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
   text-align: left;
   cursor: text;
 }
 
-input:not([type="checkbox"]),
-textarea {
-  box-sizing: border-box;
-  width: 100%;
+.edit {
   min-width: 8ch;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
 }
 
 .list {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--h-space-1);
 }
 
 .item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--h-space-1);
   padding: 0 6px;
   border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-}
-
-.item button {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--h-text-muted-color);
-  font: inherit;
-  cursor: pointer;
 }

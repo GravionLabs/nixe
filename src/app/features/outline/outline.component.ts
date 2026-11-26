@@ -1,5 +1,5 @@
 import { Component, computed, inject } from "@angular/core";
-import { HxList, HxListRow } from "@gravionlabs/helix-ui";
+import { HxButton, HxList, HxListRow } from "@gravionlabs/helix-ui";
 
 import { EditorService } from "../../core/editor/editor.service";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
@@ -12,7 +12,7 @@ import { OutlineService } from "../../core/outline/outline.service";
   selector: "app-outline",
   templateUrl: "./outline.component.html",
   styleUrl: "./outline.component.css",
-  imports: [HxList, HxListRow],
+  imports: [HxList, HxListRow, HxButton],
 })
 export class OutlineComponent {
   protected readonly outline = inject(OutlineService);

@@ -3,6 +3,7 @@
     @for (section of page.sections(); track section.id) {
       @let active = !page.query().trim() && section.id === page.selectedId();
       <button
+        class="section"
         hx-button
         type="button"
         variant="text"
@@ -44,6 +45,7 @@
                 }
                 @case ("select") {
                   <hx-select
+                    class="sized"
                     [inputId]="'setting-' + item.id"
                     [options]="item.options"
                     [value]="item.get()"
@@ -52,6 +54,7 @@
                 }
                 @case ("text") {
                   <input
+                    class="sized"
                     hx-input
                     type="text"
                     [id]="'setting-' + item.id"
@@ -62,6 +65,7 @@
                 }
                 @case ("number") {
                   <input
+                    class="sized"
                     hx-input
                     type="number"
                     [id]="'setting-' + item.id"
@@ -265,6 +269,7 @@
                     @if (showTokenInput(item)) {
                       <div class="token-manual">
                         <input
+                          class="grow"
                           #token
                           hx-input
                           type="password"
@@ -337,6 +342,7 @@
                     </ul>
                     <div class="loc-form">
                       <input
+                        class="grow"
                         hx-input
                         type="text"
                         [id]="'setting-' + item.id"
@@ -346,6 +352,7 @@
                         (input)="locName.set(value($event))"
                       />
                       <input
+                        class="grow"
                         hx-input
                         type="text"
                         aria-label="Folder"

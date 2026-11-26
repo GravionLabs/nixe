@@ -1,0 +1,14 @@
+[
+  {
+    "file": "features/start/start.component.css",
+    "rule": "font-size-px",
+    "match": "44px",
+    "reason": "The wordmark of the start screen is a display size above the type scale (--h-font-size-3xl is the largest step)."
+  },
+  {
+    "file": "features/sidebar/sidebar.component.css",
+    "rule": "font-size-px",
+    "match": "8px",
+    "reason": "A fixed-size icon: the dot glyph that marks a folder with changed notes."
+  }
+]

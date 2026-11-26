@@ -1,6 +1,8 @@
 <header>
   @if (workspace.vaultRoot() !== null && renamingRoot() === workspace.vaultRoot()) {
     <input
+      hx-input
+      size="small"
       #rootInput
       class="rename root-rename"
       type="text"
@@ -21,6 +23,11 @@
     >
   }
   <button
+    hx-button
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
     type="button"
     class="icon"
     (click)="newNote()"
@@ -31,6 +38,11 @@
     <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
   </button>
   <button
+    hx-button
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
     type="button"
     class="icon"
     (click)="newFolder()"
@@ -45,6 +57,11 @@
     </svg>
   </button>
   <button
+    hx-button
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
     type="button"
     class="icon"
     (click)="openSortMenu($event)"
@@ -56,6 +73,11 @@
     </svg>
   </button>
   <button
+    hx-button
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
     type="button"
     class="icon"
     (click)="workspace.revealActive()"
@@ -69,6 +91,11 @@
     </svg>
   </button>
   <button
+    hx-button
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
     type="button"
     class="icon"
     (click)="workspace.collapseAll()"
@@ -79,6 +106,11 @@
     <svg viewBox="0 0 24 24"><path d="M7 9l5-5 5 5M7 15l5 5 5-5" /></svg>
   </button>
   <button
+    hx-button
+    variant="text"
+    [severity]="filterShown() ? 'primary' : 'secondary'"
+    size="small"
+    iconOnly
     type="button"
     class="icon filter-toggle"
     [class.active]="filterShown()"
@@ -98,6 +130,9 @@
 @if (filterShown()) {
   <div class="filter-box" id="sidebar-filter">
     <input
+      hx-input
+      size="small"
+      fluid
       #filterInput
       class="filter"
       type="search"
@@ -172,6 +207,8 @@
       }
       @if (node.dirPath !== null && renamingRoot() === node.dirPath) {
         <input
+          hx-input
+          size="small"
           #rootInput
           class="rename"
           type="text"
@@ -185,6 +222,8 @@
         />
       } @else if (renaming() === path(node)) {
         <input
+          hx-input
+          size="small"
           #renameInput
           class="rename"
           type="text"

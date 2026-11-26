@@ -16,7 +16,17 @@
   @if (pickFrom(); as from) {
     <div class="pick" role="status">
       <span>Pick the version to compare with {{ describe(from)?.text }}</span>
-      <button type="button" class="cancel-pick" (click)="pickFrom.set(null)">Cancel</button>
+      <button
+        hx-button
+        variant="text"
+        severity="secondary"
+        size="small"
+        type="button"
+        class="cancel-pick"
+        (click)="pickFrom.set(null)"
+      >
+        Cancel
+      </button>
     </div>
   }
   <app-panel-section title="Versions" storageKey="history-versions">
@@ -54,10 +64,22 @@
               </button>
               @if (entry.id !== null) {
                 <span class="row-actions">
-                  <button type="button" class="restore" (click)="history.reviewRestore(entry)">
+                  <button
+                    hx-button
+                    variant="text"
+                    severity="secondary"
+                    size="small"
+                    type="button"
+                    class="restore"
+                    (click)="history.reviewRestore(entry)"
+                  >
                     Restore this version
                   </button>
                   <button
+                    hx-button
+                    variant="text"
+                    severity="secondary"
+                    size="small"
                     type="button"
                     class="copy"
                     (mousedown)="$event.preventDefault()"
@@ -112,6 +134,8 @@
   <app-panel-section title="Trash" [count]="history.deleted().length" storageKey="history-deleted">
     @if (history.deleted().length > 0) {
       <input
+        hx-input
+        size="small"
         type="search"
         class="filter"
         placeholder="Filter by title or folder"
@@ -132,7 +156,17 @@
             <app-note-title [path]="note.path" kind="deleted" />
             <span class="hx-list-row-meta" [title]="exact(note)">{{ deletedAgo(note) }}</span>
           </button>
-          <button rowActions type="button" (click)="history.restoreDeleted(note)">Restore</button>
+          <button
+            hx-button
+            variant="text"
+            severity="secondary"
+            size="small"
+            rowActions
+            type="button"
+            (click)="history.restoreDeleted(note)"
+          >
+            Restore
+          </button>
         </app-note-row>
       } @empty {
         <app-empty-state

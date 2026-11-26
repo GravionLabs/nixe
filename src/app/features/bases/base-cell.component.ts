@@ -1,4 +1,5 @@
 import type { ElementRef } from "@angular/core";
+import { HxButton, HxCheckbox, HxInput } from "@gravionlabs/helix-ui";
 import { Component, EventEmitter, Input, Output, ViewChild, signal } from "@angular/core";
 
 import type { PropertyChange } from "../../core/markdown/property-change";
@@ -13,6 +14,7 @@ import { addItem, cellItems, removeItem, typedChange, type CellEditor } from "./
   selector: "app-base-cell",
   templateUrl: "./base-cell.component.html",
   styleUrl: "./base-cell.component.css",
+  imports: [HxButton, HxCheckbox, HxInput],
 })
 export class BaseCellComponent {
   // Decorators, not signal inputs and queries: the JIT-compiled specs support only these.

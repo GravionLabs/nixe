@@ -8,19 +8,19 @@
 .head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
+  gap: var(--h-space-3);
+  padding: var(--h-space-2) 14px;
   border-bottom: 1px solid var(--h-content-border-color);
 }
 
 .title {
   flex: 1;
   margin: 0;
-  font-size: 15px;
+  font-size: var(--h-font-size-lg);
   font-weight: 600;
 }
 
-.modes button.on,
+.modes > .on,
 .entry.on {
   font-weight: 600;
 }
@@ -44,15 +44,8 @@
 }
 
 .entry {
-  display: block;
-  width: 100%;
-  padding: 4px 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
+  justify-content: flex-start;
   text-align: left;
-  cursor: pointer;
 }
 
 .reader {
@@ -82,6 +75,6 @@
 }
 
 .error {
-  margin: 12px 14px;
+  margin: var(--h-space-3) 14px;
   color: var(--h-message-error-color, inherit);
 }

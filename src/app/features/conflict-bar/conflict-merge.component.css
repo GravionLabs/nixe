@@ -1,9 +1,9 @@
 .merge {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--h-space-2);
   max-height: 75vh;
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 .count {
   color: var(--h-text-muted-color);
@@ -18,22 +18,22 @@
 .sides {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: var(--h-space-2);
 }
 .titles {
   font-weight: 600;
-  padding-bottom: 4px;
+  padding-bottom: var(--h-space-1);
 }
 pre {
-  margin: 0.25rem 0;
+  margin: var(--h-space-1) 0;
   white-space: pre-wrap;
   font-family: var(--nixe-font-mono, monospace);
 }
 .hunk {
   border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  padding: 0.25rem 0.5rem;
-  margin: 0.25rem 0;
+  padding: var(--h-space-1) var(--h-space-2);
+  margin: var(--h-space-1) 0;
 }
 .hunk-head {
   display: flex;
@@ -44,11 +44,11 @@ pre {
   flex: 1;
 }
 pre.del {
-  background: rgba(248, 81, 73, 0.15);
+  background: color-mix(in srgb, var(--nixe-removed-color) 15%, transparent);
   opacity: 0.55;
 }
 pre.add {
-  background: rgba(46, 160, 67, 0.15);
+  background: color-mix(in srgb, var(--nixe-added-color) 15%, transparent);
   opacity: 0.55;
 }
 pre.taken {

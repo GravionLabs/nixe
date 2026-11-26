@@ -68,6 +68,11 @@
     <section aria-label="Unlinked mentions">
       <h2>
         <button
+          hx-button
+          variant="text"
+          severity="secondary"
+          size="small"
+          fluid
           type="button"
           class="fold"
           [attr.aria-expanded]="unlinkedOpen()"
@@ -106,6 +111,10 @@
                       </span>
                     </button>
                     <button
+                      hx-button
+                      variant="outlined"
+                      severity="secondary"
+                      size="small"
                       type="button"
                       class="link-it"
                       (click)="linkMention(mention)"

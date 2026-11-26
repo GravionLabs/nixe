@@ -1,4 +1,5 @@
 import type { OnDestroy } from "@angular/core";
+import { HxButton } from "@gravionlabs/helix-ui";
 import {
   Component,
   ElementRef,
@@ -28,7 +29,7 @@ const PREV_KEYS = new Set(["ArrowLeft", "ArrowUp", "PageUp"]);
  */
 @Component({
   selector: "app-epub",
-  imports: [EmptyStateComponent],
+  imports: [EmptyStateComponent, HxButton],
   templateUrl: "./epub.component.html",
   styleUrl: "./epub.component.css",
 })

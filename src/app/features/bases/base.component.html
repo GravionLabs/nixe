@@ -60,7 +60,15 @@
                   }
                 </div>
               }
-              <button type="button" class="card-title" [title]="row.path" (click)="open(row.path)">
+              <button
+                hx-button
+                variant="text"
+                severity="contrast"
+                type="button"
+                class="card-title"
+                [title]="row.path"
+                (click)="open(row.path)"
+              >
                 {{ row.title }}
               </button>
               @if (row.properties.length) {
@@ -132,17 +140,34 @@
 <!-- A value of a note, in a cell of the table or in a card. -->
 <ng-template #value let-cell>
   @if (cell.note; as note) {
-    <button type="button" class="note-link" [title]="note" (click)="open(note)">
+    <button
+      hx-button
+      variant="link"
+      size="small"
+      type="button"
+      class="note-link"
+      [title]="note"
+      (click)="open(note)"
+    >
       {{ cell.text }}
     </button>
   } @else if (cell.url; as url) {
-    <button type="button" class="note-link" [title]="url" (click)="openExternal(url)">
+    <button
+      hx-button
+      variant="link"
+      size="small"
+      type="button"
+      class="note-link"
+      [title]="url"
+      (click)="openExternal(url)"
+    >
       {{ cell.text }}
     </button>
   } @else if (cell.failed) {
     <span class="error">Error: {{ cell.text }}</span>
   } @else if (cell.checked !== null) {
     <input
+      hx-checkbox
       type="checkbox"
       disabled
       [checked]="cell.checked"

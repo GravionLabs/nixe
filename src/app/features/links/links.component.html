@@ -10,32 +10,42 @@
     [value]="view.tab()"
     (valueChange)="view.tab.set($any($event))"
   />
-  <label>
+  <label for="links-collection">
     Collection
-    <select (change)="view.collection.set(chosen($event))">
-      <option value="" [selected]="collection() === null">All</option>
-      @for (option of collections(); track option) {
-        <option [value]="option" [selected]="collection() === option">{{ option }}</option>
-      }
-    </select>
+    <hx-select
+      class="collection"
+      size="small"
+      ariaLabel="Collection"
+      inputId="links-collection"
+      [options]="collectionOptions()"
+      [value]="collection() ?? ''"
+      (valueChange)="view.collection.set(chosen($any($event)))"
+    />
   </label>
-  <label>
+  <label for="links-tag">
     Tag
-    <select (change)="view.tag.set(chosen($event))">
-      <option value="" [selected]="tag() === null">All</option>
-      @for (option of tags(); track option) {
-        <option [value]="option" [selected]="tag() === option">{{ option }}</option>
-      }
-    </select>
+    <hx-select
+      class="tag"
+      size="small"
+      ariaLabel="Tag"
+      inputId="links-tag"
+      [options]="tagFilterOptions()"
+      [value]="tag() ?? ''"
+      (valueChange)="view.tag.set(chosen($any($event)))"
+    />
   </label>
   @if (view.tab() === "all") {
-    <label>
+    <label for="links-status">
       Status
-      <select (change)="chooseStatus($event)">
-        <option value="" [selected]="view.status() === null">All</option>
-        <option value="unread" [selected]="view.status() === 'unread'">unread</option>
-        <option value="read" [selected]="view.status() === 'read'">read</option>
-      </select>
+      <hx-select
+        class="status"
+        size="small"
+        ariaLabel="Status"
+        inputId="links-status"
+        [options]="statusOptions"
+        [value]="view.status() ?? ''"
+        (valueChange)="chooseStatus($any($event))"
+      />
     </label>
   }
   <hx-select-button
@@ -78,6 +88,9 @@
             }
           </div>
           <button
+            hx-button
+            variant="text"
+            severity="contrast"
             type="button"
             class="card-title"
             [title]="link.url ? link.path + ' (Ctrl/Cmd+click opens ' + link.url + ')' : link.path"
@@ -97,6 +110,10 @@
               </ul>
             }
             <button
+              hx-button
+              variant="outlined"
+              severity="secondary"
+              size="small"
               type="button"
               class="mark"
               [attr.aria-label]="
@@ -117,6 +134,9 @@
       <ng-template hxTableBody let-link>
         <td>
           <button
+            hx-button
+            variant="link"
+            size="small"
             type="button"
             class="note-link"
             [title]="link.url ? link.path + ' (Ctrl/Cmd+click opens ' + link.url + ')' : link.path"
@@ -131,6 +151,10 @@
         <td>
           <span class="status">{{ link.status }}</span>
           <button
+            hx-button
+            variant="outlined"
+            severity="secondary"
+            size="small"
             type="button"
             class="mark"
             [attr.aria-label]="

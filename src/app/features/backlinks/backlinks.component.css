@@ -1,23 +1,23 @@
 :host {
   display: block;
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 h2 {
-  margin: 12px 12px 4px;
-  font-size: 12px;
+  margin: var(--h-space-3) var(--h-space-3) var(--h-space-1);
+  font-size: var(--h-font-size-sm);
   font-weight: 600;
 }
 
 .count {
-  margin-left: 4px;
+  margin-left: var(--h-space-1);
   color: var(--h-text-muted-color);
   font-weight: 400;
 }
 
 .status {
-  margin: 4px 12px;
+  margin: var(--h-space-1) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
@@ -37,21 +37,9 @@ h2 {
   font-style: italic;
 }
 
-h2 button.fold {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
+.fold {
+  justify-content: flex-start;
+  gap: var(--h-space-1);
 }
 
 .chevron {
@@ -70,17 +58,5 @@ h2 button.fold {
 
 .mention .link-it {
   flex: none;
-  margin-right: 8px;
-  padding: 2px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.mention .link-it:hover {
-  background: var(--h-surface-hover);
+  margin-right: var(--h-space-2);
 }

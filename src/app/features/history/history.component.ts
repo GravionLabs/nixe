@@ -1,7 +1,7 @@
 import type { OnDestroy } from "@angular/core";
 import { Component, computed, inject, signal, viewChild } from "@angular/core";
 import type { HxMenuItem } from "@gravionlabs/helix-ui";
-import { HxList, HxListRow, HxMenu } from "@gravionlabs/helix-ui";
+import { HxButton, HxInput, HxList, HxListRow, HxMenu } from "@gravionlabs/helix-ui";
 
 import type { DeletedNote, RecentNote } from "../../core/file/backend";
 import type { TimelineEntry } from "../../core/git/history.service";
@@ -35,6 +35,8 @@ export function formatCommitTime(secs: number): string {
     HxListRow,
     EmptyStateComponent,
     HxMenu,
+    HxButton,
+    HxInput,
   ],
   templateUrl: "./history.component.html",
   styleUrl: "./history.component.css",

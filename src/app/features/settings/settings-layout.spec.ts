@@ -19,10 +19,13 @@ describe("settings layout", () => {
   });
 
   it("gives selects, text and number inputs the same box, width and height (#629)", () => {
-    const rule =
-      /\.control > input\[type="text"\],\s*\.control > input\[type="number"\],\s*\.control > hx-select\s*\{([^}]*)\}/.exec(
-        css,
-      )?.[1];
+    const html = readFileSync(resolve(__dirname, "settings.component.html"), "utf8");
+    const controls = html.match(
+      /<(?:hx-select|input(?=[^>]*type="(?:text|number)")(?=[^>]*item\.(?:min|placeholder)))\b[^>]*>/g,
+    );
+    expect(controls).toHaveLength(3);
+    for (const control of controls!) expect(control).toContain('class="sized"');
+    const rule = /\.control > \.sized\s*\{([^}]*)\}/.exec(css)?.[1];
     expect(rule).toMatch(/box-sizing: border-box;/);
     expect(rule).toMatch(/\bwidth: 200px;/);
     expect(rule).toMatch(/\bheight: 34px;/);

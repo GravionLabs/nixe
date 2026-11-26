@@ -3,9 +3,9 @@
 }
 
 .status {
-  margin: 4px 0;
+  margin: var(--h-space-1) 0;
   color: var(--h-text-muted-color);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
 .card-body,
@@ -25,7 +25,7 @@
 
 .meta,
 .messages {
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 
