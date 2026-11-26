@@ -65,7 +65,7 @@
     "@angular/build": "^22.3.0",
     "@angular/cli": "^22.3.0",
     "@angular/compiler-cli": "^22.3.0",
-    "@gravionlabs/helix-lint": "^22.10.0",
+    "@gravionlabs/helix-lint": "22.10.0",
     "@playwright/test": "^1.65.1",
     "@tauri-apps/cli": "^2",
     "angular-eslint": "^22.6.0",

@@ -34,12 +34,12 @@
     {
       "files": ["src/app/features/bookmarks/bookmarks.component.html"],
       "rules": ["helix/no-raw-control"],
-      "reason": "Tree row actions (add group, remove) and the inline rename input of the bookmarks tree own their icon-sized look and keyboard handling inside role=treeitem; hx-button would change the row markup"
+      "reason": "Three raw controls in the bookmarks template: the `+` button that adds a group, the inline rename `<input>` and the `\u00d7` remove button of each row; they are icon-sized custom looks beside the hx-list-row, not yet on hx-button and hx-input; migration tracked in #713, which removes this entry"
     },
     {
       "files": ["src/app/features/changes/changes.component.html"],
       "rules": ["helix/no-raw-control"],
-      "reason": "Range and version pickers are native selects with a disabled placeholder option and a change handler; migrate to hx-select with the options model, and the row Open action to hx-button"
+      "reason": "Two native `<select>` pickers (range with fixed options, version with a disabled placeholder option; hx-select to replace them) and the row `Open` button in the rowActions slot (hx-button); migration tracked in #713, which removes this entry"
     }
   ]
 }

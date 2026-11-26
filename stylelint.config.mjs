@@ -12,6 +12,14 @@ const allow = JSON.parse(
 
 export default {
   extends: ["@gravionlabs/helix-lint/stylelint"],
+  // Next to the preset (#695): component CSS styles no native control (the Helix directive owns
+  // its look), and the `font` shorthand must not carry a px or rem size (the preset checks only
+  // `font-size`).
+  rules: {
+    // A type selector only: not `.button`, `#input`, `hx-select` or an attribute value.
+    "selector-disallowed-list": [/(^|[\s>+~(,])(button|input|select|textarea|progress)(?![\w-])/i],
+    "declaration-property-value-disallowed-list": { font: [/\d(px|rem)\b/i] },
+  },
   ignoreFiles: ["dist/**", "node_modules/**", ".angular/**", "src-tauri/**", "extension/**"],
   overrides: allow.stylelint.map((entry) => helixAllow(entry)),
 };

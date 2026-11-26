@@ -79,10 +79,15 @@ describe("lint probe", () => {
     ]);
   }, 60_000);
 
-  it("Stylelint reports a hex color and an off-scale font size (#695)", async () => {
+  it("Stylelint reports a hex color, an off-scale font size, a styled native control and a px font shorthand (#695)", async () => {
     const { results } = await stylelint.lint({ files: `${PROBE}/*.css`, ignorePath: [] });
     const rules = results.flatMap((r) => r.warnings.map((w) => w.rule));
-    expect(rules.sort()).toEqual(["color-no-hex", "declaration-property-value-allowed-list"]);
+    expect(rules.sort()).toEqual([
+      "color-no-hex",
+      "declaration-property-value-allowed-list",
+      "declaration-property-value-disallowed-list",
+      "selector-disallowed-list",
+    ]);
   }, 60_000);
 
   it("every allowlist entry names a reason; an entry without one throws (#695)", () => {

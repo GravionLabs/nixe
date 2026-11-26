@@ -3,3 +3,8 @@
   color: #123456;
   font-size: 13px;
 }
+
+/* A native control styled in component CSS, and a font shorthand with a px size. */
+button {
+  font: 600 13px sans-serif;
+}
