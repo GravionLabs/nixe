@@ -52,6 +52,16 @@ export const VIEWS: readonly NixeView[] = [
     needsVault: true,
   },
   {
+    id: "links",
+    label: "Links",
+    icon: "link",
+    placement: "tab",
+    position: "top",
+    kind: "view",
+    command: "show-links",
+    needsVault: true,
+  },
+  {
     id: "git",
     shortcutCommand: "git-changes",
     label: "Git",

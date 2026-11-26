@@ -85,6 +85,7 @@ describe("ShellService", () => {
         "files",
         "search",
         "bookmarks",
+        "links",
         "git",
         "history",
         "daily-note",

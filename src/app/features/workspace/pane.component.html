@@ -21,6 +21,8 @@
   <app-log class="view" />
 } @else if (tab.view() === "health") {
   <app-health class="view" (failed)="tabs.notice.set($event)" />
+} @else if (tab.view() === "links") {
+  <app-links class="view" />
 } @else if (doc.path()) {
   @if (editor.editing()) {
     @defer (on immediate) {
