@@ -12,6 +12,12 @@ form {
   gap: var(--h-space-2);
 }
 
+.path-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-space-1);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
