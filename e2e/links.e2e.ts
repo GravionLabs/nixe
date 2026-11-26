@@ -50,10 +50,12 @@ test("the unread inbox, the table, mark as read and opening a link", async ({ pa
 
   await page.getByRole("group", { name: "Inbox" }).getByText("All").click();
   await expect(cards.getByRole("article")).toHaveCount(2);
-  await page.getByRole("combobox", { name: "Tag" }).selectOption("reading");
+  await page.getByRole("combobox", { name: "Tag" }).click();
+  await page.getByRole("option", { name: "reading", exact: true }).click();
   await expect(cards.getByRole("article")).toHaveCount(1);
   await expect(cards).toContainText("example.com");
-  await page.getByRole("combobox", { name: "Tag" }).selectOption("");
+  await page.getByRole("combobox", { name: "Tag" }).click();
+  await page.getByRole("option", { name: "All", exact: true }).click();
 
   await page.getByRole("group", { name: "Layout" }).getByText("Table").click();
   const table = page.getByRole("table", { name: "Links" });

@@ -1,8 +1,8 @@
 .legend {
   display: flex;
   gap: 14px;
-  margin: 0 0 8px;
-  font-size: 12px;
+  margin: 0 0 var(--h-space-2);
+  font-size: var(--h-font-size-sm);
 }
 
 .legend .stat {
@@ -11,11 +11,11 @@
 }
 
 .add {
-  color: var(--nixe-added-color, #2da44e);
+  color: var(--nixe-added-color);
 }
 
 .del {
-  color: var(--nixe-removed-color, #cf222e);
+  color: var(--nixe-removed-color);
 }
 
 .diff {
@@ -23,7 +23,7 @@
   overflow: auto;
   border: 1px solid var(--h-content-border-color);
   font-family: var(--nixe-font-mono, monospace);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
 .row {
@@ -40,23 +40,23 @@
 }
 
 .row.add {
-  background: rgba(46, 160, 67, 0.15);
+  background: color-mix(in srgb, var(--nixe-added-color) 15%, transparent);
 }
 
 .row.del {
-  background: rgba(248, 81, 73, 0.15);
+  background: color-mix(in srgb, var(--nixe-removed-color) 15%, transparent);
 }
 
 .row.add .word {
-  background: rgba(46, 160, 67, 0.4);
+  background: color-mix(in srgb, var(--nixe-added-color) 40%, transparent);
 }
 
 .row.del .word {
-  background: rgba(248, 81, 73, 0.4);
+  background: color-mix(in srgb, var(--nixe-removed-color) 40%, transparent);
 }
 
 .status {
-  margin: 8px;
+  margin: var(--h-space-2);
   color: var(--h-text-muted-color);
 }
 

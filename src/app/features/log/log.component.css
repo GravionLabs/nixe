@@ -6,7 +6,7 @@
   min-height: 0;
   background: var(--h-surface-frame);
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 header {
@@ -14,12 +14,12 @@ header {
   align-items: center;
   justify-content: space-between;
   height: 34px;
-  padding: 0 12px;
+  padding: 0 var(--h-space-3);
   border-bottom: 1px solid var(--h-content-border-color);
 }
 
 .title {
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -28,21 +28,21 @@ header {
 
 .actions {
   display: flex;
-  gap: 8px;
+  gap: var(--h-space-2);
 }
 
 .status {
-  margin: 12px;
+  margin: var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
 .text {
   flex: 1;
   margin: 0;
-  padding: 8px 12px;
+  padding: var(--h-space-2) var(--h-space-3);
   overflow: auto;
   font-family: var(--nixe-font-mono, monospace);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
   line-height: 1.5;
   white-space: pre;
   user-select: text;

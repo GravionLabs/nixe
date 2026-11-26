@@ -8,7 +8,7 @@
   overflow-y: auto;
   background: var(--h-surface-frame);
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 header {
@@ -16,23 +16,18 @@ header {
   align-items: center;
   justify-content: space-between;
   height: 34px;
-  padding: 0 12px;
+  padding: 0 var(--h-space-3);
   border-bottom: 1px solid var(--h-content-border-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--h-text-muted-color);
 }
 
-input {
-  margin: 8px 12px;
-  padding: 5px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
+.query,
+.replacement {
+  margin: var(--h-space-2) var(--h-space-3);
 }
 
 ul {
@@ -48,32 +43,7 @@ li,
 }
 
 .status {
-  margin: 4px 12px;
-  color: var(--h-text-muted-color);
-}
-
-button:where(:not([hx-list-row])) {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 4px 12px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-button:where(:not([hx-list-row])):hover {
-  background: var(--h-surface-hover);
-}
-
-button.close {
-  width: auto;
-  padding: 0 6px;
-  font-size: 16px;
+  margin: var(--h-space-1) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
@@ -91,7 +61,7 @@ button.close {
 }
 
 .path {
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 
@@ -107,27 +77,6 @@ mark {
   color: var(--h-text-color);
 }
 
-header .bookmark {
-  border: 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-header .bookmark:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.actions {
-  display: flex;
-  gap: 4px;
-}
-
-.toggle-replace.on {
-  color: var(--h-text-color);
-}
-
 .replace {
   display: flex;
   flex-direction: column;
@@ -136,19 +85,20 @@ header .bookmark:disabled {
 .replace .options {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 12px 4px;
+  gap: var(--h-space-2);
+  margin: 0 var(--h-space-3) var(--h-space-1);
   color: var(--h-text-muted-color);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
-.replace .options input {
-  margin: 0 2px 0 0;
+.replace .options label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--h-space-1);
 }
 
 .apply {
-  margin: 4px 12px 8px;
-  padding: 5px 8px;
+  margin: var(--h-space-1) var(--h-space-3) var(--h-space-2);
 }
 
 .note-row,
@@ -156,12 +106,7 @@ header .bookmark:disabled {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 2px 12px;
-}
-
-.note-row input,
-.diff input {
-  margin: 0;
+  padding: 2px var(--h-space-3);
 }
 
 .excluded {
@@ -173,7 +118,7 @@ header .bookmark:disabled {
   flex-direction: column;
   min-width: 0;
   font-family: monospace;
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
 .lines del,
@@ -196,10 +141,13 @@ header .bookmark:disabled {
 }
 
 .summary {
+  --h-select-sm-padding-x: var(--h-space-2);
+  --h-select-dropdown-width: var(--h-space-5);
+  --h-button-sm-icon-only-width: var(--h-space-6);
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px 6px;
+  padding: 0 var(--h-space-3) 6px;
   color: var(--h-text-muted-color);
 }
 
@@ -207,21 +155,8 @@ header .bookmark:disabled {
   flex: 1;
 }
 
-.summary select {
-  font: inherit;
-  color: inherit;
-  background: var(--h-content-background);
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-}
-
-.summary .collapse-all {
-  width: auto;
-  padding: 0 6px;
-}
-
 .root {
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 600;
   color: var(--h-accent-color, inherit);
 }

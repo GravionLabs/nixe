@@ -6,17 +6,17 @@
   min-height: 0;
   background: var(--h-surface-frame);
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--h-space-3);
   height: 34px;
   flex-shrink: 0;
-  padding: 0 12px;
+  padding: 0 var(--h-space-3);
   border-bottom: 1px solid var(--h-content-border-color);
   font-weight: 600;
 }
@@ -32,13 +32,13 @@ header {
 }
 
 .count {
-  margin-left: 4px;
+  margin-left: var(--h-space-1);
   color: var(--h-text-muted-color);
   font-weight: 400;
 }
 
 .message {
-  margin: 8px 12px;
+  margin: var(--h-space-2) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
@@ -60,8 +60,8 @@ header {
   /* A card is never wider than the pane. */
   grid-template-columns: repeat(auto-fill, minmax(min(var(--card-size), 100%), 1fr));
   align-items: start;
-  gap: 12px;
-  padding: 12px;
+  gap: var(--h-space-3);
+  padding: var(--h-space-3);
 }
 
 .cards > .group,
@@ -108,18 +108,15 @@ header {
 
 .placeholder {
   color: var(--h-text-muted-color);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
 .card-title {
-  padding: 8px 10px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-weight: 600;
+  justify-content: flex-start;
+  /* The overlay below reaches past the box of the title. */
+  position: static;
+  overflow: visible;
   text-align: left;
-  cursor: pointer;
 }
 
 /* The whole card opens the note; the links of its values lie above. */
@@ -140,7 +137,7 @@ header {
 
 .card dt {
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .card dd {
@@ -153,17 +150,8 @@ header {
 }
 
 .note-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--h-primary-color);
-  font: inherit;
+  justify-content: flex-start;
   text-align: left;
-  cursor: pointer;
-}
-
-.note-link:hover {
-  text-decoration: underline;
 }
 
 /* A ```base block in a note: as tall as its content, and without the markdown styles of the note

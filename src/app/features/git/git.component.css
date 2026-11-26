@@ -8,7 +8,7 @@
   overflow-y: auto;
   background: var(--h-surface-frame);
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 header {
@@ -16,9 +16,9 @@ header {
   align-items: center;
   justify-content: space-between;
   height: 34px;
-  padding: 0 12px;
+  padding: 0 var(--h-space-3);
   border-bottom: 1px solid var(--h-content-border-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -26,12 +26,12 @@ header {
 }
 
 .status {
-  margin: 4px 12px;
+  margin: var(--h-space-1) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
 .detail {
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
   color: var(--h-text-muted-color);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -41,33 +41,33 @@ header {
 .summary {
   display: flex;
   flex-direction: column;
-  padding: 8px 0;
+  padding: var(--h-space-2) 0;
 }
 
 .state {
-  margin: 0 12px;
+  margin: 0 var(--h-space-3);
   font-weight: 600;
 }
 
 .branch {
-  margin: 2px 12px 6px;
-  font-size: 11px;
+  margin: 2px var(--h-space-3) 6px;
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 
 .sync {
   align-self: flex-start;
-  margin: 0 12px;
+  margin: 0 var(--h-space-3);
 }
 
 .detail-box {
-  margin: 4px 12px;
-  font-size: 11px;
+  margin: var(--h-space-1) var(--h-space-3);
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 
 .detail-box pre {
-  margin: 4px 0 0;
+  margin: var(--h-space-1) 0 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -75,8 +75,8 @@ header {
 form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: var(--h-space-2);
+  padding: var(--h-space-3);
 }
 
 .primary {
@@ -85,16 +85,16 @@ form {
 
 .check {
   display: inline-flex;
-  margin-left: 12px;
+  margin-left: var(--h-space-3);
 }
 
 .ignore-hint {
-  margin: 4px 12px;
+  margin: var(--h-space-1) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
 .ignore-hint p {
-  margin: 0 0 4px;
+  margin: 0 0 var(--h-space-1);
 }
 
 .ignore-hint .link {

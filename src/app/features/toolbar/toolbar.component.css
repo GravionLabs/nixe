@@ -31,7 +31,7 @@ hx-app-toolbar ::ng-deep .hx-app-toolbar-end {
   align-items: center;
   min-width: 0;
   max-width: 100%;
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
 .sep,
@@ -52,7 +52,7 @@ hx-app-toolbar ::ng-deep .hx-app-toolbar-end {
 }
 
 .crumb.gap {
-  padding: 0 4px;
+  padding: 0 var(--h-space-1);
 }
 
 .crumb.folder {

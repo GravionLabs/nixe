@@ -24,7 +24,7 @@ li:not(.group, .empty):hover {
 .path,
 .alias {
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .path {
@@ -65,14 +65,14 @@ li:not(.group, .empty):hover {
 }
 
 .more {
-  padding: 4px 14px;
+  padding: var(--h-space-1) 14px;
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .root {
   font-weight: 600;
-  margin-right: 4px;
+  margin-right: var(--h-space-1);
 }
 
 .shortcut {
@@ -83,30 +83,30 @@ li:not(.group, .empty):hover {
 .count {
   margin-left: auto;
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .level {
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   margin-right: 6px;
 }
 
 .group {
-  padding: 8px 14px 2px;
+  padding: var(--h-space-2) 14px 2px;
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .label {
-  margin-left: 8px;
+  margin-left: var(--h-space-2);
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .shortcut + .label {
-  margin-left: 8px;
+  margin-left: var(--h-space-2);
 }

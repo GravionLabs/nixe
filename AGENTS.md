@@ -33,7 +33,7 @@ Run `pnpm format` (oxfmt, `.oxfmtrc.json`) and `cargo fmt --manifest-path src-ta
 
 - UI follows the [Helix UX rules](https://github.com/GravionLabs/helix/blob/main/docs/UX-RULES.md) (`docs/UX-RULES.md` of GravionLabs/helix). The app guide `docs/STYLEGUIDE.md` follows with #665.
 - Controls are Helix primitives, never a raw `<button>`, `<input>`, `<select>`, `<textarea>` or `<progress>` without a Helix directive; the mapping is [`ng-implementation` `references/helix.md`](.agents/skills/ng-implementation/references/helix.md).
-- No component CSS that styles controls; colors and font sizes come from the `--h-*` tokens.
+- No component CSS that styles controls; colors and font sizes come from the `--h-*` tokens. `src/app/component-css.spec.ts` checks the component stylesheets; an exception needs an entry with its reason in `src/app/css-allowlist.json`.
 
 ## Conventions
 

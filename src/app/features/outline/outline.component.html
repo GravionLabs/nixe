@@ -2,16 +2,52 @@
   <p class="status">No headings</p>
 } @else {
   <div class="levels" role="group" aria-label="Fold the outline">
-    <button type="button" class="level" (click)="outline.collapseTo(1)" title="Show only H1">
+    <button
+      hx-button
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      type="button"
+      class="level"
+      (click)="outline.collapseTo(1)"
+      title="Show only H1"
+    >
       H1
     </button>
-    <button type="button" class="level" (click)="outline.collapseTo(2)" title="Show down to H2">
+    <button
+      hx-button
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      type="button"
+      class="level"
+      (click)="outline.collapseTo(2)"
+      title="Show down to H2"
+    >
       H2
     </button>
-    <button type="button" class="level" (click)="outline.collapseTo(3)" title="Show down to H3">
+    <button
+      hx-button
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      type="button"
+      class="level"
+      (click)="outline.collapseTo(3)"
+      title="Show down to H3"
+    >
       H3
     </button>
-    <button type="button" class="level" (click)="outline.expandAll()" title="Expand all">
+    <button
+      hx-button
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      type="button"
+      class="level"
+      (click)="outline.expandAll()"
+      title="Expand all"
+    >
       All
     </button>
   </div>
@@ -26,6 +62,10 @@
         >
           @if (node.children.length > 0) {
             <button
+              hx-button
+              variant="text"
+              severity="secondary"
+              size="small"
               type="button"
               class="fold"
               [style.left.px]="2 + (node.level - 1) * 12"

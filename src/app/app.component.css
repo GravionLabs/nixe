@@ -40,37 +40,25 @@ main {
   inset-inline-end: 4px;
   height: auto;
   z-index: 20;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+  box-shadow: var(--h-overlay-popover-shadow);
 }
 
 .panel-tabs {
   display: flex;
   flex: none;
   height: 34px;
+  --h-button-sm-padding-x: var(--h-space-1);
   border-bottom: 1px solid var(--h-content-border-color);
 }
 
-.panel-tabs button {
+/* The tabs share the width of the panel. */
+.panel-tabs > * {
   flex: 1;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--h-text-muted-color);
-  font: inherit;
-  font-size: 11px;
+  min-width: 0;
+}
+
+.panel-tabs > .active {
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.panel-tabs button:hover {
-  color: var(--h-text-color);
-}
-
-.panel-tabs button.active {
-  border-bottom-color: var(--h-accent-color, currentColor);
-  color: var(--h-text-color);
 }
 
 .panel-body {

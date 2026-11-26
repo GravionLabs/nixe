@@ -4,17 +4,17 @@
 }
 
 .properties-panel {
-  padding: 8px 12px;
+  padding: var(--h-space-2) var(--h-space-3);
   border: 1px solid var(--h-content-border-color);
   border-radius: 6px;
   background: var(--h-surface-frame);
-  font-size: 14px;
+  font-size: var(--h-font-size-md);
 }
 
 .prop {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--h-space-2);
   padding: 2px 0;
 }
 
@@ -32,14 +32,14 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--h-space-1);
 }
 
 .property-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 8px;
+  gap: var(--h-space-1);
+  padding: 0 var(--h-space-2);
   border-radius: 999px;
   background: color-mix(in srgb, var(--nixe-accent) 14%, transparent);
   color: var(--h-primary-color);
@@ -60,16 +60,16 @@
 }
 
 .prop-new {
-  margin-top: 4px;
+  margin-top: var(--h-space-1);
 }
 
 .frontmatter-warning {
-  padding: 8px 12px;
+  padding: var(--h-space-2) var(--h-space-3);
   border: 1px solid var(--h-message-error-border-color);
   border-radius: 6px;
   background: var(--h-message-error-background);
   color: light-dark(var(--h-red-700), var(--h-red-300));
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
   white-space: pre-wrap;
 }
 
@@ -106,7 +106,7 @@
 }
 
 :host(.in-sidebar) .properties-panel {
-  padding: 8px;
+  padding: var(--h-space-2);
   border: 0;
   background: transparent;
 }
@@ -114,7 +114,7 @@
 :host(.in-sidebar) .prop {
   flex-wrap: wrap;
   column-gap: 2px;
-  padding: 4px 0;
+  padding: var(--h-space-1) 0;
 }
 
 :host(.in-sidebar) .prop-key {

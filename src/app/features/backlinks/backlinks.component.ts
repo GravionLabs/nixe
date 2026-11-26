@@ -1,5 +1,5 @@
 import { Component, effect, inject, output, signal, untracked } from "@angular/core";
-import { HxList, HxListRow } from "@gravionlabs/helix-ui";
+import { HxButton, HxList, HxListRow } from "@gravionlabs/helix-ui";
 
 import type { Backlink, UnlinkedMention } from "../../core/file/backend";
 import type { OutgoingLink } from "../../core/index/backlinks.service";
@@ -12,7 +12,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 /** Right-hand panel: notes linking to the open note, and the links going out of it. */
 @Component({
   selector: "app-backlinks",
-  imports: [HxList, HxListRow],
+  imports: [HxList, HxListRow, HxButton],
   templateUrl: "./backlinks.component.html",
   styleUrl: "./backlinks.component.css",
 })

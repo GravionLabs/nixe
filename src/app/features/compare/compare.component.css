@@ -8,45 +8,45 @@
 .head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
+  gap: var(--h-space-3);
+  padding: var(--h-space-2) 14px;
   border-bottom: 1px solid var(--h-content-border-color);
 }
 
 .title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--h-font-size-lg);
   font-weight: 600;
 }
 
 .range {
   flex: 1;
   color: var(--h-text-muted-color);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
 .add {
-  color: var(--nixe-added-color, #2da44e);
+  color: var(--nixe-added-color);
 }
 
 .del {
-  color: var(--nixe-removed-color, #cf222e);
+  color: var(--nixe-removed-color);
 }
 
 .body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 8px 14px;
+  padding: var(--h-space-2) 14px;
 }
 
 .action {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--h-space-2);
 }
 
 .action .note {
   color: var(--h-text-muted-color);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }

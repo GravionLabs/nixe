@@ -50,11 +50,11 @@ li:hover {
 
 .notice {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
 .hint {
   margin: 0;
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }

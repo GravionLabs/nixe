@@ -11,7 +11,13 @@ import {
 } from "@angular/core";
 import type { WritableSignal } from "@angular/core";
 import type { HxColumn, HxLazyLoadEvent } from "@gravionlabs/helix-ui";
-import { HxDataTable, HxSelectButton, HxTableBody } from "@gravionlabs/helix-ui";
+import {
+  HxButton,
+  HxCheckbox,
+  HxDataTable,
+  HxSelectButton,
+  HxTableBody,
+} from "@gravionlabs/helix-ui";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import type {
@@ -131,7 +137,15 @@ export const BASE_BLOCK = new InjectionToken<BaseBlock>("BASE_BLOCK");
  */
 @Component({
   selector: "app-base",
-  imports: [BaseCellComponent, HxDataTable, HxSelectButton, HxTableBody, NgTemplateOutlet],
+  imports: [
+    BaseCellComponent,
+    HxDataTable,
+    HxSelectButton,
+    HxTableBody,
+    NgTemplateOutlet,
+    HxButton,
+    HxCheckbox,
+  ],
   templateUrl: "./base.component.html",
   styleUrl: "./base.component.css",
   host: { "[class.embedded]": "!!block" },
