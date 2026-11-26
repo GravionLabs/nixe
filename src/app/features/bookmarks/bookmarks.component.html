@@ -1,13 +1,18 @@
 <header>
   <span>Bookmarks</span>
   <button
+    hx-button
     type="button"
     class="add"
-    (click)="bookmarks.addGroup()"
-    title="New group"
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
     aria-label="New group"
+    hx-tooltip="New group"
+    (click)="bookmarks.addGroup()"
   >
-    +
+    <span class="hx-button-icon" aria-hidden="true">+</span>
   </button>
 </header>
 @if (rows().length === 0) {
@@ -39,8 +44,10 @@
           <span class="icon" aria-hidden="true">{{ icon(row) }}</span>
           <input
             #name
+            hx-input
             class="rename"
             type="text"
+            size="small"
             aria-label="Group name"
             [value]="label(row)"
             (click)="$event.stopPropagation()"
@@ -62,15 +69,22 @@
             <span class="hx-list-row-label">{{ label(row) }}</span>
           </button>
         }
-        <button
-          type="button"
-          class="remove"
-          (click)="bookmarks.remove(row.path)"
-          title="Remove bookmark"
-          aria-label="Remove bookmark"
-        >
-          ×
-        </button>
+        <span class="actions">
+          <button
+            hx-button
+            type="button"
+            class="remove"
+            variant="text"
+            severity="danger"
+            size="small"
+            iconOnly
+            aria-label="Remove bookmark"
+            hx-tooltip="Remove bookmark"
+            (click)="bookmarks.remove(row.path)"
+          >
+            <span class="hx-button-icon" aria-hidden="true">×</span>
+          </button>
+        </span>
       </li>
     }
   </ul>

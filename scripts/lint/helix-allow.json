@@ -30,16 +30,6 @@
       ],
       "rules": ["helix/no-raw-control"],
       "reason": "Dev-only spike (isDevMode), not shipped UI; kept as raw HTML, not migrated (decision of #695)"
-    },
-    {
-      "files": ["src/app/features/bookmarks/bookmarks.component.html"],
-      "rules": ["helix/no-raw-control"],
-      "reason": "Three raw controls in the bookmarks template: the `+` button that adds a group, the inline rename `<input>` and the `\u00d7` remove button of each row; they are icon-sized custom looks beside the hx-list-row, not yet on hx-button and hx-input; migration tracked in #713, which removes this entry"
-    },
-    {
-      "files": ["src/app/features/changes/changes.component.html"],
-      "rules": ["helix/no-raw-control"],
-      "reason": "Two native `<select>` pickers (range with fixed options, version with a disabled placeholder option; hx-select to replace them) and the row `Open` button in the rowActions slot (hx-button); migration tracked in #713, which removes this entry"
     }
   ]
 }

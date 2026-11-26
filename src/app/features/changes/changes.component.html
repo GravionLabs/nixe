@@ -1,27 +1,33 @@
 <app-panel-section title="Changes since" storageKey="changes-since">
-  <select
-    class="range"
-    aria-label="Range"
-    [value]="changes.kind()"
-    (change)="pick($any($event.target).value)"
-  >
-    <option value="sync" [selected]="changes.kind() === 'sync'">Last sync</option>
-    <option value="yesterday" [selected]="changes.kind() === 'yesterday'">Yesterday</option>
-    <option value="week" [selected]="changes.kind() === 'week'">Last week</option>
-    <option value="commit" [selected]="changes.kind() === 'commit'">Choose a version…</option>
-  </select>
-  @if (changes.kind() === "commit") {
-    <select class="version" aria-label="Version" (change)="pickVersion($any($event.target).value)">
-      <option value="" [selected]="!changes.chosen()" disabled>Pick a version</option>
-      @for (v of changes.versions(); track v.id) {
-        <option [value]="v.id" [selected]="changes.chosen()?.id === v.id">
-          {{ versionLabel(v) }}
-        </option>
-      }
-    </select>
-    @if (changes.versionsError(); as error) {
-      <p class="status">{{ error }}</p>
+  <div class="pickers">
+    <hx-field label="Range">
+      <hx-select
+        class="range"
+        size="small"
+        fluid
+        [options]="ranges"
+        [value]="changes.kind()"
+        (valueChange)="pick($event)"
+      />
+    </hx-field>
+    @if (changes.kind() === "commit") {
+      <hx-field label="Version">
+        <hx-select
+          class="version"
+          size="small"
+          fluid
+          placeholder="Pick a version"
+          emptyMessage="No versions"
+          [filter]="versionOptions().length >= 10"
+          [options]="versionOptions()"
+          [value]="changes.chosen()?.id ?? null"
+          (valueChange)="pickVersion($event)"
+        />
+      </hx-field>
     }
+  </div>
+  @if (changes.kind() === "commit" && changes.versionsError(); as error) {
+    <p class="status">{{ error }}</p>
   }
 
   @if (changes.message(); as message) {
@@ -43,7 +49,21 @@
           <app-note-title [path]="change.path" [kind]="change.kind" />
         </button>
         @if (change.kind !== "deleted") {
-          <button rowActions type="button" class="open" (click)="open(change)">Open</button>
+          <button
+            rowActions
+            hx-button
+            type="button"
+            class="open"
+            variant="text"
+            severity="secondary"
+            size="small"
+            iconOnly
+            [attr.aria-label]="'Open ' + titleOf(change.path)"
+            hx-tooltip="Open"
+            (click)="open(change)"
+          >
+            <span class="hx-button-icon" aria-hidden="true">↗</span>
+          </button>
         }
       </app-note-row>
     }

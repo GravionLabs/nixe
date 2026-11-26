@@ -46,13 +46,17 @@ describe("BookmarksComponent", () => {
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
   });
 
-  function render(openPath: string | null) {
+  const files: Bookmark[] = [
+    { type: "file", path: "a.md" },
+    { type: "file", path: "b.md", subpath: "#H" },
+    { type: "file", path: "b.md" },
+  ];
+
+  function render(openPath: string | null, items: Bookmark[] = files) {
     const open = vi.fn().mockResolvedValue(undefined);
-    const items: Bookmark[] = [
-      { type: "file", path: "a.md" },
-      { type: "file", path: "b.md", subpath: "#H" },
-      { type: "file", path: "b.md" },
-    ];
+    const addGroup = vi.fn();
+    const remove = vi.fn();
+    const renameGroup = vi.fn();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -62,6 +66,9 @@ describe("BookmarksComponent", () => {
             items: signal(items),
             notice: signal(null),
             open,
+            addGroup,
+            remove,
+            renameGroup,
             relative: (p: string | null) => (p ? p.slice("/vault/".length) : null),
           },
         },
@@ -73,7 +80,12 @@ describe("BookmarksComponent", () => {
     const fixture = TestBed.createComponent(BookmarksComponent);
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    return { open, items, rows: el.querySelectorAll<HTMLButtonElement>("button[hx-list-row]") };
+    const tick = () => {
+      TestBed.tick();
+      fixture.detectChanges();
+    };
+    const rows = el.querySelectorAll<HTMLButtonElement>("button[hx-list-row]");
+    return { el, tick, open, items, rows, addGroup, remove, renameGroup };
   }
 
   it("marks the bookmark of the open note as current, not one of a heading in it", () => {
@@ -89,5 +101,62 @@ describe("BookmarksComponent", () => {
     rows[0].focus();
     pressArrow(rows[0], "ArrowDown");
     expect(document.activeElement).toBe(rows[1]);
+  });
+
+  it("adds a group and removes a bookmark with their buttons", () => {
+    const { el, addGroup, remove, open } = render(null);
+    el.querySelector<HTMLButtonElement>("button[aria-label='New group']")!.click();
+    expect(addGroup).toHaveBeenCalledTimes(1);
+    const removes = el.querySelectorAll<HTMLButtonElement>("button[aria-label='Remove bookmark']");
+    expect(removes).toHaveLength(3);
+    removes[1].click();
+    expect(remove).toHaveBeenCalledWith([1]);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  describe("renaming a group", () => {
+    const group: Bookmark[] = [{ type: "group", title: "Old", items: [] }];
+
+    function startRename() {
+      const view = render(null, group);
+      view.rows[0].dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+      view.tick();
+      const input = view.el.querySelector<HTMLInputElement>("input[aria-label='Group name']")!;
+      expect(input.value).toBe("Old");
+      const key = (name: string) => {
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true }));
+        view.tick();
+      };
+      return { ...view, input, key };
+    }
+
+    it("saves the name with Enter, once", () => {
+      const { el, input, key, renameGroup } = startRename();
+      input.value = "New";
+      key("Enter");
+      input.dispatchEvent(new FocusEvent("blur"));
+      expect(renameGroup).toHaveBeenCalledTimes(1);
+      expect(renameGroup).toHaveBeenCalledWith([0], "New");
+      expect(el.querySelector("input")).toBeNull();
+    });
+
+    it("saves the name when the field loses the focus", () => {
+      const { input, renameGroup } = startRename();
+      input.value = "New";
+      input.dispatchEvent(new FocusEvent("blur"));
+      expect(renameGroup).toHaveBeenCalledWith([0], "New");
+    });
+
+    it("keeps the old name on Escape and for a blank name", () => {
+      const escaped = startRename();
+      escaped.input.value = "New";
+      escaped.key("Escape");
+      expect(escaped.el.querySelector("input")).toBeNull();
+      expect(escaped.renameGroup).not.toHaveBeenCalled();
+      const blank = startRename();
+      blank.input.value = "  ";
+      blank.key("Enter");
+      expect(blank.renameGroup).not.toHaveBeenCalled();
+    });
   });
 });

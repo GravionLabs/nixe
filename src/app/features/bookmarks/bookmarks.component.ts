@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from "@angular/core";
-import { HxList, HxListRow } from "@gravionlabs/helix-ui";
+import { HxButton, HxInput, HxList, HxListRow, HxTooltip } from "@gravionlabs/helix-ui";
 
 import type { Bookmark, ItemPath } from "../../core/bookmarks/bookmarks-core";
 import { isFile, isGroup, isSearch, labelOf } from "../../core/bookmarks/bookmarks-core";
@@ -45,7 +45,7 @@ const ICONS: Record<BookmarkRow["kind"], string> = {
 /** Sidebar: the bookmarks of the vault; drag to reorder or to move into a group. */
 @Component({
   selector: "app-bookmarks",
-  imports: [HxList, HxListRow],
+  imports: [HxButton, HxInput, HxList, HxListRow, HxTooltip],
   templateUrl: "./bookmarks.component.html",
   styles: `
     :host {
@@ -90,28 +90,19 @@ const ICONS: Record<BookmarkRow["kind"], string> = {
       margin: 8px 12px;
       color: var(--h-text-muted-color);
     }
-    button:where(:not([hx-list-row])) {
-      border: 0;
-      background: none;
-      color: inherit;
-      font: inherit;
-      cursor: pointer;
-    }
     .label {
       flex: 1;
     }
-    .remove {
+    .actions {
       visibility: hidden;
-      color: var(--h-text-muted-color);
     }
-    li:hover .remove,
-    li:focus-within .remove {
+    li:hover .actions,
+    li:focus-within .actions {
       visibility: visible;
     }
     .rename {
       flex: 1;
       min-width: 0;
-      font: inherit;
     }
     li[data-kind="group"] .hx-list-row-label {
       font-weight: 600;
