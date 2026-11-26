@@ -186,8 +186,10 @@ test("the live preview shows a base block and an embed as interactive widgets", 
   await page.mouse.down();
   await page.mouse.move(box.x + 5, box.y + 5, { steps: 5 });
   await page.mouse.up();
-  // CodeMirror reads a changed selection in a later task.
-  await page.waitForTimeout(200);
+  // CodeMirror reads a changed selection in a later task: two frames let it.
+  await page.evaluate(
+    () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+  );
   await expect(widgets).toHaveCount(2);
 
   // A property of the open note is edited into the editor and saved.
