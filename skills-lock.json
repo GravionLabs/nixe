@@ -25,10 +25,11 @@
     },
     "ng-implementation": {
       "source": "GravionLabs/skills",
+      "ref": "v5.15.0",
+      "commit": "18c5c9f940d45a56a87e103c64bdc2f8d20b10fe",
       "sourceType": "github",
       "skillPath": "skills/ng/ng-implementation/SKILL.md",
-      "computedHash": "bec2df8813bced37a441339125472de8a595b89e24f25bd9f1ad381520931adc",
-      "commit": "9b7fc4d772046f51878cfb874eb4a20eb9d32413"
+      "computedHash": "7707491919423575f8ac3844db729c0a967f036c9c3c26b3ba5c522e9b8ddb51"
     },
     "ng-test": {
       "source": "GravionLabs/skills",
@@ -97,6 +98,14 @@
       "skillPath": "skills/ts/ts-test/SKILL.md",
       "computedHash": "c6fa77250e0189cecaebbf34d5afb3cb35e624e04521e4b0dd021139a9e576f1",
       "commit": "9b7fc4d772046f51878cfb874eb4a20eb9d32413"
+    },
+    "ui-styleguide": {
+      "source": "GravionLabs/skills",
+      "ref": "v5.15.0",
+      "commit": "18c5c9f940d45a56a87e103c64bdc2f8d20b10fe",
+      "sourceType": "github",
+      "skillPath": "skills/shared/ui-styleguide/SKILL.md",
+      "computedHash": "ec306186e16256af198a3b4126b17b721e7ca81bd3ac1cd1dec320eb56b9b5f8"
     }
   }
 }
