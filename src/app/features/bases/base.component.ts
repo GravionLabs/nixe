@@ -12,7 +12,6 @@ import {
 import type { WritableSignal } from "@angular/core";
 import type { HxColumn, HxLazyLoadEvent } from "@gravionlabs/helix-ui";
 import { HxDataTable, HxSelectButton, HxTableBody } from "@gravionlabs/helix-ui";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import type {
@@ -36,6 +35,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { BaseCellComponent } from "./base-cell.component";
 import { cellEditor, cellOfValue, type CellEditor } from "./cell-edit";
 import { cellText } from "./cell-text";
+import { coverImage } from "./cover-image";
 
 /** The column whose cells open the note. */
 const FILE_NAME = "file.name";
@@ -433,9 +433,7 @@ export class BaseComponent {
   protected coverOf(cover: BaseCover | null): ViewCover {
     const root = this.workspace.vaultRoot();
     if (cover?.type === "color") return { image: null, color: cover.value };
-    let image: string | null = null;
-    if (cover?.type === "url") image = cover.value;
-    else if (cover && root) image = convertFileSrc(joinPath(root, cover.value));
+    const image = coverImage(cover, root);
     return { image: image && !this.failed().has(image) ? image : null, color: null };
   }
 

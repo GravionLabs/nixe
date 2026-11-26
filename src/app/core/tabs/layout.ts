@@ -1,7 +1,7 @@
 import type { HistoryEntry } from "../file/document.service";
 
 /** The views that open as a tab instead of a note and are restored with the layout. */
-export const TAB_VIEWS = ["settings", "health"] as const;
+export const TAB_VIEWS = ["settings", "health", "links"] as const;
 export type StoredView = (typeof TAB_VIEWS)[number];
 /** The compare, review, log, epub and base views are not stored: their content lives in memory only. */
 export type TabView = StoredView | "compare" | "review" | "log" | "epub" | "base";

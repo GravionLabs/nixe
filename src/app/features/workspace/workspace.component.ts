@@ -17,6 +17,7 @@ type UntitledView = "compare" | "review" | "log" | "epub" | "base";
 const VIEW_TITLES: Record<Exclude<TabView, UntitledView>, string> = {
   settings: "Settings",
   health: "Vault health",
+  links: "Links",
 };
 
 /** The tab bars and panes: one pane, or two side by side with a draggable divider. */

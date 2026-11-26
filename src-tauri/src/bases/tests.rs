@@ -2029,3 +2029,49 @@ fn this_without_a_file_has_no_value_and_a_file_not_indexed_yet_has_its_path() {
         ["Dune.md"]
     );
 }
+
+/// The base of the Links view (`src/app/features/links/`) on the link notes of the fixture vault.
+#[test]
+fn the_base_of_the_links_view_lists_the_link_notes() {
+    let dir = TestDir::new("nixe-bases-links-");
+    let vault = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/vault");
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    let source = include_str!("../../../src/app/features/links/links-base.json");
+
+    let result = query_now(&conn, source, None).unwrap();
+
+    assert!(result.unsupported.is_empty());
+    assert_eq!(
+        ids(&result),
+        [
+            "file.name",
+            "title",
+            "site",
+            "tags",
+            "saved",
+            "status",
+            "url"
+        ]
+    );
+    // The newest first; no other note of the vault.
+    let paths: Vec<&str> = result.rows.iter().map(|r| r.path.as_str()).collect();
+    assert_eq!(paths, ["Links/Unread Page.md", "Links/Example Article.md"]);
+    let article = &result.rows[1];
+    assert_eq!(article.cells[2], cell("text", json!("example.com")));
+    assert_eq!(
+        article.cells[3],
+        cell("list", json!(["reading", "example"]))
+    );
+    assert_eq!(article.cells[5], cell("text", json!("read")));
+    assert_eq!(
+        article.cells[6],
+        cell("text", json!("https://example.com/articles/vault-first"))
+    );
+    assert_eq!(
+        article.cover,
+        Some(BaseCover::Url(
+            "https://example.com/images/vault-first.png".into()
+        ))
+    );
+}

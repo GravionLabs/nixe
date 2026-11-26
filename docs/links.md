@@ -130,6 +130,25 @@ still succeeds with a warning.
 | macOS | WKWebView | not wired yet (`takeSnapshot`) | not wired yet (`createPDF`) |
 | Windows | WebView2 | not wired yet (`CapturePreview`) | not wired yet (`PrintToPdf`) |
 
+## Links view
+
+The **Links** button of the activity bar (command "Show links", in a vault) opens a tab with all
+`type: link` notes of the vault, the newest `saved` first. The tab is restored with the layout. The
+list is a [base](bases.md) answered from the index
+(`src/app/features/links/links-base.json`), so it follows changes in the vault.
+
+- **Unread** (the default) is the inbox: every link whose `status` is not `read`. **All** shows
+  every link and adds the status filter.
+- **Cards** show the image, title, site and tags; the **table** has the columns title, site, tags,
+  saved and status.
+- **Collection** is the folder below the links folder, with its sub folders; for a link note outside
+  the links folder it is its folder in the vault. **Tag** is one of the `tags` of the links,
+  without regard to case.
+- **Mark read** / **Mark unread** writes `status` into the frontmatter of the note, like a
+  [cell of a base](bases.md#editing-cells).
+- A click on a link opens its note in a tab. Ctrl+click (Cmd+click on macOS) opens its `url` in the
+  system browser; only `http` and `https` addresses are opened.
+
 ## Browser extension host
 
 `nixe native-host` is the Native Messaging host of the browser extension. The browser starts it;

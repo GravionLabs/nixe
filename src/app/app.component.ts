@@ -622,6 +622,13 @@ export class AppComponent {
         run: () => this.shell.show("bookmarks"),
       },
       {
+        id: "show-links",
+        group: "Navigate",
+        title: "Show links",
+        when: inVault,
+        run: () => this.run(async () => void this.tabs.openView("links")),
+      },
+      {
         id: "extract-selection",
         group: "Edit",
         title: "Extract selection to a note",

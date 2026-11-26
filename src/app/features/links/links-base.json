@@ -1,0 +1,12 @@
+{
+  "filters": "type == \"link\"",
+  "views": [
+    {
+      "type": "cards",
+      "name": "Links",
+      "image": "note.image",
+      "order": ["file.name", "title", "site", "tags", "saved", "status", "url"],
+      "sort": [{ "property": "saved", "direction": "DESC" }]
+    }
+  ]
+}

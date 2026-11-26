@@ -29,8 +29,11 @@ interface DemoBase {
   filters?: unknown;
   formulas?: unknown;
   properties?: Record<string, { displayName?: string }>;
-  views?: { type?: string; name?: string; order?: string[] }[];
+  views?: { type?: string; name?: string; order?: string[]; image?: string }[];
 }
+
+/** The one filter the demo applies, that of the Links view: `type == "link"`. */
+const TYPE_FILTER = /^type == "([^"]+)"$/;
 
 function demoCell(value: unknown): BaseCell {
   if (value === undefined || value === null) return { type: null, value: null };
@@ -203,12 +206,16 @@ export class DemoVault {
 
   /**
    * The table of a table view (default: the first): `file.name` and note properties; nothing is
-   * filtered, grouped or limited, and only a clicked column sorts.
+   * grouped or limited, and only a clicked column sorts. A base with a `type == "…"` filter is
+   * filtered and may have a cards view (the Links view).
    */
   baseQuery(source: string, index: number | null, sort: BaseSort | null): BaseResult {
     const base = (parse(source) ?? {}) as DemoBase;
-    const view = index === null ? base.views?.find((v) => v.type === "table") : base.views?.[index];
-    if (view?.type !== "table") throw "The base defines no table view.";
+    const type = TYPE_FILTER.exec(String(base.filters))?.[1];
+    const wanted = (v: { type?: string }) =>
+      v.type === "table" || (type !== undefined && v.type === "cards");
+    const view = index === null ? base.views?.find(wanted) : base.views?.[index];
+    if (!view || !wanted(view)) throw "The base defines no table view.";
     const ids = (view.order ?? []).filter((id) => !/^(formula\.|file\.(?!name$))/.test(id));
     if (ids.length === 0) ids.push("file.name");
     const key = (id: string) => id.replace(/^note\./, "");
@@ -219,22 +226,32 @@ export class DemoVault {
         label: base.properties?.[id]?.displayName ?? key(id),
         property: id.startsWith("file.") ? null : key(id),
       })),
-      rows: this.notePaths().map((path) => {
+      rows: this.notePaths().flatMap((path) => {
         const frontmatter = /^---\n([\s\S]*?)\n---\n/.exec(this.read(`${this.root}/${path}`));
-        const values = (frontmatter ? parse(frontmatter[1]!) : null) ?? {};
-        return {
-          path,
-          cover: null,
-          cells: ids.map((id): BaseCell =>
-            id === "file.name"
-              ? { type: "text", value: stem(path) }
-              : demoCell((values as Record<string, unknown>)[key(id)]),
-          ),
-        };
+        const values = ((frontmatter ? parse(frontmatter[1]!) : null) ?? {}) as Record<
+          string,
+          unknown
+        >;
+        if (type !== undefined && values["type"] !== type) return [];
+        const image = view.image ? values[key(view.image)] : undefined;
+        return [
+          {
+            path,
+            cover:
+              typeof image === "string" && /^https?:/.test(image)
+                ? { type: "url" as const, value: image }
+                : null,
+            cells: ids.map((id): BaseCell =>
+              id === "file.name" ? { type: "text", value: stem(path) } : demoCell(values[key(id)]),
+            ),
+          },
+        ];
       }),
       grouping: null,
       cards: null,
-      unsupported: (["filters", "formulas"] as const).filter((k) => base[k] !== undefined),
+      unsupported: (["filters", "formulas"] as const).filter(
+        (k) => base[k] !== undefined && !(k === "filters" && type !== undefined),
+      ),
     };
     const column = sort ? ids.indexOf(sort.property) : -1;
     if (column >= 0) {
