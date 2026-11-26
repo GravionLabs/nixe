@@ -1,0 +1,45 @@
+{
+  "comment": "Exceptions to the helix-lint preset (#695). Every entry needs `files` (globs), `rules` and a `reason`; helixAllow throws without one and so fails `pnpm lint`. Remove an entry when its files migrate. Stylelint rules and `helix/no-raw-control` are listed under their own key.",
+  "stylelint": [
+    {
+      "files": ["src/app/features/start/start.component.css"],
+      "rules": ["declaration-property-value-allowed-list"],
+      "reason": "The wordmark of the start screen is a display size above the type scale (--h-font-size-3xl is the largest step)"
+    },
+    {
+      "files": ["src/app/features/sidebar/sidebar.component.css"],
+      "rules": ["declaration-property-value-allowed-list"],
+      "reason": "A fixed-size icon: the 8px dot glyph that marks a folder with changed notes"
+    },
+    {
+      "files": [
+        "src/app/features/history/history.component.css",
+        "src/app/features/properties/properties.component.css",
+        "src/app/features/review/review-tab.component.css",
+        "src/app/features/viewer/viewer.component.css"
+      ],
+      "rules": ["declaration-property-value-allowed-list"],
+      "reason": "Secondary text and widgets in the note area use 0.85em so they scale with --nixe-note-font-size and the editor zoom (STYLEGUIDE.md, Typography and spacing); the type scale has fixed rem steps"
+    }
+  ],
+  "eslint": [
+    {
+      "files": [
+        "src/app/features/editor-spike/editor-spike.component.html",
+        "src/app/features/git-spike/git-spike.component.html"
+      ],
+      "rules": ["helix/no-raw-control"],
+      "reason": "Dev-only spike (isDevMode), not shipped UI; kept as raw HTML, not migrated (decision of #695)"
+    },
+    {
+      "files": ["src/app/features/bookmarks/bookmarks.component.html"],
+      "rules": ["helix/no-raw-control"],
+      "reason": "Tree row actions (add group, remove) and the inline rename input of the bookmarks tree own their icon-sized look and keyboard handling inside role=treeitem; hx-button would change the row markup"
+    },
+    {
+      "files": ["src/app/features/changes/changes.component.html"],
+      "rules": ["helix/no-raw-control"],
+      "reason": "Range and version pickers are native selects with a disabled placeholder option and a change handler; migrate to hx-select with the options model, and the row Open action to hx-button"
+    }
+  ]
+}
