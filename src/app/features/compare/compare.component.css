@@ -33,10 +33,6 @@
   color: var(--nixe-removed-color, #cf222e);
 }
 
-.modes button.on {
-  font-weight: 600;
-}
-
 .body {
   flex: 1;
   min-height: 0;

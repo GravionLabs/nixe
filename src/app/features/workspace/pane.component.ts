@@ -1,5 +1,6 @@
 import type { OnDestroy } from "@angular/core";
 import { Component, computed, effect, inject, untracked, viewChild } from "@angular/core";
+import { HxButton } from "@gravionlabs/helix-ui";
 
 import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
@@ -33,6 +34,7 @@ import { ViewerComponent } from "../viewer/viewer.component";
     EditorComponent,
     EpubComponent,
     HealthComponent,
+    HxButton,
     LinksComponent,
     SettingsComponent,
     StartComponent,
@@ -58,19 +60,6 @@ import { ViewerComponent } from "../viewer/viewer.component";
     }
     .bar span {
       flex: 1;
-    }
-    .bar button {
-      height: 28px;
-      padding: 0 12px;
-      border: 1px solid var(--h-content-border-color);
-      border-radius: 6px;
-      background: var(--h-surface-frame);
-      color: var(--h-text-color);
-      font: inherit;
-      cursor: pointer;
-    }
-    .bar button:hover {
-      background: var(--h-surface-hover);
     }
     .view {
       flex: 1;

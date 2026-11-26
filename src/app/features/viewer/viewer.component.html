@@ -2,7 +2,9 @@
   <div class="find-bar" role="search" (keydown)="onFindKeydown($event)">
     <input
       #findInput
+      hx-input
       type="text"
+      size="small"
       class="find-input"
       placeholder="Find"
       aria-label="Find in note"
@@ -10,31 +12,75 @@
       (input)="setFindQuery($any($event.target).value)"
     />
     <span class="find-count" aria-live="polite">{{ findStatus() }}</span>
-    <button type="button" (click)="findStep(-1)" title="Previous match" aria-label="Previous match">
-      ↑
-    </button>
-    <button type="button" (click)="findStep(1)" title="Next match" aria-label="Next match">
-      ↓
+    <button
+      hx-button
+      type="button"
+      variant="text"
+      severity="secondary"
+      size="small"
+      iconOnly
+      hx-tooltip="Previous match"
+      aria-label="Previous match"
+      (click)="findStep(-1)"
+    >
+      <span aria-hidden="true">↑</span>
     </button>
     <button
+      hx-button
       type="button"
-      [class.active]="findCase()"
+      variant="text"
+      severity="secondary"
+      size="small"
+      iconOnly
+      hx-tooltip="Next match"
+      aria-label="Next match"
+      (click)="findStep(1)"
+    >
+      <span aria-hidden="true">↓</span>
+    </button>
+    <button
+      hx-button
+      type="button"
+      class="find-case"
+      [variant]="findCase() ? 'outlined' : 'text'"
+      severity="secondary"
+      size="small"
+      iconOnly
+      hx-tooltip="Match case"
+      aria-label="Match case"
       [attr.aria-pressed]="findCase()"
       (click)="toggleFindOption('case')"
-      title="Match case"
     >
-      Aa
+      <span aria-hidden="true">Aa</span>
     </button>
     <button
+      hx-button
       type="button"
-      [class.active]="findRegex()"
+      class="find-regex"
+      [variant]="findRegex() ? 'outlined' : 'text'"
+      severity="secondary"
+      size="small"
+      iconOnly
+      hx-tooltip="Regular expression"
+      aria-label="Regular expression"
       [attr.aria-pressed]="findRegex()"
       (click)="toggleFindOption('regex')"
-      title="Regular expression"
     >
-      .*
+      <span aria-hidden="true">.*</span>
     </button>
-    <button type="button" (click)="closeFind()" title="Close" aria-label="Close find bar">✕</button>
+    <button
+      hx-button
+      type="button"
+      variant="text"
+      severity="secondary"
+      size="small"
+      iconOnly
+      hx-tooltip="Close"
+      aria-label="Close find bar"
+      (click)="closeFind()"
+    >
+      <span aria-hidden="true">✕</span>
+    </button>
   </div>
 }
 <app-properties
@@ -66,31 +112,87 @@
   <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -- only keeps a click inside the dialog from closing it -->
   <div class="diagram-dialog" (click)="$event.stopPropagation()">
     <div class="diagram-dialog-toolbar">
-      <button type="button" (click)="dialogZoomOut()" title="Zoom out" aria-label="Zoom out">
+      <button
+        hx-button
+        type="button"
+        variant="text"
+        severity="secondary"
+        size="small"
+        iconOnly
+        hx-tooltip="Zoom out"
+        aria-label="Zoom out"
+        (click)="dialogZoomOut()"
+      >
         <svg viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="7" />
           <path d="M21 21l-4.35-4.35M8 11h6" />
         </svg>
       </button>
-      <button type="button" class="zoom-level" (click)="resetDialogZoom()" title="Reset zoom">
+      <button
+        hx-button
+        type="button"
+        class="zoom-level"
+        variant="text"
+        severity="secondary"
+        size="small"
+        hx-tooltip="Reset zoom"
+        (click)="resetDialogZoom()"
+      >
         {{ dialogZoomPercent() }}%
       </button>
-      <button type="button" (click)="dialogZoomIn()" title="Zoom in" aria-label="Zoom in">
+      <button
+        hx-button
+        type="button"
+        variant="text"
+        severity="secondary"
+        size="small"
+        iconOnly
+        hx-tooltip="Zoom in"
+        aria-label="Zoom in"
+        (click)="dialogZoomIn()"
+      >
         <svg viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="7" />
           <path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
         </svg>
       </button>
       @if (dialogFile(); as file) {
-        <button type="button" class="text" (click)="openDialogFile(file)">
+        <button
+          hx-button
+          type="button"
+          variant="text"
+          severity="secondary"
+          size="small"
+          (click)="openDialogFile(file)"
+        >
           Open with default app
         </button>
-        <button type="button" class="text" (click)="revealDialogFile(file)">
+        <button
+          hx-button
+          type="button"
+          variant="text"
+          severity="secondary"
+          size="small"
+          (click)="revealDialogFile(file)"
+        >
           {{ revealText }}
         </button>
       }
     </div>
-    <button type="button" class="close" (click)="closeDiagram()" aria-label="Close">✕</button>
+    <button
+      hx-button
+      type="button"
+      class="close"
+      variant="text"
+      severity="secondary"
+      size="small"
+      iconOnly
+      hx-tooltip="Close"
+      aria-label="Close"
+      (click)="closeDiagram()"
+    >
+      <span aria-hidden="true">✕</span>
+    </button>
     <div
       class="diagram-dialog-viewport"
       [class.panning]="panning()"

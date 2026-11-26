@@ -48,30 +48,6 @@ h2 {
   margin-top: 28px;
 }
 
-.actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 18px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 8px;
-  background: var(--h-surface-frame);
-  color: var(--h-text-color);
-  font: inherit;
-  cursor: pointer;
-}
-
-.actions button:hover {
-  background: var(--h-surface-hover);
-}
-
-.actions button.primary {
-  border-color: var(--h-primary-color);
-  background: var(--h-primary-color);
-  color: var(--h-primary-contrast-color);
-}
-
 hx-kbd {
   margin-left: 6px;
 }
@@ -84,18 +60,4 @@ hx-kbd {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.recent button {
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--h-primary-color);
-  font: inherit;
-  cursor: pointer;
-}
-
-.recent button:hover {
-  background: var(--h-surface-hover);
 }

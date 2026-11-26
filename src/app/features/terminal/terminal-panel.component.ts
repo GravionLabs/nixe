@@ -9,6 +9,7 @@ import {
   untracked,
   ViewChild,
 } from "@angular/core";
+import { HxButton, HxTooltip } from "@gravionlabs/helix-ui";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 
@@ -43,6 +44,7 @@ interface Run {
  */
 @Component({
   selector: "app-terminal-panel",
+  imports: [HxButton, HxTooltip],
   templateUrl: "./terminal-panel.component.html",
   styleUrl: "./terminal-panel.component.css",
   host: {

@@ -1,5 +1,5 @@
 import { Component, computed, inject, output } from "@angular/core";
-import { HxKbd } from "@gravionlabs/helix-ui";
+import { HxButton, HxKbd } from "@gravionlabs/helix-ui";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { ShortcutService } from "../../core/commands/shortcut.service";
@@ -35,7 +35,7 @@ const VAULT_ACTIONS: readonly StartAction[] = [
 /** The page of the empty tab: the ways to start, the recent vaults or the recent notes. */
 @Component({
   selector: "app-start",
-  imports: [HxKbd],
+  imports: [HxButton, HxKbd],
   templateUrl: "./start.component.html",
   styleUrl: "./start.component.css",
 })

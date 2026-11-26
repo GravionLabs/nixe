@@ -42,68 +42,35 @@ hx-app-toolbar ::ng-deep .hx-app-toolbar-end {
 }
 
 .crumb {
-  display: block;
-  height: 22px;
-  line-height: 20px;
   min-width: 0;
-  padding: 0 4px;
+}
+
+.crumb .label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.crumb.gap {
+  padding: 0 4px;
+}
+
 .crumb.folder {
   flex: 0 1 auto;
   max-width: 14ch;
-  opacity: 0.75;
 }
 
 .crumb.note {
   flex: 0 0 auto;
   max-width: 100%;
+}
+
+.crumb.note .label {
   font-weight: 600;
 }
 
 .rename {
   min-width: 12ch;
-  height: 20px;
-  padding: 0 4px;
-  border: 1px solid var(--h-primary-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
-  font-weight: 600;
-}
-
-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-button:hover:not(:disabled) {
-  background: var(--h-surface-hover);
-}
-
-button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-button.icon {
-  width: 24px;
-  padding: 0;
-  justify-content: center;
 }
 
 svg {
@@ -114,12 +81,6 @@ svg {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-button.icon.active,
-.toggle.active {
-  background: var(--h-content-background);
-  border-color: var(--h-content-border-color);
 }
 
 .modes {

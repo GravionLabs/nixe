@@ -30,18 +30,3 @@
   font-size: 12px;
   opacity: 0.85;
 }
-
-.bar button {
-  height: 28px;
-  padding: 0 12px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 6px;
-  background: var(--h-surface-frame);
-  color: var(--h-text-color);
-  font: inherit;
-  cursor: pointer;
-}
-
-.bar button:hover {
-  background: var(--h-surface-hover);
-}

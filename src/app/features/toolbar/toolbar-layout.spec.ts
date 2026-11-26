@@ -9,12 +9,12 @@ describe("toolbar layout", () => {
   it("has no select for the properties, only icon buttons next to the view mode", () => {
     expect(html).not.toContain('select\n    slot="end"');
     expect(html).not.toMatch(/<select[^>]*class="props"/);
-    expect(html).toMatch(/<button[^>]*class="icon props"/);
+    expect(html).toMatch(/<button\s+hx-button[^>]*class="props"/);
   });
 
   it("has the view mode as icon buttons and no select", () => {
     expect(html).not.toContain("<select");
-    expect(html).toMatch(/class="icon toggle"/);
+    expect(html).toMatch(/class="toggle"[^>]*iconOnly/);
     expect(css).not.toContain("select.compact");
   });
 
