@@ -18,7 +18,8 @@ never recorded, and nothing enforces it:
 - `angular.json` declares no `type` or `typeSeparator`, so `ng generate` writes suffixless files
   into a suffixed project.
 - No lint rule checks the class suffix.
-- A few classes already drifted: `NavIconDirective` lives in `app.component.ts`; `CommandRegistry`,
+- A few classes already drifted: `NavIconDirective` lived in `app.component.ts` (since #659 in
+  `src/app/nav-icon.directive.ts`); `CommandRegistry`,
   `SettingsRegistry` and `TerminalBackend` are `@Injectable` without `Service`.
 
 A switch to suffixless names would rename about 265 files and touch about 1 900 class references
