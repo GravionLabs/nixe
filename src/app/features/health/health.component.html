@@ -2,15 +2,17 @@
   <span>Vault health</span>
 </header>
 
-<label class="exclude">
-  Excluded folders
+<hx-field class="exclude" label="Excluded folders">
   <input
+    hx-input
     type="text"
+    size="small"
+    fluid
     placeholder="templates, archive"
     [value]="settings.healthExclude().join(', ')"
     (change)="onExclude($event)"
   />
-</label>
+</hx-field>
 
 @switch (health.state()) {
   @case ("loading") {
@@ -25,16 +27,23 @@
         <h2>
           Broken links <span class="count">{{ report.brokenLinks.length }}</span>
         </h2>
-        @for (link of report.brokenLinks; track $index) {
-          <button
-            type="button"
-            (click)="open(link.source, link.line)"
-            [title]="link.source + ':' + link.line"
-          >
-            <span class="name">{{ link.source }}:{{ link.line }}</span>
-            <span class="detail">{{ link.context }}</span>
-          </button>
-        } @empty {
+        @if (report.brokenLinks.length) {
+          <hx-list aria-label="Broken links">
+            @for (link of report.brokenLinks; track $index) {
+              <button
+                hx-list-row
+                type="button"
+                (click)="open(link.source, link.line)"
+                [title]="link.source + ':' + link.line"
+              >
+                <span class="hx-list-row-label">
+                  <span class="name">{{ link.source }}:{{ link.line }}</span>
+                  <span class="detail">{{ link.context }}</span>
+                </span>
+              </button>
+            }
+          </hx-list>
+        } @else {
           <p class="status">None</p>
         }
       </section>
@@ -43,12 +52,18 @@
         <h2>
           Orphan notes <span class="count">{{ report.orphans.length }}</span>
         </h2>
-        @for (note of report.orphans; track note.path) {
-          <button type="button" (click)="open(note.path)" [title]="note.path">
-            <span class="name">{{ note.title }}</span>
-            <span class="detail">{{ note.path }}</span>
-          </button>
-        } @empty {
+        @if (report.orphans.length) {
+          <hx-list aria-label="Orphan notes">
+            @for (note of report.orphans; track note.path) {
+              <button hx-list-row type="button" (click)="open(note.path)" [title]="note.path">
+                <span class="hx-list-row-label">
+                  <span class="name">{{ note.title }}</span>
+                  <span class="detail">{{ note.path }}</span>
+                </span>
+              </button>
+            }
+          </hx-list>
+        } @else {
           <p class="status">None</p>
         }
       </section>
@@ -60,11 +75,15 @@
         @for (group of report.duplicates; track group.name) {
           <div class="group">
             <span class="name">{{ group.name }}</span>
-            @for (path of group.paths; track path) {
-              <button type="button" (click)="open(path)">
-                <span class="detail">{{ path }}</span>
-              </button>
-            }
+            <hx-list [ariaLabel]="'Paths of ' + group.name">
+              @for (path of group.paths; track path) {
+                <button hx-list-row type="button" (click)="open(path)">
+                  <span class="hx-list-row-label">
+                    <span class="detail">{{ path }}</span>
+                  </span>
+                </button>
+              }
+            </hx-list>
           </div>
         } @empty {
           <p class="status">None</p>
@@ -75,11 +94,17 @@
         <h2>
           Unused attachments <span class="count">{{ report.unusedAttachments.length }}</span>
         </h2>
-        @for (path of report.unusedAttachments; track path) {
-          <button type="button" (click)="open(path)" [title]="path">
-            <span class="detail">{{ path }}</span>
-          </button>
-        } @empty {
+        @if (report.unusedAttachments.length) {
+          <hx-list aria-label="Unused attachments">
+            @for (path of report.unusedAttachments; track path) {
+              <button hx-list-row type="button" (click)="open(path)" [title]="path">
+                <span class="hx-list-row-label">
+                  <span class="detail">{{ path }}</span>
+                </span>
+              </button>
+            }
+          </hx-list>
+        } @else {
           <p class="status">None</p>
         }
       </section>
@@ -93,17 +118,24 @@
         </h2>
         <div class="actions">
           <button
+            hx-button
             type="button"
             class="check-links"
-            [disabled]="health.checkingLinks()"
+            variant="outlined"
+            size="small"
+            [loading]="health.checkingLinks()"
             (click)="checkLinks()"
           >
             {{ health.checkingLinks() ? "Checking links…" : "Check links" }}
           </button>
           @if (health.deadLinks()) {
             <button
+              hx-button
               type="button"
               class="recheck-links"
+              variant="outlined"
+              severity="secondary"
+              size="small"
               [disabled]="health.checkingLinks()"
               (click)="checkLinks(true)"
             >
@@ -114,24 +146,33 @@
         @if (health.linkCheckFailed()) {
           <p class="status" role="alert">The links could not be checked.</p>
         }
-        @for (link of health.deadLinks(); track link.source) {
-          <div class="dead">
-            <button type="button" (click)="open(link.source)" [title]="link.source">
-              <span class="name">{{ link.source }}</span>
-              <span class="detail">{{ link.url }} ({{ link.reason }})</span>
-            </button>
-            @if (link.snapshot) {
-              <a class="snapshot" [href]="link.snapshot" target="_blank" rel="noopener noreferrer">
-                Wayback Machine snapshot
-              </a>
+        @if (health.deadLinks()?.length) {
+          <hx-list aria-label="Dead links">
+            @for (link of health.deadLinks(); track link.source) {
+              <div class="dead">
+                <button hx-list-row type="button" (click)="open(link.source)" [title]="link.source">
+                  <span class="hx-list-row-label">
+                    <span class="name">{{ link.source }}</span>
+                    <span class="detail">{{ link.url }} ({{ link.reason }})</span>
+                  </span>
+                </button>
+                @if (link.snapshot) {
+                  <a
+                    class="snapshot"
+                    [href]="link.snapshot"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Wayback Machine snapshot
+                  </a>
+                }
+              </div>
             }
-          </div>
-        } @empty {
-          @if (health.deadLinks()) {
-            <p class="status">None</p>
-          } @else {
-            <p class="status">Requests every link note's address; not part of the normal check.</p>
-          }
+          </hx-list>
+        } @else if (health.deadLinks()) {
+          <p class="status">None</p>
+        } @else {
+          <p class="status">Requests every link note's address; not part of the normal check.</p>
         }
       </section>
     }

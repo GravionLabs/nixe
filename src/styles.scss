@@ -248,18 +248,6 @@ body {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--h-text-color);
-  font-size: 16px;
-  cursor: pointer;
-
-  &:hover {
-    background: var(--h-surface-hover);
-  }
 }
 
 .diagram-dialog-toolbar {
@@ -276,31 +264,7 @@ body {
   border: 1px solid var(--h-content-border-color);
   box-shadow: 0 2px 6px rgb(0 0 0 / 0.15);
   cursor: default;
-
-  button.text {
-    white-space: nowrap;
-  }
-
-  button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 28px;
-    min-width: 28px;
-    padding: 0 6px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--h-text-color);
-    font: inherit;
-    font-size: 12.5px;
-    font-variant-numeric: tabular-nums;
-    cursor: pointer;
-
-    &:hover {
-      background: var(--h-surface-hover);
-    }
-  }
+  white-space: nowrap;
 
   svg {
     width: 16px;

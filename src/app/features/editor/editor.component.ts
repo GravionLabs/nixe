@@ -16,7 +16,7 @@ import {
 import type { Extension } from "@codemirror/state";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { HxMessageService } from "@gravionlabs/helix-ui";
+import { HxButton, HxMessageService } from "@gravionlabs/helix-ui";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
@@ -85,7 +85,7 @@ const STATS_DELAY_MS = 150;
   selector: "app-editor",
   templateUrl: "./editor.component.html",
   styleUrl: "./editor.component.css",
-  imports: [ExternalCompareComponent],
+  imports: [ExternalCompareComponent, HxButton],
 })
 export class EditorComponent implements OnDestroy {
   readonly failed = output<string>();

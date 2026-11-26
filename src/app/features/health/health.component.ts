@@ -1,4 +1,5 @@
 import { Component, effect, inject, output, untracked } from "@angular/core";
+import { HxButton, HxField, HxInput, HxList, HxListRow } from "@gravionlabs/helix-ui";
 
 import { HealthService } from "../../core/index/health.service";
 import { joinPath } from "../../core/markdown/paths";
@@ -9,6 +10,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 /** The vault health tab: the problems of the vault, each entry opens the note. */
 @Component({
   selector: "app-health",
+  imports: [HxButton, HxField, HxInput, HxList, HxListRow],
   templateUrl: "./health.component.html",
   styleUrl: "./health.component.css",
 })

@@ -1,4 +1,5 @@
 import { Component, Input, signal } from "@angular/core";
+import { HxButton } from "@gravionlabs/helix-ui";
 
 const KEY_PREFIX = "nixe.panel-section.";
 
@@ -18,6 +19,7 @@ function stored(key: string | undefined, fallback: boolean): boolean {
  */
 @Component({
   selector: "app-panel-section",
+  imports: [HxButton],
   templateUrl: "./panel-section.component.html",
   styles: `
     :host {
@@ -31,29 +33,18 @@ function stored(key: string | undefined, fallback: boolean): boolean {
     }
 
     .toggle {
-      display: flex;
       flex: 1;
-      align-items: center;
-      gap: 6px;
+      justify-content: flex-start;
       min-width: 0;
-      padding: 6px 12px;
-      border: 0;
-      background: none;
-      color: inherit;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      text-align: left;
-      cursor: pointer;
-    }
-
-    .toggle:hover {
-      background: var(--h-surface-hover);
     }
 
     .chevron {
       width: 10px;
       color: var(--h-text-muted-color);
+    }
+
+    .title {
+      font-weight: 600;
     }
 
     .count {

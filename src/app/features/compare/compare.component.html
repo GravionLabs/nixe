@@ -6,30 +6,19 @@
       <span class="del">−{{ stat().removed }}</span>
     </span>
     <span class="range">{{ c.oldLabel }} → {{ c.newLabel }}</span>
-    <span class="modes" role="group" aria-label="Mode">
-      <button
-        type="button"
-        class="mode-rendered"
-        [class.on]="compare.mode() === 'rendered'"
-        [attr.aria-pressed]="compare.mode() === 'rendered'"
-        (click)="compare.setMode('rendered')"
-      >
-        Rendered
-      </button>
-      <button
-        type="button"
-        class="mode-source"
-        [class.on]="compare.mode() === 'source'"
-        [attr.aria-pressed]="compare.mode() === 'source'"
-        (click)="compare.setMode('source')"
-      >
-        Source
-      </button>
-    </span>
+    <hx-select-button
+      class="modes"
+      ariaLabel="Compare view"
+      size="small"
+      [options]="modes"
+      [value]="compare.mode()"
+      [allowEmpty]="false"
+      (valueChange)="compare.setMode($any($event))"
+    />
     @if (c.action; as action) {
       <span class="action">
         <span class="note">{{ action.note }}</span>
-        <button type="button" class="primary" [disabled]="busy()" (click)="act()">
+        <button hx-button type="button" size="small" [loading]="busy()" (click)="act()">
           {{ action.label }}
         </button>
       </span>

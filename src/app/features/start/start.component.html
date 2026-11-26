@@ -3,7 +3,13 @@
   <p class="subtitle">Your notes as Markdown files in a vault, linked and synced with Git</p>
   <div class="actions">
     @for (action of actions(); track action.id) {
-      <button type="button" [class.primary]="action.primary" (click)="run(action.id)">
+      <button
+        hx-button
+        type="button"
+        [variant]="action.primary ? 'filled' : 'outlined'"
+        [severity]="action.primary ? 'primary' : 'secondary'"
+        (click)="run(action.id)"
+      >
         {{ action.label }}
         @if (action.shortcut.length) {
           <hx-kbd [keys]="action.shortcut" size="sm" />
@@ -17,7 +23,14 @@
       <ul class="recent notes">
         @for (note of notes(); track note.path) {
           <li>
-            <button type="button" [title]="note.path" (click)="openNote(note.path)">
+            <button
+              hx-button
+              type="button"
+              variant="link"
+              size="small"
+              [title]="note.path"
+              (click)="openNote(note.path)"
+            >
               {{ note.label }}
             </button>
           </li>
@@ -30,7 +43,14 @@
       <ul class="recent vaults">
         @for (vault of vaults(); track vault.path) {
           <li>
-            <button type="button" [title]="vault.path" (click)="openVault(vault.path)">
+            <button
+              hx-button
+              type="button"
+              variant="link"
+              size="small"
+              [title]="vault.path"
+              (click)="openVault(vault.path)"
+            >
               {{ vault.name }}
             </button>
           </li>

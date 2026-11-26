@@ -1,8 +1,12 @@
 <hx-app-toolbar>
   <button
+    hx-button
     slot="start"
     type="button"
-    class="icon"
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
     (click)="doc.back()"
     [disabled]="!doc.canGoBack()"
     hx-tooltip="Back"
@@ -12,9 +16,13 @@
     <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
   </button>
   <button
+    hx-button
     slot="start"
     type="button"
-    class="icon"
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
     (click)="doc.forward()"
     [disabled]="!doc.canGoForward()"
     hx-tooltip="Forward"
@@ -31,8 +39,16 @@
       }
       @switch (crumb.kind) {
         @case ("folder") {
-          <button type="button" class="crumb folder" (click)="revealFolder(crumb.dir!)">
-            {{ crumb.label }}
+          <button
+            hx-button
+            type="button"
+            class="crumb folder"
+            variant="text"
+            severity="secondary"
+            size="small"
+            (click)="revealFolder(crumb.dir!)"
+          >
+            <span class="label">{{ crumb.label }}</span>
           </button>
         }
         @case ("ellipsis") {
@@ -42,6 +58,8 @@
           @if (renaming()) {
             <input
               #renameInput
+              hx-input
+              size="small"
               class="rename"
               aria-label="Rename note"
               [value]="crumb.label"
@@ -50,8 +68,17 @@
               (blur)="commitRename(renameInput)"
             />
           } @else {
-            <button type="button" class="crumb note" hx-tooltip="Rename" (click)="startRename()">
-              {{ crumb.label }}
+            <button
+              hx-button
+              type="button"
+              class="crumb note"
+              variant="text"
+              severity="secondary"
+              size="small"
+              hx-tooltip="Rename"
+              (click)="startRename()"
+            >
+              <span class="label">{{ crumb.label }}</span>
             </button>
           }
         }
@@ -62,9 +89,13 @@
   <div slot="end" class="modes" role="group" aria-label="View mode">
     @for (m of modes; track m.id) {
       <button
+        hx-button
         type="button"
-        class="icon toggle"
-        [class.active]="editor.mode() === m.id"
+        class="toggle"
+        [variant]="editor.mode() === m.id ? 'outlined' : 'text'"
+        severity="secondary"
+        size="small"
+        iconOnly
         [attr.aria-pressed]="editor.mode() === m.id"
         [attr.aria-label]="m.label"
         [disabled]="modeDisabled()"
@@ -77,10 +108,14 @@
     }
   </div>
   <button
+    hx-button
     slot="end"
     type="button"
-    class="icon props"
-    [class.active]="settings.propertiesDisplay() !== 'hidden'"
+    class="props"
+    [variant]="settings.propertiesDisplay() !== 'hidden' ? 'outlined' : 'text'"
+    severity="secondary"
+    size="small"
+    iconOnly
     [attr.aria-pressed]="settings.propertiesDisplay() !== 'hidden'"
     [disabled]="doc.path() === null"
     (click)="run('toggle-properties')"
@@ -91,10 +126,13 @@
     <svg viewBox="0 0 24 24"><path d="M4 7h3M11 7h9M4 12h9M17 12h3M4 17h5M13 17h7" /></svg>
   </button>
   <button
+    hx-button
     slot="end"
     type="button"
-    class="icon"
-    [class.active]="settings.outlineVisible()"
+    [variant]="settings.outlineVisible() ? 'outlined' : 'text'"
+    severity="secondary"
+    size="small"
+    iconOnly
     [attr.aria-pressed]="settings.outlineVisible()"
     [disabled]="doc.path() === null"
     (click)="run('toggle-outline')"
@@ -105,10 +143,13 @@
     <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13" /></svg>
   </button>
   <button
+    hx-button
     slot="end"
     type="button"
-    class="icon"
-    [class.active]="settings.backlinksVisible()"
+    [variant]="settings.backlinksVisible() ? 'outlined' : 'text'"
+    severity="secondary"
+    size="small"
+    iconOnly
     [attr.aria-pressed]="settings.backlinksVisible()"
     [disabled]="workspace.vaultRoot() === null || doc.path() === null"
     (click)="run('toggle-backlinks')"

@@ -2,9 +2,27 @@
   <div class="bar" role="alert">
     <span>This file was not found. It may have been deleted or moved.</span>
     @if (editor.editing()) {
-      <button type="button" (click)="saveCopy()">Save as copy</button>
+      <button
+        hx-button
+        type="button"
+        variant="outlined"
+        severity="secondary"
+        size="small"
+        (click)="saveCopy()"
+      >
+        Save as copy
+      </button>
     }
-    <button type="button" (click)="close()">Close</button>
+    <button
+      hx-button
+      type="button"
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      (click)="close()"
+    >
+      Close
+    </button>
   </div>
 }
 @if (tab.view() === "settings") {

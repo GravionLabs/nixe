@@ -7,9 +7,36 @@
         with your next save.
       </span>
     </span>
-    <button type="button" (click)="reloadFromDisk()">Reload</button>
-    <button type="button" (click)="keepMine()">Keep mine</button>
-    <button type="button" (click)="compare()">Compare</button>
+    <button
+      hx-button
+      type="button"
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      (click)="reloadFromDisk()"
+    >
+      Reload
+    </button>
+    <button
+      hx-button
+      type="button"
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      (click)="keepMine()"
+    >
+      Keep mine
+    </button>
+    <button
+      hx-button
+      type="button"
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      (click)="compare()"
+    >
+      Compare
+    </button>
   </div>
 }
 @if (comparing() !== null) {

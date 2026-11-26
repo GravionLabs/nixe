@@ -47,15 +47,6 @@
   background: var(--h-surface-hover, rgb(128 128 128 / 20%));
 }
 
-.tabs button {
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  padding: 3px 6px;
-  cursor: pointer;
-}
-
 .screens {
   position: relative;
   flex: 1;

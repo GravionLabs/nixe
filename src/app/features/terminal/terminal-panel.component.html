@@ -17,32 +17,57 @@
   @for (tab of terminal.tabs(); track tab.key) {
     <div class="tab" [class.active]="tab.key === terminal.activeKey()">
       <button
+        hx-button
         type="button"
         role="tab"
         class="tab-title"
+        variant="text"
+        severity="secondary"
+        size="small"
         [attr.aria-selected]="tab.key === terminal.activeKey()"
         (click)="terminal.selectTab(tab.key)"
       >
         {{ tab.title }}
       </button>
       <button
+        hx-button
         type="button"
         class="tab-close"
+        variant="text"
+        severity="secondary"
+        size="small"
+        iconOnly
         [attr.aria-label]="'Close ' + tab.title"
+        [hx-tooltip]="'Close ' + tab.title"
         (click)="terminal.closeTab(tab.key)"
       >
-        ×
+        <span aria-hidden="true">×</span>
       </button>
     </div>
   }
-  <button type="button" class="tab-new" aria-label="New terminal" (click)="terminal.newTab()">
-    +
+  <button
+    hx-button
+    type="button"
+    class="tab-new"
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
+    aria-label="New terminal"
+    hx-tooltip="New terminal"
+    (click)="terminal.newTab()"
+  >
+    <span aria-hidden="true">+</span>
   </button>
   @for (preset of presets; track preset.id) {
     <button
+      hx-button
       type="button"
       class="tab-preset"
-      [title]="preset.commandTitle"
+      variant="text"
+      severity="secondary"
+      size="small"
+      [hx-tooltip]="preset.commandTitle"
       (click)="terminal.openPreset(preset)"
     >
       {{ preset.title }}
@@ -52,7 +77,16 @@
 <div class="screens" #screens></div>
 @if (terminal.tabs().length === 0) {
   <div class="empty">
-    <button type="button" (click)="terminal.newTab()">New terminal</button>
+    <button
+      hx-button
+      type="button"
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      (click)="terminal.newTab()"
+    >
+      New terminal
+    </button>
   </div>
 }
 @if (error()) {
