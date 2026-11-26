@@ -20,12 +20,18 @@ describe("global styles in angular.json", () => {
     );
   });
 
+  const helixUiCss = readFileSync(
+    resolve(__dirname, "../../node_modules/@gravionlabs/helix-ui/styles.css"),
+    "utf8",
+  );
+
   it("ships a stylesheet with the tab bar rules", () => {
-    const css = readFileSync(
-      resolve(__dirname, "../../node_modules/@gravionlabs/helix-ui/styles.css"),
-      "utf8",
-    );
-    expect(css).toContain(".hx-tab-bar");
+    expect(helixUiCss).toContain(".hx-tab-bar");
+  });
+
+  // A rule is the class followed by its block: `.hx-field-label {` alone does not count for `.hx-field`.
+  it.each([".hx-field", ".hx-list-row"])("ships a stylesheet with the %s rule", (selector) => {
+    expect(helixUiCss).toMatch(new RegExp(`^\\s*\\${selector}\\s*\\{`, "m"));
   });
 });
 
