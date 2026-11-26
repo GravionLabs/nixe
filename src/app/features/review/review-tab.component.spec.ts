@@ -17,6 +17,7 @@ import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { ReviewTabComponent } from "./review-tab.component";
+import { pressArrow } from "../../../testing/list-keys";
 
 const branches: ReviewBranch[] = [
   {
@@ -124,13 +125,25 @@ describe("ReviewTabComponent", () => {
 
   it("lists the notes of the suggestion and shows the first one", () => {
     const { el, service } = render();
-    const entries = [...el.querySelectorAll(".main")].map((b) =>
+    const entries = [...el.querySelectorAll("app-note-row button[hx-list-row]")].map((b) =>
       b.textContent!.replace(/\s+/g, " ").trim(),
     );
     expect(entries).toEqual(["●arejected", "＋newrejected"]);
     expect(el.querySelector(".title")!.textContent).toBe("Suggestion from Claude");
-    el.querySelectorAll<HTMLElement>(".main")[1].click();
+    el.querySelectorAll<HTMLElement>("app-note-row button[hx-list-row]")[1].click();
     expect(service.select).toHaveBeenCalledWith(changes[1]);
+  });
+
+  it("marks the selected note as current and moves through the rows with the arrows", () => {
+    const { el, fixture, service } = render();
+    const rows = el.querySelectorAll<HTMLButtonElement>("app-note-row button[hx-list-row]");
+    expect([...rows].map((r) => r.getAttribute("aria-current"))).toEqual(["true", null]);
+    service.selected.set("new.md");
+    fixture.detectChanges();
+    expect([...rows].map((r) => r.getAttribute("aria-current"))).toEqual([null, "true"]);
+    rows[1].focus();
+    pressArrow(rows[1], "ArrowUp");
+    expect(document.activeElement).toBe(rows[0]);
   });
 
   it("shows the source diff and switches to the rendered versions", () => {

@@ -15,13 +15,14 @@ import { DocumentService } from "../../core/file/document.service";
 import { ChangesService } from "../../core/git/changes.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { ChangesComponent } from "./changes.component";
+import { pressArrow } from "../../../testing/list-keys";
 
 const list: GitChange[] = [
   { path: "a.md", kind: "modified" },
   { path: "gone.md", kind: "deleted" },
 ];
 
-function render(kind = "sync") {
+function render(kind = "sync", openPath: string | null = null) {
   const open = vi.fn().mockResolvedValue(undefined);
   const service = {
     kind: signal(kind),
@@ -45,7 +46,7 @@ function render(kind = "sync") {
   TestBed.configureTestingModule({
     providers: [
       { provide: ChangesService, useValue: service },
-      { provide: DocumentService, useValue: { open } },
+      { provide: DocumentService, useValue: { open, path: signal(openPath) } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
     ],
   });
@@ -68,7 +69,7 @@ describe("ChangesComponent", () => {
 
   it("lists changed, added and deleted notes", () => {
     const { el } = render();
-    const names = [...el.querySelectorAll(".main")].map((b) =>
+    const names = [...el.querySelectorAll("app-note-row button[hx-list-row]")].map((b) =>
       b.textContent!.replace(/\s+/g, " ").trim(),
     );
     expect(names).toEqual(["●a", "−gone"]);
@@ -76,7 +77,9 @@ describe("ChangesComponent", () => {
       i.getAttribute("title"),
     );
     expect(icons).toEqual(["Changed", "Deleted"]);
-    expect(el.querySelector(".main")!.getAttribute("title")).toBe("a.md");
+    expect(el.querySelector("app-note-row button[hx-list-row]")!.getAttribute("title")).toBe(
+      "a.md",
+    );
     expect(el.querySelector(".diff")).toBeNull();
   });
 
@@ -119,7 +122,18 @@ describe("ChangesComponent", () => {
     expect(opens).toHaveLength(1);
     opens[0].click();
     expect(open).toHaveBeenCalledWith("/vault/a.md");
-    el.querySelectorAll<HTMLElement>(".main")[1].click();
+    el.querySelectorAll<HTMLElement>("app-note-row button[hx-list-row]")[1].click();
     expect(service.compare).toHaveBeenCalledWith(list[1]);
+  });
+
+  it("marks the row of the open note as current and moves through the rows with the arrows", () => {
+    const { el } = render("sync", "/vault/gone.md");
+    const rows = el.querySelectorAll<HTMLButtonElement>("button[hx-list-row]");
+    expect(rows[0].getAttribute("aria-current")).toBeNull();
+    expect(rows[1].getAttribute("aria-current")).toBe("true");
+    expect([...rows].map((r) => r.tabIndex)).toEqual([-1, 0]);
+    rows[1].focus();
+    pressArrow(rows[1], "ArrowUp");
+    expect(document.activeElement).toBe(rows[0]);
   });
 });

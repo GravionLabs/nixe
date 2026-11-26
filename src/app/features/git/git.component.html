@@ -56,24 +56,39 @@
         (change)="git.setAll(git.selection() !== 'all')"
       />
     }
-    @for (change of status.changes; track change.path) {
-      <app-note-row [path]="change.path" [kind]="change.kind" (activated)="compare(change)">
-        <input
-          rowStart
-          type="checkbox"
-          class="check"
-          [attr.aria-label]="'Include ' + titleOf(change.path) + ' in the save'"
-          [checked]="git.isChecked(change.path)"
-          (change)="git.toggle(change.path)"
-        />
-        @if (change.kind !== "deleted") {
-          <button rowActions type="button" class="open" (click)="open(change.path)">Open</button>
+    @if (status.changes.length > 0) {
+      <hx-list aria-label="Unsaved changes">
+        @for (change of status.changes; track change.path) {
+          <app-note-row>
+            <input
+              rowStart
+              type="checkbox"
+              class="check"
+              [attr.aria-label]="'Include ' + titleOf(change.path) + ' in the save'"
+              [checked]="git.isChecked(change.path)"
+              (change)="git.toggle(change.path)"
+            />
+            <button
+              hx-list-row
+              type="button"
+              [current]="isCurrent(change.path)"
+              [title]="change.path"
+              (click)="compare(change)"
+            >
+              <app-note-title [path]="change.path" [kind]="change.kind" />
+            </button>
+            @if (change.kind !== "deleted") {
+              <button rowActions type="button" class="open" (click)="open(change.path)">
+                Open
+              </button>
+            }
+            <button rowActions type="button" class="discard" (click)="discard(change)">
+              Discard changes
+            </button>
+          </app-note-row>
         }
-        <button rowActions type="button" class="discard" (click)="discard(change)">
-          Discard changes
-        </button>
-      </app-note-row>
-    } @empty {
+      </hx-list>
+    } @else {
       <app-empty-state text="Everything is saved" />
     }
   </app-panel-section>

@@ -46,15 +46,13 @@
 />
 
 @if (helpOpen()) {
-  <ul class="operators" aria-label="Operators">
+  <hx-list class="operators" aria-label="Operators">
     @for (op of operators(); track op.insert) {
-      <li>
-        <button type="button" class="operator" (click)="insertOperator(op.insert)">
-          <code>{{ op.insert }}</code> <span>{{ op.text }}</span>
-        </button>
-      </li>
+      <button hx-list-row type="button" class="operator" (click)="insertOperator(op.insert)">
+        <code>{{ op.insert }}</code> <span class="hx-list-row-label">{{ op.text }}</span>
+      </button>
     }
-  </ul>
+  </hx-list>
 }
 
 @if (replace.enabled()) {
@@ -174,24 +172,29 @@
             {{ allCollapsed() ? "⊞" : "⊟" }}
           </button>
         </div>
-        <ul aria-label="Results">
+        <hx-list aria-label="Results">
           @for (hit of sorted(); track hitKey(hit)) {
-            <li>
+            <div class="hit">
               <button
+                hx-list-row
                 type="button"
                 class="note"
+                [current]="isCurrent(hit)"
                 (click)="openHit(hit)"
                 (dblclick)="openHit(hit, undefined, true)"
                 [title]="hit.path"
               >
-                <span class="name">{{ hit.title }}</span>
-                @if (hit.root) {
-                  <span class="root">{{ hit.root }}</span>
-                }
-                <span class="path">{{ hit.path }}</span>
+                <span class="hx-list-row-label">
+                  <span class="name">{{ hit.title }}</span>
+                  @if (hit.root) {
+                    <span class="root">{{ hit.root }}</span>
+                  }
+                  <span class="path">{{ hit.path }}</span>
+                </span>
               </button>
               @if (hit.snippets.length > 0) {
                 <button
+                  hx-list-row
                   type="button"
                   class="fold"
                   (click)="toggleNote(hitKey(hit))"
@@ -208,23 +211,26 @@
                 track snippet.line
               ) {
                 <button
+                  hx-list-row
                   type="button"
                   class="snippet"
                   (click)="openHit(hit, snippet)"
                   (dblclick)="openHit(hit, snippet, true)"
                 >
-                  @for (part of segments(snippet.text); track $index) {
-                    @if (part.match) {
-                      <mark>{{ part.text }}</mark>
-                    } @else {
-                      {{ part.text }}
+                  <span class="text">
+                    @for (part of segments(snippet.text); track $index) {
+                      @if (part.match) {
+                        <mark>{{ part.text }}</mark>
+                      } @else {
+                        {{ part.text }}
+                      }
                     }
-                  }
+                  </span>
                 </button>
               }
-            </li>
+            </div>
           }
-        </ul>
+        </hx-list>
       }
     }
   }

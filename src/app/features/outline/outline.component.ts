@@ -1,5 +1,5 @@
-import { NgTemplateOutlet } from "@angular/common";
-import { Component, inject } from "@angular/core";
+import { Component, computed, inject } from "@angular/core";
+import { HxList, HxListRow } from "@gravionlabs/helix-ui";
 
 import { EditorService } from "../../core/editor/editor.service";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
@@ -12,13 +12,21 @@ import { OutlineService } from "../../core/outline/outline.service";
   selector: "app-outline",
   templateUrl: "./outline.component.html",
   styleUrl: "./outline.component.css",
-  imports: [NgTemplateOutlet],
+  imports: [HxList, HxListRow],
 })
 export class OutlineComponent {
   protected readonly outline = inject(OutlineService);
   private readonly doc = inject(DocumentService);
   private readonly editor = inject(EditorService);
   private readonly bookmarks = inject(BookmarksService);
+
+  /** The headings that show, in document order: the children of a folded heading are left out. */
+  protected readonly visible = computed(() => {
+    const folded = this.outline.folded();
+    const flatten = (nodes: readonly OutlineNode[]): OutlineNode[] =>
+      nodes.flatMap((n) => [n, ...(folded.has(n.index) ? [] : flatten(n.children))]);
+    return flatten(this.outline.tree());
+  });
 
   protected bookmark(event: MouseEvent, node: OutlineNode): void {
     event.preventDefault();

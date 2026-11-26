@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, signal, untracked } from "@angular/core";
+import { HxList, HxListRow } from "@gravionlabs/helix-ui";
 
 import type { ReviewHunk } from "../../core/file/backend";
 import { diffLines, diffStat } from "../../core/git/line-diff";
@@ -7,6 +8,7 @@ import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { DiffComponent } from "../../shared/diff/diff.component";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 import { NoteRowComponent } from "../../shared/panel/note-row.component";
+import { NoteTitleComponent } from "../../shared/panel/note-title.component";
 
 /**
  * The review of one suggestion in the main area (#322): the list of its notes and the compare
@@ -14,7 +16,14 @@ import { NoteRowComponent } from "../../shared/panel/note-row.component";
  */
 @Component({
   selector: "app-review-tab",
-  imports: [DiffComponent, NoteRowComponent, EmptyStateComponent],
+  imports: [
+    DiffComponent,
+    NoteRowComponent,
+    NoteTitleComponent,
+    HxList,
+    HxListRow,
+    EmptyStateComponent,
+  ],
   templateUrl: "./review-tab.component.html",
   styleUrl: "./review-tab.component.css",
 })

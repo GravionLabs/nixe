@@ -17,6 +17,7 @@ import { BacklinksService } from "../../core/index/backlinks.service";
 import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { BacklinksComponent } from "./backlinks.component";
+import { pressArrow } from "../../../testing/list-keys";
 
 const back: Backlink = {
   source: "B.md",
@@ -137,7 +138,9 @@ describe("BacklinksComponent", () => {
 
   it("a double click on a backlink keeps the note in a tab of its own", () => {
     const { el, openPinned } = render("ready", [back], []);
-    el.querySelector("li button")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    el.querySelector("button[hx-list-row]")!.dispatchEvent(
+      new MouseEvent("dblclick", { bubbles: true }),
+    );
     expect(openPinned).toHaveBeenCalledWith("/vault/B.md", { line: 7, anchor: null });
   });
 
@@ -188,5 +191,16 @@ describe("BacklinksComponent", () => {
     const { el } = render("loading", [], []);
     expect(el.textContent).toContain("Indexing the vault");
     expect(el.textContent).not.toContain("No backlinks");
+  });
+
+  it("moves through each list with the arrows and skips unresolved links", () => {
+    const { el } = render("ready", [back], [out("C", "C.md"), out("Gone", null), out("D", "D.md")]);
+    expect(el.querySelector("[aria-current], [aria-pressed]")).toBeNull();
+    const rows = el.querySelectorAll<HTMLButtonElement>(
+      '[aria-label="Outgoing links"] button[hx-list-row]',
+    );
+    rows[0].focus();
+    pressArrow(rows[0], "ArrowDown");
+    expect(document.activeElement).toBe(rows[2]);
   });
 });

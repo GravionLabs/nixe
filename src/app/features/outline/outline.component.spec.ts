@@ -14,6 +14,7 @@ import { EditorService } from "../../core/editor/editor.service";
 import { DocumentService } from "../../core/file/document.service";
 import { OutlineService } from "../../core/outline/outline.service";
 import { OutlineComponent } from "./outline.component";
+import { pressArrow } from "../../../testing/list-keys";
 
 function render(text: string, editing = false) {
   const content = signal(text);
@@ -58,13 +59,15 @@ describe("OutlineComponent", () => {
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
   });
 
-  it("lists the headings as a nested tree", () => {
+  it("lists the headings as a tree with their levels", () => {
     const { el } = render("# A\n## B\n# C");
     const items = Array.from(el.querySelectorAll("li")).map((li) =>
       li.querySelector("button.heading")!.textContent!.trim(),
     );
     expect(items).toEqual(["A", "B", "C"]);
-    expect(el.querySelector("li ul li button.heading")!.textContent!.trim()).toBe("B");
+    expect(
+      Array.from(el.querySelectorAll("li")).map((li) => li.getAttribute("aria-level")),
+    ).toEqual(["1", "2", "1"]);
   });
 
   it("says so when there are no headings", () => {
@@ -99,14 +102,36 @@ describe("OutlineComponent", () => {
     const { fixture, el, outline } = render("# A\ntext\n# B");
     outline.topLine.set(3);
     fixture.detectChanges();
-    expect(el.querySelector("button.current")!.textContent!.trim()).toBe("B");
+    expect(el.querySelector("button.hx-list-row-current")!.textContent!.trim()).toBe("B");
     outline.editorText.set("# A\ntext\n# B\n# Typed");
     fixture.detectChanges();
     expect(el.querySelectorAll("button.heading").length).toBe(3);
     outline.topLine.set(1);
     fixture.detectChanges();
-    expect(el.querySelector("button.current")!.textContent!.trim()).toBe("A");
-    expect(el.querySelectorAll("button.current").length).toBe(1);
+    expect(el.querySelector("button.hx-list-row-current")!.textContent!.trim()).toBe("A");
+    expect(el.querySelectorAll("button.hx-list-row-current").length).toBe(1);
+  });
+
+  it("announces the current heading as the location", () => {
+    const { fixture, el, outline } = render("# A\ntext\n# B");
+    outline.topLine.set(3);
+    fixture.detectChanges();
+    const rows = el.querySelectorAll("button[hx-list-row]");
+    expect([...rows].map((r) => r.getAttribute("aria-current"))).toEqual([null, "location"]);
+  });
+
+  it("moves through the headings with the arrows, in document order after folding", () => {
+    const { fixture, el, outline } = render("# A\n## B\n# C");
+    outline.collapseTo(1);
+    fixture.detectChanges();
+    outline.expandAll();
+    fixture.detectChanges();
+    const rows = el.querySelectorAll<HTMLButtonElement>("button[hx-list-row]");
+    rows[0].focus();
+    pressArrow(rows[0], "ArrowDown");
+    expect(document.activeElement).toBe(rows[1]);
+    pressArrow(rows[1], "ArrowDown");
+    expect(document.activeElement).toBe(rows[2]);
   });
 
   describe("folding", () => {
@@ -148,14 +173,14 @@ describe("OutlineComponent", () => {
       const { fixture, el, outline } = render(text);
       outline.topLine.set(3);
       fixture.detectChanges();
-      expect(el.querySelector("button.current")!.textContent!.trim()).toBe("C");
+      expect(el.querySelector("button.hx-list-row-current")!.textContent!.trim()).toBe("C");
       outline.collapseTo(1);
       fixture.detectChanges();
-      expect(el.querySelector("button.current")!.textContent!.trim()).toBe("A");
-      expect(el.querySelectorAll("button.current").length).toBe(1);
+      expect(el.querySelector("button.hx-list-row-current")!.textContent!.trim()).toBe("A");
+      expect(el.querySelectorAll("button.hx-list-row-current").length).toBe(1);
       outline.expandAll();
       fixture.detectChanges();
-      expect(el.querySelector("button.current")!.textContent!.trim()).toBe("C");
+      expect(el.querySelector("button.hx-list-row-current")!.textContent!.trim()).toBe("C");
     });
   });
 });

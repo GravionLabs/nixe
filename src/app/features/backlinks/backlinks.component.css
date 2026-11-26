@@ -16,76 +16,42 @@ h2 {
   font-weight: 400;
 }
 
-ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .status {
   margin: 4px 12px;
   color: var(--h-text-muted-color);
 }
 
-button {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-button:hover:not(:disabled) {
-  background: var(--h-surface-hover);
-}
-
-button:disabled {
-  cursor: default;
-}
-
-.name {
+.name,
+.context {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .context {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
   color: var(--h-text-muted-color);
 }
 
 .unresolved .name {
-  color: var(--h-text-muted-color);
   font-style: italic;
 }
 
-.badge {
-  align-self: flex-start;
-  font-size: 11px;
-  color: var(--h-text-muted-color);
-}
-
 h2 button.fold {
-  flex-direction: row;
+  display: flex;
   align-items: center;
   gap: 4px;
+  width: 100%;
   margin: 0;
   padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-size: 12px;
   font-weight: 600;
-}
-
-h2 button.fold:hover:not(:disabled) {
-  background: none;
+  text-align: left;
+  cursor: pointer;
 }
 
 .chevron {
@@ -104,10 +70,17 @@ h2 button.fold:hover:not(:disabled) {
 
 .mention .link-it {
   flex: none;
-  width: auto;
   margin-right: 8px;
   padding: 2px 8px;
   border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-size: 12px;
+  cursor: pointer;
+}
+
+.mention .link-it:hover {
+  background: var(--h-surface-hover);
 }

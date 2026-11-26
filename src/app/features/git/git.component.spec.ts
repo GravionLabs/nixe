@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { NO_ERRORS_SCHEMA, computed, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
+import { HxList, HxListRow } from "@gravionlabs/helix-ui";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -21,9 +22,11 @@ import { ReviewService } from "../../core/git/review.service";
 import { SettingsPageService } from "../../core/settings/settings-page.service";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 import { NoteRowComponent } from "../../shared/panel/note-row.component";
+import { NoteTitleComponent } from "../../shared/panel/note-title.component";
 import { PanelSectionComponent } from "../../shared/panel/panel-section.component";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { GitComponent } from "./git.component";
+import { pressArrow } from "../../../testing/list-keys";
 
 const status: GitStatus = {
   branch: "main",
@@ -46,6 +49,7 @@ function render(
     reviewCount?: number;
     status?: GitStatus | null;
     ignores?: string[];
+    openPath?: string;
   } = {},
 ) {
   const sync = vi.fn().mockResolvedValue(undefined);
@@ -99,13 +103,20 @@ function render(
       { provide: ReviewService, useValue: { count: signal(extra.reviewCount ?? 0) } },
       { provide: CompareService, useValue: { open: compareOpen } },
       { provide: CommandRegistry, useValue: { execute } },
-      { provide: DocumentService, useValue: { open } },
+      { provide: DocumentService, useValue: { open, path: signal(extra.openPath ?? null) } },
       { provide: WorkspaceService, useValue: { vaultRoot: signal("/vault") } },
     ],
   });
   TestBed.overrideComponent(GitComponent, {
     set: {
-      imports: [PanelSectionComponent, NoteRowComponent, EmptyStateComponent],
+      imports: [
+        PanelSectionComponent,
+        NoteRowComponent,
+        NoteTitleComponent,
+        HxList,
+        HxListRow,
+        EmptyStateComponent,
+      ],
       schemas: [NO_ERRORS_SCHEMA],
       templateUrl: undefined,
       styleUrl: undefined,
@@ -293,7 +304,7 @@ describe("GitComponent", () => {
       .spyOn(backend, "gitNoteVersion")
       .mockImplementation((_p, rev) => Promise.resolve(rev === "HEAD" ? "old" : "new"));
     const { el, open, compareOpen, fixture } = render(status);
-    el.querySelectorAll<HTMLButtonElement>("app-note-row .main")[0].click();
+    el.querySelectorAll<HTMLButtonElement>("app-note-row button[hx-list-row]")[0].click();
     await fixture.whenStable();
     expect(version).toHaveBeenCalledWith("a.md", "HEAD");
     expect(version).toHaveBeenCalledWith("a.md", null);
@@ -314,12 +325,21 @@ describe("GitComponent", () => {
   it("compares an added note against nothing and a deleted one against nothing now", async () => {
     vi.spyOn(backend, "gitNoteVersion").mockResolvedValue("text");
     const { el, compareOpen, fixture } = render(status);
-    const rows = el.querySelectorAll<HTMLButtonElement>("app-note-row .main");
+    const rows = el.querySelectorAll<HTMLButtonElement>("app-note-row button[hx-list-row]");
     rows[1].click();
     rows[2].click();
     await fixture.whenStable();
     expect(compareOpen.mock.calls[0][0]).toMatchObject({ oldText: null, newText: "text" });
     expect(compareOpen.mock.calls[1][0]).toMatchObject({ oldText: "text", newText: null });
+  });
+
+  it("marks the row of the open note as current and moves through the rows with the arrows", () => {
+    const { el } = render(status, undefined, {}, { openPath: "/vault/new/b.md" });
+    const rows = el.querySelectorAll<HTMLButtonElement>("app-note-row button[hx-list-row]");
+    expect([...rows].map((r) => r.getAttribute("aria-current"))).toEqual([null, "true", null]);
+    rows[1].focus();
+    pressArrow(rows[1], "ArrowDown");
+    expect(document.activeElement).toBe(rows[2]);
   });
 
   it("saves and syncs with the typed message, the button says Save without a remote", async () => {

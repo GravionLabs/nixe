@@ -1,13 +1,14 @@
 import type { OnDestroy } from "@angular/core";
 import { Component, computed, inject, signal, viewChild } from "@angular/core";
 import type { HxMenuItem } from "@gravionlabs/helix-ui";
-import { HxMenu } from "@gravionlabs/helix-ui";
+import { HxList, HxListRow, HxMenu } from "@gravionlabs/helix-ui";
 
 import type { DeletedNote, RecentNote } from "../../core/file/backend";
 import type { TimelineEntry } from "../../core/git/history.service";
 import { HistoryService } from "../../core/git/history.service";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 import { NoteRowComponent } from "../../shared/panel/note-row.component";
+import { NoteTitleComponent } from "../../shared/panel/note-title.component";
 import { noteLabel } from "../../shared/panel/note-label";
 import { PanelSectionComponent } from "../../shared/panel/panel-section.component";
 import {
@@ -26,7 +27,15 @@ export function formatCommitTime(secs: number): string {
 /** Sidebar: the timeline of the open note, the recently changed notes without one, the trash; the versions are compared in the main area (#324). */
 @Component({
   selector: "app-history",
-  imports: [PanelSectionComponent, NoteRowComponent, EmptyStateComponent, HxMenu],
+  imports: [
+    PanelSectionComponent,
+    NoteRowComponent,
+    NoteTitleComponent,
+    HxList,
+    HxListRow,
+    EmptyStateComponent,
+    HxMenu,
+  ],
   templateUrl: "./history.component.html",
   styleUrl: "./history.component.css",
 })

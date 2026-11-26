@@ -64,46 +64,48 @@
     </div>
   }
   <div class="body">
-    <ul class="notes" aria-label="Changed notes">
+    <hx-list class="notes" aria-label="Changed notes">
       @for (change of review.changes(); track change.path) {
-        <li>
-          <app-note-row
-            [path]="change.path"
-            [kind]="change.kind"
-            [expanded]="review.selected() === change.path"
-            (activated)="review.select(change)"
+        <app-note-row>
+          <button
+            hx-list-row
+            type="button"
+            [current]="review.selected() === change.path"
+            [title]="change.path"
+            (click)="review.select(change)"
           >
-            <span rowEnd class="state" [class]="review.stateOf(change.path)">{{
+            <app-note-title [path]="change.path" [kind]="change.kind" />
+            <span class="hx-list-row-meta state" [class]="review.stateOf(change.path)">{{
               review.stateOf(change.path)
             }}</span>
-            <span rowActions class="decide">
-              <button
-                type="button"
-                [attr.aria-label]="'Accept ' + change.path"
-                [class.on]="review.stateOf(change.path) === 'accepted'"
-                (click)="review.setNote(change.path, true)"
-              >
-                Accept
-              </button>
-              <button
-                type="button"
-                [attr.aria-label]="'Reject ' + change.path"
-                [class.on]="review.stateOf(change.path) === 'rejected'"
-                (click)="review.setNote(change.path, false)"
-              >
-                Reject
-              </button>
-            </span>
-          </app-note-row>
-        </li>
+          </button>
+          <span rowActions class="decide">
+            <button
+              type="button"
+              [attr.aria-label]="'Accept ' + change.path"
+              [class.on]="review.stateOf(change.path) === 'accepted'"
+              (click)="review.setNote(change.path, true)"
+            >
+              Accept
+            </button>
+            <button
+              type="button"
+              [attr.aria-label]="'Reject ' + change.path"
+              [class.on]="review.stateOf(change.path) === 'rejected'"
+              (click)="review.setNote(change.path, false)"
+            >
+              Reject
+            </button>
+          </span>
+        </app-note-row>
       } @empty {
         @if (review.loading()) {
-          <li class="status">Loading…</li>
+          <p class="status">Loading…</p>
         } @else {
-          <li><app-empty-state text="No notes changed" /></li>
+          <app-empty-state text="No notes changed" />
         }
       }
-    </ul>
+    </hx-list>
     <section class="compare" aria-label="Selected note">
       @if (review.selected(); as path) {
         @if (review.diff(); as diff) {

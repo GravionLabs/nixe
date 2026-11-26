@@ -32,7 +32,7 @@ export async function openView(page, id) {
 export async function searchFor(page, query) {
   await openView(page, "search");
   await page.getByLabel("Search the vault").fill(query);
-  await page.getByRole("list", { name: "Results" }).waitFor();
+  await page.getByRole("group", { name: "Results" }).waitFor();
 }
 
 /** Shows the backlinks panel of the open note. */

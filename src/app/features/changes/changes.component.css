@@ -14,9 +14,3 @@
   color: var(--h-text-muted-color);
   font-size: 12px;
 }
-
-.list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}

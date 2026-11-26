@@ -40,7 +40,7 @@ input {
   color: var(--h-text-muted-color);
 }
 
-button {
+button:where(:not([hx-list-row])) {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -54,7 +54,7 @@ button {
   cursor: pointer;
 }
 
-button:hover {
+button:where(:not([hx-list-row])):hover {
   background: var(--h-surface-hover);
 }
 
