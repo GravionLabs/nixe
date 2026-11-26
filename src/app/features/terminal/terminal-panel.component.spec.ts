@@ -187,15 +187,15 @@ describe("TerminalPanelComponent", () => {
     expect(backend.checks).toEqual(["copilot"]);
   });
 
-  it("opens no tab for a missing CLI", async () => {
+  it("opens a shell tab for a missing CLI", async () => {
     const { fixture } = await render();
     backend.missing = "Claude Code is not installed.";
     fixture.nativeElement.querySelectorAll("button.tab-preset")[0].click();
     await vi.waitFor(() =>
       expect(TestBed.inject(TerminalService).notice()).toBe("Claude Code is not installed."),
     );
-    expect(TestBed.inject(TerminalService).tabs()).toHaveLength(1);
-    expect(backend.opened).toHaveLength(1);
+    await vi.waitFor(() => expect(backend.presets).toEqual([null, null]));
+    expect(TestBed.inject(TerminalService).tabs()).toHaveLength(2);
   });
 
   it("sends the input to the session and its size changes", async () => {
