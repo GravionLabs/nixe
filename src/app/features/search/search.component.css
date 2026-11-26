@@ -97,7 +97,7 @@ button.close {
 
 .text {
   min-width: 0;
-  font-size: var(--h-font-size-xs);
+  font-size: var(--h-font-size-sm);
   color: var(--h-text-muted-color);
   overflow-wrap: anywhere;
 }

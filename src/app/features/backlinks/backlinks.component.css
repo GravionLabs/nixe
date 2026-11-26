@@ -29,7 +29,7 @@ h2 {
 }
 
 .context {
-  font-size: var(--h-font-size-xs);
+  font-size: var(--h-font-size-sm);
   color: var(--h-text-muted-color);
 }
 
