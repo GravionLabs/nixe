@@ -1,6 +1,9 @@
 import { Component } from "@angular/core";
 
-/** Lint probe (#273): an inline template outside a spec file fails component-max-inline-declarations. */
+/**
+ * Lint probe: an inline template outside a spec file fails component-max-inline-declarations (#273),
+ * and the class name without `Component` fails component-class-suffix (#658).
+ */
 @Component({
   selector: "app-inline-template-probe",
   template: `<p>inline</p>`,

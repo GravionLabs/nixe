@@ -656,7 +656,7 @@ describe("TabsService", () => {
 
   it("gives components created with a tab's injector that tab's services", async () => {
     @Component({ selector: "app-probe", template: "{{ doc.path() }}" })
-    class Probe {
+    class ProbeComponent {
       readonly doc = inject(DocumentService);
     }
     @Component({
@@ -664,13 +664,13 @@ describe("TabsService", () => {
       imports: [NgComponentOutlet],
       template: '<ng-container *ngComponentOutlet="probe; injector: injector" />',
     })
-    class Host {
-      probe = Probe;
+    class HostComponent {
+      probe = ProbeComponent;
       injector = tabs.panes()[0].tabs[0].injector;
     }
     await TestBed.inject(DocumentService).open("/v/a.md");
     await tabs.openInNewTab("/v/b.md");
-    const fixture = TestBed.createComponent(Host);
+    const fixture = TestBed.createComponent(HostComponent);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toBe("/v/a.md");
   });
