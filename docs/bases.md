@@ -328,7 +328,8 @@ filters:
 ```
 
 Compared with `this` (`==`, `!=` and the `contains` functions of a list), a property that is a
-wikilink (`"[[Ann]]"`) counts as the file it names. `this` can be used in filters and formulas, not
+wikilink (`"[[Ann]]"`) counts as the file it names; `contains(this)` also takes a property that is a
+single text instead of a list. `this` can be used in filters and formulas, not
 as an entry of `order`, `sort` or `groupBy`; put it into a [formula](#formulas) for that.
 
 ### File fields

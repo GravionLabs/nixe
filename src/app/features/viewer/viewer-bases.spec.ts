@@ -316,6 +316,30 @@ describe("ViewerComponent base blocks", () => {
     expect(heard).toHaveBeenCalled();
   });
 
+  it("renders the blocks anew for another note with the same text", async () => {
+    fakeBackend();
+    const view = render();
+    await view.settle();
+
+    view.doc.path.set("/vault/dir/Twin.md");
+    await view.settle();
+
+    expect(queries().at(-1)!.thisFile).toBe("dir/Twin.md");
+    expect(view.blocks()).toHaveLength(1);
+  });
+
+  it("keeps the links of an element that shows no base inside the app", async () => {
+    fakeBackend();
+    const view = render('<div class="base-block"><a href="https://example.com">out</a></div>\n');
+    await view.settle();
+
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    view.el.querySelector("a")!.dispatchEvent(click);
+    await view.settle();
+
+    expect(click.defaultPrevented).toBe(true);
+  });
+
   it("binds `this` of a block in an embedded note to that note", async () => {
     fakeBackend();
     const view = render("![[Embedded]]\n");

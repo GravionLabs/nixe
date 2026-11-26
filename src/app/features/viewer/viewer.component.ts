@@ -140,6 +140,8 @@ export class ViewerComponent {
       const el = this.content().nativeElement;
       const html = this.html();
       const dark = this.dark();
+      // Another note renders anew, also with the same HTML: its bases have another `this`.
+      const path = this.doc.path();
       untracked(() => {
         const skip = this.toggledText !== null && this.toggledText === this.doc.content();
         this.toggledText = null;
@@ -147,7 +149,6 @@ export class ViewerComponent {
         this.bases.clear();
         el.innerHTML = html; // already sanitized with DOMPurify
         // A newly opened document starts at the top (external reloads keep the position).
-        const path = this.doc.path();
         if (path !== this.renderedPath) {
           this.renderedPath = path;
           this.host.nativeElement.scrollTop = 0;
@@ -576,7 +577,7 @@ export class ViewerComponent {
   async onClick(event: MouseEvent): Promise<void> {
     const target = event.target as Element;
     // A base handles its own clicks.
-    if (target.closest(".base-block")) return;
+    if (this.bases.holds(target)) return;
     if (await handleCopyClick(target)) return;
 
     const marker = target.closest<HTMLElement>(".fold-marker");

@@ -1927,7 +1927,7 @@ fn this_vault() -> (TestDir, Connection) {
     .unwrap();
     fs::write(
         vault.join("Emma.md"),
-        "---\nauthor: Ann\nrating: 3\n---\nNo link.\n",
+        "---\nauthor: Ann\neditors: Ann\nrating: 3\n---\nNo link.\n",
     )
     .unwrap();
     fs::write(vault.join("Shelf.base"), "views:\n  - type: table\n").unwrap();

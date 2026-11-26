@@ -305,12 +305,16 @@ impl<'a> Context<'a> {
         Ok(match expr {
             Expr::Method(receiver, method, args) => {
                 let mut value = self.eval(receiver)?;
-                // A list is searched for `this` with its wikilinks as links.
+                // A list is searched for `this` with its wikilinks as links; a single text, as
+                // a property with one entry is often written, is a list of itself.
                 let searches = matches!(
                     method,
                     Method::Contains | Method::ContainsAll | Method::ContainsAny
                 );
-                if searches && args.contains(&Expr::This) && matches!(value, Value::List(_)) {
+                if searches && args.contains(&Expr::This) {
+                    if let Value::Text(_) = value {
+                        value = Value::List(vec![value]);
+                    }
                     value = self.as_links(value)?;
                 }
                 functions::method(value, *method, &all(args)?, self.now)?

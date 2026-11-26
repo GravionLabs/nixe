@@ -71,6 +71,11 @@ export class BaseBlocks {
     }
   }
 
+  /** Whether `node` is part of a shown base. */
+  holds(node: Node): boolean {
+    return [...this.shown.keys()].some((el) => el.contains(node));
+  }
+
   /** Destroys the bases and mounts no further ones: the view of the note is gone. */
   dispose(): void {
     this.clear();
