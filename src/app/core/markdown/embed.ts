@@ -1,5 +1,5 @@
 import { splitFrontmatter } from "./frontmatter";
-import { extname, isMarkdownPath } from "./paths";
+import { extname, isBasePath, isMarkdownPath } from "./paths";
 import { parseWikilinkTarget } from "./wikilink-resolver";
 
 const IMAGE_EXTENSIONS = new Set([
@@ -13,7 +13,7 @@ const IMAGE_EXTENSIONS = new Set([
   ".avif",
 ]);
 
-export type EmbedKind = "note" | "image" | "file";
+export type EmbedKind = "note" | "image" | "base" | "file";
 
 export interface Embed {
   /** Link target without the size, e.g. `Note#Heading` or `image.png`. */
@@ -34,7 +34,9 @@ export function parseEmbed(inner: string): Embed | null {
     ? "image"
     : !ext || isMarkdownPath(note)
       ? "note"
-      : "file";
+      : isBasePath(note)
+        ? "base"
+        : "file";
   let width: number | null = null;
   let height: number | null = null;
   const size = /^(\d+)(?:x(\d+))?$/.exec(parts[parts.length - 1] ?? "");

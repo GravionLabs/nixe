@@ -19,7 +19,7 @@ import { tagPlugin } from "./plugins/tag.plugin";
 export interface RendererOptions {
   /** Enables LaTeX math via KaTeX (`$…$`, `$$…$$`, ```math fences). */
   math: boolean;
-  /** Renders ```base fences as base blocks instead of code. */
+  /** Renders ```base fences and `.base` embeds as base blocks instead of code and links. */
   bases?: boolean;
 }
 
@@ -73,7 +73,7 @@ export function createMarkdownRenderer(options: RendererOptions): MarkdownIt {
     .use(highlightPlugin)
     .use(commentPlugin)
     .use(tagPlugin)
-    .use(embedPlugin)
+    .use(embedPlugin, { bases: options.bases })
     .use(wikilinkPlugin)
     .use(sourceLinePlugin);
 

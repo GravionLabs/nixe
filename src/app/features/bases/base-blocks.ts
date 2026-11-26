@@ -11,12 +11,13 @@ import type { BaseChoice } from "../../core/tabs/tabs.service";
 import { BASE_BLOCK, BaseComponent } from "./base.component";
 
 /**
- * The bases shown in a rendered note: one `BaseComponent` per base block. `clear` destroys them
+ * The bases shown in a rendered note: one `BaseComponent` per base block or `.base` embed. `clear`
+ * destroys them
  * before the note is rendered again; the chosen views survive that while the note stays.
  */
 export class BaseBlocks {
   private readonly shown = new Map<HTMLElement, ComponentRef<BaseComponent>>();
-  /** By note, source and how many equal blocks come before. */
+  /** By note, source or embed target, and how many equal blocks come before. */
   private readonly choices = new Map<string, WritableSignal<BaseChoice>>();
   private note: string | null = null;
   private disposed = false;
@@ -40,13 +41,15 @@ export class BaseBlocks {
     }
     const seen = new Map<string, number>();
     for (const el of Array.from(
-      root.querySelectorAll<HTMLElement>(`.${BASE_BLOCK_CLASS}[data-base]`),
+      root.querySelectorAll<HTMLElement>(
+        `.${BASE_BLOCK_CLASS}[data-base], .${BASE_BLOCK_CLASS}[data-base-embed]`,
+      ),
     )) {
-      const source = decode(el.dataset["base"] ?? "");
-      if (source === null) continue;
+      const from = originOf(el);
+      if (!from) continue;
       const embedding = el.closest<HTMLElement>("[data-source-path]");
       const owner = embedding?.dataset["sourcePath"] ?? note;
-      const id = `${owner}\n${source}`;
+      const id = `${owner}\n${JSON.stringify(from)}`;
       const count = seen.get(id) ?? 0;
       seen.set(id, count + 1);
       if (this.shown.has(el)) continue;
@@ -61,7 +64,7 @@ export class BaseBlocks {
         environmentInjector: this.environment,
         elementInjector: Injector.create({
           parent: this.injector,
-          providers: [{ provide: BASE_BLOCK, useValue: { source, note: owner, choice } }],
+          providers: [{ provide: BASE_BLOCK, useValue: { ...from, note: owner, choice } }],
         }),
         hostElement: el,
       });
@@ -89,6 +92,14 @@ export class BaseBlocks {
     }
     this.shown.clear();
   }
+}
+
+/** Where the base of a block comes from: the target of an embed, else the source of a fence. */
+function originOf(el: HTMLElement): { source: string } | { embed: string } | null {
+  const embed = el.dataset["baseEmbed"];
+  if (embed !== undefined) return { embed };
+  const source = decode(el.dataset["base"] ?? "");
+  return source === null ? null : { source };
 }
 
 /** The source of a block; null for an attribute written by hand that is no encoded text. */

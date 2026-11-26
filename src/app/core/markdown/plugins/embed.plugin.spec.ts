@@ -29,6 +29,17 @@ describe("embed plugin", () => {
       '<a class="wikilink embed-file" data-target="doc.pdf"',
     );
   });
+  it("renders base embeds as base blocks where bases are shown, else as links", () => {
+    const bases = createMarkdownRenderer({ math: false, bases: true });
+    const html = bases.render('![[Books.base#My "view"|300]]', { vaultFiles: files });
+    expect(html).toContain(
+      '<div class="base-block" data-base-embed="Books.base#My &quot;view&quot;">',
+    );
+    expect(html).toContain("shown in the reading view");
+    expect(render("![[Books.base]]")).toContain(
+      '<a class="wikilink embed-file unresolved" data-target="Books.base"',
+    );
+  });
   it("leaves code alone and normal images intact", () => {
     expect(render("`![[Note]]`")).not.toContain("embed");
     expect(render("![alt](a.png)")).toContain('<img src="a.png" alt="alt"');

@@ -55,6 +55,12 @@ describe("note content", () => {
     expect(img.hasAttribute("role") || img.hasAttribute("tabindex")).toBe(false);
   });
 
+  it("keeps the placeholder of an embedded base without its target", () => {
+    const root = el('<div class="base-block" data-base-embed="Private.base#All"></div>');
+    stripAppControls(root);
+    expect(root.innerHTML).toBe('<div class="base-block"></div>');
+  });
+
   it("keeps the placeholder of a base without its source", () => {
     const root = el(
       '<div class="base-block" data-base="views%3A%20%5B%5D" data-line="2"><p class="base-placeholder">Base</p></div>',

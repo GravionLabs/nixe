@@ -3,7 +3,7 @@
 A `.base` file shows the notes of the vault as a table or as [cards](#cards). The format is the one of
 [Obsidian Bases](https://obsidian.md/help/bases/syntax); Nixe supports a first part of it and never
 writes a `.base` file. The table [edits](#editing-cells) the properties of the notes. A note can
-[show a base](#bases-in-notes) of its own.
+[show a base](#bases-in-notes) of its own or [embed](#embedding-a-base-file) a `.base` file.
 
 ## Opening a base
 
@@ -40,7 +40,28 @@ views:
 - [Export, print](export.md), the published [site](export.md) and the link preview show a note that
   the base is shown in the reading view. The editor with live preview and the rich diff show the
   block as code.
-- `![[Name.base]]` embeds are not supported yet.
+
+### Embedding a base file
+
+`![[Books.base]]` shows the base of a `.base` file in the reading view, `![[Books.base#Cards]]`
+starts with the view of that name:
+
+```markdown
+![[Books.base]]
+![[library/Books.base#Reading list]]
+```
+
+- The file is resolved like a wikilink: a path from the vault root, else a name that is
+  unique in the vault, without regard to case. The extension `.base` is needed.
+- Without a view name the base starts like in its tab. The name is that of the view in the file; case
+  does not matter when no view has it exactly. The switcher shows the other views.
+- A file that is not found (also a name that two files have) shows `Base not found: …`, a view name
+  that the file does not have `View not found: …`, both in place of the base.
+- The embed follows changes of the `.base` file, also when it is created, renamed or deleted.
+- Everything else is as for a `base` block: [`this`](#this) is the note that holds the embed, the
+  values are read-only, and [export, print](export.md) and the link preview show a note that the base
+  is shown in the reading view. The editor with live preview, the rich diff and the published
+  [site](export.md) show the embed as a link to the file.
 
 ## What is shown
 
@@ -531,10 +552,10 @@ An error in the formula of a column stays in its cell; the other cells and rows 
 
 ## How it works
 
-The frontend reads the file, or takes the text of the block, and passes it to the commands
+The frontend reads the file (also that of an embed), or takes the text of the block, and passes it to the commands
 `base_views` and `base_query` ([Tauri commands](backend/tauri-commands.md)), with the path of the
 file `this` stands for. The Markdown renderer turns a `base` fence into a placeholder
-(`core/markdown/plugins/base-fence.plugin.ts`); the reading view puts a base component in its place
+(`core/markdown/plugins/base-fence.plugin.ts`, for an embed `embed.plugin.ts`); the reading view puts a base component in its place
 (`features/bases/base-blocks.ts`) and destroys it before the note is rendered again. The Rust core (`src-tauri/src/bases/`) parses the YAML
 and answers the view from the [vault index](architecture.md), sorted, grouped and limited, with the
 cover of each card resolved; the frontend only renders the result. Only the answer of the newest query is shown.

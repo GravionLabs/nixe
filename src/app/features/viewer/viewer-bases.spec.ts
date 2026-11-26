@@ -95,7 +95,11 @@ function fakeBackend(query: (q: Query) => Promise<BaseResult> = async () => answ
 
 const NOTE = "```base\nviews: [] # -->\n```\n\ntext\n";
 
-function render(text = NOTE, path: string | null = "/vault/dir/Home.md") {
+function render(
+  text = NOTE,
+  path: string | null = "/vault/dir/Home.md",
+  files: readonly string[] = ["dir/Home.md", "sub/Embedded.md"],
+) {
   const doc = {
     path: signal(path),
     content: signal(text),
@@ -103,6 +107,7 @@ function render(text = NOTE, path: string | null = "/vault/dir/Home.md") {
     pendingAnchor: signal<string | null>(null),
     pendingLine: signal<number | null>(null),
   };
+  const vaultFiles = signal<readonly string[]>(files);
   const index = {
     status: signal({ state: "ready" } as IndexStatus),
     revision: signal(0),
@@ -118,7 +123,7 @@ function render(text = NOTE, path: string | null = "/vault/dir/Home.md") {
         provide: WorkspaceService,
         useValue: {
           vaultRoot: signal("/vault"),
-          vaultFiles: signal(["dir/Home.md", "sub/Embedded.md"]),
+          vaultFiles,
         },
       },
       {
@@ -160,7 +165,7 @@ function render(text = NOTE, path: string | null = "/vault/dir/Home.md") {
       filePath: path,
       wikiRoot: null,
       math: false,
-      vaultFiles: ["dir/Home.md", "sub/Embedded.md"],
+      vaultFiles: files,
       vaultRoot: "/vault",
       bases: true,
     }).body;
@@ -176,7 +181,7 @@ function render(text = NOTE, path: string | null = "/vault/dir/Home.md") {
   };
   const show = (source: string) => fixture.componentRef.setInput("html", html(source));
   const blocks = () => [...el.querySelectorAll<HTMLElement>(".base-block")];
-  return { el, fixture, doc, index, tabs, settle, show, blocks };
+  return { el, fixture, doc, index, tabs, vaultFiles, settle, show, blocks };
 }
 
 describe("ViewerComponent base blocks", () => {
@@ -360,5 +365,142 @@ describe("ViewerComponent base blocks", () => {
       "outside the open vault",
     );
     expect(queries()).toEqual([]);
+  });
+});
+
+describe("ViewerComponent .base embeds", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  const FILES = ["dir/Home.md", "sub/Embedded.md", "bases/Books.base"];
+
+  /** The fake backend with `.base` files that hold `contents`, by absolute path. */
+  function withFiles(contents: Record<string, string>) {
+    fakeBackend();
+    const fallback = invokeMock.getMockImplementation()!;
+    invokeMock.mockImplementation(async (command, args) => {
+      const path = (args as { path?: string } | undefined)?.path;
+      if (command !== "read_text_file" || !path?.endsWith(".base")) return fallback(command, args);
+      if (!(path in contents)) throw `No such file: ${path}`;
+      return contents[path];
+    });
+    return contents;
+  }
+
+  const alert = (el: HTMLElement) => el.querySelector('[role="alert"]')?.textContent?.trim();
+
+  it("shows the first view of the file, with the embedding note as `this`", async () => {
+    withFiles({ "/vault/bases/Books.base": "books" });
+    const view = render("![[Books.base]]\n", "/vault/dir/Home.md", FILES);
+    await view.settle();
+
+    expect(view.blocks()[0]!.querySelector("tbody")!.textContent).toContain("Dune");
+    expect(view.el.querySelector("app-base-cell")).toBeNull();
+    expect(queries().at(-1)).toMatchObject({
+      source: "books",
+      view: 0,
+      thisFile: "dir/Home.md",
+    });
+  });
+
+  it.each(["Books.base#Other", "bases/books.base#other"])(
+    "shows the named view of `![[%s]]` and switches to others",
+    async (target) => {
+      withFiles({ "/vault/bases/Books.base": "books" });
+      const view = render(`![[${target}]]\n`, "/vault/dir/Home.md", FILES);
+      await view.settle();
+
+      expect(queries().map((q) => q.view)).toEqual([1]);
+
+      view.blocks()[0]!.querySelector<HTMLElement>("header button")!.click();
+      await view.settle();
+      expect(queries().at(-1)!.view).toBe(0);
+    },
+  );
+
+  it("binds `this` of an embed in an embedded note to that note", async () => {
+    withFiles({ "/vault/bases/Books.base": "books" });
+    const fallback = invokeMock.getMockImplementation()!;
+    invokeMock.mockImplementation(async (command, args) =>
+      command === "read_text_file" && (args as { path: string }).path.endsWith(".md")
+        ? "![[Books.base]]\n"
+        : fallback(command, args),
+    );
+    const view = render("![[Embedded]]\n", "/vault/dir/Home.md", FILES);
+    await view.settle();
+
+    expect(queries().at(-1)).toMatchObject({ source: "books", thisFile: "sub/Embedded.md" });
+  });
+
+  it.each([
+    ["Missing.base", ["dir/Home.md", "bases/Books.base"]],
+    ["Books.base", ["dir/Home.md", "a/Books.base", "b/Books.base"]],
+  ])("says that `![[%s]]` names no single file", async (target, files) => {
+    withFiles({});
+    const view = render(`![[${target}]]\n\ntext\n`, "/vault/dir/Home.md", files);
+    await view.settle();
+
+    expect(alert(view.blocks()[0]!)).toBe(`Base not found: ${target}`);
+    expect(view.el.textContent).toContain("text");
+    expect(queries()).toEqual([]);
+  });
+
+  it("says that a view is not in the file, and shows it once it is", async () => {
+    withFiles({ "/vault/bases/Books.base": "books" });
+    const view = render("![[Books.base#Later]]\n", "/vault/dir/Home.md", FILES);
+    await view.settle();
+
+    expect(alert(view.blocks()[0]!)).toBe("View not found: Later in bases/Books.base");
+    expect(queries()).toEqual([]);
+
+    const fallback = invokeMock.getMockImplementation()!;
+    invokeMock.mockImplementation(async (command, args) =>
+      command === "base_views"
+        ? [...VIEWS, { name: "Later", type: "table" }]
+        : fallback(command, args),
+    );
+    view.index.revision.set(1);
+    await view.settle();
+
+    expect(alert(view.el)).toBeUndefined();
+    expect(queries().at(-1)!.view).toBe(2);
+  });
+
+  it("follows changes of the `.base` file", async () => {
+    const contents = withFiles({ "/vault/bases/Books.base": "before" });
+    const view = render("![[Books.base]]\n", "/vault/dir/Home.md", FILES);
+    await view.settle();
+
+    contents["/vault/bases/Books.base"] = "after";
+    view.index.revision.set(1);
+    await view.settle();
+
+    expect(queries().at(-1)!.source).toBe("after");
+  });
+
+  it("follows a `.base` file that appears and goes", async () => {
+    withFiles({ "/vault/bases/Books.base": "books" });
+    const view = render("![[Books.base]]\n", "/vault/dir/Home.md", ["dir/Home.md"]);
+    await view.settle();
+    expect(alert(view.el)).toBe("Base not found: Books.base");
+
+    view.vaultFiles.set(FILES);
+    await view.settle();
+    expect(view.el.querySelector("tbody")!.textContent).toContain("Dune");
+
+    view.vaultFiles.set(["dir/Home.md"]);
+    await view.settle();
+    expect(alert(view.el)).toBe("Base not found: Books.base");
+    expect(view.el.querySelector("table")).toBeNull();
+    expect(view.el.querySelector("header button")).toBeNull();
+  });
+
+  it("shows the error of a file that cannot be read", async () => {
+    withFiles({});
+    const view = render("![[Books.base]]\n", "/vault/dir/Home.md", FILES);
+    await view.settle();
+
+    expect(alert(view.el)).toContain("No such file");
   });
 });
