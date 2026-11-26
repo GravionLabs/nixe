@@ -80,21 +80,26 @@ function entry(key: string, value: unknown): string {
   return stringify({ [key]: value }, { lineWidth: 0 }).replace(/\n$/, "");
 }
 
-/** The entry that replaces `old`: a quoted text stays quoted, a `[a, b]` list stays one line. */
-function replacement(key: string, value: unknown, old: unknown, yamlText: string): string {
+/**
+ * The entry that replaces `old`: the key keeps its text as written (`2024:` stays a number, a
+ * quoted key keeps its quotes), a quoted text stays quoted, a `[a, b]` list stays one line.
+ */
+function replacement(keySource: string, value: unknown, old: unknown, yamlText: string): string {
+  // Written with a plain placeholder key, which is then swapped for the key as it stands.
+  const keyed = (written: string): string => `${keySource}${written.slice(1)}`;
   const quoted =
     typeof value === "string" &&
     isScalar(old) &&
     (old.type === "QUOTE_DOUBLE" || old.type === "QUOTE_SINGLE");
   const flow = Array.isArray(value) && isSeq(old) && old.flow === true;
-  if (!quoted && !flow) return entry(key, value);
+  if (!quoted && !flow) return keyed(entry("k", value));
   const doc = new Document({});
   const node = doc.createNode(value, { flow });
   if (quoted && isScalar(node)) node.type = (old as { type: "QUOTE_DOUBLE" | "QUOTE_SINGLE" }).type;
-  doc.set(key, node);
+  doc.set("k", node);
   const range = (old as { range: [number, number, number] }).range;
   const flowCollectionPadding = /^\[\s/.test(yamlText.slice(range[0], range[1]));
-  return doc.toString({ lineWidth: 0, flowCollectionPadding }).replace(/\n$/, "");
+  return keyed(doc.toString({ lineWidth: 0, flowCollectionPadding }).replace(/\n$/, ""));
 }
 
 /** A `[a, b]` list is written again as a whole, which would drop comments between its items. */
@@ -127,24 +132,49 @@ function guardCommentAbove(
  * what it held in `before`: an edit that cannot be written like that is not written at all.
  */
 function verified(before: string, next: string, key: string, value: unknown): string {
-  const read = (text: string): Record<string, unknown> => {
+  const parse = (text: string) => {
     const block = locate(text)!;
     const doc = parseDocument(text.slice(block.start, block.end));
     if (doc.errors.length) throw new Error(doc.errors[0].message);
-    return (doc.toJS() ?? {}) as Record<string, unknown>;
+    return doc;
   };
-  const expected = { ...read(before), [key]: value };
+  const read = (doc: ReturnType<typeof parseDocument>): Record<string, unknown> =>
+    (doc.toJS() ?? {}) as Record<string, unknown>;
+  const beforeDoc = parse(before);
+  const expected = { ...read(beforeDoc), [key]: value };
   let actual: Record<string, unknown> | null = null;
+  let nextDoc: ReturnType<typeof parseDocument> | null = null;
   try {
-    actual = read(next);
+    nextDoc = parse(next);
+    actual = read(nextDoc);
   } catch {
     // Reported below.
   }
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   const keys = new Set([...Object.keys(expected), ...Object.keys(actual ?? {})]);
-  if (!actual || [...keys].some((k) => !same(actual[k], expected[k])))
+  if (
+    !actual ||
+    // `2024` and `"2024"` are two keys that read as one: a new one of them hides the other.
+    duplicateKeys(nextDoc!) > duplicateKeys(beforeDoc) ||
+    [...keys].some((k) => !same(actual[k], expected[k]))
+  )
     throw new Error(`"${key}" cannot be changed here without damaging the frontmatter.`);
   return next;
+}
+
+/** How many keys of the root mapping name a property that an earlier key already names. */
+function duplicateKeys(doc: ReturnType<typeof parseDocument>): number {
+  const root = doc.contents;
+  if (!isMap(root)) return 0;
+  const seen = new Set<string>();
+  let duplicates = 0;
+  for (const pair of root.items) {
+    const key = keyOf(pair);
+    if (key === null) continue;
+    if (seen.has(key)) duplicates++;
+    seen.add(key);
+  }
+  return duplicates;
 }
 
 /**
@@ -255,7 +285,8 @@ export function editFrontmatter(text: string, edit: PropertyEdit): string {
       );
       if (list) return splice(keyRange[0], list.end, list.text);
     }
-    const written = lines(replacement(edit.key, edit.value, pair.value, yamlText));
+    const keySource = yamlText.slice(keyRange[0], keyRange[1]);
+    const written = lines(replacement(keySource, edit.value, pair.value, yamlText));
     if (!valueRange || valueRange[1] === valueRange[0]) {
       // `key:` without a value: replace through the colon and keep what follows (a comment).
       const end = yamlText.indexOf(":", keyRange[1]) + 1;
@@ -353,6 +384,8 @@ function moveBlock(
   return text.slice(0, block.start) + swapped + text.slice(block.end);
 }
 
+const keyName = (edit: PropertyEdit): string => (edit.kind === "rename" ? edit.from : edit.key);
+
 /** A flow mapping (`{a: 1}`) has no lines of its own: the document is written again. */
 function flowFallback(
   text: string,
@@ -361,28 +394,35 @@ function flowFallback(
   edit: PropertyEdit,
   eol: string,
 ): string {
+  const map = doc.contents;
+  // The pair is found by the key as a property names it: `2024` and `true` are no text keys.
+  const at = isMap(map) ? map.items.findIndex((p) => keyOf(p) === keyName(edit)) : -1;
   switch (edit.kind) {
     case "set":
-      doc.set(edit.key, edit.value);
+      if (at < 0 || !isMap(map)) doc.set(edit.key, edit.value);
+      else {
+        const pair = map.items[at]!;
+        // A scalar keeps its node, and with it its quotes and comment (as `doc.set` does).
+        if (isScalar(pair.value) && (edit.value === null || typeof edit.value !== "object"))
+          pair.value.value = edit.value;
+        else pair.value = doc.createNode(edit.value);
+      }
       break;
     case "remove":
-      doc.delete(edit.key);
+      if (at < 0 || !isMap(map)) return text;
+      map.items.splice(at, 1);
       break;
     case "move": {
-      const map = doc.contents;
       if (!isMap(map)) return text;
-      const i = map.items.findIndex((p) => keyOf(p) === edit.key);
-      const j = i + edit.direction;
-      if (i < 0 || j < 0 || j >= map.items.length) return text;
-      [map.items[i], map.items[j]] = [map.items[j], map.items[i]];
+      const j = at + edit.direction;
+      if (at < 0 || j < 0 || j >= map.items.length) return text;
+      [map.items[at], map.items[j]] = [map.items[j], map.items[at]];
       break;
     }
     case "rename": {
-      const map = doc.contents;
-      if (!isMap(map)) return text;
-      const pair = map.items.find((p) => keyOf(p) === edit.from);
-      if (!pair) return text;
-      if (edit.to !== edit.from && map.has(edit.to))
+      if (at < 0 || !isMap(map)) return text;
+      const pair = map.items[at]!;
+      if (edit.to !== edit.from && map.items.some((p) => keyOf(p) === edit.to))
         throw new Error(`The property "${edit.to}" already exists.`);
       pair.key = doc.createNode(edit.to);
       break;
