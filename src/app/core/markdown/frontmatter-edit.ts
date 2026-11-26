@@ -399,8 +399,14 @@ function flowFallback(
   const at = isMap(map) ? map.items.findIndex((p) => keyOf(p) === keyName(edit)) : -1;
   switch (edit.kind) {
     case "set":
-      if (at >= 0 && isMap(map)) map.items[at]!.value = doc.createNode(edit.value);
-      else doc.set(edit.key, edit.value);
+      if (at < 0 || !isMap(map)) doc.set(edit.key, edit.value);
+      else {
+        const pair = map.items[at]!;
+        // A scalar keeps its node, and with it its quotes and comment (as `doc.set` does).
+        if (isScalar(pair.value) && (edit.value === null || typeof edit.value !== "object"))
+          pair.value.value = edit.value;
+        else pair.value = doc.createNode(edit.value);
+      }
       break;
     case "remove":
       if (at < 0 || !isMap(map)) return text;

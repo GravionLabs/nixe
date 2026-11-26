@@ -302,6 +302,13 @@ describe("editFrontmatter numeric and boolean keys", () => {
     expect(set(text, key, "z")).toBe(out);
   });
 
+  it("keeps the quotes and the comment of a value in a one-line mapping", () => {
+    expect(set("---\n{a: 'x', 2024: 1, # c\n b: 2}\n---\n", "2024", 5)).toBe(
+      "---\n{\n  a: 'x',\n  2024: 5, # c\n  b: 2\n}\n---\n",
+    );
+    expect(set("---\n{a: 'x', b: 2}\n---\n", "a", "y")).toBe("---\n{ a: 'y', b: 2 }\n---\n");
+  });
+
   it("renames, removes and moves the numeric key of a one-line mapping", () => {
     const text = "---\n{2024: a, b: 1}\n---\n";
     expect(editFrontmatter(text, { kind: "rename", from: "2024", to: "y" })).toBe(
