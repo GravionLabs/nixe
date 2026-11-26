@@ -15,6 +15,8 @@ mod formula;
 mod functions;
 mod parse;
 
+use std::borrow::Cow;
+
 use rusqlite::Connection;
 use serde::Serialize;
 use serde_json::Value;
@@ -395,12 +397,27 @@ struct Match<'a> {
     group: usize,
 }
 
+/// The file at `path` as `this` sees it: the note of the index, else the file (the base itself),
+/// else its path alone (a file that is not indexed yet).
+fn this_file<'a>(
+    conn: &Connection,
+    notes: &'a [NoteFile],
+    path: &str,
+) -> Result<Cow<'a, NoteFile>, String> {
+    Ok(match notes.iter().find(|n| n.path == path) {
+        Some(note) => Cow::Borrowed(note),
+        None => Cow::Owned(read::base_file(conn, path).map_err(|e| e.to_string())?),
+    })
+}
+
 /// Answers the view at index `view` of `views` (default: the first table view) of the base `source`
 /// from the index. `clicked` is a sort chosen in the tab: it comes before the sort of the view.
 /// An error in the filters of the base or of the view, also one a note causes, is an error of the
 /// query: no row is ever hidden or shown by a filter that could not be applied. An error in the
 /// formula of a column shows in its cell. `now` is the current time of `now()`, `today()` and
-/// `relative()`, in milliseconds since the Unix epoch: one for the whole table.
+/// `relative()`, in milliseconds since the Unix epoch: one for the whole table. `this` is the
+/// vault-relative path of the file `this` stands for: the note that embeds the base, else the
+/// base file.
 ///
 /// The rows of groups that `groupOrder` hides are dropped, the others are sorted (equal ones stay
 /// sorted by path), `limit` keeps the first of them and these are put into their groups.
@@ -409,6 +426,7 @@ pub fn query(
     source: &str,
     view: Option<usize>,
     clicked: Option<&SortKey>,
+    this: Option<&str>,
     now: i64,
 ) -> Result<BaseResult, String> {
     let base = parse::parse(source)?;
@@ -480,12 +498,16 @@ pub fn query(
 
     let index = read::base_notes(conn).map_err(|e| e.to_string())?;
     let resolver = Resolver::new(&index.files);
+    let this = this
+        .map(|path| this_file(conn, &index.notes, path))
+        .transpose()?;
+    let this = this.as_deref();
     let mut matches: Vec<Match> = Vec::new();
     let mut key_room = MAX_FORMULA_KEYS;
     // A sort by a click has its own, so it takes nothing from the keys of the view.
     let mut click_room = MAX_FORMULA_KEYS;
     'notes: for note in &index.notes {
-        let context = Context::new(note, &resolver, &formulas, now);
+        let context = Context::new(note, &resolver, &formulas, now).with_this(this);
         for (place, filter) in filters.iter().flatten() {
             let matches = context.matches(filter).map_err(|e| {
                 format!(
@@ -562,7 +584,7 @@ pub fn query(
     let rows = matches
         .into_iter()
         .map(|m| {
-            let context = Context::new(m.note, &resolver, &formulas, now);
+            let context = Context::new(m.note, &resolver, &formulas, now).with_this(this);
             let cells = sources
                 .iter()
                 .map(|s| cell(&context, s, &mut room))

@@ -50,6 +50,7 @@ function stand(over: Record<string, unknown> = {}, component: any = ViewerCompon
     notify: { emit: vi.fn() },
     failed: { emit: vi.fn() },
     tabs: { openEpub: vi.fn(async () => undefined), openPreview: vi.fn(), openInNewTab: vi.fn() },
+    bases: { holds: () => false },
     doc: { path: () => "/v/note.md", wikiRoot: () => "/v" },
     session: { path: "/v/note.md" },
     workspaces: { resolveLink: vi.fn(async () => undefined) },

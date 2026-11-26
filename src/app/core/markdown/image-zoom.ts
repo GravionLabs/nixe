@@ -49,7 +49,8 @@ export function imageNaturalSize(img: {
  */
 export function decorateImages(root: HTMLElement): void {
   for (const img of Array.from(root.querySelectorAll<HTMLImageElement>("img"))) {
-    if (img.closest(".mermaid-diagram")) continue;
+    // A cover of a base is part of its card, which a click opens.
+    if (img.closest(".mermaid-diagram, .base-block")) continue;
     if (img.closest("a")) {
       img.removeAttribute("data-zoomable");
       continue;

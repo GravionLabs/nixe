@@ -1,5 +1,7 @@
 <header>
-  <span>{{ name() }}</span>
+  @if (!block) {
+    <span>{{ name() }}</span>
+  }
   @if (viewOptions().length) {
     <hx-select-button
       class="views"

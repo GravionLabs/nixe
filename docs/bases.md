@@ -2,13 +2,45 @@
 
 A `.base` file shows the notes of the vault as a table or as [cards](#cards). The format is the one of
 [Obsidian Bases](https://obsidian.md/help/bases/syntax); Nixe supports a first part of it and never
-writes a `.base` file. The table [edits](#editing-cells) the properties of the notes.
+writes a `.base` file. The table [edits](#editing-cells) the properties of the notes. A note can
+[show a base](#bases-in-notes) of its own.
 
 ## Opening a base
 
 The file tree lists `.base` files, also in folders that contain nothing else that is listed. A click
 (in the tree or on a bookmark) opens the base in a tab of its own; a second click focuses that tab. The tab is not restored with the
 layout. [Vault health](cli.md) does not count a base as an unused attachment.
+
+## Bases in notes
+
+A fenced `base` block holds the text of a `.base` file; the reading view shows the base in its place:
+
+````markdown
+```base
+filters: file.hasLink(this.file)
+views:
+  - type: table
+    name: Mentions
+    order: [file.name, file.mtime]
+  - type: cards
+    name: Cards
+```
+````
+
+- Views, filters, formulas, sorting, grouping and the [view switcher](#views) work as in the tab of a
+  base file. The chosen view and a clicked sort stay while the note is shown; editing the block or
+  opening another note drops them.
+- [`this`](#this) is the note that holds the block. A block in an embedded note (`![[Note]]`)
+  belongs to that note.
+- The block follows changes in the vault. `this` reads the saved note from the index, so unsaved
+  changes of its properties and links count after a save.
+- The values are read-only: [cells are edited](#editing-cells) in the tab of a `.base` file.
+- Invalid content shows its [error](#errors) in place of the block; the rest of the note is shown.
+- A block of a note outside the open vault, or of an unsaved new note, says that it is not supported.
+- [Export, print](export.md), the published [site](export.md) and the link preview show a note that
+  the base is shown in the reading view. The editor with live preview and the rich diff show the
+  block as code.
+- `![[Name.base]]` embeds are not supported yet.
 
 ## What is shown
 
@@ -274,6 +306,32 @@ An entry is a text. Quote an expression that YAML would read as something else: 
 - Operators, tightest first: `!` and unary `-`; `*` `/` `%`; `+` `-`; `<` `<=` `>` `>=`;
   `==` `!=`; `&&`; `||`. Parentheses group.
 
+### This
+
+`this` is the file the base is shown in: the base file in its own tab, the embedding note for a
+[block in a note](#bases-in-notes).
+
+| Expression | Value |
+| --- | --- |
+| `this`, `this.file` | A [link](#links) to the file |
+| `this.file.name`, `this.file.folder`, … | A [file field](#file-fields) of it |
+| `this.file.hasTag(…)`, `this.file.hasLink(…)`, … | A [file function](#file-functions) of it |
+| `this.status`, `this.note.status`, `this["status"]` | Its property `status`; a base file has none |
+
+```yaml
+filters:
+  or:
+    - file.hasLink(this.file)
+    - author == this
+    - editors.contains(this)
+    - file.folder == this.file.folder
+```
+
+Compared with `this` (`==`, `!=` and the `contains` functions of a list), a property that is a
+wikilink (`"[[Ann]]"`) counts as the file it names; `contains(this)` also takes a property that is a
+single text instead of a list. `this` can be used in filters and formulas, not
+as an entry of `order`, `sort` or `groupBy`; put it into a [formula](#formulas) for that.
+
 ### File fields
 
 | Field | Value |
@@ -447,7 +505,7 @@ silently sorted or cut wrongly:
 - `summaries` of the base and of the view
 - columns of unknown `file.` fields, and a `sort`, `groupBy` or `image` by one
 
-In filters and formulas, `this`, other functions (the list functions `filter`, `map` and `reduce`,
+In filters and formulas, other functions (the list functions `filter`, `map` and `reduce`,
 `html`, `image`, `icon`, `random`, object functions), regular expressions and other fields of values
 are not supported: they are [errors](#errors).
 
@@ -473,8 +531,11 @@ An error in the formula of a column stays in its cell; the other cells and rows 
 
 ## How it works
 
-The frontend reads the file and passes its text to the commands `base_views` and `base_query`
-([Tauri commands](backend/tauri-commands.md)). The Rust core (`src-tauri/src/bases/`) parses the YAML
+The frontend reads the file, or takes the text of the block, and passes it to the commands
+`base_views` and `base_query` ([Tauri commands](backend/tauri-commands.md)), with the path of the
+file `this` stands for. The Markdown renderer turns a `base` fence into a placeholder
+(`core/markdown/plugins/base-fence.plugin.ts`); the reading view puts a base component in its place
+(`features/bases/base-blocks.ts`) and destroys it before the note is rendered again. The Rust core (`src-tauri/src/bases/`) parses the YAML
 and answers the view from the [vault index](architecture.md), sorted, grouped and limited, with the
 cover of each card resolved; the frontend only renders the result. Only the answer of the newest query is shown.
 

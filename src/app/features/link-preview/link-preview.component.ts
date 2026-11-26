@@ -71,6 +71,7 @@ export class LinkPreviewComponent {
             math: this.settings.math(),
             vaultFiles: this.workspace.vaultFiles(),
             vaultRoot: this.workspace.vaultRoot(),
+            bases: true,
           })
           .catch(() => undefined)
           .then(() => this.mermaid.render(el, this.settings.dark()))

@@ -779,10 +779,15 @@ export const backend = {
   /**
    * The table of a view (null: the first table view) of the `.base` file with the text `source`,
    * answered from the index; rejects with a message for invalid YAML or another view type.
-   * `view` is an index into `baseViews`; `sort` comes before the sort of the view.
+   * `view` is an index into `baseViews`; `sort` comes before the sort of the view. `thisFile` is
+   * the vault-relative file `this` refers to in expressions.
    */
-  baseQuery: (source: string, view: number | null = null, sort: BaseSort | null = null) =>
-    invoke<BaseResult>("base_query", { source, view, sort }),
+  baseQuery: (
+    source: string,
+    view: number | null = null,
+    sort: BaseSort | null = null,
+    thisFile: string | null = null,
+  ) => invoke<BaseResult>("base_query", { source, view, sort, thisFile }),
   /** Health report of the indexed vault; `exclude` lists vault-relative folders to leave out. */
   vaultHealth: (exclude: string[]) => invoke<HealthReport>("vault_health", { exclude }),
   /** Requests the address of every link note (network); `force` ignores results of the last 7 days. */

@@ -19,6 +19,7 @@ fn query_now(conn: &Connection, source: &str, view: Option<&str>) -> Result<Base
         source,
         view,
         None,
+        None,
         chrono::Utc::now().timestamp_millis(),
     )
 }
@@ -1023,7 +1024,7 @@ fn at_clock(conn: &Connection, expression: &str) -> BaseCell {
         "formulas": { "x": expression },
         "views": [{ "type": "table", "order": ["formula.x"] }],
     });
-    let result = query(conn, &source.to_string(), None, None, clock()).unwrap();
+    let result = query(conn, &source.to_string(), None, None, None, clock()).unwrap();
     let row = result.rows.into_iter().find(|r| r.path == "Done.md");
     row.unwrap().cells.into_iter().next().unwrap()
 }
@@ -1186,7 +1187,7 @@ fn date_arithmetic() {
 fn dates_compare_in_filters() {
     let (_dir, conn) = calendar();
     let matching = |filter: &str| -> Vec<String> {
-        let result = query(&conn, &filtered(filter), None, None, clock()).unwrap();
+        let result = query(&conn, &filtered(filter), None, None, None, clock()).unwrap();
         result.rows.into_iter().map(|r| r.path).collect()
     };
     let cases: [(&str, &[&str]); 11] = [
@@ -1599,7 +1600,7 @@ fn a_clicked_sort_comes_before_the_sort_of_the_view() {
         let key: SortKey =
             serde_json::from_value(json!({ "property": property, "direction": direction }))
                 .unwrap();
-        let result = query(&conn, source, None, Some(&key), 0).unwrap();
+        let result = query(&conn, source, None, Some(&key), None, 0).unwrap();
         result.rows.into_iter().map(|r| r.path).collect()
     };
     assert_eq!(
@@ -1690,7 +1691,7 @@ fn a_clicked_sort_takes_no_room_from_the_keys_of_the_view() {
     let source = "formulas:\n  big: '\"x\".repeat(90000)'\nviews:\n  - type: table\n    sort: [{ property: formula.big }]\n";
     let clicked: SortKey = serde_json::from_value(json!({ "property": "formula.big" })).unwrap();
 
-    let result = query(&conn, source, None, Some(&clicked), 0).unwrap();
+    let result = query(&conn, source, None, Some(&clicked), None, 0).unwrap();
 
     assert_eq!(result.rows.len(), 70);
     // More than the room: the view's sort is an error, the clicked one is not.
@@ -1698,10 +1699,10 @@ fn a_clicked_sort_takes_no_room_from_the_keys_of_the_view() {
         fs::write(vault.join(format!("{i}.md")), "text\n").unwrap();
     }
     index::scan(&mut conn, &vault, |_| {}).unwrap();
-    let error = query(&conn, source, None, None, 0).unwrap_err();
+    let error = query(&conn, source, None, None, None, 0).unwrap_err();
     assert_eq!(error, "The values to sort and group by are too large.");
     let unsorted = source.replace("    sort: [{ property: formula.big }]\n", "");
-    let result = query(&conn, &unsorted, None, Some(&clicked), 0).unwrap();
+    let result = query(&conn, &unsorted, None, Some(&clicked), None, 0).unwrap();
     assert_eq!(result.rows.len(), 120);
 }
 
@@ -1885,7 +1886,7 @@ views:
     assert!(table.cards.is_none());
     assert!(table.rows.iter().all(|r| r.cover.is_none()));
 
-    let cards = query(&conn, source, Some(1), None, 0).unwrap();
+    let cards = query(&conn, source, Some(1), None, None, 0).unwrap();
     assert_eq!(cards.rows.len(), 1);
     assert_eq!(cards.rows[0].path, "notes/b.md");
     assert_eq!(cards.grouping.unwrap().groups[0].rows, 1);
@@ -1906,5 +1907,125 @@ fn the_cards_view_of_the_fixture_base_shows_an_image_of_the_vault() {
     assert_eq!(
         result.rows[0].cover,
         Some(BaseCover::Path("assets/image.svg".into()))
+    );
+}
+
+/// A vault with a note and a base that both are linked to, for `this`.
+fn this_vault() -> (TestDir, Connection) {
+    let dir = TestDir::new("nixe-bases-this-");
+    let vault = dir.join("vault");
+    fs::create_dir_all(vault.join("people")).unwrap();
+    fs::write(
+        vault.join("people/Ann.md"),
+        "---\nrole: author\nmin: 4\ntags: [person]\n---\n![[Shelf.base]]\n",
+    )
+    .unwrap();
+    fs::write(
+        vault.join("Dune.md"),
+        "---\nauthor: \"[[Ann]]\"\neditors: [\"[[Ann|A.]]\", Bo]\nrating: 5\n---\nBy [[Ann]].\n",
+    )
+    .unwrap();
+    fs::write(
+        vault.join("Emma.md"),
+        "---\nauthor: Ann\neditors: Ann\nrating: 3\n---\nNo link.\n",
+    )
+    .unwrap();
+    fs::write(vault.join("Shelf.base"), "views:\n  - type: table\n").unwrap();
+    let mut conn = index::open(&dir.join("index.sqlite")).unwrap();
+    index::scan(&mut conn, &vault, |_| {}).unwrap();
+    (dir, conn)
+}
+
+/// The notes `filter` keeps when `this` is the file at `this`.
+fn kept_for(conn: &Connection, this: Option<&str>, filter: &str) -> Vec<String> {
+    let source = format!(
+        "views:\n  - type: table\n    filters: '{}'\n",
+        filter.replace('\'', "''")
+    );
+    query(conn, &source, None, None, this, 0)
+        .unwrap()
+        .rows
+        .into_iter()
+        .map(|row| row.path)
+        .collect()
+}
+
+#[test]
+fn this_is_the_embedding_note() {
+    let (_dir, conn) = this_vault();
+    let ann = Some("people/Ann.md");
+    for (filter, wanted) in [
+        ("file.hasLink(this.file)", vec!["Dune.md"]),
+        ("file.hasLink(this)", vec!["Dune.md"]),
+        ("author == this", vec!["Dune.md"]),
+        (
+            "this != author",
+            vec!["Emma.md", "Shelf.base", "people/Ann.md"],
+        ),
+        ("editors.contains(this)", vec!["Dune.md"]),
+        ("editors.containsAny(this.file)", vec!["Dune.md"]),
+        ("file.name == this.file.name", vec!["people/Ann.md"]),
+        ("file.folder == this.file.folder", vec!["people/Ann.md"]),
+        ("rating >= this.min", vec!["Dune.md"]),
+        (
+            "rating >= this[\"min\"] && this.note.role == \"author\"",
+            vec!["Dune.md"],
+        ),
+        (
+            "this.file.hasTag(\"person\") && file.name == \"Emma.md\"",
+            vec!["Emma.md"],
+        ),
+        ("this.file.hasLink(file.name)", vec![]),
+    ] {
+        let mut kept = kept_for(&conn, ann, filter);
+        // The base file is no note, so it is never a row.
+        let wanted: Vec<&str> = wanted.into_iter().filter(|p| p.ends_with(".md")).collect();
+        kept.sort();
+        let mut wanted: Vec<String> = wanted.into_iter().map(String::from).collect();
+        wanted.sort();
+        assert_eq!(kept, wanted, "{filter}");
+    }
+}
+
+#[test]
+fn this_of_a_base_opened_directly_is_the_base_file() {
+    let (_dir, conn) = this_vault();
+    let source = r#"
+formulas:
+  me: this
+  where: this.file.path + " " + this.file.basename + " " + this.file.ext
+  back: this.file.backlinks
+  none: this.role
+views:
+  - type: table
+    filters: file.name == "Dune.md"
+    order: [formula.me, formula.where, formula.back, formula.none]
+"#;
+    let result = query(&conn, source, None, None, Some("Shelf.base"), 0).unwrap();
+    let cells = &result.rows[0].cells;
+    assert_eq!(
+        cells[0],
+        cell(
+            "link",
+            json!({"text": "Shelf", "path": "Shelf.base", "url": null})
+        )
+    );
+    assert_eq!(cells[1], cell("text", json!("Shelf.base Shelf base")));
+    assert_eq!(cells[2], cell("list", json!(["people/Ann.md"])));
+    assert_eq!(cells[3], BaseCell::default());
+}
+
+#[test]
+fn this_without_a_file_has_no_value_and_a_file_not_indexed_yet_has_its_path() {
+    let (_dir, conn) = this_vault();
+    assert!(kept_for(&conn, None, "file.hasLink(this.file)").is_empty());
+    assert!(kept_for(&conn, None, "this.file.name || this.min").is_empty());
+    assert_eq!(
+        kept_for(
+            &conn,
+            Some("new/Draft.md"),
+            "file.name == \"Dune.md\" && this.file.folder == \"new\" && !this.min"
+        ),
+        ["Dune.md"]
     );
 }

@@ -99,6 +99,7 @@ export class PaneComponent implements OnDestroy {
         math: this.settings.math(),
         vaultFiles: this.workspace.vaultFiles(),
         vaultRoot: this.workspace.vaultRoot(),
+        bases: true,
       }).body,
   );
 

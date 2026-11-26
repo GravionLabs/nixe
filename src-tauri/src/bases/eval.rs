@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use serde_json::Value as Json;
 
 use super::date::{Date, Duration};
-use super::expr::{Expr, Field, Function, Global, Op};
+use super::expr::{Expr, Field, Function, Global, Method, Op};
 use super::formula::Formulas;
 use super::functions;
 
@@ -103,6 +103,8 @@ pub struct Context<'a> {
     formulas: &'a Formulas,
     /// The current time, in milliseconds since the Unix epoch.
     now: i64,
+    /// The file of `this`; without one `this` has no value.
+    this: Option<&'a NoteFile>,
     /// The formulas evaluated on this note so far, by index.
     values: RefCell<HashMap<usize, Result<Value, String>>>,
     /// The size of those values.
@@ -129,9 +131,51 @@ impl<'a> Context<'a> {
             resolver,
             formulas,
             now,
+            this: None,
             values: RefCell::default(),
             kept: Cell::new(0),
         }
+    }
+
+    /// The same context with `this` as the file of `this`.
+    pub fn with_this(mut self, this: Option<&'a NoteFile>) -> Self {
+        self.this = this;
+        self
+    }
+
+    /// The context of the file of `this`, to read its properties and fields.
+    fn of_this(&self) -> Option<Context<'a>> {
+        self.this
+            .map(|this| Context::new(this, self.resolver, self.formulas, self.now))
+    }
+
+    /// The link to the file of `this`.
+    fn this_link(&self) -> Value {
+        self.this.map_or(Value::Null, |this| {
+            Value::Link(Link {
+                target: this.path.clone(),
+                display: Some(this.title.clone()),
+                path: Some(this.path.clone()),
+                url: false,
+            })
+        })
+    }
+
+    /// A text that is a wikilink (`[[Note]]`), also inside a list, as the link it names, so that a
+    /// property can be compared with `this`.
+    fn as_links(&self, value: Value) -> Result<Value, String> {
+        Ok(match value {
+            Value::Text(s) if s.trim().starts_with("[[") && s.trim().ends_with("]]") => {
+                functions::link(&[Value::Text(s)], self.resolver)?
+            }
+            Value::List(items) => Value::List(
+                items
+                    .into_iter()
+                    .map(|item| self.as_links(item))
+                    .collect::<Result<_, _>>()?,
+            ),
+            other => other,
+        })
     }
 
     pub fn matches(&self, filter: &Filter) -> Result<bool, FilterError> {
@@ -228,9 +272,11 @@ impl<'a> Context<'a> {
             }
             Expr::Global(Global::Link, args) => functions::link(&all(args)?, self.resolver)?,
             Expr::Global(function, args) => functions::global(*function, all(args)?, self.now)?,
-            Expr::Method(receiver, method, args) => {
-                functions::method(self.eval(receiver)?, *method, &all(args)?, self.now)?
-            }
+            Expr::Method(..)
+            | Expr::This
+            | Expr::ThisProperty(_)
+            | Expr::ThisFile(_)
+            | Expr::ThisCall(..) => self.eval_other(expr)?,
             Expr::Length(inner) => functions::length(&self.eval(inner)?)?,
             Expr::Part(inner, part) => functions::part(&self.eval(inner)?, *part)?,
             Expr::Not(inner) => Value::Bool(!self.eval(inner)?.is_true()),
@@ -238,15 +284,75 @@ impl<'a> Context<'a> {
                 Value::Number(n) => Value::Number(-n),
                 _ => Value::Null,
             },
-            Expr::Binary(op, left, right) => {
-                let left = self.eval(left)?;
+            Expr::Binary(op, expr_left, expr_right) => {
+                let left = self.eval(expr_left)?;
                 match op {
-                    Op::And => Value::Bool(left.is_true() && self.eval(right)?.is_true()),
-                    Op::Or => Value::Bool(left.is_true() || self.eval(right)?.is_true()),
-                    _ => functions::bounded(binary(*op, &left, &self.eval(right)?))?,
+                    Op::And => Value::Bool(left.is_true() && self.eval(expr_right)?.is_true()),
+                    Op::Or => Value::Bool(left.is_true() || self.eval(expr_right)?.is_true()),
+                    _ => self.operate(*op, (expr_left, left), expr_right)?,
                 }
             }
         })
+    }
+
+    /// The value of a method or of an expression that reads `this`. Out of line, like `operate`:
+    /// `eval` recurses deeply and needs a small stack frame.
+    #[inline(never)]
+    fn eval_other(&self, expr: &Expr) -> Result<Value, String> {
+        let all = |exprs: &[Expr]| -> Result<Vec<Value>, String> {
+            exprs.iter().map(|e| self.eval(e)).collect()
+        };
+        Ok(match expr {
+            Expr::Method(receiver, method, args) => {
+                let mut value = self.eval(receiver)?;
+                // A list is searched for `this` with its wikilinks as links; a single text, as
+                // a property with one entry is often written, is a list of itself.
+                let searches = matches!(
+                    method,
+                    Method::Contains | Method::ContainsAll | Method::ContainsAny
+                );
+                if searches && args.contains(&Expr::This) {
+                    if let Value::Text(_) = value {
+                        value = Value::List(vec![value]);
+                    }
+                    value = self.as_links(value)?;
+                }
+                functions::method(value, *method, &all(args)?, self.now)?
+            }
+            Expr::This => self.this_link(),
+            Expr::ThisProperty(name) => self
+                .of_this()
+                .and_then(|this| this.property(name).map(property_value))
+                .unwrap_or(Value::Null),
+            Expr::ThisFile(field) => self.of_this().map_or(Value::Null, |c| c.field(*field)),
+            Expr::ThisCall(function, args) => {
+                let args = all(args)?;
+                self.of_this()
+                    .map_or(Value::Null, |c| Value::Bool(c.call(*function, &args)))
+            }
+            _ => Value::Null,
+        })
+    }
+
+    /// Every operator but `&&` and `||`, on the value of the left side. What `==` and `!=`
+    /// compare with `this` is read as a link.
+    #[inline(never)]
+    fn operate(
+        &self,
+        op: Op,
+        (left_expr, mut left): (&Expr, Value),
+        right_expr: &Expr,
+    ) -> Result<Value, String> {
+        let mut right = self.eval(right_expr)?;
+        if matches!(op, Op::Eq | Op::Ne) {
+            if *right_expr == Expr::This {
+                left = self.as_links(left)?;
+            }
+            if *left_expr == Expr::This {
+                right = self.as_links(right)?;
+            }
+        }
+        functions::bounded(binary(op, &left, &right))
     }
 
     /// The property `name`; the exact key wins over one that differs in case only.
@@ -309,19 +415,33 @@ impl<'a> Context<'a> {
 
     fn call(&self, function: Function, args: &[Value]) -> bool {
         // The parser checked the number of arguments; a list counts as its items.
-        let mut texts = Vec::new();
-        for arg in args {
-            match arg {
-                Value::List(items) => texts.extend(items.iter().filter_map(name_of)),
-                other => texts.extend(name_of(other)),
-            }
-        }
-        texts.iter().any(|arg| match function {
-            Function::HasTag => self.has_tag(arg),
-            Function::InFolder => self.in_folder(arg),
-            Function::HasLink => self.has_link(arg),
-            Function::HasProperty => self.property(arg).is_some(),
+        let mut values = args.iter().flat_map(|arg| match arg {
+            Value::List(items) => items.as_slice(),
+            other => std::slice::from_ref(other),
+        });
+        values.any(|value| match (function, value) {
+            // The file of a link is known: its name is not resolved again.
+            (
+                Function::HasLink,
+                Value::Link(Link {
+                    path: Some(path), ..
+                }),
+            ) => self.links_to(path),
+            _ => name_of(value).is_some_and(|arg| match function {
+                Function::HasTag => self.has_tag(&arg),
+                Function::InFolder => self.in_folder(&arg),
+                Function::HasLink => self.has_link(&arg),
+                Function::HasProperty => self.property(&arg).is_some(),
+            }),
         })
+    }
+
+    /// A link or embed to the file at `path`.
+    fn links_to(&self, path: &str) -> bool {
+        self.note
+            .links
+            .iter()
+            .any(|l| !l.target.is_empty() && l.resolved.as_deref() == Some(path))
     }
 
     /// The tag itself or one nested below it, ignoring case and a leading `#`.
@@ -359,11 +479,7 @@ impl<'a> Context<'a> {
             return false;
         }
         match self.resolver.resolve(target) {
-            Some(path) => self
-                .note
-                .links
-                .iter()
-                .any(|l| !l.target.is_empty() && l.resolved.as_deref() == Some(path.as_str())),
+            Some(path) => self.links_to(&path),
             None => {
                 let name = name.to_lowercase();
                 self.note

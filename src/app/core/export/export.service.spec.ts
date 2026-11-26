@@ -76,6 +76,17 @@ describe("ExportService", () => {
     expect(html).not.toMatch(/<script|<link|hidden embed comment/u);
   });
 
+  it("shows a placeholder for a base block, also in an embedded note", async () => {
+    NOTES["/v/Part.md"] = "```base\nviews: [] # embedded source\n```\n";
+    try {
+      const html = await build("```base\nviews: [] # own source\n```\n\n![[Part]]\n");
+      expect(html.match(/<p class="base-placeholder">/gu)).toHaveLength(2);
+      expect(html).not.toMatch(/own source|embedded source|data-base=/u);
+    } finally {
+      NOTES["/v/Part.md"] = "Embedded %%hidden embed comment%% text\n";
+    }
+  });
+
   it("leaves comments out", async () => {
     const html = await build("A %%inline secret%% B\n\n%%\nblock secret\n%%\n");
     expect(html).toContain("A");

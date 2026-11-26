@@ -295,6 +295,35 @@ pub fn base_notes(conn: &Connection) -> rusqlite::Result<BaseNotes> {
     Ok(BaseNotes { notes, files })
 }
 
+/// A file that is no indexed note, like a `.base` file, with what the index knows of it: its
+/// data and the notes that link to or embed it. An unknown file has its path alone.
+pub fn base_file(conn: &Connection, path: &str) -> rusqlite::Result<NoteFile> {
+    let name = path.rsplit_once('/').map_or(path, |(_, name)| name);
+    let mut file = NoteFile {
+        path: path.to_string(),
+        title: name.rsplit_once('.').map_or(name, |(stem, _)| stem).into(),
+        ..NoteFile::default()
+    };
+    let data = conn
+        .query_row(
+            "SELECT size, ctime_ns, mtime_ns FROM files WHERE path = ?1",
+            params![path],
+            |r| Ok((r.get::<_, i64>(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()?;
+    if let Some((size, ctime_ns, mtime_ns)) = data {
+        (file.size, file.ctime_ns, file.mtime_ns) = (size as u64, ctime_ns, mtime_ns);
+    }
+    file.backlinks = conn
+        .prepare(
+            "SELECT DISTINCT n.path FROM links l JOIN notes n ON n.id = l.source_id
+             WHERE l.resolved = ?1 AND n.path <> ?1 ORDER BY n.path",
+        )?
+        .query_map(params![path], |r| r.get(0))?
+        .collect::<Result<_, _>>()?;
+    Ok(file)
+}
+
 /// Links whose resolved target is `path`, a note linking to itself excluded.
 pub fn backlinks(conn: &Connection, path: &str) -> rusqlite::Result<Vec<Backlink>> {
     let mut stmt = conn.prepare(

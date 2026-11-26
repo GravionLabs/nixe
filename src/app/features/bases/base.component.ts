@@ -1,5 +1,15 @@
 import { NgTemplateOutlet } from "@angular/common";
-import { Component, computed, effect, inject, signal, untracked } from "@angular/core";
+import {
+  Component,
+  DestroyRef,
+  InjectionToken,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from "@angular/core";
+import type { WritableSignal } from "@angular/core";
 import type { HxColumn, HxLazyLoadEvent } from "@gravionlabs/helix-ui";
 import { HxDataTable, HxSelectButton, HxTableBody } from "@gravionlabs/helix-ui";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -80,22 +90,44 @@ interface ViewRow {
   cover: BaseCover | null;
 }
 
-/** The tab of a `.base` file: the core reads the file's view from the index. */
+/** A base written in a ```base block of a note. */
+export interface BaseBlock {
+  /** The YAML of the base. */
+  source: string;
+  /** The note that embeds the base, as an absolute path: `this` in its expressions. */
+  note: string | null;
+  /** The view and sort chosen in the block. */
+  choice: WritableSignal<BaseChoice>;
+}
+
+/** Provided to a `BaseComponent` that shows a block of a note instead of the file of its tab. */
+export const BASE_BLOCK = new InjectionToken<BaseBlock>("BASE_BLOCK");
+
+/**
+ * A base: the tab of a `.base` file, or a ```base block of a note. The core answers its view from
+ * the index.
+ */
 @Component({
   selector: "app-base",
   imports: [BaseCellComponent, HxDataTable, HxSelectButton, HxTableBody, NgTemplateOutlet],
   templateUrl: "./base.component.html",
   styleUrl: "./base.component.css",
+  host: { "[class.embedded]": "!!block" },
 })
 export class BaseComponent {
-  private readonly tab = inject(CURRENT_TAB);
+  /** Null in the tab of a `.base` file. */
+  protected readonly block = inject(BASE_BLOCK, { optional: true });
+  private readonly tab = this.block ? null : inject(CURRENT_TAB);
+  /** The file `this` refers to: the note of the block, else the base file. */
+  private readonly file = computed(() => (this.tab ? this.tab.base() : this.block!.note));
+  private readonly choice = this.tab ? this.tab.baseChoice : this.block!.choice;
   private readonly index = inject(IndexService);
   private readonly notes = inject(NoteEditService);
   private readonly settings = inject(SettingsService);
   private readonly tabs = inject(TabsService);
   private readonly workspace = inject(WorkspaceService);
 
-  protected readonly name = computed(() => basename(this.tab.base() ?? ""));
+  protected readonly name = computed(() => (this.block ? "Base" : basename(this.file() ?? "")));
   /** The last answered table; null while loading and after a failure. */
   protected readonly result = signal<BaseResult | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -117,12 +149,12 @@ export class BaseComponent {
   );
   /** The column the tab is sorted by after a click on its header. */
   protected readonly sortField = computed(() => {
-    const sort = this.tab.baseChoice().sort;
+    const sort = this.choice().sort;
     const column = this.result()?.columns.findIndex((c) => c.id === sort?.property) ?? -1;
     return column < 0 ? null : `c${column}`;
   });
   protected readonly sortOrder = computed(() =>
-    this.tab.baseChoice().sort?.direction === "DESC" ? -1 : 1,
+    this.choice().sort?.direction === "DESC" ? -1 : 1,
   );
   /** The addresses of the cover images that could not be loaded in the shown result. */
   private readonly failed = signal<ReadonlySet<string>>(new Set());
@@ -144,7 +176,8 @@ export class BaseComponent {
         const shown = change ? cellOfValue(change.value) : cell;
         const view = viewCell(shown, column?.id === FILE_NAME ? row.path : null);
         if (!column || !property) return view;
-        const editor = cellEditor(property, shown, columnCells[i] ?? []);
+        // A block of a note shows the values; they are edited in the base tab or the note.
+        const editor = this.block ? null : cellEditor(property, shown, columnCells[i] ?? []);
         if (editor) {
           const label = `${column.label} of ${title}`;
           view.edit = { editor, property, label, value: shown.value };
@@ -179,8 +212,8 @@ export class BaseComponent {
    */
   private readonly key = computed(() =>
     [
-      this.tab.base(),
-      JSON.stringify(this.tab.baseChoice()),
+      this.file(),
+      JSON.stringify(this.choice()),
       this.workspace.vaultRoot(),
       this.index.status().state,
       this.index.revision(),
@@ -191,6 +224,8 @@ export class BaseComponent {
   private shown: string | null = null;
 
   constructor() {
+    // An answer that arrives after the component is gone is dropped.
+    inject(DestroyRef).onDestroy(() => this.request++);
     effect(() => {
       this.key();
       untracked(() => void this.refresh());
@@ -199,7 +234,7 @@ export class BaseComponent {
 
   private async refresh(): Promise<void> {
     const request = ++this.request;
-    const path = this.tab.base();
+    const path = this.file();
     // The table of another file is not shown while this one is read.
     if (path !== this.shown) {
       this.result.set(null);
@@ -209,10 +244,12 @@ export class BaseComponent {
       this.active.set(null);
       this.shown = path;
     }
-    if (path === null) return;
+    // A tab without a base has nothing to show; a block of an unsaved note is outside the vault.
+    if (path === null && !this.block) return;
     // Only the notes of the vault are indexed here: a base of another root would list the wrong ones.
     const root = this.workspace.vaultRoot();
-    if (root === null || !path.startsWith(`${root.replace(/\/$/, "")}/`)) {
+    const prefix = root === null ? null : `${root.replace(/\/$/, "")}/`;
+    if (path === null || prefix === null || !path.startsWith(prefix)) {
       this.result.set(null);
       this.error.set("Bases outside the open vault are not supported yet.");
       return;
@@ -224,22 +261,22 @@ export class BaseComponent {
       return;
     }
     try {
-      const source = await backend.readTextFile(path);
+      const source = this.block ? this.block.source : await backend.readTextFile(path);
       if (request !== this.request) return;
       const views = await backend.baseViews(source);
       if (request !== this.request) return;
-      let { view, sort } = this.tab.baseChoice();
+      let { view, sort } = this.choice();
       const index = shownView(views, view);
       // The chosen view is gone: its sort does not apply to the one shown instead.
       // Unnamed views can only be told apart by their place.
       const moved = view?.name === null && index !== view.index;
       if (view && (index === null || views[index]?.name !== view.name || moved)) {
-        this.tab.baseChoice.set({ view: null, sort: null });
+        this.choice.set({ view: null, sort: null });
         sort = null;
       }
       this.views.set(views);
       this.active.set(index);
-      const result = await backend.baseQuery(source, index, sort);
+      const result = await backend.baseQuery(source, index, sort, path.slice(prefix.length));
       if (request !== this.request) return;
       // An image that was missing may be there now.
       this.failed.set(new Set());
@@ -316,14 +353,14 @@ export class BaseComponent {
     this.result.set(null);
     this.error.set(null);
     this.active.set(index);
-    this.tab.baseChoice.set({ view: { index, name: view.name }, sort: null });
+    this.choice.set({ view: { index, name: view.name }, sort: null });
   }
 
   /** A click on a column header: ascending, descending, then the sort of the view again. */
   protected sortBy({ sortField, sortOrder }: HxLazyLoadEvent): void {
     const column = this.columns().findIndex((c) => c.field === sortField);
     const property = this.result()?.columns[column]?.id;
-    this.tab.baseChoice.update((choice) => ({
+    this.choice.update((choice) => ({
       ...choice,
       sort: property ? { property, direction: sortOrder === -1 ? "DESC" : "ASC" } : null,
     }));

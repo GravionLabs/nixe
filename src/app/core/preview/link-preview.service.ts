@@ -114,6 +114,7 @@ export class LinkPreviewService {
       math,
       vaultFiles: files,
       vaultRoot: root,
+      bases: true,
     };
     const html = this.markdown.render(part.text, ctx);
     this.cache.set(key, text, files, html);
