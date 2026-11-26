@@ -7,11 +7,11 @@ const css = readFileSync(resolve(__dirname, "settings.component.css"), "utf8");
 describe("settings layout", () => {
   it("lets the label take only what the control leaves (#457)", () => {
     // With the default flex basis a long description squeezed the access token column to 66 px.
-    expect(css).toMatch(/\.label\s*\{[^}]*flex: 1 1 0;[^}]*min-width: 0/);
+    expect(css).toMatch(/\.row\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/);
   });
 
   it("limits the search field and the sections to a readable width (#544)", () => {
-    expect(css).toMatch(/\.search,\s*section\s*\{[^}]*max-width: 760px/);
+    expect(css).toMatch(/\.search,\s*hx-fieldset\s*\{[^}]*max-width: 760px/);
   });
 
   it("keeps the scrollbar at the page edge: .content has no maximum width (#544)", () => {
@@ -20,11 +20,11 @@ describe("settings layout", () => {
 
   it("gives selects, text and number inputs the same box, width and height (#629)", () => {
     const rule =
-      /\.control > input\[type="text"\],\s*\.control > input\[type="number"\],\s*\.control > select\s*\{([^}]*)\}/.exec(
+      /\.control > input\[type="text"\],\s*\.control > input\[type="number"\],\s*\.control > hx-select\s*\{([^}]*)\}/.exec(
         css,
       )?.[1];
     expect(rule).toMatch(/box-sizing: border-box;/);
     expect(rule).toMatch(/\bwidth: 200px;/);
-    expect(rule).toMatch(/\bheight: 28px;/);
+    expect(rule).toMatch(/\bheight: 34px;/);
   });
 });

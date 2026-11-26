@@ -22,19 +22,12 @@ nav {
 }
 
 nav button {
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: inherit;
-  font: inherit;
+  justify-content: flex-start;
   text-align: left;
-  cursor: pointer;
 }
 
-nav button:hover,
 nav button.active {
-  background: var(--h-content-border-color);
+  font-weight: 600;
 }
 
 .content {
@@ -49,48 +42,52 @@ nav button.active {
  * `.content`: the scrollbar stays at the right edge of the page.
  */
 .search,
-section {
+hx-fieldset {
+  display: block;
   max-width: 760px;
 }
 
-.search {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 7px 10px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
+/* The rows follow the width of their section, not of the window. */
+hx-fieldset {
+  container-type: inline-size;
+  margin-top: 16px;
+  /* Little room inside: a narrow window needs the width for the controls (#457). */
+  --h-fieldset-padding: 0 8px 4px;
 }
 
-h2 {
-  margin: 16px 0 4px;
-  font-size: 15px;
-}
-
+/*
+ * A setting is one row: label and hint on the left, the control on the right. The text column takes
+ * what the control leaves: a long description wraps instead of squeezing the control (#457: the
+ * access token column shrank to 66 px at 720 px and its buttons overflowed).
+ */
 .row {
-  display: flex;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  column-gap: 16px;
+  row-gap: 2px;
   padding: 8px 0;
   border-bottom: 1px solid var(--h-content-border-color);
 }
 
-/*
- * The label takes what the control leaves: a long description wraps instead of squeezing the
- * control (#457: the access token column shrank to 66 px at 720 px and its buttons overflowed).
- */
-.label {
-  flex: 1 1 0;
-  min-width: 0;
+.row ::ng-deep > .hx-field-label {
+  grid-area: 1 / 1;
+  align-self: end;
 }
 
-.description {
-  margin: 2px 0 0;
-  color: var(--h-text-muted-color);
-  font-size: 11px;
+/* Without a hint the label is centred next to the control. */
+.row ::ng-deep > .hx-field-label:not(:has(~ .hx-field-hint)) {
+  grid-area: 1 / 1 / span 2;
+  align-self: center;
+}
+
+.row ::ng-deep > .hx-field-hint {
+  grid-area: 2 / 1;
+  align-self: start;
+}
+
+.row ::ng-deep > .hx-field-control {
+  grid-area: 1 / 2 / span 2;
+  align-items: flex-end;
 }
 
 .control {
@@ -98,61 +95,74 @@ h2 {
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  max-width: 100%;
   min-width: 0;
 }
 
+/* The token and location forms fill a column of their own width, whatever their texts need. */
+.row:has(.token) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+}
+
+.row:has(.locations) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+}
+
+.row:has(.token, .locations) ::ng-deep > .hx-field-control,
+.row:has(.token, .locations) .control {
+  align-items: stretch;
+}
+
+/* Too narrow for two columns: the control goes below its label, the hint below the control. */
+@container (max-width: 440px) {
+  .row,
+  .row:has(.token),
+  .row:has(.locations) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row ::ng-deep > .hx-field-label,
+  .row ::ng-deep > .hx-field-label:not(:has(~ .hx-field-hint)),
+  .row ::ng-deep > .hx-field-hint,
+  .row ::ng-deep > .hx-field-control {
+    grid-area: auto;
+  }
+
+  .row ::ng-deep > .hx-field-control,
+  .control {
+    align-items: flex-start;
+  }
+}
+
 /*
- * The selects and fields of a row share one outer box, so their edges line up (#629): a select is
- * `border-box` by default, an input is not. Only direct children: the token and location forms keep
- * their own layout.
+ * The selects and fields of a row share one outer box, so their edges line up (#629). Only direct
+ * children: the token and location forms keep their own layout.
  */
 .control > input[type="text"],
 .control > input[type="number"],
-.control > select {
+.control > hx-select {
   box-sizing: border-box;
   width: 200px;
-  height: 28px;
-  padding: 4px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
+  max-width: 100%;
+  height: 34px;
 }
 
+/* Key chips of the shortcuts. */
 .key {
   min-width: 90px;
+  justify-content: center;
+}
+
+span.key {
   padding: 3px 8px;
   border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
   text-align: center;
-}
-
-button.key {
-  cursor: pointer;
-}
-
-.key.recording {
-  border-color: var(--h-primary-color, currentColor);
 }
 
 .actions {
   display: flex;
   gap: 6px;
-}
-
-.actions button {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--h-text-muted-color);
-  font: inherit;
-  font-size: 11px;
-  text-decoration: underline;
-  cursor: pointer;
 }
 
 .hint,
@@ -199,40 +209,19 @@ button.key {
 
 .token-manual {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   width: 100%;
 }
 
 .token-manual input {
-  flex: 1;
+  flex: 1 1 120px;
   min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
-}
-
-.token button.primary {
-  padding: 5px 12px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
 }
 
 .token .notice {
   margin: 0;
   overflow-wrap: anywhere;
-}
-
-input::placeholder {
-  color: var(--h-text-muted-color);
-  font-style: italic;
-  opacity: 0.6;
 }
 
 .source {
@@ -289,10 +278,4 @@ input::placeholder {
 .loc-form input {
   flex: 1 1 120px;
   min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
 }
