@@ -11,14 +11,23 @@
   color: var(--h-text-color);
   font-size: var(--h-font-size-sm);
   overflow: hidden;
+  /* The width of a single-line control; the access token column has it too (#722). */
+  --settings-control-width: 200px;
+}
+
+/* The search field searches all sections, so it sits above their list (#722). */
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-space-2);
+  width: 170px;
+  padding: 10px 6px;
+  border-right: 1px solid var(--h-content-border-color);
 }
 
 nav {
   display: flex;
   flex-direction: column;
-  width: 170px;
-  padding: 10px 6px;
-  border-right: 1px solid var(--h-content-border-color);
 }
 
 nav > .section {
@@ -37,19 +46,27 @@ nav > .section.active {
 }
 
 /*
- * The search field and the sections keep a readable width, left-aligned next to the navigation, so a
+ * The sections keep a readable width, left-aligned next to the navigation, so a
  * label and its control stay close on a wide window (#544). The limit sits on the children, not on
  * `.content`: the scrollbar stays at the right edge of the page.
  */
-.search,
+.group,
 hx-fieldset {
   display: block;
   max-width: 760px;
 }
 
 /* The rows follow the width of their section, not of the window. */
+.group,
 hx-fieldset {
   container-type: inline-size;
+}
+
+/*
+ * The page of one section is a block of rows without frame or legend (Helix forms.md: a form with one
+ * group is that block alone). Only search results, which list several sections, are fieldsets (#722).
+ */
+hx-fieldset {
   margin-top: var(--h-space-4);
   /* Little room inside: a narrow window needs the width for the controls (#457). */
   --h-fieldset-padding: 0 var(--h-space-2) var(--h-space-1);
@@ -101,7 +118,7 @@ hx-fieldset {
 
 /* The token and location forms fill a column of their own width, whatever their texts need. */
 .row:has(.token) {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--settings-control-width));
 }
 
 .row:has(.locations) {
@@ -113,25 +130,14 @@ hx-fieldset {
   align-items: stretch;
 }
 
-/* Too narrow for two columns: the control goes below its label, the hint below the control. */
-@container (max-width: 440px) {
-  .row,
-  .row:has(.token),
-  .row:has(.locations) {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* The list of variables is tall: it starts at the height of the label, the hint follows it (#722). */
+.row:has(.locations) {
+  grid-template-rows: auto 1fr;
+  align-items: start;
+}
 
-  .row ::ng-deep > .hx-field-label,
-  .row ::ng-deep > .hx-field-label:not(:has(~ .hx-field-hint)),
-  .row ::ng-deep > .hx-field-hint,
-  .row ::ng-deep > .hx-field-control {
-    grid-area: auto;
-  }
-
-  .row ::ng-deep > .hx-field-control,
-  .control {
-    align-items: flex-start;
-  }
+.row:has(.locations) ::ng-deep > .hx-field-label {
+  align-self: start;
 }
 
 /*
@@ -140,7 +146,7 @@ hx-fieldset {
  */
 .control > .sized {
   box-sizing: border-box;
-  width: 200px;
+  width: var(--settings-control-width);
   max-width: 100%;
   height: 34px;
 }
@@ -179,14 +185,16 @@ span.key {
   text-align: right;
 }
 
+/* Right-aligned in the control column, like the controls of the other rows (#722). */
 .token {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: var(--h-space-2);
   width: 100%;
-  max-width: 320px;
+  max-width: var(--settings-control-width);
   min-width: 0;
+  text-align: right;
 }
 
 .token > * {
@@ -198,16 +206,26 @@ span.key {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
+  justify-content: flex-end;
   gap: var(--h-space-1) var(--h-space-3);
 }
 
-.token .readonly {
-  text-align: left;
+.token-signin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--h-space-2);
+}
+
+.token .actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .token-manual {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   width: 100%;
 }
@@ -251,9 +269,18 @@ span.key {
 .locations li {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 2px var(--h-space-2);
   padding: 2px 0;
+}
+
+/* The text of a row starts at its top (#722); the taller buttons are raised to the same line. */
+.locations li .actions {
+  margin-top: calc(-1 * var(--h-space-1));
+}
+
+.locations li:first-child {
+  padding-top: 0;
 }
 
 .loc-name {
@@ -276,4 +303,41 @@ span.key {
 .loc-form > .grow {
   flex: 1 1 120px;
   min-width: 0;
+}
+
+/* Too narrow for two columns: the control goes below its label, the hint below the control. */
+@container (max-width: 440px) {
+  .row,
+  .row:has(.token),
+  .row:has(.locations) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .row ::ng-deep > .hx-field-label,
+  .row ::ng-deep > .hx-field-label:not(:has(~ .hx-field-hint)),
+  .row ::ng-deep > .hx-field-hint,
+  .row ::ng-deep > .hx-field-control {
+    grid-area: auto;
+  }
+
+  .row ::ng-deep > .hx-field-control,
+  .control {
+    align-items: flex-start;
+  }
+
+  .token,
+  .token .readonly {
+    text-align: left;
+  }
+
+  .token-signin {
+    align-items: flex-start;
+  }
+
+  .token-state,
+  .token-manual,
+  .token .actions {
+    justify-content: flex-start;
+  }
 }

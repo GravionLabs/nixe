@@ -32,6 +32,12 @@ Binding for every UI change. Read the base guide named above first (`pnpm instal
 - Git, Changes, Review and History are built from `src/app/shared/panel/` (section, note row, status icon, empty state).
 - `pnpm lint` (helix-lint) rejects raw controls in templates and hex, rgb and hsl colors and off-scale font sizes in CSS; an exception is an entry with a reason in `scripts/lint/helix-allow.json`.
 
+## Settings page
+
+- The search field sits above the section list in the left column.
+- The page of one section has no `hx-fieldset`, frame or legend: the navigation names it. Search results list several sections, each an `hx-fieldset` with its title as legend.
+- Controls are right-aligned in the control column; a single-line control and the access token are `--settings-control-width` wide.
+
 ## Dialogs
 
 The width of an `hx-dialog` is its `size`, never `width`; a dialog whose content fits no class says why in a comment. `src/app/helix-overlays.spec.ts` lists the size of each dialog.

@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from "@angular/common";
 import type { OnDestroy } from "@angular/core";
 import { Component, ElementRef, effect, inject, signal, viewChild } from "@angular/core";
 import { HxButton, HxField, HxFieldset, HxInput, HxSelect, HxSwitch } from "@gravionlabs/helix-ui";
@@ -12,7 +13,7 @@ import { SettingsPageService } from "../../core/settings/settings-page.service";
   selector: "app-settings",
   templateUrl: "./settings.component.html",
   styleUrl: "./settings.component.css",
-  imports: [HxButton, HxField, HxFieldset, HxInput, HxSelect, HxSwitch],
+  imports: [HxButton, HxField, HxFieldset, HxInput, HxSelect, HxSwitch, NgTemplateOutlet],
 })
 export class SettingsComponent implements OnDestroy {
   protected readonly page = inject(SettingsPageService);
