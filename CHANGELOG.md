@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.18.2] — 2026-11-27
+
+### Bug Fixes
+- **ui**: A size class for every hx-dialog (#721) (#723)
+- **settings**: Search in the navigation column, aligned locations and token rows, no redundant card titles (#722) (#725)
+
+
 ## [1.18.1] — 2026-11-27
 
 ### Bug Fixes
@@ -17,6 +24,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ### Documentation
 - UI rules in AGENTS.md (UX rules, Helix primitives) (#686) (#703)
 - App style guide on the Helix base guide (#696) (#711)
+- Update CHANGELOG.md for v1.18.1 [skip ci]
 
 
 ### Refactoring
