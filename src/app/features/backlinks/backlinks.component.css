@@ -1,91 +1,47 @@
 :host {
   display: block;
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 h2 {
-  margin: 12px 12px 4px;
-  font-size: 12px;
+  margin: var(--h-space-3) var(--h-space-3) var(--h-space-1);
+  font-size: var(--h-font-size-sm);
   font-weight: 600;
 }
 
 .count {
-  margin-left: 4px;
+  margin-left: var(--h-space-1);
   color: var(--h-text-muted-color);
   font-weight: 400;
 }
 
-ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .status {
-  margin: 4px 12px;
+  margin: var(--h-space-1) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
-button {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-button:hover:not(:disabled) {
-  background: var(--h-surface-hover);
-}
-
-button:disabled {
-  cursor: default;
-}
-
-.name {
+.name,
+.context {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .context {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
   color: var(--h-text-muted-color);
 }
 
 .unresolved .name {
-  color: var(--h-text-muted-color);
   font-style: italic;
 }
 
-.badge {
-  align-self: flex-start;
-  font-size: 11px;
-  color: var(--h-text-muted-color);
-}
-
-h2 button.fold {
-  flex-direction: row;
-  align-items: center;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-h2 button.fold:hover:not(:disabled) {
-  background: none;
+.fold {
+  --h-button-sm-padding-x: 0;
+  --h-button-label-font-weight: 600;
+  justify-content: flex-start;
+  gap: var(--h-space-1);
 }
 
 .chevron {
@@ -104,10 +60,5 @@ h2 button.fold:hover:not(:disabled) {
 
 .mention .link-it {
   flex: none;
-  width: auto;
-  margin-right: 8px;
-  padding: 2px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  font-size: 12px;
+  margin-right: var(--h-space-2);
 }

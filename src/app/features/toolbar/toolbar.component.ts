@@ -1,7 +1,7 @@
 import type { ElementRef } from "@angular/core";
 import { Component, computed, effect, inject, output, signal, viewChild } from "@angular/core";
 import { HxAppToolbar } from "@gravionlabs/helix-desktop";
-import { HxTooltip } from "@gravionlabs/helix-ui";
+import { HxButton, HxInput, HxTooltip } from "@gravionlabs/helix-ui";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { ShortcutService } from "../../core/commands/shortcut.service";
@@ -22,7 +22,7 @@ import { breadcrumb } from "./breadcrumb";
  */
 @Component({
   selector: "app-toolbar",
-  imports: [HxAppToolbar, HxTooltip],
+  imports: [HxAppToolbar, HxButton, HxInput, HxTooltip],
   templateUrl: "./toolbar.component.html",
   styleUrl: "./toolbar.component.css",
 })

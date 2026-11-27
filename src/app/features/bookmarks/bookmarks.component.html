@@ -1,13 +1,18 @@
 <header>
   <span>Bookmarks</span>
   <button
+    hx-button
     type="button"
     class="add"
-    (click)="bookmarks.addGroup()"
-    title="New group"
+    variant="text"
+    severity="secondary"
+    size="small"
+    iconOnly
     aria-label="New group"
+    hx-tooltip="New group"
+    (click)="bookmarks.addGroup()"
   >
-    +
+    <span class="hx-button-icon" aria-hidden="true">+</span>
   </button>
 </header>
 @if (rows().length === 0) {
@@ -15,58 +20,72 @@
     No bookmarks yet. Bookmark a note, a heading or a search from the command palette.
   </p>
 }
-<ul
-  role="tree"
-  aria-label="Bookmarks"
-  (dragover)="$event.preventDefault()"
-  (drop)="dropAtEnd($event)"
->
-  @for (row of rows(); track row.path.join(".")) {
-    <!-- eslint-disable @angular-eslint/template/role-has-required-aria -- the bookmarks tree has no selection; aria-selected would announce every item as not selected -->
-    <li
-      role="treeitem"
-      draggable="true"
-      [attr.data-kind]="row.kind"
-      [style.padding-left.px]="8 + row.depth * 14"
-      (dragstart)="dragging.set(row.path)"
-      (dragend)="dragging.set(null)"
-      (dragover)="$event.preventDefault(); $event.stopPropagation()"
-      (drop)="drop($event, row)"
-    >
-      <!-- eslint-enable @angular-eslint/template/role-has-required-aria -->
-      <span class="icon" aria-hidden="true">{{ icon(row) }}</span>
-      @if (editing()?.join(".") === row.path.join(".")) {
-        <input
-          #name
-          class="rename"
-          type="text"
-          aria-label="Group name"
-          [value]="label(row)"
-          (click)="$event.stopPropagation()"
-          (keydown.enter)="commit(row, name.value)"
-          (keydown.escape)="editing.set(null)"
-          (blur)="commit(row, name.value)"
-        />
-      } @else {
-        <button
-          type="button"
-          class="label"
-          [title]="label(row)"
-          (click)="open(row)"
-          (dblclick)="rename(row)"
-        >
-          {{ label(row) }}
-        </button>
-      }
-      <button
-        type="button"
-        class="remove"
-        (click)="bookmarks.remove(row.path)"
-        title="Remove bookmark"
-        aria-label="Remove bookmark"
+<hx-list>
+  <ul
+    role="tree"
+    aria-label="Bookmarks"
+    (dragover)="$event.preventDefault()"
+    (drop)="dropAtEnd($event)"
+  >
+    @for (row of rows(); track row.path.join(".")) {
+      <!-- eslint-disable @angular-eslint/template/role-has-required-aria -- the bookmarks tree has no selection; aria-selected would announce every item as not selected -->
+      <li
+        role="treeitem"
+        draggable="true"
+        [attr.data-kind]="row.kind"
+        [style.padding-left.px]="8 + row.depth * 14"
+        (dragstart)="dragging.set(row.path)"
+        (dragend)="dragging.set(null)"
+        (dragover)="$event.preventDefault(); $event.stopPropagation()"
+        (drop)="drop($event, row)"
       >
-        ×
-      </button>
-    </li>
-  }
-</ul>
+        <!-- eslint-enable @angular-eslint/template/role-has-required-aria -->
+        @if (editing()?.join(".") === row.path.join(".")) {
+          <span class="icon" aria-hidden="true">{{ icon(row) }}</span>
+          <input
+            #name
+            hx-input
+            class="rename"
+            type="text"
+            size="small"
+            aria-label="Group name"
+            [value]="label(row)"
+            (click)="$event.stopPropagation()"
+            (keydown.enter)="commit(row, name.value)"
+            (keydown.escape)="editing.set(null)"
+            (blur)="commit(row, name.value)"
+          />
+        } @else {
+          <button
+            hx-list-row
+            type="button"
+            class="label"
+            [current]="isCurrent(row)"
+            [title]="label(row)"
+            (click)="open(row)"
+            (dblclick)="rename(row)"
+          >
+            <span class="icon hx-list-row-icon" aria-hidden="true">{{ icon(row) }}</span>
+            <span class="hx-list-row-label">{{ label(row) }}</span>
+          </button>
+        }
+        <span class="actions">
+          <button
+            hx-button
+            type="button"
+            class="remove"
+            variant="text"
+            severity="danger"
+            size="small"
+            iconOnly
+            aria-label="Remove bookmark"
+            hx-tooltip="Remove bookmark"
+            (click)="bookmarks.remove(row.path)"
+          >
+            <span class="hx-button-icon" aria-hidden="true">×</span>
+          </button>
+        </span>
+      </li>
+    }
+  </ul>
+</hx-list>

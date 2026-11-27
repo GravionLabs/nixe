@@ -7,18 +7,22 @@
   position="top"
   width="min(560px, 90vw)"
 >
-  <input
-    #input
-    type="text"
-    [placeholder]="placeholder()"
-    aria-label="Find a note, or type a prefix: > commands, @ headings, # tags, / templates"
-    role="combobox"
-    aria-expanded="true"
-    aria-controls="palette-list"
-    [value]="palette.query()"
-    (input)="onInput($event)"
-    (keydown)="onKeydown($event)"
-  />
+  <div class="search">
+    <input
+      #input
+      hx-input
+      fluid
+      type="text"
+      [placeholder]="placeholder()"
+      aria-label="Find a note, or type a prefix: > commands, @ headings, # tags, / templates"
+      role="combobox"
+      aria-expanded="true"
+      aria-controls="palette-list"
+      [value]="palette.query()"
+      (input)="onInput($event)"
+      (keydown)="onKeydown($event)"
+    />
+  </div>
   <ul id="palette-list" role="listbox">
     @for (item of palette.items(); track key(item); let i = $index) {
       @if (item.kind === "command" && item.heading) {
@@ -34,7 +38,18 @@
       >
         @switch (item.kind) {
           @case ("note") {
-            <button type="button" tabindex="-1" (click)="run(item)" [title]="item.match.entry.path">
+            <button
+              hx-button
+              type="button"
+              variant="text"
+              severity="secondary"
+              size="small"
+              fluid
+              class="row"
+              tabindex="-1"
+              (click)="run(item)"
+              [title]="item.match.entry.path"
+            >
               <span class="name">
                 @for (part of parts(item.match.label, item.match.positions); track $index) {
                   <span [class.hit]="part.matched">{{ part.text }}</span>
@@ -52,7 +67,17 @@
             </button>
           }
           @case ("command") {
-            <button type="button" tabindex="-1" (click)="run(item)">
+            <button
+              hx-button
+              type="button"
+              variant="text"
+              severity="secondary"
+              size="small"
+              fluid
+              class="row"
+              tabindex="-1"
+              (click)="run(item)"
+            >
               <span class="name">{{ item.command.title }}</span>
               @if (shortcuts.keys(item.command.id); as keys) {
                 @if (keys.length) {
@@ -65,25 +90,66 @@
             </button>
           }
           @case ("heading") {
-            <button type="button" tabindex="-1" (click)="run(item)">
+            <button
+              hx-button
+              type="button"
+              variant="text"
+              severity="secondary"
+              size="small"
+              fluid
+              class="row"
+              tabindex="-1"
+              (click)="run(item)"
+            >
               <span class="level">H{{ item.heading.level }}</span>
               <span class="name">{{ item.heading.text }}</span>
             </button>
           }
           @case ("tag") {
-            <button type="button" tabindex="-1" (click)="run(item)">
+            <button
+              hx-button
+              type="button"
+              variant="text"
+              severity="secondary"
+              size="small"
+              fluid
+              class="row"
+              tabindex="-1"
+              (click)="run(item)"
+            >
               <span class="name">#{{ item.tag.tag.replace("#", "") }}</span>
               <span class="count">{{ item.tag.count }}</span>
             </button>
           }
           @case ("template") {
-            <button type="button" tabindex="-1" (click)="run(item)" [title]="item.entry.path">
+            <button
+              hx-button
+              type="button"
+              variant="text"
+              severity="secondary"
+              size="small"
+              fluid
+              class="row"
+              tabindex="-1"
+              (click)="run(item)"
+              [title]="item.entry.path"
+            >
               <span class="name">{{ item.entry.name }}</span>
               <span class="path">{{ item.entry.path }}</span>
             </button>
           }
           @case ("vault") {
-            <button type="button" tabindex="-1" (click)="run(item)">
+            <button
+              hx-button
+              type="button"
+              variant="text"
+              severity="secondary"
+              size="small"
+              fluid
+              class="row"
+              tabindex="-1"
+              (click)="run(item)"
+            >
               <span class="name">{{ vaultName(item.path) }}</span>
               <span class="path">{{ item.path }}</span>
             </button>
@@ -93,7 +159,15 @@
     } @empty {
       <li class="empty">
         @if (palette.mode() === "notes" && palette.text().trim()) {
-          <button type="button" (click)="create()">
+          <button
+            hx-button
+            type="button"
+            variant="text"
+            severity="secondary"
+            size="small"
+            class="row"
+            (click)="create()"
+          >
             Create “{{ palette.text().trim() }}” (Enter)
           </button>
         } @else {

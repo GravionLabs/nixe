@@ -7,9 +7,13 @@
     <p class="state" role="status">{{ summary() }}</p>
     <p class="branch" [title]="branchTip()">{{ status.branch ?? "no branch" }}</p>
     <button
+      hx-button
       type="button"
       class="sync"
-      [disabled]="!status.hasRemote || git.syncState().phase === 'syncing'"
+      variant="outlined"
+      size="small"
+      [disabled]="!status.hasRemote"
+      [loading]="git.syncState().phase === 'syncing'"
       (click)="syncNow()"
     >
       {{ git.syncState().phase === "syncing" ? "Syncing…" : "Sync now" }}
@@ -17,7 +21,16 @@
     @if (tokenNotice(); as notice) {
       <p class="status token-notice" role="alert">
         {{ notice }}
-        <button type="button" class="link" (click)="openSyncSettings()">Open sync settings</button>
+        <button
+          hx-button
+          type="button"
+          class="link"
+          variant="link"
+          size="small"
+          (click)="openSyncSettings()"
+        >
+          Open sync settings
+        </button>
       </p>
     }
     @if (git.syncState(); as sync) {
@@ -39,59 +52,119 @@
         The .gitignore of this vault does not cover {{ git.missingIgnores().join(", ") }}. These
         could end up in a save.
       </p>
-      <button type="button" class="link" (click)="addIgnores()">Add to .gitignore</button>
-      <button type="button" class="link" (click)="dismissIgnoreHint()">Dismiss</button>
+      <button
+        hx-button
+        type="button"
+        class="link"
+        variant="link"
+        size="small"
+        (click)="addIgnores()"
+      >
+        Add to .gitignore
+      </button>
+      <button
+        hx-button
+        type="button"
+        class="link"
+        variant="link"
+        size="small"
+        (click)="dismissIgnoreHint()"
+      >
+        Dismiss
+      </button>
     </div>
   }
 
   <app-panel-section title="Changes" [count]="status.changes.length" storageKey="git-changes">
     @if (status.changes.length > 0) {
-      <input
-        panelActions
-        type="checkbox"
-        class="check"
-        aria-label="Include all changes in the save"
-        [checked]="git.selection() === 'all'"
-        [indeterminate]="git.selection() === 'some'"
-        (change)="git.setAll(git.selection() !== 'all')"
-      />
-    }
-    @for (change of status.changes; track change.path) {
-      <app-note-row [path]="change.path" [kind]="change.kind" (activated)="compare(change)">
+      <span panelActions class="check">
         <input
-          rowStart
+          hx-checkbox
           type="checkbox"
-          class="check"
-          [attr.aria-label]="'Include ' + titleOf(change.path) + ' in the save'"
-          [checked]="git.isChecked(change.path)"
-          (change)="git.toggle(change.path)"
+          aria-label="Include all changes in the save"
+          [checked]="git.selection() === 'all'"
+          [indeterminate]="git.selection() === 'some'"
+          (change)="git.setAll(git.selection() !== 'all')"
         />
-        @if (change.kind !== "deleted") {
-          <button rowActions type="button" class="open" (click)="open(change.path)">Open</button>
+      </span>
+    }
+    @if (status.changes.length > 0) {
+      <hx-list aria-label="Unsaved changes">
+        @for (change of status.changes; track change.path) {
+          <app-note-row>
+            <span rowStart class="check">
+              <input
+                hx-checkbox
+                type="checkbox"
+                [attr.aria-label]="'Include ' + titleOf(change.path) + ' in the save'"
+                [checked]="git.isChecked(change.path)"
+                (change)="git.toggle(change.path)"
+              />
+            </span>
+            <button
+              hx-list-row
+              type="button"
+              [current]="isCurrent(change.path)"
+              [title]="change.path"
+              (click)="compare(change)"
+            >
+              <app-note-title [path]="change.path" [kind]="change.kind" />
+            </button>
+            @if (change.kind !== "deleted") {
+              <button
+                rowActions
+                hx-button
+                type="button"
+                class="open"
+                variant="text"
+                severity="secondary"
+                size="small"
+                iconOnly
+                [attr.aria-label]="'Open ' + titleOf(change.path)"
+                hx-tooltip="Open"
+                (click)="open(change.path)"
+              >
+                <span aria-hidden="true">↗</span>
+              </button>
+            }
+            <button
+              rowActions
+              hx-button
+              type="button"
+              class="discard"
+              variant="text"
+              severity="danger"
+              size="small"
+              iconOnly
+              [attr.aria-label]="'Discard changes of ' + titleOf(change.path)"
+              hx-tooltip="Discard changes"
+              (click)="discard(change)"
+            >
+              <span aria-hidden="true">↺</span>
+            </button>
+          </app-note-row>
         }
-        <button rowActions type="button" class="discard" (click)="discard(change)">
-          Discard changes
-        </button>
-      </app-note-row>
-    } @empty {
+      </hx-list>
+    } @else {
       <app-empty-state text="Everything is saved" />
     }
   </app-panel-section>
 
   <form (submit)="save($event, message.value)">
-    <label>
-      What did you change?
-      <input #message type="text" placeholder="Optional" />
-    </label>
+    <hx-field label="What did you change?">
+      <input #message hx-input type="text" size="small" fluid placeholder="Optional" />
+    </hx-field>
     <button
+      hx-button
       type="submit"
       class="primary"
+      size="small"
       [disabled]="
-        git.committing() ||
         git.syncState().phase === 'syncing' ||
         (status.changes.length === 0 && !status.hasRemote) ||
         (status.changes.length > 0 && git.selection() === 'none')
       "
+      [loading]="git.committing()"
     >
       {{ saveLabel() }}
     </button>

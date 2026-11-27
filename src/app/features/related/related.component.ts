@@ -1,4 +1,5 @@
 import { Component, effect, inject, output, untracked } from "@angular/core";
+import { HxList, HxListRow } from "@gravionlabs/helix-ui";
 
 import type { RelatedNote } from "../../core/file/backend";
 import { RelatedService } from "../../core/index/related.service";
@@ -10,6 +11,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 /** Right-hand panel, tab Related: the notes closest to the open note and why. */
 @Component({
   selector: "app-related",
+  imports: [HxList, HxListRow],
   templateUrl: "./related.component.html",
   styleUrl: "./related.component.css",
 })

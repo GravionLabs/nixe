@@ -9,7 +9,7 @@
   min-width: 0;
   background: var(--h-surface-frame);
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
   overflow: hidden;
 }
 
@@ -21,25 +21,18 @@ nav {
   border-right: 1px solid var(--h-content-border-color);
 }
 
-nav button {
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: inherit;
-  font: inherit;
+nav > .section {
+  justify-content: flex-start;
   text-align: left;
-  cursor: pointer;
 }
 
-nav button:hover,
-nav button.active {
-  background: var(--h-content-border-color);
+nav > .section.active {
+  font-weight: 600;
 }
 
 .content {
   flex: 1;
-  padding: 10px 16px 16px;
+  padding: 10px var(--h-space-4) var(--h-space-4);
   overflow-y: auto;
 }
 
@@ -49,48 +42,52 @@ nav button.active {
  * `.content`: the scrollbar stays at the right edge of the page.
  */
 .search,
-section {
+hx-fieldset {
+  display: block;
   max-width: 760px;
 }
 
-.search {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 7px 10px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
-}
-
-h2 {
-  margin: 16px 0 4px;
-  font-size: 15px;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--h-content-border-color);
+/* The rows follow the width of their section, not of the window. */
+hx-fieldset {
+  container-type: inline-size;
+  margin-top: var(--h-space-4);
+  /* Little room inside: a narrow window needs the width for the controls (#457). */
+  --h-fieldset-padding: 0 var(--h-space-2) var(--h-space-1);
 }
 
 /*
- * The label takes what the control leaves: a long description wraps instead of squeezing the
- * control (#457: the access token column shrank to 66 px at 720 px and its buttons overflowed).
+ * A setting is one row: label and hint on the left, the control on the right. The text column takes
+ * what the control leaves: a long description wraps instead of squeezing the control (#457: the
+ * access token column shrank to 66 px at 720 px and its buttons overflowed).
  */
-.label {
-  flex: 1 1 0;
-  min-width: 0;
+.row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--h-space-4);
+  row-gap: 2px;
+  padding: var(--h-space-2) 0;
+  border-bottom: 1px solid var(--h-content-border-color);
 }
 
-.description {
-  margin: 2px 0 0;
-  color: var(--h-text-muted-color);
-  font-size: 11px;
+.row ::ng-deep > .hx-field-label {
+  grid-area: 1 / 1;
+  align-self: end;
+}
+
+/* Without a hint the label is centred next to the control. */
+.row ::ng-deep > .hx-field-label:not(:has(~ .hx-field-hint)) {
+  grid-area: 1 / 1 / span 2;
+  align-self: center;
+}
+
+.row ::ng-deep > .hx-field-hint {
+  grid-area: 2 / 1;
+  align-self: start;
+}
+
+.row ::ng-deep > .hx-field-control {
+  grid-area: 1 / 2 / span 2;
+  align-items: flex-end;
 }
 
 .control {
@@ -98,38 +95,67 @@ h2 {
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  max-width: 100%;
   min-width: 0;
 }
 
-.control input[type="text"],
-.control input[type="number"],
-.control select {
-  width: 200px;
-  padding: 4px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
+/* The token and location forms fill a column of their own width, whatever their texts need. */
+.row:has(.token) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
 }
 
+.row:has(.locations) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+}
+
+.row:has(.token, .locations) ::ng-deep > .hx-field-control,
+.row:has(.token, .locations) .control {
+  align-items: stretch;
+}
+
+/* Too narrow for two columns: the control goes below its label, the hint below the control. */
+@container (max-width: 440px) {
+  .row,
+  .row:has(.token),
+  .row:has(.locations) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row ::ng-deep > .hx-field-label,
+  .row ::ng-deep > .hx-field-label:not(:has(~ .hx-field-hint)),
+  .row ::ng-deep > .hx-field-hint,
+  .row ::ng-deep > .hx-field-control {
+    grid-area: auto;
+  }
+
+  .row ::ng-deep > .hx-field-control,
+  .control {
+    align-items: flex-start;
+  }
+}
+
+/*
+ * The selects and fields of a row share one outer box, so their edges line up (#629). Only direct
+ * children: the token and location forms keep their own layout.
+ */
+.control > .sized {
+  box-sizing: border-box;
+  width: 200px;
+  max-width: 100%;
+  height: 34px;
+}
+
+/* Key chips of the shortcuts. */
 .key {
   min-width: 90px;
-  padding: 3px 8px;
+  justify-content: center;
+}
+
+span.key {
+  padding: 3px var(--h-space-2);
   border: 1px solid var(--h-content-border-color);
   border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
   text-align: center;
-}
-
-button.key {
-  cursor: pointer;
-}
-
-.key.recording {
-  border-color: var(--h-primary-color, currentColor);
 }
 
 .actions {
@@ -137,26 +163,15 @@ button.key {
   gap: 6px;
 }
 
-.actions button {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--h-text-muted-color);
-  font: inherit;
-  font-size: 11px;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
 .hint,
 .conflict {
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 
 .conflict {
   max-width: 260px;
-  color: var(--nixe-danger-color, #c0392b);
+  color: var(--nixe-danger-color);
   text-align: right;
 }
 
@@ -168,7 +183,7 @@ button.key {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--h-space-2);
   width: 100%;
   max-width: 320px;
   min-width: 0;
@@ -183,7 +198,7 @@ button.key {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 12px;
+  gap: var(--h-space-1) var(--h-space-3);
 }
 
 .token .readonly {
@@ -192,29 +207,14 @@ button.key {
 
 .token-manual {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   width: 100%;
 }
 
-.token-manual input {
-  flex: 1;
+.token-manual > .grow {
+  flex: 1 1 120px;
   min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
-}
-
-.token button.primary {
-  padding: 5px 12px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
 }
 
 .token .notice {
@@ -222,27 +222,21 @@ button.key {
   overflow-wrap: anywhere;
 }
 
-input::placeholder {
-  color: var(--h-text-muted-color);
-  font-style: italic;
-  opacity: 0.6;
-}
-
 .source {
   color: var(--h-text-muted-color);
   font-family: var(--nixe-font-mono, monospace);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .empty {
-  padding: 12px 0;
+  padding: var(--h-space-3) 0;
   color: var(--h-text-muted-color);
 }
 
 .locations {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--h-space-2);
   width: 100%;
   max-width: 420px;
   min-width: 0;
@@ -258,7 +252,7 @@ input::placeholder {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 2px 8px;
+  gap: 2px var(--h-space-2);
   padding: 2px 0;
 }
 
@@ -279,13 +273,7 @@ input::placeholder {
   gap: 6px;
 }
 
-.loc-form input {
+.loc-form > .grow {
   flex: 1 1 120px;
   min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
 }

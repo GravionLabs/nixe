@@ -14,15 +14,16 @@
   box-sizing: border-box;
 }
 
-textarea {
+/* The text field takes the height the window leaves; the sizes of the field box, not of the control. */
+.field {
   flex: 1;
   min-height: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.text {
+  flex: 1;
+  min-height: 0;
   resize: none;
 }
 
@@ -36,35 +37,24 @@ ul {
   border-radius: 4px;
 }
 
-li button {
-  display: block;
-  width: 100%;
-  padding: 3px 10px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-li button.selected,
-li button:hover {
+li.selected,
+li:hover {
   background: var(--h-content-border-color);
 }
 
-.error {
-  margin: 0;
-  color: var(--h-danger-color, #c62828);
+.row {
+  justify-content: flex-start;
+  color: var(--h-text-color);
+  font-weight: 400;
 }
 
 .notice {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
 .hint {
   margin: 0;
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }

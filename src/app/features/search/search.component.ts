@@ -1,4 +1,5 @@
 import type { ElementRef } from "@angular/core";
+import { HxButton, HxCheckbox, HxInput, HxList, HxListRow, HxSelect } from "@gravionlabs/helix-ui";
 import {
   Component,
   computed,
@@ -12,6 +13,7 @@ import {
 
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
 import type { SearchHit, SearchSnippet } from "../../core/file/backend";
+import { DocumentService } from "../../core/file/document.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { ReplaceService } from "../../core/index/replace.service";
 import type { SearchSort } from "../../core/index/search.service";
@@ -51,9 +53,16 @@ function storedSort(): SearchSort {
   }
 }
 
+const SORT_LABELS: Record<SearchSort, string> = {
+  relevance: "Relevance",
+  name: "Name",
+  modified: "Modified",
+};
+
 /** Left-hand search panel: results grouped by note, with highlighted snippets. */
 @Component({
   selector: "app-search",
+  imports: [HxList, HxListRow, HxButton, HxCheckbox, HxInput, HxSelect],
   templateUrl: "./search.component.html",
   styleUrl: "./search.component.css",
 })
@@ -64,6 +73,7 @@ export class SearchComponent {
   protected readonly replace = inject(ReplaceService);
   private readonly bookmarks = inject(BookmarksService);
   private readonly workspaces = inject(WorkspacesService);
+  private readonly doc = inject(DocumentService);
 
   readonly failed = output<string>();
   protected readonly segments = segments;
@@ -72,7 +82,10 @@ export class SearchComponent {
     this.workspaces.searchRoots() ? [...SEARCH_OPERATORS, ROOT_OPERATOR] : [...SEARCH_OPERATORS],
   );
   protected readonly hitKey = hitKey;
-  protected readonly sorts = SEARCH_SORTS;
+  protected readonly sortOptions = SEARCH_SORTS.map((value) => ({
+    value,
+    label: SORT_LABELS[value],
+  }));
   protected readonly sort = signal<SearchSort>(storedSort());
   protected readonly helpOpen = signal(false);
   /** Paths of the notes whose snippets are folded away. */
@@ -107,8 +120,7 @@ export class SearchComponent {
     });
   }
 
-  protected setSort(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value as SearchSort;
+  protected setSort(value: SearchSort): void {
     if (!SEARCH_SORTS.includes(value)) return;
     this.sort.set(value);
     try {
@@ -157,6 +169,12 @@ export class SearchComponent {
 
   protected onInput(event: Event): void {
     void this.search.setQuery((event.target as HTMLInputElement).value);
+  }
+
+  /** The result of the open note. */
+  protected isCurrent(hit: SearchHit): boolean {
+    const root = hit.rootPath ?? this.workspace.vaultRoot();
+    return !!root && this.doc.path() === joinPath(root, hit.path);
   }
 
   protected openHit(hit: SearchHit, snippet?: SearchSnippet, pin = false): Promise<void> {

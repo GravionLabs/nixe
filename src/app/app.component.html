@@ -118,6 +118,10 @@
       />
       <div class="panel-tabs" role="tablist" aria-label="Note panel">
         <button
+          hx-button
+          variant="text"
+          [severity]="panelTab() === 'outline' ? 'primary' : 'secondary'"
+          size="small"
           type="button"
           role="tab"
           id="panel-tab-outline"
@@ -129,6 +133,10 @@
           Outline
         </button>
         <button
+          hx-button
+          variant="text"
+          [severity]="panelTab() === 'properties' ? 'primary' : 'secondary'"
+          size="small"
           type="button"
           role="tab"
           id="panel-tab-properties"
@@ -141,6 +149,10 @@
         </button>
         @if (linksAvailable()) {
           <button
+            hx-button
+            variant="text"
+            [severity]="panelTab() === 'links' ? 'primary' : 'secondary'"
+            size="small"
             type="button"
             role="tab"
             id="panel-tab-links"
@@ -152,6 +164,10 @@
             Links
           </button>
           <button
+            hx-button
+            variant="text"
+            [severity]="panelTab() === 'related' ? 'primary' : 'secondary'"
+            size="small"
             type="button"
             role="tab"
             id="panel-tab-related"
@@ -206,3 +222,4 @@
 <app-link-preview />
 
 <hx-toast position="bottom-center" />
+<hx-confirm-dialog />

@@ -1,4 +1,5 @@
 import type { ElementRef } from "@angular/core";
+import { HxButton } from "@gravionlabs/helix-ui";
 import { Component, inject, signal, viewChild } from "@angular/core";
 
 import { backend } from "../../core/file/backend";
@@ -7,6 +8,7 @@ import { LogActionsService } from "../../core/log/log-actions.service";
 /** The log tab (#412): `nixe.log` as a read-only text with the newest lines at the end. */
 @Component({
   selector: "app-log",
+  imports: [HxButton],
   templateUrl: "./log.component.html",
   styleUrl: "./log.component.css",
 })

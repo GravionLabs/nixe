@@ -1,13 +1,5 @@
-input {
-  box-sizing: border-box;
-  width: calc(100% - 20px);
-  margin: 10px;
-  padding: 7px 10px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
+.search {
+  padding: 10px;
 }
 
 ul {
@@ -17,29 +9,22 @@ ul {
   overflow-y: auto;
 }
 
-li button {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 100%;
-  padding: 5px 14px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+li.selected,
+li:not(.group, .empty):hover {
+  background: var(--h-content-border-color);
 }
 
-li.selected button,
-li button:hover {
-  background: var(--h-content-border-color);
+/* The layout of a list row: the content of the button starts at the left and shares one baseline. */
+.row {
+  align-items: baseline;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .path,
 .alias {
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .path {
@@ -54,18 +39,11 @@ li button:hover {
   color: var(--h-text-muted-color);
 }
 
-.empty button {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--h-text-color);
-  font: inherit;
-  cursor: pointer;
-}
-
 .name {
   flex-shrink: 0;
   max-width: 100%;
+  color: var(--h-text-color);
+  font-weight: 400;
 }
 
 .hit {
@@ -87,14 +65,14 @@ li button:hover {
 }
 
 .more {
-  padding: 4px 14px;
+  padding: var(--h-space-1) 14px;
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .root {
   font-weight: 600;
-  margin-right: 4px;
+  margin-right: var(--h-space-1);
 }
 
 .shortcut {
@@ -105,30 +83,30 @@ li button:hover {
 .count {
   margin-left: auto;
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .level {
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   margin-right: 6px;
 }
 
 .group {
-  padding: 8px 14px 2px;
+  padding: var(--h-space-2) 14px 2px;
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .label {
-  margin-left: 8px;
+  margin-left: var(--h-space-2);
   color: var(--h-text-muted-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
 }
 
 .shortcut + .label {
-  margin-left: 8px;
+  margin-left: var(--h-space-2);
 }

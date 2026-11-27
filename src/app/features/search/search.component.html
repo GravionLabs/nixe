@@ -2,6 +2,11 @@
   <span>Search</span>
   <span class="actions">
     <button
+      hx-button
+      variant="text"
+      [severity]="replace.enabled() ? 'primary' : 'secondary'"
+      size="small"
+      iconOnly
       type="button"
       class="toggle-replace"
       [class.on]="replace.enabled()"
@@ -13,6 +18,11 @@
       ⇄
     </button>
     <button
+      hx-button
+      variant="text"
+      [severity]="helpOpen() ? 'primary' : 'secondary'"
+      size="small"
+      iconOnly
       type="button"
       class="help"
       [class.on]="helpOpen()"
@@ -24,6 +34,11 @@
       ?
     </button>
     <button
+      hx-button
+      variant="text"
+      severity="secondary"
+      size="small"
+      iconOnly
       type="button"
       class="bookmark"
       [disabled]="!search.query().trim()"
@@ -37,6 +52,9 @@
 </header>
 
 <input
+  class="query"
+  hx-input
+  size="small"
   #input
   type="search"
   placeholder='Search… tag:#name path:folder/ "phrase"'
@@ -46,20 +64,20 @@
 />
 
 @if (helpOpen()) {
-  <ul class="operators" aria-label="Operators">
+  <hx-list class="operators" aria-label="Operators">
     @for (op of operators(); track op.insert) {
-      <li>
-        <button type="button" class="operator" (click)="insertOperator(op.insert)">
-          <code>{{ op.insert }}</code> <span>{{ op.text }}</span>
-        </button>
-      </li>
+      <button hx-list-row type="button" class="operator" (click)="insertOperator(op.insert)">
+        <code>{{ op.insert }}</code> <span class="hx-list-row-label">{{ op.text }}</span>
+      </button>
     }
-  </ul>
+  </hx-list>
 }
 
 @if (replace.enabled()) {
   <div class="replace">
     <input
+      hx-input
+      size="small"
       class="replacement"
       type="text"
       placeholder="Replace with…"
@@ -70,6 +88,7 @@
     <div class="options">
       <label
         ><input
+          hx-checkbox
           type="checkbox"
           [checked]="replace.regex()"
           (change)="replace.regex.set(!replace.regex())"
@@ -78,6 +97,7 @@
       >
       <label
         ><input
+          hx-checkbox
           type="checkbox"
           [checked]="replace.caseSensitive()"
           (change)="replace.caseSensitive.set(!replace.caseSensitive())"
@@ -86,6 +106,7 @@
       >
       <label
         ><input
+          hx-checkbox
           type="checkbox"
           [checked]="replace.wholeWord()"
           (change)="replace.wholeWord.set(!replace.wholeWord())"
@@ -94,6 +115,8 @@
       >
     </div>
     <button
+      hx-button
+      size="small"
       type="button"
       class="apply"
       [disabled]="replace.busy() || replace.totals().notes === 0"
@@ -113,6 +136,7 @@
       <li class="diff-note" [class.excluded]="replace.isNoteExcluded(note.path)">
         <label class="note-row">
           <input
+            hx-checkbox
             type="checkbox"
             [checked]="!replace.isNoteExcluded(note.path)"
             (change)="replace.toggleNote(note.path)"
@@ -124,6 +148,7 @@
         @for (r of note.replacements; track r.index) {
           <div class="diff" [class.excluded]="replace.isMatchExcluded(note.path, r.index)">
             <input
+              hx-checkbox
               type="checkbox"
               [checked]="!replace.isMatchExcluded(note.path, r.index)"
               [disabled]="replace.isNoteExcluded(note.path)"
@@ -157,14 +182,20 @@
       } @else {
         <div class="summary">
           <span class="count" role="status">{{ countLabel() }}</span>
-          <select class="sort" aria-label="Sort results" (change)="setSort($event)">
-            @for (s of sorts; track s) {
-              <option [value]="s" [selected]="s === sort()">
-                {{ s === "relevance" ? "Relevance" : s === "name" ? "Name" : "Modified" }}
-              </option>
-            }
-          </select>
+          <hx-select
+            class="sort"
+            size="small"
+            ariaLabel="Sort results"
+            [options]="sortOptions"
+            [value]="sort()"
+            (valueChange)="setSort($any($event))"
+          />
           <button
+            hx-button
+            variant="text"
+            severity="secondary"
+            size="small"
+            iconOnly
             type="button"
             class="collapse-all"
             (click)="toggleAll()"
@@ -174,24 +205,29 @@
             {{ allCollapsed() ? "⊞" : "⊟" }}
           </button>
         </div>
-        <ul aria-label="Results">
+        <hx-list aria-label="Results">
           @for (hit of sorted(); track hitKey(hit)) {
-            <li>
+            <div class="hit">
               <button
+                hx-list-row
                 type="button"
                 class="note"
+                [current]="isCurrent(hit)"
                 (click)="openHit(hit)"
                 (dblclick)="openHit(hit, undefined, true)"
                 [title]="hit.path"
               >
-                <span class="name">{{ hit.title }}</span>
-                @if (hit.root) {
-                  <span class="root">{{ hit.root }}</span>
-                }
-                <span class="path">{{ hit.path }}</span>
+                <span class="hx-list-row-label">
+                  <span class="name">{{ hit.title }}</span>
+                  @if (hit.root) {
+                    <span class="root">{{ hit.root }}</span>
+                  }
+                  <span class="path">{{ hit.path }}</span>
+                </span>
               </button>
               @if (hit.snippets.length > 0) {
                 <button
+                  hx-list-row
                   type="button"
                   class="fold"
                   (click)="toggleNote(hitKey(hit))"
@@ -208,23 +244,26 @@
                 track snippet.line
               ) {
                 <button
+                  hx-list-row
                   type="button"
                   class="snippet"
                   (click)="openHit(hit, snippet)"
                   (dblclick)="openHit(hit, snippet, true)"
                 >
-                  @for (part of segments(snippet.text); track $index) {
-                    @if (part.match) {
-                      <mark>{{ part.text }}</mark>
-                    } @else {
-                      {{ part.text }}
+                  <span class="text">
+                    @for (part of segments(snippet.text); track $index) {
+                      @if (part.match) {
+                        <mark>{{ part.text }}</mark>
+                      } @else {
+                        {{ part.text }}
+                      }
                     }
-                  }
+                  </span>
                 </button>
               }
-            </li>
+            </div>
           }
-        </ul>
+        </hx-list>
       }
     }
   }

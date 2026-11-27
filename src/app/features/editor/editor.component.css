@@ -15,7 +15,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 14px;
+  padding: var(--h-space-2) 14px;
   border-bottom: 1px solid var(--h-message-error-border-color);
   background: var(--h-message-error-background);
   color: light-dark(var(--h-red-700), var(--h-red-300));
@@ -27,21 +27,6 @@
 
 .bar .hints {
   display: block;
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
   opacity: 0.85;
-}
-
-.bar button {
-  height: 28px;
-  padding: 0 12px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 6px;
-  background: var(--h-surface-frame);
-  color: var(--h-text-color);
-  font: inherit;
-  cursor: pointer;
-}
-
-.bar button:hover {
-  background: var(--h-surface-hover);
 }

@@ -32,9 +32,9 @@
   flex: none;
   align-items: center;
   gap: 2px;
-  padding: 0 4px;
+  padding: 0 var(--h-space-1);
   border-bottom: 1px solid var(--h-content-border-color);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
 .tab {
@@ -44,16 +44,7 @@
 }
 
 .tab.active {
-  background: var(--h-surface-hover, rgb(128 128 128 / 20%));
-}
-
-.tabs button {
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  padding: 3px 6px;
-  cursor: pointer;
+  background: var(--h-surface-hover);
 }
 
 .screens {
@@ -76,5 +67,5 @@
   bottom: 4px;
   margin: 0;
   color: var(--nixe-danger-color);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }

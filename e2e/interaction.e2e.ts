@@ -58,6 +58,76 @@ test("editing a note saves it with write_text_file", async ({ page }) => {
     .toEqual({ path: FAKE_NOTE, content: expect.stringContaining("Added by the test.") });
 });
 
+test("the clone dialog focuses the URL, Enter clones and only Escape closes it, not the mask", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    window.__demo!.answer("git_clone_vault", "/demo");
+    window.__demoDialog = { open: "/tmp/vaults" };
+  });
+  await openPalette(page);
+  await page.getByRole("combobox").fill(">Clone vault");
+  await page.getByRole("option", { name: /Clone vault/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Clone vault" });
+  const url = dialog.getByRole("textbox", { name: "Repository URL" });
+  await expect(url).toBeFocused();
+  // A click on the mask, beside the dialog, keeps it open.
+  await page.mouse.click(10, 400);
+  await expect(url).toBeVisible();
+  await expect(page.locator(".hx-dialog-backdrop")).toBeVisible();
+  await url.focus();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  await openPalette(page);
+  await page.getByRole("combobox").fill(">Clone vault");
+  await page.getByRole("option", { name: /Clone vault/ }).click();
+  await url.fill("https://github.com/owner/notes.git");
+  await dialog.getByRole("button", { name: "Choose folder…" }).click();
+  await expect(dialog.getByRole("textbox", { name: "Target folder" })).toHaveValue("/tmp/vaults");
+  await url.press("Enter");
+  await expect
+    .poll(async () => (await takeCalls(page, "git_clone_vault")).at(-1)?.args)
+    .toEqual({ url: "https://github.com/owner/notes.git", parent: "/tmp/vaults" });
+});
+
+test("the clone dialog says what is missing on Enter and clones nothing", async ({ page }) => {
+  await openPalette(page);
+  await page.getByRole("combobox").fill(">Clone vault");
+  await page.getByRole("option", { name: /Clone vault/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Clone vault" });
+  const url = dialog.getByRole("textbox", { name: "Repository URL" });
+  await url.fill("git@github.com:owner/notes.git");
+  await takeCalls(page);
+  await url.press("Enter");
+  await expect(url).toHaveAttribute("aria-invalid", "true");
+  await expect(dialog.getByText("Enter an HTTPS URL of github.com")).toBeVisible();
+  await expect(dialog.getByText("Choose a target folder")).toBeVisible();
+  expect(await takeCalls(page, "git_clone_vault")).toEqual([]);
+});
+
+test("the folder choice takes the focus, Enter adds the chosen form", async ({ page }) => {
+  await page.evaluate(() => {
+    window.__demo!.answer("workspace_variable_choices", [
+      { name: "Documents", template: "$Documents/Books", resolved: "/tmp/vaults" },
+    ]);
+    window.__demo!.answer("workspace_add_root", { name: "", roots: [] });
+    window.__demoDialog = { open: "/tmp/vaults" };
+  });
+  await openPalette(page);
+  await page.getByRole("combobox").fill(">Add folder to workspace");
+  await page.getByRole("option", { name: /Add folder to workspace/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Add folder to workspace" });
+  await expect(dialog.getByRole("radio", { name: /Absolute path/ })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await takeCalls(page);
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
+  await expect
+    .poll(async () => (await takeCalls(page, "workspace_add_root")).at(-1)?.args?.["path"])
+    .toBe("$Documents/Books");
+});
+
 test.describe("links in the editor (#459)", () => {
   test.beforeEach(async ({ page }) => {
     await ready(page);

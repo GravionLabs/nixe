@@ -1,7 +1,7 @@
 :host {
   display: block;
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 ul {
@@ -11,7 +11,7 @@ ul {
 }
 
 .status {
-  margin: 8px 12px;
+  margin: var(--h-space-2) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
@@ -21,51 +21,14 @@ li {
 
 .levels {
   display: flex;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: var(--h-space-1);
+  padding: 6px var(--h-space-2);
 }
 
-button.level {
-  width: auto;
-  padding: 2px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  font-size: 11px;
-}
-
-button.fold {
+.fold {
   position: absolute;
   top: 0;
   z-index: 1;
   width: 14px;
-  padding: 4px 0;
-  border: 0;
-  color: var(--h-text-muted-color);
-  font-size: 10px;
-  text-align: center;
-}
-
-button {
-  display: block;
-  width: 100%;
-  padding: 4px 12px;
-  border: 0;
-  border-left: 2px solid transparent;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-button:hover {
-  background: var(--h-surface-hover);
-}
-
-button.current {
-  border-left-color: var(--h-primary-color, currentColor);
-  font-weight: 600;
+  --h-button-sm-padding-x: 0;
 }

@@ -9,6 +9,7 @@ import {
   output,
   signal,
 } from "@angular/core";
+import { HxButton, HxCheckbox, HxInput, HxSelect, HxTooltip } from "@gravionlabs/helix-ui";
 
 import { backend } from "../../core/file/backend";
 import { SettingsService } from "../../core/settings/settings.service";
@@ -41,7 +42,7 @@ const today = (): string => {
   selector: "app-properties",
   templateUrl: "./properties.component.html",
   styleUrl: "./properties.component.css",
-  imports: [NgTemplateOutlet],
+  imports: [NgTemplateOutlet, HxButton, HxCheckbox, HxInput, HxSelect, HxTooltip],
   host: { "[class.in-editor]": "inEditor()", "[class.in-sidebar]": "panel()" },
 })
 export class PropertiesComponent {
@@ -82,6 +83,9 @@ export class PropertiesComponent {
 
   protected readonly types = NEW_PROPERTY_TYPES;
   protected readonly adding = signal(false);
+  protected readonly newType = signal<PropertyType>("text");
+  /** The name typed for the new property belongs to a property already. */
+  protected readonly nameTaken = signal(false);
   protected readonly parsed = computed(() => splitFrontmatter(this.source() ?? this.doc.content()));
   protected readonly props = computed(() => toProperties(this.parsed().data));
   private readonly tagIndex = signal<string[]>([]);
@@ -179,14 +183,21 @@ export class PropertiesComponent {
     }
   }
 
-  protected async add(name: HTMLInputElement, kind: HTMLSelectElement): Promise<void> {
+  protected startAdding(): void {
+    this.newType.set("text");
+    this.nameTaken.set(false);
+    this.adding.set(true);
+  }
+
+  protected async add(name: HTMLInputElement): Promise<void> {
     const key = name.value.trim();
     if (!key) return;
     if (this.props().some((p) => p.key === key)) {
+      this.nameTaken.set(true);
       this.failed.emit(`The property "${key}" already exists.`);
       return;
     }
-    const value = initialValue(kind.value as PropertyType, today());
+    const value = initialValue(this.newType(), today());
     if (await this.apply({ kind: "set", key, value })) this.adding.set(false);
   }
 

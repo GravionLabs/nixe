@@ -1,5 +1,5 @@
 import { Component, computed, inject, output, signal } from "@angular/core";
-import { HxDialog } from "@gravionlabs/helix-ui";
+import { HxButton, HxDialog, HxField, HxInput, HxSelectButton } from "@gravionlabs/helix-ui";
 
 import { ConflictService } from "../../core/git/conflict.service";
 import { mergeParts, mergeText, type MergeChoice } from "../../core/git/line-diff";
@@ -13,12 +13,17 @@ import { mergeParts, mergeText, type MergeChoice } from "../../core/git/line-dif
   selector: "app-conflict-merge",
   templateUrl: "./conflict-merge.component.html",
   styleUrl: "./conflict-merge.component.css",
-  imports: [HxDialog],
+  imports: [HxButton, HxDialog, HxField, HxInput, HxSelectButton],
 })
 export class ConflictMergeComponent {
   protected readonly conflict = inject(ConflictService);
   readonly failed = output<string>();
 
+  protected readonly choiceOptions: { label: string; value: MergeChoice }[] = [
+    { label: "Take this", value: "this" },
+    { label: "Take the other", value: "other" },
+    { label: "Take both", value: "both" },
+  ];
   protected readonly choices = signal<Record<number, MergeChoice>>({});
   /** The text the user typed into the result; null while the result follows the choices. */
   protected readonly typed = signal<string | null>(null);
@@ -54,6 +59,11 @@ export class ConflictMergeComponent {
   protected cancel(): void {
     this.reset();
     this.conflict.cancelMerge();
+  }
+
+  protected submit(event: Event): void {
+    event.preventDefault();
+    if (!this.saving()) void this.save();
   }
 
   protected async save(): Promise<void> {

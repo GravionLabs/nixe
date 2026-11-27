@@ -15,7 +15,7 @@ describe("note layout", () => {
 
   it("keeps the padding of a narrow pane", () => {
     expect(viewer).toMatch(
-      /@media \(max-width: 700px\)[\s\S]*article\.markdown-body\s*\{\s*padding: 20px 16px 60px/,
+      /@media \(max-width: 700px\)[\s\S]*article\.markdown-body\s*\{\s*padding: var\(--h-space-5\) var\(--h-space-4\) 60px/,
     );
   });
 

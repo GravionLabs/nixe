@@ -17,6 +17,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { By } from "@angular/platform-browser";
 import { HxMenu } from "@gravionlabs/helix-ui";
 import { HistoryComponent, formatCommitTime } from "./history.component";
+import { pressArrow } from "../../../testing/list-keys";
 
 const NOW = Date.UTC(1970, 0, 2, 12, 0, 0);
 const timeline: TimelineEntry[] = [
@@ -216,6 +217,26 @@ describe("HistoryComponent", () => {
     expect(el.querySelector(".pick")).toBeNull();
   });
 
+  it("selects the row of the version to compare with", () => {
+    const { fixture, el } = render(null);
+    const rows = el.querySelectorAll<HTMLButtonElement>(".timeline button[hx-list-row]");
+    expect(el.querySelector(".hx-list-row-selected")).toBeNull();
+    expect(rows[1].getAttribute("aria-pressed")).toBeNull();
+    menuItems(fixture, el)[1].command();
+    fixture.detectChanges();
+    expect(rows[1].classList.contains("hx-list-row-selected")).toBe(true);
+    expect(rows[1].getAttribute("aria-pressed")).toBe("true");
+    expect(el.querySelectorAll(".hx-list-row-selected").length).toBe(1);
+  });
+
+  it("moves through the versions with the arrows", () => {
+    const { el } = render(null);
+    const rows = el.querySelectorAll<HTMLButtonElement>(".timeline button[hx-list-row]");
+    rows[0].focus();
+    pressArrow(rows[0], "ArrowDown");
+    expect(document.activeElement).toBe(rows[1]);
+  });
+
   it("cancels the pick without comparing", () => {
     const { fixture, el, open, compareBetween } = render(null);
     menuItems(fixture, el)[1].command();
@@ -279,18 +300,18 @@ describe("HistoryComponent", () => {
 
   it("lists the trash with title, folder and the time of the deletion; Restore restores", () => {
     const { el, restoreDeleted } = render(null);
-    const li = el.querySelector(".deleted li")!;
-    expect(li.querySelector(".main")!.getAttribute("title")).toBe("dir/gone.md");
+    const li = el.querySelector(".deleted app-note-row")!;
+    expect(li.querySelector("button[hx-list-row]")!.getAttribute("title")).toBe("dir/gone.md");
     expect(li.querySelector(".title")!.textContent).toBe("gone");
     expect(li.querySelector(".folder")!.textContent).toBe("dir");
-    expect(li.querySelector(".meta")!.textContent).toContain("deleted 21 days ago");
-    li.querySelector<HTMLButtonElement>("button:not(.main)")!.click();
+    expect(li.querySelector(".hx-list-row-meta")!.textContent).toContain("deleted 21 days ago");
+    li.querySelector<HTMLButtonElement>("button:not([hx-list-row])")!.click();
     expect(restoreDeleted).toHaveBeenCalledWith(expect.objectContaining({ path: "dir/gone.md" }));
   });
 
   it("shows the last content of a deleted note on a click", () => {
     const { el, reviewDeleted } = render(null);
-    el.querySelector<HTMLButtonElement>(".deleted li .main")!.click();
+    el.querySelector<HTMLButtonElement>(".deleted button[hx-list-row]")!.click();
     expect(reviewDeleted).toHaveBeenCalledWith(expect.objectContaining({ path: "dir/gone.md" }));
   });
 
@@ -303,7 +324,7 @@ describe("HistoryComponent", () => {
       fixture.detectChanges();
     };
     type("DIR");
-    expect(el.querySelectorAll(".deleted li .main").length).toBe(1);
+    expect(el.querySelectorAll(".deleted button[hx-list-row]").length).toBe(1);
     type("other");
     expect(el.querySelector(".deleted .title")!.textContent).toBe("other");
     type("zzz");
@@ -327,11 +348,11 @@ describe("HistoryComponent", () => {
       },
     ];
     const { el, openRecent } = render(null, null, [], { recent });
-    const row = el.querySelector(".recent li")!;
+    const row = el.querySelector(".recent app-note-row")!;
     expect(row.querySelector(".title")!.textContent).toBe("new");
     expect(row.querySelector(".folder")!.textContent).toBe("dir");
-    expect(row.querySelector(".meta")!.textContent).toContain("1 hour ago");
-    row.querySelector<HTMLButtonElement>(".main")!.click();
+    expect(row.querySelector(".hx-list-row-meta")!.textContent).toContain("1 hour ago");
+    row.querySelector<HTMLButtonElement>("button[hx-list-row]")!.click();
     expect(openRecent).toHaveBeenCalledWith(expect.objectContaining({ path: "dir/new.md" }));
   });
 

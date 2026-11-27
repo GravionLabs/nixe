@@ -9,11 +9,11 @@
   box-sizing: border-box;
   max-width: var(--nixe-content-width, 980px);
   margin: 0 auto;
-  padding: 24px var(--nixe-content-padding-x, 40px) 0;
+  padding: var(--h-space-6) var(--nixe-content-padding-x, 40px) 0;
 }
 
 :host .properties-host + .markdown-body {
-  padding-top: 16px;
+  padding-top: var(--h-space-4);
 }
 
 /* `:host article` outranks github-markdown-css (`:root:not(.app-dark) .markdown-body`), which sets `margin: 0`. */
@@ -28,11 +28,11 @@
 
 @media (max-width: 700px) {
   :host .properties-host {
-    padding: 16px 16px 0;
+    padding: var(--h-space-4) var(--h-space-4) 0;
   }
 
   :host article.markdown-body {
-    padding: 20px 16px 60px;
+    padding: var(--h-space-5) var(--h-space-4) 60px;
   }
 }
 
@@ -78,11 +78,6 @@
 .find-bar .find-input {
   flex: 1;
   min-width: 0;
-  padding: 3px 6px;
-  color: var(--h-text-color);
-  background: var(--h-content-background);
-  border: 1px solid var(--h-text-muted-color);
-  border-radius: 3px;
 }
 
 .find-bar .find-count {
@@ -90,19 +85,6 @@
   color: var(--h-text-muted-color);
   font-size: 0.85em;
   text-align: right;
-}
-
-.find-bar button {
-  color: var(--h-text-color);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.find-bar button.active {
-  color: var(--h-content-background);
-  background: var(--h-primary-color);
 }
 
 .markdown-body mark.find-hit {

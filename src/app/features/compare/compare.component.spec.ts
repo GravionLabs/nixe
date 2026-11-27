@@ -66,11 +66,15 @@ describe("CompareComponent", () => {
 
   it("switches to the source diff and hands the choice to the service", () => {
     const { el, fixture, setMode } = render(input);
-    el.querySelector<HTMLButtonElement>(".mode-source")!.click();
+    const source = () =>
+      [...el.querySelectorAll<HTMLButtonElement>("hx-select-button button")].find(
+        (b) => b.textContent?.trim() === "Source",
+      )!;
+    source().click();
     fixture.detectChanges();
     expect(setMode).toHaveBeenCalledWith("source");
     expect(el.querySelectorAll(".diff .row.add")).toHaveLength(2);
-    expect(el.querySelector(".mode-source")?.getAttribute("aria-pressed")).toBe("true");
+    expect(source().getAttribute("aria-pressed")).toBe("true");
   });
 
   it("shows one side and a note for an added note", () => {

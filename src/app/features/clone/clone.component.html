@@ -2,74 +2,118 @@
   [visible]="true"
   (hidden)="onHidden()"
   header="Clone vault"
-  dismissableMask
   position="top"
-  width="min(520px, 90vw)"
+  size="md"
+  [closable]="!clone.cloning()"
+  [closeOnEscape]="!clone.cloning()"
 >
-  <form (submit)="submit($event)">
-    <label>
-      Repository URL
-      <input
-        type="url"
-        autocomplete="off"
-        placeholder="https://github.com/owner/notes.git"
-        [value]="clone.url()"
-        [disabled]="clone.cloning()"
-        (input)="clone.url.set($any($event.target).value)"
-      />
-    </label>
-    <div class="folder">
-      <span class="path" [title]="clone.parent()">{{
-        clone.parent() || "No target folder chosen"
-      }}</span>
-      <button type="button" [disabled]="clone.cloning()" (click)="chooseFolder()">
-        Choose folder…
-      </button>
+  <!-- novalidate: the browser would refuse an SSH URL itself and never send the submit event. -->
+  <form id="clone-form" novalidate (submit)="submit($event)">
+    <hx-field label="Repository URL" [hint]="urlHint()" required>
+      <input hx-input type="url" autocomplete="off" spellcheck="false" [formField]="urlField" />
+    </hx-field>
+    <div class="path-picker">
+      <hx-field label="Target folder" required>
+        <hx-input-group>
+          <input
+            hx-input
+            type="text"
+            readonly
+            placeholder="No target folder chosen"
+            [value]="clone.parent()"
+            [title]="clone.parent()"
+            [attr.aria-invalid]="folderError() ? 'true' : null"
+            [attr.aria-describedby]="folderError() ? 'clone-folder-error' : null"
+          />
+          <button
+            hx-button
+            type="button"
+            variant="outlined"
+            severity="secondary"
+            [disabled]="clone.cloning()"
+            (click)="chooseFolder()"
+          >
+            Choose folder…
+          </button>
+        </hx-input-group>
+      </hx-field>
+      @if (folderError(); as error) {
+        <hx-message id="clone-folder-error" severity="error" variant="simple" size="small">
+          {{ error }}
+        </hx-message>
+      }
     </div>
 
     @if (git.tokenPrompt(); as prompt) {
-      <div class="token" role="alert">
-        <p>
-          {{
-            prompt.reason === "failed"
-              ? "GitHub rejected the token. Enter a new one."
-              : "Enter a personal access token to reach GitHub."
-          }}
-        </p>
-        <input
-          #token
-          type="password"
-          autocomplete="off"
-          aria-label="Personal access token"
-          placeholder="Personal access token"
-        />
-        <button type="button" (click)="saveToken(token)">Save token</button>
-        @if (git.ghAvailable()) {
-          <button
-            type="button"
-            [disabled]="git.ghSigningIn()"
-            (click)="git.signInWithGh(prompt.host)"
-          >
-            Sign in with GitHub (gh)
-          </button>
-        }
-        @if (git.ghSigningIn()) {
-          <p class="gh">
-            @if (git.ghCode(); as code) {
-              Enter this code in the browser: <strong class="code">{{ code }}</strong>
-            } @else {
-              Waiting for the GitHub CLI…
+      <hx-message severity="error">
+        <div class="message">
+          <span>
+            {{
+              prompt.reason === "failed"
+                ? "GitHub rejected the token. Enter a new one."
+                : "Enter a personal access token to reach GitHub."
+            }}
+          </span>
+          <input
+            #token
+            hx-input
+            fluid
+            type="password"
+            autocomplete="off"
+            aria-label="Personal access token"
+            placeholder="Personal access token"
+          />
+          <div class="actions">
+            <button
+              hx-button
+              type="button"
+              variant="outlined"
+              severity="secondary"
+              (click)="saveToken(token)"
+            >
+              Save token
+            </button>
+            @if (git.ghAvailable()) {
+              <button
+                hx-button
+                type="button"
+                variant="text"
+                severity="secondary"
+                [loading]="git.ghSigningIn()"
+                (click)="git.signInWithGh(prompt.host)"
+              >
+                Sign in with GitHub (gh)
+              </button>
             }
-            <button type="button" (click)="git.cancelGhSignIn()">Cancel</button>
-          </p>
-        }
-        @if (git.ghNotice(); as notice) {
-          <p class="gh" role="status">{{ notice }}</p>
-        }
-        @if (git.ghError(); as error) {
-          <p class="error" role="alert">{{ error }}</p>
-        }
-      </div>
+          </div>
+          @if (git.ghSigningIn()) {
+            <div class="gh actions">
+              <span>
+                @if (git.ghCode(); as code) {
+                  Enter this code in the browser: <strong>{{ code }}</strong>
+                } @else {
+                  Waiting for the GitHub CLI…
+                }
+              </span>
+              <button
+                hx-button
+                type="button"
+                variant="text"
+                severity="secondary"
+                (click)="git.cancelGhSignIn()"
+              >
+                Cancel
+              </button>
+            </div>
+          }
+          @if (git.ghNotice(); as notice) {
+            <span role="status">{{ notice }}</span>
+          }
+          @if (git.ghError(); as error) {
+            <span>{{ error }}</span>
+          }
+        </div>
+      </hx-message>
     }
 
     @if (clone.cloning()) {
@@ -80,17 +124,28 @@
           Cloning…
         }
       </p>
-      <progress max="100" [value]="clone.percent() ?? 0"></progress>
+      <hx-progress-bar
+        ariaLabel="Clone progress"
+        [mode]="clone.percent() === null ? 'indeterminate' : 'determinate'"
+        [value]="clone.percent() ?? 0"
+      />
     }
     @if (clone.error(); as message) {
-      <p class="status error" role="alert">{{ message }}</p>
+      <hx-message severity="error">{{ message }}</hx-message>
     }
-
-    <div class="buttons">
-      <button type="button" (click)="clone.close()">
-        {{ clone.cloning() ? "Cancel clone" : "Close" }}
-      </button>
-      <button type="submit" class="primary" [disabled]="!clone.canStart()">Clone</button>
-    </div>
   </form>
+
+  <button
+    hxDialogFooter
+    hx-button
+    type="button"
+    variant="text"
+    severity="secondary"
+    (click)="clone.close()"
+  >
+    {{ clone.cloning() ? "Cancel clone" : "Close" }}
+  </button>
+  <button hxDialogFooter hx-button type="submit" form="clone-form" [loading]="clone.cloning()">
+    Clone
+  </button>
 </hx-dialog>

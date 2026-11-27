@@ -1,23 +1,36 @@
 <form class="capture" (submit)="$event.preventDefault()">
-  <textarea
-    #input
-    rows="5"
-    aria-label="Capture"
-    placeholder="Capture… Enter saves, Shift+Enter adds a line, Escape discards"
-    [value]="capture.text()"
-    (input)="onInput($event)"
-    (keydown)="onKeydown($event)"
-    (keyup)="syncCaret()"
-    (click)="syncCaret()"
-  ></textarea>
+  <hx-field label="Capture" class="field">
+    <textarea
+      #input
+      hx-input
+      fluid
+      class="text"
+      rows="5"
+      placeholder="Capture… Enter saves, Shift+Enter adds a line, Escape discards"
+      [value]="capture.text()"
+      (input)="onInput($event)"
+      (keydown)="onKeydown($event)"
+      (keyup)="syncCaret()"
+      (click)="syncCaret()"
+    ></textarea>
+  </hx-field>
   @if (capture.suggestions().length > 0) {
     <ul role="listbox" aria-label="Notes">
       @for (name of capture.suggestions(); track name; let i = $index) {
-        <li role="option" [attr.aria-selected]="i === capture.selected()">
+        <li
+          role="option"
+          [attr.aria-selected]="i === capture.selected()"
+          [class.selected]="i === capture.selected()"
+        >
           <button
+            hx-button
             type="button"
+            variant="text"
+            severity="secondary"
+            size="small"
+            fluid
+            class="row"
             tabindex="-1"
-            [class.selected]="i === capture.selected()"
             (mousedown)="$event.preventDefault(); pick(name)"
           >
             {{ name }}
@@ -27,7 +40,7 @@
     </ul>
   }
   @if (capture.error(); as error) {
-    <p class="error" role="alert">{{ error }}</p>
+    <hx-message severity="error">{{ error }}</hx-message>
   }
   @if (capture.notice(); as notice) {
     <p class="notice" role="status">{{ notice }}</p>

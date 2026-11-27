@@ -4,24 +4,16 @@
     <span class="range">
       {{ suggestion.notes }} {{ suggestion.notes === 1 ? "note" : "notes" }}
     </span>
-    <span class="finish">
-      @if (confirming()) {
-        <span class="ask"
-          >Take over {{ review.accepted() }} {{ review.accepted() === 1 ? "note" : "notes" }} and
-          remove the suggestion?</span
-        >
-        <button type="button" class="danger" (click)="finish()">Confirm</button>
-        <button type="button" (click)="confirming.set(false)">Cancel</button>
-      } @else {
-        <button
-          type="button"
-          [disabled]="review.finishing() || review.loading()"
-          (click)="confirming.set(true)"
-        >
-          Finish review
-        </button>
-      }
-    </span>
+    <button
+      hx-button
+      type="button"
+      class="finish"
+      [disabled]="review.loading()"
+      [loading]="review.finishing()"
+      (click)="finish()"
+    >
+      Finish review
+    </button>
   </header>
   @if (review.error(); as error) {
     <p class="status" role="alert">{{ error }}</p>
@@ -45,65 +37,72 @@
               <pre class="theirs">{{ conflict.branch ?? "(deleted)" }}</pre>
             </section>
           </div>
-          <button
-            type="button"
-            [class.on]="review.choices()[conflict.path]?.resolve === 'mine'"
-            (click)="review.resolve(conflict.path, 'mine')"
-          >
-            Keep mine
-          </button>
-          <button
-            type="button"
-            [class.on]="review.choices()[conflict.path]?.resolve === 'branch'"
-            (click)="review.resolve(conflict.path, 'branch')"
-          >
-            Use suggestion
-          </button>
+          <hx-select-button
+            [ariaLabel]="'Version of ' + conflict.path"
+            [options]="resolutions"
+            [value]="review.choices()[conflict.path]?.resolve ?? null"
+            [allowEmpty]="false"
+            (valueChange)="review.resolve(conflict.path, $any($event))"
+          />
         </div>
       }
     </div>
   }
   <div class="body">
-    <ul class="notes" aria-label="Changed notes">
+    <hx-list class="notes" aria-label="Changed notes">
       @for (change of review.changes(); track change.path) {
-        <li>
-          <app-note-row
-            [path]="change.path"
-            [kind]="change.kind"
-            [expanded]="review.selected() === change.path"
-            (activated)="review.select(change)"
+        <app-note-row>
+          <button
+            hx-list-row
+            type="button"
+            [current]="review.selected() === change.path"
+            [title]="change.path"
+            (click)="review.select(change)"
           >
-            <span rowEnd class="state" [class]="review.stateOf(change.path)">{{
+            <app-note-title [path]="change.path" [kind]="change.kind" />
+            <span class="hx-list-row-meta state" [class]="review.stateOf(change.path)">{{
               review.stateOf(change.path)
             }}</span>
-            <span rowActions class="decide">
-              <button
-                type="button"
-                [attr.aria-label]="'Accept ' + change.path"
-                [class.on]="review.stateOf(change.path) === 'accepted'"
-                (click)="review.setNote(change.path, true)"
-              >
-                Accept
-              </button>
-              <button
-                type="button"
-                [attr.aria-label]="'Reject ' + change.path"
-                [class.on]="review.stateOf(change.path) === 'rejected'"
-                (click)="review.setNote(change.path, false)"
-              >
-                Reject
-              </button>
-            </span>
-          </app-note-row>
-        </li>
+          </button>
+          <span rowActions class="decide">
+            <button
+              hx-button
+              type="button"
+              variant="text"
+              size="small"
+              iconOnly
+              [severity]="review.stateOf(change.path) === 'accepted' ? 'primary' : 'secondary'"
+              [attr.aria-label]="'Accept ' + change.path"
+              [attr.aria-pressed]="review.stateOf(change.path) === 'accepted'"
+              hx-tooltip="Accept"
+              (click)="review.setNote(change.path, true)"
+            >
+              <span aria-hidden="true">✓</span>
+            </button>
+            <button
+              hx-button
+              type="button"
+              variant="text"
+              size="small"
+              iconOnly
+              [severity]="review.stateOf(change.path) === 'rejected' ? 'primary' : 'secondary'"
+              [attr.aria-label]="'Reject ' + change.path"
+              [attr.aria-pressed]="review.stateOf(change.path) === 'rejected'"
+              hx-tooltip="Reject"
+              (click)="review.setNote(change.path, false)"
+            >
+              <span aria-hidden="true">✕</span>
+            </button>
+          </span>
+        </app-note-row>
       } @empty {
         @if (review.loading()) {
-          <li class="status">Loading…</li>
+          <p class="status">Loading…</p>
         } @else {
-          <li><app-empty-state text="No notes changed" /></li>
+          <app-empty-state text="No notes changed" />
         }
       }
-    </ul>
+    </hx-list>
     <section class="compare" aria-label="Selected note">
       @if (review.selected(); as path) {
         @if (review.diff(); as diff) {
@@ -112,15 +111,14 @@
               ><span class="add">+{{ stat().added }}</span>
               <span class="del">−{{ stat().removed }}</span></span
             >
-            <button type="button" [class.on]="mode() === 'sections'" (click)="mode.set('sections')">
-              Sections
-            </button>
-            <button type="button" [class.on]="mode() === 'source'" (click)="mode.set('source')">
-              Source
-            </button>
-            <button type="button" [class.on]="mode() === 'rendered'" (click)="mode.set('rendered')">
-              Rendered
-            </button>
+            <hx-select-button
+              ariaLabel="Compare view"
+              size="small"
+              [options]="modes"
+              [value]="mode()"
+              [allowEmpty]="false"
+              (valueChange)="mode.set($any($event))"
+            />
           </div>
           @if (mode() === "sections") {
             <div class="sections" aria-label="Sections">
@@ -128,26 +126,34 @@
                 <div class="section" [class.accepted]="review.isAccepted(path, section.index)">
                   <div class="section-head">
                     <span>Line {{ section.oldStart + 1 }}</span>
-                    <button
-                      type="button"
-                      [class.on]="review.isAccepted(path, section.index)"
-                      (click)="review.setHunk(path, section.index, true)"
-                    >
-                      Accept section
-                    </button>
-                    <button
-                      type="button"
-                      [class.on]="!review.isAccepted(path, section.index)"
-                      (click)="review.setHunk(path, section.index, false)"
-                    >
-                      Reject section
-                    </button>
+                    <hx-select-button
+                      [ariaLabel]="'Section at line ' + (section.oldStart + 1)"
+                      size="small"
+                      [options]="verdicts"
+                      [value]="review.isAccepted(path, section.index)"
+                      [allowEmpty]="false"
+                      (valueChange)="review.setHunk(path, section.index, $any($event))"
+                    />
                     @if (review.isAccepted(path, section.index)) {
-                      <button type="button" (click)="edit(path, section)">Edit</button>
+                      <button
+                        hx-button
+                        type="button"
+                        variant="text"
+                        size="small"
+                        (click)="edit(path, section)"
+                      >
+                        Edit
+                      </button>
                     }
                     @if (review.editedText(path, section.index) !== undefined) {
                       <span class="tag">edited</span>
-                      <button type="button" (click)="review.resetHunk(path, section.index)">
+                      <button
+                        hx-button
+                        type="button"
+                        variant="text"
+                        size="small"
+                        (click)="review.resetHunk(path, section.index)"
+                      >
                         Undo edit
                       </button>
                     }
@@ -158,14 +164,33 @@
                   @if (editing() === path + "#" + section.index) {
                     <textarea
                       #area
+                      hx-input
+                      fluid
                       aria-label="Edit section"
                       rows="4"
                       [value]="review.editedText(path, section.index) ?? section.new"
                     ></textarea>
-                    <button type="button" (click)="saveEdit(path, section.index, area.value)">
-                      Apply edit
-                    </button>
-                    <button type="button" (click)="editing.set(null)">Cancel</button>
+                    <div class="edit-actions">
+                      <button
+                        hx-button
+                        type="button"
+                        variant="text"
+                        severity="secondary"
+                        size="small"
+                        (click)="editing.set(null)"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        hx-button
+                        type="button"
+                        variant="outlined"
+                        size="small"
+                        (click)="saveEdit(path, section.index, area.value)"
+                      >
+                        Apply edit
+                      </button>
+                    </div>
                   } @else if (review.editedText(path, section.index) ?? section.new; as text) {
                     <pre class="add">{{ text }}</pre>
                   }

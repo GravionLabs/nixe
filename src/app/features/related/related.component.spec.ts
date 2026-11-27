@@ -17,6 +17,7 @@ import { LinkPreviewService } from "../../core/preview/link-preview.service";
 import { TabsService } from "../../core/tabs/tabs.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { RelatedComponent } from "./related.component";
+import { pressArrow } from "../../../testing/list-keys";
 
 const note = (path: string, reasons: string[]): RelatedNote => ({
   path,
@@ -74,7 +75,7 @@ describe("RelatedComponent", () => {
       note("C.md", ["both linked from Hub"]),
     ]);
     expect(refresh).toHaveBeenCalled();
-    const rows = el.querySelectorAll("li");
+    const rows = el.querySelectorAll("button[hx-list-row]");
     expect(rows.length).toBe(2);
     expect(rows[0].textContent).toContain("B");
     expect(rows[0].textContent).toContain("links here, 2 shared tags");
@@ -107,5 +108,14 @@ describe("RelatedComponent", () => {
     expect(render("ready", []).el.textContent).toContain("No related notes");
     expect(render("loading", []).el.textContent).toContain("Indexing");
     expect(render("error", []).el.querySelector("[role=alert]")).not.toBeNull();
+  });
+
+  it("moves through the rows with the arrows; none is selected or current", () => {
+    const { el } = render("ready", [note("B.md", []), note("C.md", [])]);
+    const rows = el.querySelectorAll<HTMLButtonElement>("button[hx-list-row]");
+    expect(el.querySelector("[aria-current], [aria-pressed]")).toBeNull();
+    rows[0].focus();
+    pressArrow(rows[0], "ArrowDown");
+    expect(document.activeElement).toBe(rows[1]);
   });
 });

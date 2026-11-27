@@ -1,6 +1,15 @@
 <section [attr.aria-label]="title">
   <div class="head">
-    <button type="button" class="toggle" [attr.aria-expanded]="open" (click)="toggle()">
+    <button
+      hx-button
+      type="button"
+      class="toggle"
+      variant="text"
+      severity="secondary"
+      size="small"
+      [attr.aria-expanded]="open"
+      (click)="toggle()"
+    >
       <span class="chevron" aria-hidden="true">{{ open ? "▾" : "▸" }}</span>
       <span class="title">{{ title }}</span>
       @if (count !== undefined) {

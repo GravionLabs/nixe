@@ -1,8 +1,10 @@
 import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { HxButton } from "@gravionlabs/helix-ui";
 
 /** A muted text for a list without entries, with an optional action button. */
 @Component({
   selector: "app-empty-state",
+  imports: [HxButton],
   templateUrl: "./empty-state.component.html",
   styles: `
     :host {

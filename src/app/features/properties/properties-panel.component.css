@@ -1,5 +1,5 @@
 :host {
   display: block;
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }

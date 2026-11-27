@@ -1,9 +1,36 @@
 <header>
-  <span>Log</span>
+  <span class="title">Log</span>
   <span class="actions">
-    <button type="button" (click)="reload()">Refresh</button>
-    <button type="button" (click)="copy()">Copy last 500 lines</button>
-    <button type="button" (click)="reveal()">Reveal folder</button>
+    <button
+      hx-button
+      type="button"
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      (click)="reload()"
+    >
+      Refresh
+    </button>
+    <button
+      hx-button
+      type="button"
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      (click)="copy()"
+    >
+      Copy last 500 lines
+    </button>
+    <button
+      hx-button
+      type="button"
+      variant="outlined"
+      severity="secondary"
+      size="small"
+      (click)="reveal()"
+    >
+      Reveal folder
+    </button>
   </span>
 </header>
 

@@ -3,6 +3,10 @@
     <h1 class="title">{{ b.title }}</h1>
     <span class="modes" role="group" aria-label="Reading mode">
       <button
+        hx-button
+        variant="text"
+        [severity]="epub.flow() === 'paginated' ? 'primary' : 'secondary'"
+        size="small"
         type="button"
         class="mode-paginated"
         [class.on]="epub.flow() === 'paginated'"
@@ -12,6 +16,10 @@
         Paged
       </button>
       <button
+        hx-button
+        variant="text"
+        [severity]="epub.flow() === 'scrolled' ? 'primary' : 'secondary'"
+        size="small"
         type="button"
         class="mode-scrolled"
         [class.on]="epub.flow() === 'scrolled'"
@@ -28,6 +36,11 @@
         @for (row of toc(); track $index) {
           <li [style.padding-left.rem]="0.75 + row.depth * 0.9">
             <button
+              hx-button
+              variant="text"
+              severity="contrast"
+              size="small"
+              fluid
               type="button"
               class="entry"
               [class.on]="row.href === current()"
@@ -46,8 +59,28 @@
       }
       <div class="stage" #stage></div>
       <div class="pager">
-        <button type="button" class="prev" (click)="prev()">Previous page</button>
-        <button type="button" class="next" (click)="next()">Next page</button>
+        <button
+          hx-button
+          variant="outlined"
+          severity="secondary"
+          size="small"
+          type="button"
+          class="prev"
+          (click)="prev()"
+        >
+          Previous page
+        </button>
+        <button
+          hx-button
+          variant="outlined"
+          severity="secondary"
+          size="small"
+          type="button"
+          class="next"
+          (click)="next()"
+        >
+          Next page
+        </button>
       </div>
     </div>
   </div>

@@ -1,5 +1,6 @@
-import type { ElementRef, OnDestroy } from "@angular/core";
-import { Component, effect, inject, signal, viewChild } from "@angular/core";
+import type { OnDestroy } from "@angular/core";
+import { Component, ElementRef, effect, inject, signal, viewChild } from "@angular/core";
+import { HxButton, HxField, HxFieldset, HxInput, HxSelect, HxSwitch } from "@gravionlabs/helix-ui";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { ShortcutService } from "../../core/commands/shortcut.service";
@@ -11,6 +12,7 @@ import { SettingsPageService } from "../../core/settings/settings-page.service";
   selector: "app-settings",
   templateUrl: "./settings.component.html",
   styleUrl: "./settings.component.css",
+  imports: [HxButton, HxField, HxFieldset, HxInput, HxSelect, HxSwitch],
 })
 export class SettingsComponent implements OnDestroy {
   protected readonly page = inject(SettingsPageService);
@@ -18,7 +20,10 @@ export class SettingsComponent implements OnDestroy {
   protected readonly commands = inject(CommandRegistry);
   private readonly input = viewChild<ElementRef<HTMLInputElement>>("search");
 
-  private readonly recorder = viewChild<ElementRef<HTMLButtonElement>>("recorder");
+  // The button is a Helix component: read its element, not the component instance.
+  private readonly recorder = viewChild("recorder", {
+    read: ElementRef<HTMLButtonElement>,
+  });
 
   constructor() {
     // A restored tab (or another vault) has no Obsidian settings loaded yet.
@@ -121,6 +126,10 @@ export class SettingsComponent implements OnDestroy {
 
   protected checked(event: Event): boolean {
     return (event.target as HTMLInputElement).checked;
+  }
+
+  protected setSelect(item: Extract<SettingItem, { kind: "select" }>, value: unknown): void {
+    if (typeof value === "string") item.set(value);
   }
 
   protected setNumber(item: Extract<SettingItem, { kind: "number" }>, event: Event): void {

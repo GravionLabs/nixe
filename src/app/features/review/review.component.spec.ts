@@ -81,7 +81,7 @@ describe("ReviewComponent", () => {
       "2023-11-14 22:13 · 2 notes",
     );
     expect(cards[1].querySelector(".meta")!.textContent).toContain("1 note");
-    expect([...cards[0].querySelectorAll(".messages li")].map((l) => l.textContent)).toEqual([
+    expect([...cards[0].querySelectorAll(".message")].map((l) => l.textContent)).toEqual([
       "tidy inbox",
       "fix links",
     ]);

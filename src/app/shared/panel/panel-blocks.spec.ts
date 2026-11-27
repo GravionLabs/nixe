@@ -3,33 +3,55 @@ import "@angular/compiler";
 import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
+import { HxList, HxListRow } from "@gravionlabs/helix-ui";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { pressArrow } from "../../../testing/list-keys";
 import { EmptyStateComponent } from "./empty-state.component";
 import { noteLabel } from "./note-label";
 import { NoteRowComponent } from "./note-row.component";
+import { NoteTitleComponent } from "./note-title.component";
 import { PanelSectionComponent } from "./panel-section.component";
 import { StatusIconComponent } from "./status-icon.component";
 
 @Component({
   selector: "app-host",
-  imports: [PanelSectionComponent, NoteRowComponent, EmptyStateComponent],
+  imports: [
+    PanelSectionComponent,
+    NoteRowComponent,
+    NoteTitleComponent,
+    HxList,
+    HxListRow,
+    EmptyStateComponent,
+  ],
   template: `
     <app-panel-section title="Things" [count]="2" storageKey="things">
       <button panelActions type="button" class="act">Act</button>
-      <app-note-row
-        path="notes/daily/today.md"
-        kind="renamed"
-        [expanded]="false"
-        (activated)="activated = activated + 1"
-      >
-        <button rowActions type="button" class="more">More</button>
-      </app-note-row>
+      <hx-list aria-label="Notes">
+        @for (path of paths; track path) {
+          <app-note-row>
+            <input rowStart type="checkbox" class="pick" />
+            <button
+              hx-list-row
+              type="button"
+              [current]="path === open"
+              [title]="path"
+              (click)="activated = activated + 1"
+            >
+              <app-note-title [path]="path" kind="renamed" />
+              <span class="hx-list-row-meta">now</span>
+            </button>
+            <button rowActions type="button" class="more">More</button>
+          </app-note-row>
+        }
+      </hx-list>
       <app-empty-state text="Nothing" action="Create" (activated)="created = created + 1" />
     </app-panel-section>
   `,
 })
 class HostComponent {
+  readonly paths = ["notes/daily/today.md", "notes/other.md"];
+  open = "notes/other.md";
   activated = 0;
   created = 0;
 }
@@ -96,30 +118,34 @@ describe("shared panel blocks", () => {
     set.mockRestore();
   });
 
-  it("renders a note row with dimmed folder, tooltip, status icon and actions", () => {
+  it("renders a note row with dimmed folder, tooltip, status icon, meta and actions", () => {
     const { fixture, el } = render();
-    const main = el.querySelector<HTMLButtonElement>(".main")!;
+    const row = el.querySelector("app-note-row")!;
+    const main = row.querySelector<HTMLButtonElement>("button[hx-list-row]")!;
     expect(main.title).toBe("notes/daily/today.md");
-    expect(main.getAttribute("aria-expanded")).toBe("false");
-    expect(el.querySelector(".row .title")!.textContent).toBe("today");
-    expect(el.querySelector(".folder")!.textContent).toBe("notes/daily");
-    const icon = el.querySelector("[role=img]")!;
+    expect(main.querySelector(".hx-list-row-label .title")!.textContent).toBe("today");
+    expect(main.querySelector(".folder")!.textContent).toBe("notes/daily");
+    expect(main.querySelector(".hx-list-row-meta")!.textContent).toBe("now");
+    const icon = main.querySelector("[role=img]")!;
     expect(icon.getAttribute("title")).toBe("Renamed");
     expect(icon.getAttribute("aria-label")).toBe("Renamed");
-    expect(el.querySelector(".actions .more")).not.toBeNull();
+    expect(row.querySelector(".actions .more")).not.toBeNull();
+    expect(row.firstElementChild!.classList.contains("pick")).toBe(true);
     main.click();
     expect(fixture.componentInstance.activated).toBe(1);
   });
 
-  it("renders a non-interactive row as text with visible actions", () => {
-    const f = TestBed.createComponent(NoteRowComponent);
-    f.componentRef.instance.path = "a/gone.md";
-    f.componentRef.instance.interactive = false;
-    f.detectChanges();
-    expect(f.nativeElement.querySelector("button.main")).toBeNull();
-    expect(f.nativeElement.querySelector(".row.static .main")!.getAttribute("title")).toBe(
-      "a/gone.md",
-    );
+  it("marks the current row and moves through the rows with the arrows", () => {
+    const { el } = render();
+    const rows = el.querySelectorAll<HTMLButtonElement>("button[hx-list-row]");
+    expect(rows[0].getAttribute("aria-current")).toBeNull();
+    expect(rows[1].getAttribute("aria-current")).toBe("true");
+    expect(rows[1].classList.contains("hx-list-row-current")).toBe(true);
+    expect([...rows].map((r) => r.tabIndex)).toEqual([-1, 0]);
+    rows[1].focus();
+    pressArrow(rows[1], "ArrowUp");
+    expect(document.activeElement).toBe(rows[0]);
+    expect([...rows].map((r) => r.tabIndex)).toEqual([0, -1]);
   });
 
   it("names every kind of status", () => {

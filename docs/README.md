@@ -43,6 +43,7 @@ links and Mermaid rendering all at once.
   - [frontend/terminal.md](frontend/terminal.md) — the terminal panel with xterm.js
   - [frontend/demo.md](frontend/demo.md) — the demo build, e2e tests and screenshots
 - [theming.md](theming.md) — themes, CSS snippets and the CSS variables
+- [STYLEGUIDE.md](STYLEGUIDE.md) — UI rules of Nixe and its deviations from the Helix base guide
 
 ## System at a glance
 
@@ -89,4 +90,4 @@ The full description, with how to add the answer for a new command and a test, i
 
 ### Screenshots
 
-`pnpm screenshots [name...] [--out <dir>]` writes `<name>-light.png` and `<name>-dark.png` for the docs and the site (default folder `site/public/screenshots`). `scripts/browser/playwright.mjs` installs Chromium when it is missing, starts the demo server on port 1422 (or reuses the one that runs) and opens a page per theme with a fixed clock, no animation and a 1280×800 window, so two runs give the same images. `scripts/screenshots/views.mjs` lists the views (`editor`, `backlinks`, `settings-locations`, `search`) and the step helpers (`ready`, `openNote`, `searchFor`, …) that the e2e tests reuse. An unknown view name is an error (exit 2). A command the demo backend does not answer fails the run with its name; a view that fails leaves `tmp/shots/failed-<name>-<theme>.png` (git-ignored).
+`pnpm screenshots [name...] [--out <dir>]` writes `<name>-light.png` and `<name>-dark.png` for the docs and the site (default folder `site/public/screenshots`). `scripts/browser/playwright.mjs` installs Chromium when it is missing, starts the demo server on port 1422 (or reuses the one that runs) and opens a page per theme with a fixed clock, no animation and a 1280×800 window, so two runs give the same images. `scripts/screenshots/views.mjs` lists the views (`editor`, `backlinks`, `settings-locations`, `epub-reader`, `clone`, `search`) and the step helpers (`ready`, `openNote`, `searchFor`, …) that the e2e tests reuse. An unknown view name is an error (exit 2). A command the demo backend does not answer fails the run with its name; a view that fails leaves `tmp/shots/failed-<name>-<theme>.png` (git-ignored).

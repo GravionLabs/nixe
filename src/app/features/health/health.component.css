@@ -6,7 +6,7 @@
   overflow-y: auto;
   background: var(--h-surface-frame);
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 header {
@@ -14,23 +14,13 @@ header {
   align-items: center;
   justify-content: space-between;
   height: 34px;
-  padding: 0 12px;
+  padding: 0 var(--h-space-3);
   border-bottom: 1px solid var(--h-content-border-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--h-text-muted-color);
-}
-
-input {
-  margin: 8px 12px;
-  padding: 5px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
 }
 
 ul {
@@ -45,36 +35,12 @@ li {
 }
 
 .status {
-  margin: 4px 12px;
-  color: var(--h-text-muted-color);
-}
-
-button {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 4px 12px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-button:hover {
-  background: var(--h-surface-hover);
-}
-
-button.close {
-  width: auto;
-  padding: 0 6px;
-  font-size: 16px;
+  margin: var(--h-space-1) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
 .name {
+  display: block;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -82,13 +48,13 @@ button.close {
 }
 
 .path {
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 
 .snippet {
   display: block;
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
   color: var(--h-text-muted-color);
   overflow-wrap: anywhere;
 }
@@ -99,31 +65,24 @@ mark {
 }
 
 h2 {
-  margin: 12px 12px 4px;
-  font-size: 12px;
+  margin: var(--h-space-3) var(--h-space-3) var(--h-space-1);
+  font-size: var(--h-font-size-sm);
   font-weight: 600;
 }
 
 .count {
-  margin-left: 4px;
+  margin-left: var(--h-space-1);
   color: var(--h-text-muted-color);
   font-weight: 400;
 }
 
 .exclude {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 12px 0;
-  font-size: 11px;
-  color: var(--h-text-muted-color);
-}
-
-.exclude input {
-  margin: 4px 0 0;
+  padding: var(--h-space-2) var(--h-space-3) 0;
 }
 
 .detail {
-  font-size: 12px;
+  display: block;
+  font-size: var(--h-font-size-sm);
   color: var(--h-text-muted-color);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -131,33 +90,17 @@ h2 {
 }
 
 .group {
-  padding: 4px 12px 0;
-}
-
-.group button {
-  padding-left: 0;
+  padding: var(--h-space-1) var(--h-space-3) 0;
 }
 
 .actions {
   display: flex;
-  gap: 8px;
-  padding: 0 12px 4px;
-}
-
-.actions button {
-  width: auto;
-  padding: 3px 10px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-}
-
-.actions button:disabled {
-  opacity: 0.6;
-  cursor: default;
+  gap: var(--h-space-2);
+  padding: 0 var(--h-space-3) var(--h-space-1);
 }
 
 .snapshot {
   display: block;
-  padding: 0 12px 4px;
-  font-size: 11px;
+  padding: 0 var(--h-space-3) var(--h-space-1);
+  font-size: var(--h-font-size-xs);
 }

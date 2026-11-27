@@ -13,23 +13,24 @@
       @if (links.backlinks().length === 0) {
         <p class="status">No backlinks</p>
       } @else {
-        <ul>
+        <hx-list aria-label="Backlinks">
           @for (link of links.backlinks(); track $index) {
-            <li>
-              <button
-                type="button"
-                (click)="openBacklink(link, $event)"
-                (dblclick)="openBacklink(link, $event)"
-                (mousemove)="hover($event, link.source)"
-                (mouseleave)="leave()"
-                [title]="link.source + ':' + link.line"
-              >
+            <button
+              hx-list-row
+              type="button"
+              (click)="openBacklink(link, $event)"
+              (dblclick)="openBacklink(link, $event)"
+              (mousemove)="hover($event, link.source)"
+              (mouseleave)="leave()"
+              [title]="link.source + ':' + link.line"
+            >
+              <span class="hx-list-row-label">
                 <span class="name">{{ link.source }}</span>
                 <span class="context">{{ link.context }}</span>
-              </button>
-            </li>
+              </span>
+            </button>
           }
-        </ul>
+        </hx-list>
       }
     </section>
 
@@ -40,32 +41,38 @@
       @if (links.outgoing().length === 0) {
         <p class="status">No outgoing links</p>
       } @else {
-        <ul>
+        <hx-list aria-label="Outgoing links">
           @for (link of links.outgoing(); track $index) {
-            <li>
-              <button
-                type="button"
-                [class.unresolved]="!link.resolved"
-                [disabled]="!link.resolved"
-                (click)="openOutgoing(link, $event)"
-                (dblclick)="openOutgoing(link, $event)"
-                (mousemove)="link.resolved && hover($event, link.resolved, link.heading)"
-                (mouseleave)="leave()"
-              >
+            <button
+              hx-list-row
+              type="button"
+              [class.unresolved]="!link.resolved"
+              [disabled]="!link.resolved"
+              (click)="openOutgoing(link, $event)"
+              (dblclick)="openOutgoing(link, $event)"
+              (mousemove)="link.resolved && hover($event, link.resolved, link.heading)"
+              (mouseleave)="leave()"
+            >
+              <span class="hx-list-row-label">
                 <span class="name">{{ link.label }}</span>
-                @if (!link.resolved) {
-                  <span class="badge">unresolved</span>
-                }
-              </button>
-            </li>
+              </span>
+              @if (!link.resolved) {
+                <span class="hx-list-row-meta">unresolved</span>
+              }
+            </button>
           }
-        </ul>
+        </hx-list>
       }
     </section>
 
     <section aria-label="Unlinked mentions">
       <h2>
         <button
+          hx-button
+          variant="text"
+          severity="contrast"
+          size="small"
+          fluid
           type="button"
           class="fold"
           [attr.aria-expanded]="unlinkedOpen()"
@@ -87,20 +94,27 @@
             @if (links.unlinked().length === 0) {
               <p class="status">No unlinked mentions</p>
             } @else {
-              <ul>
+              <hx-list aria-label="Unlinked mentions">
                 @for (mention of links.unlinked(); track $index) {
-                  <li class="mention">
+                  <div class="mention">
                     <button
+                      hx-list-row
                       type="button"
                       class="open"
                       (click)="openMention(mention, $event)"
                       (dblclick)="openMention(mention, $event)"
                       [title]="mention.source + ':' + mention.line"
                     >
-                      <span class="name">{{ mention.source }}</span>
-                      <span class="context">{{ mention.context }}</span>
+                      <span class="hx-list-row-label">
+                        <span class="name">{{ mention.source }}</span>
+                        <span class="context">{{ mention.context }}</span>
+                      </span>
                     </button>
                     <button
+                      hx-button
+                      variant="outlined"
+                      severity="secondary"
+                      size="small"
                       type="button"
                       class="link-it"
                       (click)="linkMention(mention)"
@@ -109,9 +123,9 @@
                     >
                       Link
                     </button>
-                  </li>
+                  </div>
                 }
-              </ul>
+              </hx-list>
             }
           }
           @default {

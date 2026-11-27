@@ -129,7 +129,10 @@ describe("SettingsComponent token layout", () => {
     const { el, fixture } = render({ gh: {} });
     const text = el.querySelector(".token")!.textContent!;
     expect(text.indexOf("No token stored")).toBeLessThan(text.indexOf("Sign in with GitHub (gh)"));
-    expect(button(el, "Sign in with GitHub (gh)")!.classList.contains("primary")).toBe(true);
+    // The sign-in is the primary action: filled, not text or outlined.
+    expect(
+      button(el, "Sign in with GitHub (gh)")!.matches(".hx-button-text, .hx-button-outlined"),
+    ).toBe(false);
     expect(el.querySelector("input[type=password]")).toBeNull();
     button(el, "Use a personal access token instead")!.click();
     fixture.detectChanges();
@@ -141,7 +144,7 @@ describe("SettingsComponent token layout", () => {
     const css = readFileSync("src/app/features/settings/settings.component.css", "utf8");
     expect(css).toMatch(/\.token \{[^}]*max-width: 320px/);
     expect(css).toMatch(/\.token > \* \{[^}]*max-width: 100%/);
-    expect(css).toMatch(/\.token-manual input \{[^}]*min-width: 0/);
+    expect(css).toMatch(/\.token-manual > \.grow \{[^}]*min-width: 0/);
   });
 });
 
@@ -272,5 +275,148 @@ describe("SettingsComponent locations (#495)", () => {
     fixture.detectChanges();
     expect(el.querySelector("[role=alert]")!.textContent).toContain("built-in");
     expect(el.querySelector<HTMLInputElement>('input[aria-label="Folder"]')!.value).toBe("/h");
+  });
+});
+
+describe("SettingsComponent Helix controls (#690)", () => {
+  const set = {
+    toggle: vi.fn(),
+    select: vi.fn(),
+    text: vi.fn(),
+    number: vi.fn(),
+    action: vi.fn(),
+  };
+
+  function renderControls(recordingId: string | null = null) {
+    const items: SettingItem[] = [
+      {
+        kind: "toggle",
+        id: "wrap",
+        label: "Wrap lines",
+        description: "Long lines break.",
+        get: () => true,
+        set: set.toggle,
+      },
+      {
+        kind: "select",
+        id: "mode",
+        label: "Mode",
+        options: [
+          { value: "", label: "None" },
+          { value: "dark", label: "Dark" },
+        ],
+        get: () => "",
+        set: set.select,
+      },
+      { kind: "text", id: "font", label: "Font", get: () => "Inter", set: set.text },
+      {
+        kind: "number",
+        id: "size",
+        label: "Size",
+        min: 8,
+        max: 32,
+        get: () => 14,
+        set: set.number,
+      },
+      { kind: "action", id: "run", label: "Import", buttonLabel: "Import now", run: set.action },
+      { kind: "shortcut", id: "key", label: "Save note", commandId: "save" },
+    ];
+    const section = { id: "all", title: "All", items };
+    const page = {
+      sections: signal([section]),
+      listed: signal([section]),
+      query: signal(""),
+      selectedId: signal("all"),
+      select: vi.fn(),
+      refreshObsidian: vi.fn().mockResolvedValue(undefined),
+      loadLocations: vi.fn().mockResolvedValue(undefined),
+    };
+    const shortcuts = {
+      cancel: vi.fn(),
+      pending: () => null,
+      recordingId: signal(recordingId),
+      display: () => "Ctrl+S",
+      isDefault: () => true,
+      startRecording: vi.fn((id: string) => shortcuts.recordingId.set(id)),
+    };
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: SettingsPageService, useValue: page },
+        { provide: ShortcutService, useValue: shortcuts },
+        { provide: CommandRegistry, useValue: { get: () => ({ id: "save" }) } },
+      ],
+    });
+    TestBed.overrideComponent(SettingsComponent, { set: { styleUrl: undefined } });
+    const fixture = TestBed.createComponent(SettingsComponent);
+    document.body.append(fixture.nativeElement);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    return { fixture, el, shortcuts };
+  }
+
+  it("puts each setting in a field of its section, labelled and described", async () => {
+    const { el, fixture } = renderControls();
+    await fixture.whenStable();
+    expect(el.querySelector("hx-fieldset legend")!.textContent!.trim()).toBe("All");
+    expect(el.querySelectorAll("hx-fieldset hx-field")).toHaveLength(6);
+    for (const id of ["wrap", "mode", "font", "size"]) {
+      expect(el.querySelector(`label[for="setting-${id}"]`)).toBeTruthy();
+    }
+    const toggle = el.querySelector("#setting-wrap")!;
+    expect(toggle.matches('input[type="checkbox"].hx-switch')).toBe(true);
+    const hint = el.querySelector(`#${toggle.getAttribute("aria-describedby")}`);
+    expect(hint!.textContent).toBe("Long lines break.");
+    expect(el.querySelector("#setting-font")!.classList.contains("hx-input")).toBe(true);
+    expect(el.querySelector("#setting-size")!.classList.contains("hx-input")).toBe(true);
+    expect(el.querySelector("hx-select #setting-mode")!.textContent!.trim()).toBe("None");
+    expect(el.querySelector("select")).toBeNull();
+    fixture.nativeElement.remove();
+  });
+
+  it("applies a change of each control", () => {
+    // jsdom has no scrolling; the open listbox scrolls to its active option.
+    Element.prototype.scrollIntoView ??= () => undefined;
+    const { el, fixture } = renderControls();
+    const change = (selector: string, value: string) => {
+      const input = el.querySelector<HTMLInputElement>(selector)!;
+      input.value = value;
+      input.dispatchEvent(new Event("change"));
+    };
+    el.querySelector<HTMLInputElement>("#setting-wrap")!.click();
+    expect(set.toggle).toHaveBeenCalledWith(false);
+    change("#setting-font", "Mono");
+    expect(set.text).toHaveBeenCalledWith("Mono");
+    change("#setting-size", "18");
+    expect(set.number).toHaveBeenCalledWith(18);
+    el.querySelector<HTMLButtonElement>("#setting-mode")!.click();
+    fixture.detectChanges();
+    const dark = [...document.querySelectorAll<HTMLElement>(".hx-select-option")].find(
+      (o) => o.textContent!.trim() === "Dark",
+    )!;
+    dark.click();
+    expect(set.select).toHaveBeenCalledWith("dark");
+    button(el, "Import now")!.click();
+    expect(set.action).toHaveBeenCalled();
+    fixture.nativeElement.remove();
+  });
+
+  it("names a shortcut after its setting and starts the recording", () => {
+    const { el, fixture, shortcuts } = renderControls();
+    const chip = el.querySelector<HTMLButtonElement>("#setting-key")!;
+    expect(chip.getAttribute("aria-label")).toBe("Save note: Ctrl+S");
+    chip.click();
+    expect(shortcuts.startRecording).toHaveBeenCalledWith("save");
+    fixture.detectChanges();
+    expect(el.querySelector("button.recording")).toBeTruthy();
+    fixture.nativeElement.remove();
+  });
+
+  it("uses no raw control in the template (#690)", () => {
+    const html = readFileSync("src/app/features/settings/settings.component.html", "utf8");
+    const raw = [...html.matchAll(/<(button|input|select|textarea)\b((?:"[^"]*"|[^>"])*)>/g)]
+      .filter((m) => !/\shx-(button|input|switch|checkbox)\b/.test(m[2]))
+      .map((m) => m[0]);
+    expect(raw).toEqual([]);
   });
 });

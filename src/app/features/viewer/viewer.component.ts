@@ -15,7 +15,7 @@ import {
   viewChild,
 } from "@angular/core";
 import type { HxMenuItem } from "@gravionlabs/helix-ui";
-import { HxMenu } from "@gravionlabs/helix-ui";
+import { HxButton, HxInput, HxMenu, HxTooltip } from "@gravionlabs/helix-ui";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 import { viewerTopLine } from "../../core/editor/editor-core";
@@ -60,7 +60,7 @@ const DIALOG_ZOOM_STEP = 1.1;
   selector: "app-viewer",
   templateUrl: "./viewer.component.html",
   styleUrl: "./viewer.component.css",
-  imports: [HxMenu, PropertiesComponent],
+  imports: [HxButton, HxInput, HxMenu, HxTooltip, PropertiesComponent],
   host: { "(scroll)": "trackScroll()" },
 })
 export class ViewerComponent {

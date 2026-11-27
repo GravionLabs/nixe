@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from "@angular/core";
+import { HxButton, HxSelectButton } from "@gravionlabs/helix-ui";
 
 import { CompareService } from "../../core/compare/compare.service";
 import { diffLines, diffStat } from "../../core/git/line-diff";
@@ -9,13 +10,17 @@ import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 /** Two versions of a note in the main area: rendered side by side or as a line diff. */
 @Component({
   selector: "app-compare",
-  imports: [DiffComponent, EmptyStateComponent],
+  imports: [DiffComponent, EmptyStateComponent, HxButton, HxSelectButton],
   templateUrl: "./compare.component.html",
   styleUrl: "./compare.component.css",
 })
 export class CompareComponent {
   private readonly tab = inject(CURRENT_TAB);
   private readonly tabs = inject(TabsService);
+  protected readonly modes = [
+    { label: "Rendered", value: "rendered" },
+    { label: "Source", value: "source" },
+  ];
   /** The action (Restore) runs. */
   protected readonly busy = signal(false);
   protected readonly compare = inject(CompareService);

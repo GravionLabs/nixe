@@ -2,6 +2,8 @@
 import "@angular/compiler";
 import { signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
+import { By } from "@angular/platform-browser";
+import { HxSelect } from "@gravionlabs/helix-ui";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -103,7 +105,10 @@ describe("LinksComponent", () => {
       [...el.querySelectorAll(".card-title, td .note-link")].map((e) => e.textContent!.trim());
     const button = (label: string) =>
       el.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
-    return { el, settle, titles, button, view: TestBed.inject(LinksViewService) };
+    // The first select of the header is the collection filter.
+    const choose = (value: string) =>
+      fixture.debugElement.query(By.directive(HxSelect)).componentInstance.value.set(value);
+    return { el, choose, settle, titles, button, view: TestBed.inject(LinksViewService) };
   }
 
   it("starts with the unread inbox and shows every link in All", async () => {
@@ -119,12 +124,10 @@ describe("LinksComponent", () => {
   });
 
   it("filters by the chosen collection, and ignores one no link has", async () => {
-    const { el, titles, view, settle } = await shown();
+    const { choose, titles, view, settle } = await shown();
     view.tab.set("all");
     await settle();
-    const select = el.querySelector("select")!;
-    select.value = "Recipes";
-    select.dispatchEvent(new Event("change"));
+    choose("Recipes");
     await settle();
     expect(titles()).toEqual(["Two"]);
     view.collection.set("Gone");

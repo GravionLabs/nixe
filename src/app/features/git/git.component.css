@@ -8,7 +8,7 @@
   overflow-y: auto;
   background: var(--h-surface-frame);
   color: var(--h-text-color);
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 header {
@@ -16,50 +16,22 @@ header {
   align-items: center;
   justify-content: space-between;
   height: 34px;
-  padding: 0 12px;
+  padding: 0 var(--h-space-3);
   border-bottom: 1px solid var(--h-content-border-color);
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--h-text-muted-color);
 }
 
-input {
-  margin: 8px 12px;
-  padding: 5px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
-}
-
 .status {
-  margin: 4px 12px;
+  margin: var(--h-space-1) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
-button {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 4px 12px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-button:hover {
-  background: var(--h-surface-hover);
-}
-
 .detail {
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
   color: var(--h-text-muted-color);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -67,41 +39,35 @@ button:hover {
 }
 
 .summary {
-  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--h-space-2) 0;
 }
 
 .state {
-  margin: 0 12px;
+  margin: 0 var(--h-space-3);
   font-weight: 600;
 }
 
 .branch {
-  margin: 2px 12px 6px;
-  font-size: 11px;
+  margin: 2px var(--h-space-3) 6px;
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 
-button.sync {
-  align-items: center;
-  width: auto;
-  margin: 0 12px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-}
-
-button.sync:disabled {
-  cursor: default;
-  opacity: 0.5;
+.sync {
+  align-self: flex-start;
+  margin: 0 var(--h-space-3);
 }
 
 .detail-box {
-  margin: 4px 12px;
-  font-size: 11px;
+  margin: var(--h-space-1) var(--h-space-3);
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 
 .detail-box pre {
-  margin: 4px 0 0;
+  margin: var(--h-space-1) 0 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -109,70 +75,28 @@ button.sync:disabled {
 form {
   display: flex;
   flex-direction: column;
-  padding: 12px 0;
-  font-size: 11px;
-  color: var(--h-text-muted-color);
+  gap: var(--h-space-2);
+  padding: var(--h-space-3);
 }
 
-form label,
-form details {
-  padding: 0 12px;
+.primary {
+  align-self: flex-start;
 }
 
-form input {
-  display: block;
-  box-sizing: border-box;
-  width: calc(100% - 24px);
-}
-
-form button.primary {
-  align-items: center;
-  width: auto;
-  margin: 8px 12px 0;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-primary-color);
-  color: #fff;
-}
-
-form button.primary:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
-button.open {
-  width: auto;
-  padding: 2px 6px;
-  font-size: 11px;
-}
-
-button.link {
-  display: inline;
-  width: auto;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--h-primary-color);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-input.check {
-  width: auto;
-  margin: 0 0 0 12px;
-  padding: 0;
-  accent-color: var(--h-primary-color, currentColor);
+.check {
+  display: inline-flex;
+  margin-left: var(--h-space-3);
 }
 
 .ignore-hint {
-  margin: 4px 12px;
+  margin: var(--h-space-1) var(--h-space-3);
   color: var(--h-text-muted-color);
 }
 
 .ignore-hint p {
-  margin: 0 0 4px;
+  margin: 0 0 var(--h-space-1);
 }
 
-.ignore-hint button.link {
+.ignore-hint .link {
   margin-right: 10px;
 }

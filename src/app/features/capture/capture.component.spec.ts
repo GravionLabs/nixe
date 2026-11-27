@@ -70,6 +70,15 @@ describe("CaptureComponent", () => {
     expect(backend.captureHide).toHaveBeenCalledTimes(2);
   });
 
+  it("labels the field and lists the suggestions as Helix buttons", async () => {
+    const { el, area, type, fixture } = create();
+    await fixture.whenStable();
+    expect(el.querySelector("label")?.htmlFor).toBe(area.id);
+    expect(area.classList).toContain("hx-input");
+    type("see [[pro");
+    expect(el.querySelector("li button")?.classList).toContain("hx-button-text");
+  });
+
   it("keeps a new line on Shift+Enter", () => {
     const save = vi.spyOn(backend, "captureSave");
     const { type, key } = create();

@@ -2,37 +2,21 @@
   display: block;
 }
 
-ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .status {
-  margin: 4px 0;
+  margin: var(--h-space-1) 0;
   color: var(--h-text-muted-color);
-  font-size: 12px;
+  font-size: var(--h-font-size-sm);
 }
 
-.cards {
+.card-body,
+.messages {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  min-width: 0;
 }
 
-.card {
-  display: flex;
-  flex-direction: column;
+.card-body {
   gap: 2px;
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  text-align: left;
-}
-
-.card.open {
-  border-color: var(--h-primary-color, #0969da);
 }
 
 .who {
@@ -41,7 +25,7 @@ ul {
 
 .meta,
 .messages {
-  font-size: 11px;
+  font-size: var(--h-font-size-xs);
   color: var(--h-text-muted-color);
 }
 

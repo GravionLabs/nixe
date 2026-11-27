@@ -8,7 +8,7 @@
 
 .start {
   margin: auto;
-  padding: 24px;
+  padding: var(--h-space-6);
   text-align: center;
 }
 
@@ -21,8 +21,8 @@ h1 {
 }
 
 h2 {
-  margin: 32px 0 8px;
-  font-size: 13px;
+  margin: var(--h-space-8) 0 var(--h-space-2);
+  font-size: var(--h-font-size-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -31,13 +31,13 @@ h2 {
 
 .subtitle,
 .hint {
-  margin: 8px 0 0;
+  margin: var(--h-space-2) 0 0;
   color: var(--h-text-muted-color);
 }
 
 .hint {
-  margin-top: 12px;
-  font-size: 13px;
+  margin-top: var(--h-space-3);
+  font-size: var(--h-font-size-sm);
 }
 
 .actions {
@@ -45,31 +45,7 @@ h2 {
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
-  margin-top: 28px;
-}
-
-.actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 18px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 8px;
-  background: var(--h-surface-frame);
-  color: var(--h-text-color);
-  font: inherit;
-  cursor: pointer;
-}
-
-.actions button:hover {
-  background: var(--h-surface-hover);
-}
-
-.actions button.primary {
-  border-color: var(--h-primary-color);
-  background: var(--h-primary-color);
-  color: var(--h-primary-contrast-color);
+  margin-top: var(--h-space-7);
 }
 
 hx-kbd {
@@ -84,18 +60,4 @@ hx-kbd {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.recent button {
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--h-primary-color);
-  font: inherit;
-  cursor: pointer;
-}
-
-.recent button:hover {
-  background: var(--h-surface-hover);
 }

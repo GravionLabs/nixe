@@ -66,7 +66,9 @@ describe("ConflictBarComponent", () => {
 
   it("starts the merge", () => {
     const { el, service } = render(false);
-    const merge = Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Merge")!;
+    const merge = Array.from(el.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "Merge",
+    )!;
     merge.click();
     expect(service.startMerge).toHaveBeenCalled();
   });

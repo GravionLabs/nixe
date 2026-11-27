@@ -1,37 +1,17 @@
 .choice {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  font-size: 13px;
+  font-size: var(--h-font-size-sm);
 }
 
 p {
-  margin: 0;
+  margin: 0 0 var(--h-space-3);
 }
 
-ul {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  width: 100%;
-  padding: 6px 12px;
-  border: 1px solid var(--h-content-border-color);
-  border-radius: 4px;
-  background: var(--h-content-background);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--h-space-2);
+  padding: var(--h-space-1) 0;
 }
 
 .form {
@@ -39,7 +19,7 @@ button {
 }
 
 .path {
-  max-width: 100%;
+  grid-column: 2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { BrowserTestingModule, platformBrowserTesting } from "@angular/platform-browser/testing";
+import { HxConfirmationService } from "@gravionlabs/helix-ui";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -17,6 +18,7 @@ import { CURRENT_TAB, TabsService } from "../../core/tabs/tabs.service";
 import { MarkdownService } from "../../core/markdown/markdown.service";
 import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { ReviewTabComponent } from "./review-tab.component";
+import { pressArrow } from "../../../testing/list-keys";
 
 const branches: ReviewBranch[] = [
   {
@@ -94,9 +96,11 @@ function render() {
     }),
     select: vi.fn(async () => undefined),
   };
+  const confirm = vi.fn(async (_q: unknown) => true);
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
+      { provide: HxConfirmationService, useValue: { confirmAsync: confirm } },
       { provide: ReviewService, useValue: service },
       { provide: MarkdownService, useValue: { render: (t: string) => `<p>${t}</p>` } },
       { provide: DocumentService, useValue: {} },
@@ -114,7 +118,7 @@ function render() {
   });
   const fixture = TestBed.createComponent(ReviewTabComponent);
   fixture.detectChanges();
-  return { service, fixture, el: fixture.nativeElement as HTMLElement };
+  return { service, confirm, fixture, el: fixture.nativeElement as HTMLElement };
 }
 
 describe("ReviewTabComponent", () => {
@@ -124,13 +128,25 @@ describe("ReviewTabComponent", () => {
 
   it("lists the notes of the suggestion and shows the first one", () => {
     const { el, service } = render();
-    const entries = [...el.querySelectorAll(".main")].map((b) =>
+    const entries = [...el.querySelectorAll("app-note-row button[hx-list-row]")].map((b) =>
       b.textContent!.replace(/\s+/g, " ").trim(),
     );
     expect(entries).toEqual(["●arejected", "＋newrejected"]);
     expect(el.querySelector(".title")!.textContent).toBe("Suggestion from Claude");
-    el.querySelectorAll<HTMLElement>(".main")[1].click();
+    el.querySelectorAll<HTMLElement>("app-note-row button[hx-list-row]")[1].click();
     expect(service.select).toHaveBeenCalledWith(changes[1]);
+  });
+
+  it("marks the selected note as current and moves through the rows with the arrows", () => {
+    const { el, fixture, service } = render();
+    const rows = el.querySelectorAll<HTMLButtonElement>("app-note-row button[hx-list-row]");
+    expect([...rows].map((r) => r.getAttribute("aria-current"))).toEqual(["true", null]);
+    service.selected.set("new.md");
+    fixture.detectChanges();
+    expect([...rows].map((r) => r.getAttribute("aria-current"))).toEqual([null, "true"]);
+    rows[1].focus();
+    pressArrow(rows[1], "ArrowUp");
+    expect(document.activeElement).toBe(rows[0]);
   });
 
   it("shows the source diff and switches to the rendered versions", () => {
@@ -180,38 +196,52 @@ describe("ReviewTabComponent", () => {
     expect(el.querySelector("textarea")).toBeNull();
   });
 
-  it("asks before it finishes the review and deletes the branch", () => {
-    const { el, fixture, service } = render();
+  it("asks before it finishes the review and removes the suggestion", async () => {
+    const { el, fixture, service, confirm } = render();
+    confirm.mockResolvedValueOnce(false);
     button(el, "Finish review").click();
-    fixture.detectChanges();
-    expect(service.finish).not.toHaveBeenCalled();
-    expect(el.querySelector(".finish")!.textContent).toContain(
-      "Take over 1 note and remove the suggestion",
+    await fixture.whenStable();
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Take over 1 note and remove the suggestion?",
+        acceptSeverity: "danger",
+      }),
     );
+    expect(service.finish).not.toHaveBeenCalled();
     expect(el.textContent).not.toContain("claude/a");
-    button(el, "Cancel").click();
-    fixture.detectChanges();
-    expect(el.querySelector(".finish p")).toBeNull();
     button(el, "Finish review").click();
-    fixture.detectChanges();
-    button(el, "Confirm").click();
+    await fixture.whenStable();
     expect(service.finish).toHaveBeenCalled();
+  });
+
+  it("does not finish another suggestion than the one it asked about", async () => {
+    const { el, fixture, service, confirm } = render();
+    confirm.mockImplementationOnce(async () => {
+      service.open.set(branches[1]);
+      return true;
+    });
+    button(el, "Finish review").click();
+    await fixture.whenStable();
+    expect(service.finish).not.toHaveBeenCalled();
   });
 
   it("closes its tab once the suggestion is taken over, and keeps it when the finish stops", async () => {
     const { el, fixture, service } = render();
     service.finish.mockImplementation(async () => undefined);
     button(el, "Finish review").click();
-    fixture.detectChanges();
-    button(el, "Confirm").click();
     await fixture.whenStable();
     expect(tabs.closeTab).not.toHaveBeenCalled();
     service.finish.mockImplementation(async () => service.open.set(null));
     button(el, "Finish review").click();
-    fixture.detectChanges();
-    button(el, "Confirm").click();
     await fixture.whenStable();
     expect(tabs.closeTab).toHaveBeenCalledWith(1, 7);
+  });
+
+  it("names the icon-only accept button of a note", () => {
+    const { el } = render();
+    const accept = el.querySelector(".decide button[hx-button]")!;
+    expect(accept.getAttribute("aria-label")).toBe("Accept a.md");
+    expect(accept.classList.contains("hx-button-icon-only")).toBe(true);
   });
 
   it("shows both versions of a conflicting note and lets the user decide", () => {

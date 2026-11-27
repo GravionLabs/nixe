@@ -1,5 +1,9 @@
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { ESLint } from "eslint";
+import { helixAllow as eslintAllow } from "@gravionlabs/helix-lint/eslint";
+import { helixAllow as stylelintAllow } from "@gravionlabs/helix-lint/stylelint";
+import stylelint from "stylelint";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -69,6 +73,33 @@ describe("lint probe", () => {
       "@angular-eslint/template/banana-in-box",
       "@angular-eslint/template/click-events-have-key-events",
       "@angular-eslint/template/interactive-supports-focus",
+      // The raw <input> and the raw <button> of the probe.
+      "helix/no-raw-control",
+      "helix/no-raw-control",
     ]);
   }, 60_000);
+
+  it("Stylelint reports a hex color, an off-scale font size, a styled native control and a px font shorthand (#695)", async () => {
+    const { results } = await stylelint.lint({ files: `${PROBE}/*.css`, ignorePath: [] });
+    const rules = results.flatMap((r) => r.warnings.map((w) => w.rule));
+    expect(rules.sort()).toEqual([
+      "color-no-hex",
+      "declaration-property-value-allowed-list",
+      "declaration-property-value-disallowed-list",
+      "selector-disallowed-list",
+    ]);
+  }, 60_000);
+
+  it("every allowlist entry names a reason; an entry without one throws (#695)", () => {
+    const allow = JSON.parse(readFileSync("scripts/lint/helix-allow.json", "utf8")) as {
+      eslint: { files: string[]; rules: string[]; reason: string }[];
+      stylelint: { files: string[]; rules: string[]; reason: string }[];
+    };
+    for (const entry of [...allow.eslint, ...allow.stylelint]) {
+      expect(entry.reason.trim().length).toBeGreaterThan(10);
+    }
+    const bare = { files: ["src/**"], rules: ["helix/no-raw-control"] };
+    expect(() => eslintAllow(bare)).toThrow(/reason/);
+    expect(() => stylelintAllow(bare)).toThrow(/reason/);
+  });
 });

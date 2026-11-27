@@ -28,10 +28,18 @@
       <p class="status">No difference</p>
     }
   </div>
-  <div class="choices">
-    <button type="button" class="reload" (click)="reload.emit()">Reload</button>
-    <span class="hint">Discards your unsaved edits and shows the version on disk.</span>
-    <button type="button" class="keep" (click)="keep.emit()">Keep mine</button>
-    <span class="hint">Replaces the version on disk with your next save.</span>
+  <dl class="choices">
+    <dt>Reload</dt>
+    <dd>Discards your unsaved edits and shows the version on disk.</dd>
+    <dt>Keep mine</dt>
+    <dd>Replaces the version on disk with your next save.</dd>
+  </dl>
+
+  <div hxDialogFooter>
+    <button hx-button type="button" variant="text" (click)="closed.emit()">Cancel</button>
+    <button hx-button type="button" variant="outlined" severity="danger" (click)="reload.emit()">
+      Reload
+    </button>
+    <button hx-button type="button" (click)="keep.emit()">Keep mine</button>
   </div>
 </hx-dialog>

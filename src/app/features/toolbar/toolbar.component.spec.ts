@@ -127,8 +127,8 @@ describe("ToolbarComponent view mode", () => {
     mode.set("reading");
     fixture.detectChanges();
     expect(modeButton("Reading").getAttribute("aria-pressed")).toBe("true");
-    expect(modeButton("Reading").classList.contains("active")).toBe(true);
-    expect(modeButton("Live preview").classList.contains("active")).toBe(false);
+    expect(modeButton("Reading").classList.contains("hx-button-outlined")).toBe(true);
+    expect(modeButton("Live preview").classList.contains("hx-button-text")).toBe(true);
     expect(el.querySelector("select")).toBeNull();
   });
 

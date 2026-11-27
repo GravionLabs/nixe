@@ -58,6 +58,7 @@ function render(text: string) {
 
 describe("PropertiesComponent", () => {
   beforeAll(() => {
+    Element.prototype.scrollIntoView ??= () => undefined;
     window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn() });
     TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
   });
@@ -70,6 +71,13 @@ describe("PropertiesComponent", () => {
     expect(row("done").type).toBe("checkbox");
     expect(row("when").type).toBe("date");
     expect(el.querySelectorAll(".property-chip").length).toBe(1);
+  });
+
+  it("names the icon-only remove button", () => {
+    const { el } = render(NOTE);
+    const remove = el.querySelector(".prop-remove button[hx-button]")!;
+    expect(remove.getAttribute("aria-label")).toBe("Remove property title");
+    expect(remove.classList.contains("hx-button-icon-only")).toBe(true);
   });
 
   it("writes an edited text value and keeps the rest of the frontmatter", async () => {
@@ -165,7 +173,12 @@ describe("PropertiesComponent", () => {
     await settle();
     const form = el.querySelector<HTMLFormElement>("form")!;
     form.querySelector<HTMLInputElement>("input")!.value = "tags";
-    form.querySelector<HTMLSelectElement>("select")!.value = "tags";
+    form.querySelector<HTMLButtonElement>('[role="combobox"]')!.click();
+    await settle();
+    [...document.querySelectorAll<HTMLElement>('[role="option"]')]
+      .find((o) => o.textContent?.trim() === "Tags")!
+      .click();
+    await settle();
     form.dispatchEvent(new Event("submit"));
     await settle();
     expect(errors).toEqual([]);
@@ -182,6 +195,11 @@ describe("PropertiesComponent", () => {
     await settle();
     expect(errors[0]).toContain("already exists");
     expect(write).not.toHaveBeenCalled();
+    const name = form.querySelector<HTMLInputElement>("input")!;
+    expect(name.getAttribute("aria-invalid")).toBe("true");
+    name.dispatchEvent(new Event("input"));
+    await settle();
+    expect(name.hasAttribute("aria-invalid")).toBe(false);
   });
 
   it("shows invalid frontmatter instead of the controls", () => {

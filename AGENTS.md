@@ -16,7 +16,7 @@ Run these before opening a pull request. CI runs the same.
 | What | Command |
 |---|---|
 | Frontend format (oxfmt) | `pnpm format:check` |
-| Frontend lint (oxlint, ESLint for templates) | `pnpm lint` |
+| Frontend lint (oxlint, ESLint for templates, Stylelint for CSS) | `pnpm lint` |
 | Frontend tests (Vitest) | `pnpm test` |
 | Frontend build | `pnpm build` |
 | End-to-end tests (Playwright, demo build; advisory in CI, see `docs/frontend/demo.md`) | `pnpm e2e` |
@@ -27,7 +27,13 @@ Run these before opening a pull request. CI runs the same.
 
 Run `pnpm format` (oxfmt, `.oxfmtrc.json`) and `cargo fmt --manifest-path src-tauri/Cargo.toml` to fix formatting. oxfmt formats the TypeScript, the Angular templates, the styles and the JSON/YAML configs; Markdown, `docs/`, `fixtures/` and `src-tauri/` are left out.
 
-`pnpm lint` runs oxlint (`.oxlintrc.json`, type-aware, Angular rules through the `@angular-eslint/eslint-plugin` JS plugin) on the TypeScript and ESLint (`eslint.config.mjs`) on the `.html` templates only; warnings fail it too. `pnpm lint:fix` applies the safe fixes. Component templates live in `.html` files: an inline `template:` outside spec files is a lint error. A rule that is turned off or lowered names its reason in a comment. `src/testing/lint-probe/` breaks known rules on purpose; `src/testing/lint-probe.spec.ts` fails when one of them stops being reported, so raise oxlint, oxfmt and oxlint-tsgolint (exact versions) only together and with a green probe.
+`pnpm lint` runs oxlint (`.oxlintrc.json`, type-aware, Angular rules through the `@angular-eslint/eslint-plugin` JS plugin) on the TypeScript, ESLint (`eslint.config.mjs`) on the `.html` templates only and Stylelint (`stylelint.config.mjs`) on `src/**/*.css`; warnings fail it too. The `@gravionlabs/helix-lint` preset in the last two reports a raw `<button>`, `<input>`, `<select>`, `<textarea>` or `<progress>`, hex, rgb and hsl colors, font sizes off the `--h-font-size-*` scale (also in the `font` shorthand) and CSS that selects a native control (`stylelint.config.mjs`); an exception is an entry with a reason in `scripts/lint/helix-allow.json`, and the probe holds one failing sample of each. `pnpm lint:fix` applies the safe fixes. Component templates live in `.html` files: an inline `template:` outside spec files is a lint error. A rule that is turned off or lowered names its reason in a comment. `src/testing/lint-probe/` breaks known rules on purpose; `src/testing/lint-probe.spec.ts` fails when one of them stops being reported, so raise oxlint, oxfmt and oxlint-tsgolint (exact versions) only together and with a green probe.
+
+## UI
+
+- Before changing UI, read the base guide `node_modules/@gravionlabs/helix-ui/styleguide/STYLEGUIDE.md`, then [`docs/STYLEGUIDE.md`](docs/STYLEGUIDE.md), which lists this project's rules and deviations; read a deep-dive file of either when its condition applies. Both are binding: a deviation needs a reason in the PR description.
+- Controls are Helix primitives, never a raw `<button>`, `<input>`, `<select>`, `<textarea>` or `<progress>` without a Helix directive; the mapping is [`ng-implementation` `references/helix.md`](.agents/skills/ng-implementation/references/helix.md).
+- No component CSS that styles controls; colors and font sizes come from the `--h-*` tokens. `pnpm lint` enforces it (helix-lint: Stylelint for CSS, `helix/no-raw-control` for templates); an exception needs an entry with its reason in `scripts/lint/helix-allow.json`.
 
 ## Conventions
 

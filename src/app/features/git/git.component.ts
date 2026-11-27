@@ -1,4 +1,13 @@
 import { Component, inject, output } from "@angular/core";
+import {
+  HxButton,
+  HxCheckbox,
+  HxField,
+  HxInput,
+  HxList,
+  HxListRow,
+  HxTooltip,
+} from "@gravionlabs/helix-ui";
 
 import { CommandRegistry } from "../../core/commands/command-registry";
 import { CompareService } from "../../core/compare/compare.service";
@@ -15,6 +24,7 @@ import { WorkspaceService } from "../../core/workspace/workspace.service";
 import { EmptyStateComponent } from "../../shared/panel/empty-state.component";
 import { noteLabel } from "../../shared/panel/note-label";
 import { NoteRowComponent } from "../../shared/panel/note-row.component";
+import { NoteTitleComponent } from "../../shared/panel/note-title.component";
 import { PanelSectionComponent } from "../../shared/panel/panel-section.component";
 import { ChangesComponent } from "../changes/changes.component";
 import { ReviewComponent } from "../review/review.component";
@@ -27,6 +37,14 @@ import { ReviewComponent } from "../review/review.component";
     ReviewComponent,
     PanelSectionComponent,
     NoteRowComponent,
+    NoteTitleComponent,
+    HxButton,
+    HxCheckbox,
+    HxField,
+    HxInput,
+    HxList,
+    HxListRow,
+    HxTooltip,
     EmptyStateComponent,
   ],
   templateUrl: "./git.component.html",
@@ -112,6 +130,12 @@ export class GitComponent {
 
   protected async syncNow(): Promise<void> {
     await this.git.sync();
+  }
+
+  /** The row of the open note. */
+  protected isCurrent(rel: string): boolean {
+    const root = this.workspace.vaultRoot();
+    return root !== null && this.doc.path() === joinPath(root, rel);
   }
 
   protected async open(rel: string): Promise<void> {

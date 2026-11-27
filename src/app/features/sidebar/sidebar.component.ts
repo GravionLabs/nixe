@@ -11,7 +11,7 @@ import {
   viewChild,
 } from "@angular/core";
 import type { HxMenuItem } from "@gravionlabs/helix-ui";
-import { HxMenu, HxTooltip } from "@gravionlabs/helix-ui";
+import { HxButton, HxInput, HxMenu, HxTooltip } from "@gravionlabs/helix-ui";
 
 import { DocumentService } from "../../core/file/document.service";
 import { BookmarksService } from "../../core/bookmarks/bookmarks.service";
@@ -50,7 +50,7 @@ export interface MenuState {
   selector: "app-sidebar",
   templateUrl: "./sidebar.component.html",
   styleUrl: "./sidebar.component.css",
-  imports: [HxMenu, HxTooltip],
+  imports: [HxMenu, HxTooltip, HxButton, HxInput],
 })
 export class SidebarComponent {
   protected readonly workspace = inject(WorkspaceService);
