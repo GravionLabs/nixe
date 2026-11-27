@@ -32,6 +32,16 @@ Binding for every UI change. Read the base guide named above first (`pnpm instal
 - Git, Changes, Review and History are built from `src/app/shared/panel/` (section, note row, status icon, empty state).
 - `pnpm lint` (helix-lint) rejects raw controls in templates and hex, rgb and hsl colors and off-scale font sizes in CSS; an exception is an entry with a reason in `scripts/lint/helix-allow.json`.
 
+## Dialogs
+
+The width of an `hx-dialog` is its `size`, never `width`; a dialog whose content fits no class says why in a comment. `src/app/helix-overlays.spec.ts` lists the size of each dialog.
+
+| Dialog type | `size` | Dialogs |
+| --- | --- | --- |
+| Confirmation or short message | `sm` | None as an `hx-dialog`: a question goes through `HxConfirmationService` or the native `ask` ([Deviations](#deviations)) |
+| Form of a few fields, or a field with a list of matches | `md` | *Clone vault*, *Set folder role*, *Add folder to workspace*, palette, note composer |
+| Wide form, table or compare view | `lg` | *Compare* (version on disk and editor text), *Merge the two versions* |
+
 ## UX rules
 
 - The Git view speaks plain language ("3 changes not saved yet"); branch details are secondary text or a tooltip, and raw error text sits under `Details`.
@@ -51,5 +61,4 @@ Binding for every UI change. Read the base guide named above first (`pnpm instal
 | STYLEGUIDE.md, Tokens: no literal colors, sizes or shadows in app CSS | `src/styles.scss` has literal diff and danger colors, shadows and font sizes | Open: why not `--h-*` tokens? |
 | STYLEGUIDE.md, UX rules: an irreversible action asks through `HxConfirmationService` | Most confirmations use the native `ask` dialog of Tauri | Open: why the native dialog? |
 | ux-rules.md, Confirm or undo: no question before a reversible action | Merge, extract, rename and move ask first, although they offer Undo | Open: why ask before an action that can be undone? |
-| dialogs.md, Header and size: the width is the `size` input | Dialogs other than *Clone vault* set `width="min(…)"` | Open: why not `size`? |
 | platform.md, Platform switch: `providePlatform()` and `getHxPlatform()`, no `navigator.userAgent` | Shortcut and "reveal" labels read `navigator.userAgent`; `providePlatform()` is not provided | Open: why the user agent? |

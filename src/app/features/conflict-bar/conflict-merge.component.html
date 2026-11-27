@@ -4,7 +4,7 @@
     (hidden)="onHidden()"
     header="Merge the two versions"
     position="top"
-    width="min(1100px, 94vw)"
+    size="lg"
   >
     <form id="merge-form" class="merge" (submit)="submit($event)">
       <span class="count">{{ hunkCount() }} {{ hunkCount() === 1 ? "change" : "changes" }}</span>
