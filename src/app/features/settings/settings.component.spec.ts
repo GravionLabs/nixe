@@ -142,7 +142,7 @@ describe("SettingsComponent token layout", () => {
 
   it("keeps every part of the setting inside one column", () => {
     const css = readFileSync("src/app/features/settings/settings.component.css", "utf8");
-    expect(css).toMatch(/\.token \{[^}]*max-width: 320px/);
+    expect(css).toMatch(/\.token \{[^}]*max-width: var\(--settings-control-width\)/);
     expect(css).toMatch(/\.token > \* \{[^}]*max-width: 100%/);
     expect(css).toMatch(/\.token-manual > \.grow \{[^}]*min-width: 0/);
   });
@@ -352,14 +352,13 @@ describe("SettingsComponent Helix controls (#690)", () => {
     document.body.append(fixture.nativeElement);
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    return { fixture, el, shortcuts };
+    return { fixture, el, shortcuts, page };
   }
 
   it("puts each setting in a field of its section, labelled and described", async () => {
     const { el, fixture } = renderControls();
     await fixture.whenStable();
-    expect(el.querySelector("hx-fieldset legend")!.textContent!.trim()).toBe("All");
-    expect(el.querySelectorAll("hx-fieldset hx-field")).toHaveLength(6);
+    expect(el.querySelectorAll('.group[aria-label="All"] hx-field')).toHaveLength(6);
     for (const id of ["wrap", "mode", "font", "size"]) {
       expect(el.querySelector(`label[for="setting-${id}"]`)).toBeTruthy();
     }
@@ -371,6 +370,31 @@ describe("SettingsComponent Helix controls (#690)", () => {
     expect(el.querySelector("#setting-size")!.classList.contains("hx-input")).toBe(true);
     expect(el.querySelector("hx-select #setting-mode")!.textContent!.trim()).toBe("None");
     expect(el.querySelector("select")).toBeNull();
+    fixture.nativeElement.remove();
+  });
+
+  it("shows one section without frame or legend, search results with one (#722)", () => {
+    const { el, fixture, page } = renderControls();
+    expect(el.querySelector("hx-fieldset")).toBeNull();
+    page.query.set("wrap");
+    fixture.detectChanges();
+    expect(el.querySelector("hx-fieldset legend")!.textContent!.trim()).toBe("All");
+    expect(el.querySelectorAll("hx-fieldset hx-field")).toHaveLength(6);
+    expect(el.querySelector(".group")).toBeNull();
+    fixture.nativeElement.remove();
+  });
+
+  it("puts the search field above the section navigation and keeps its behaviour (#722)", () => {
+    const { el, fixture, page } = renderControls();
+    const search = el.querySelector<HTMLInputElement>('.side input[type="search"]')!;
+    expect(search.nextElementSibling!.tagName).toBe("NAV");
+    expect(el.querySelector('.content input[type="search"]')).toBeNull();
+    expect(el.querySelector("nav [aria-current=page]")).toBeTruthy();
+    search.value = "wrap";
+    search.dispatchEvent(new Event("input"));
+    fixture.detectChanges();
+    expect(page.query()).toBe("wrap");
+    expect(el.querySelector("nav [aria-current]")).toBeNull();
     fixture.nativeElement.remove();
   });
 

@@ -1,5 +1,4 @@
-// The settings page keeps a readable width on a wide window (#544): the search field and the rows
-// stop at the maximum, the scrollbar stays at the right edge of the page.
+// The settings page keeps a readable width on a wide window (#544): the rows stop at the maximum, the scrollbar stays at the right edge of the page.
 import { test, expect } from "./fixtures";
 import { ready } from "./steps";
 
@@ -11,13 +10,18 @@ for (const width of [1920, 1280, 720]) {
     await ready(page);
     await page.keyboard.press("ControlOrMeta+,");
     const search = page.getByRole("searchbox", { name: "Search settings" });
-    await expect(search).toBeVisible();
-    const field = await search.boundingBox();
-    expect(field!.width).toBeLessThanOrEqual(MAX + 1);
+    // Opening the page focuses the search field.
+    await expect(search).toBeFocused();
     const region = page.getByRole("region", { name: "Settings" });
-    const section = await region.locator("hx-fieldset").first().boundingBox();
+    // The search field uses the width of the left column, above the section list (#722).
+    const field = await search.boundingBox();
+    const nav = await region.getByRole("navigation").boundingBox();
+    expect(field!.x).toBeCloseTo(nav!.x, 0);
+    expect(field!.width).toBeCloseTo(nav!.width, 0);
+    expect(field!.y + field!.height).toBeLessThanOrEqual(nav!.y);
+    const section = await region.locator(".group").boundingBox();
     expect(section!.width).toBeLessThanOrEqual(MAX + 1);
-    expect(section!.x).toBeCloseTo(field!.x, 0);
+    expect(section!.x).toBeGreaterThan(field!.x + field!.width);
     const rows = region.locator(".row");
     expect(await rows.count()).toBeGreaterThan(0);
     for (const row of await rows.all()) {
@@ -72,7 +76,7 @@ test("the fields stay inside their section in a narrow window", async ({ page })
   const region = page.getByRole("region", { name: "Settings" });
   await region.getByRole("navigation").getByRole("button", { name: "Appearance" }).click();
   await expect(region.getByRole("group", { name: "Appearance" })).toBeVisible();
-  const section = await region.locator("hx-fieldset").boundingBox();
+  const section = await region.locator(".group").boundingBox();
   const controls = region.locator(".control > *");
   expect(await controls.count()).toBeGreaterThan(0);
   for (const control of await controls.all()) {
@@ -93,3 +97,42 @@ test("a recording shortcut has the focus and Escape ends it", async ({ page }) =
   await page.keyboard.press("Escape");
   await expect(recorder).toHaveCount(0);
 });
+
+test("the locations list starts at the height of its label", async ({ page }) => {
+  await ready(page);
+  await page.keyboard.press("ControlOrMeta+,");
+  const region = page.getByRole("region", { name: "Settings" });
+  await region.getByRole("navigation").getByRole("button", { name: "Locations" }).click();
+  const label = await region.getByText("Location variables of this device").boundingBox();
+  const list = region.getByRole("list", { name: "Location variables" });
+  const first = await list.getByRole("listitem").first().boundingBox();
+  expect(Math.abs(first!.y - label!.y)).toBeLessThanOrEqual(2);
+  // The demo vault has a variable: its text, not only its row, starts there.
+  const text = list.locator(".loc-name, .empty").first();
+  if ((await text.evaluate((el) => el.tagName)) === "SPAN") {
+    expect(Math.abs((await text.boundingBox())!.y - label!.y)).toBeLessThanOrEqual(2);
+  }
+});
+
+for (const width of [1280, 720]) {
+  test(`the access token lines up with the other controls at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await ready(page);
+    await page.keyboard.press("ControlOrMeta+,");
+    const region = page.getByRole("region", { name: "Settings" });
+    await region.getByRole("navigation").getByRole("button", { name: "Sync" }).click();
+    const token = await region.locator(".token").boundingBox();
+    const input = await region.locator('.control > input[type="text"]').first().boundingBox();
+    const section = await region.locator(".group").boundingBox();
+    expect(token!.x + token!.width).toBeLessThanOrEqual(section!.x + section!.width + 1);
+    for (const part of await region.locator(".token *").all()) {
+      const box = await part.boundingBox();
+      if (box) expect(box.x + box.width).toBeLessThanOrEqual(token!.x + token!.width + 1);
+    }
+    // Side by side with its label (not stacked): the same edges as a text field.
+    if (width === 1280) {
+      expect(token!.x).toBeCloseTo(input!.x, 0);
+      expect(token!.x + token!.width).toBeCloseTo(input!.x + input!.width, 0);
+    }
+  });
+}
