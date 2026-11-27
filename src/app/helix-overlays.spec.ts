@@ -61,6 +61,37 @@ describe("helix overlays", () => {
     expect(html.trimEnd()).toMatch(/<\/hx-dialog>$/);
   });
 
+  // docs/STYLEGUIDE.md, Dialogs: the width of a dialog is its size class.
+  const SIZES: Record<string, "sm" | "md" | "lg"> = {
+    "app/features/clone/clone.component.html": "md",
+    "app/features/composer/composer.component.html": "md",
+    "app/features/conflict-bar/conflict-merge.component.html": "lg",
+    "app/features/editor/external-compare.component.html": "lg",
+    "app/features/folder-role/folder-role.component.html": "md",
+    "app/features/palette/palette.component.html": "md",
+    "app/features/workspace/root-choice.component.html": "md",
+  };
+  const dialogs = sources.flatMap(({ path, text }) =>
+    path.endsWith(".html")
+      ? // The opening tag; a quoted attribute value may hold a ">".
+        (text.match(/<hx-dialog(?=[\s>])(?:"[^"]*"|'[^']*'|[^>"'])*>/g) ?? []).map((tag) => ({
+          path: rel(path),
+          tag,
+        }))
+      : [],
+  );
+
+  it("lists the size of every hx-dialog", () => {
+    expect(dialogs.map(({ path }) => path).toSorted((a, b) => a.localeCompare(b))).toEqual(
+      Object.keys(SIZES).toSorted((a, b) => a.localeCompare(b)),
+    );
+  });
+
+  it.each(dialogs)("gives $path its size class and no own width", ({ path, tag }) => {
+    expect(tag).toMatch(new RegExp(`\\ssize="${SIZES[path]}"`));
+    expect(tag).not.toMatch(/\s\[?width\]?=/);
+  });
+
   it("has one hx-toast in the root component", () => {
     const html = readFileSync(resolve(root, "app.component.html"), "utf8");
     expect(html.match(/<hx-toast/g)).toHaveLength(1);
