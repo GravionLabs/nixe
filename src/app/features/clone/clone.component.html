@@ -131,31 +131,21 @@
       />
     }
     @if (clone.error(); as message) {
-      <hx-message severity="error">
-        <div class="message">
-          <span>{{ message }}</span>
-          @if (clone.canStart()) {
-            <div class="actions">
-              <button
-                hx-button
-                type="button"
-                variant="outlined"
-                severity="secondary"
-                (click)="clone.start()"
-              >
-                Try again
-              </button>
-            </div>
-          }
-        </div>
-      </hx-message>
+      <hx-message severity="error">{{ message }}</hx-message>
     }
   </form>
 
-  <div hxDialogFooter>
-    <button hx-button type="button" variant="text" (click)="clone.close()">
-      {{ clone.cloning() ? "Cancel clone" : "Close" }}
-    </button>
-    <button hx-button type="submit" form="clone-form" [loading]="clone.cloning()">Clone</button>
-  </div>
+  <button
+    hxDialogFooter
+    hx-button
+    type="button"
+    variant="text"
+    severity="secondary"
+    (click)="clone.close()"
+  >
+    {{ clone.cloning() ? "Cancel clone" : "Close" }}
+  </button>
+  <button hxDialogFooter hx-button type="submit" form="clone-form" [loading]="clone.cloning()">
+    Clone
+  </button>
 </hx-dialog>

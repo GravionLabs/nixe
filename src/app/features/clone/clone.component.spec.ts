@@ -191,11 +191,16 @@ describe("CloneComponent", () => {
     expect(el.querySelector(".hx-dialog-size-md")).not.toBeNull();
   });
 
-  it("has Close as text button before the one primary button in the footer", () => {
+  it("has Close as secondary text button before the one primary button in the footer", () => {
     const { clone, el } = render();
     const footer = [...el.querySelectorAll<HTMLElement>(".hx-dialog-footer button")];
     expect(footer.map((b) => b.textContent?.trim())).toEqual(["Close", "Clone"]);
     expect(footer[0].classList).toContain("hx-button-text");
+    expect(footer[0].classList).toContain("hx-button-secondary");
+    // Each button is a direct child of the footer, without a wrapper.
+    for (const b of footer) {
+      expect(b.parentElement?.classList).toContain("hx-dialog-footer");
+    }
     const primary = buttons(el).filter(
       (b) =>
         b.hasAttribute("hx-button") &&
@@ -334,23 +339,16 @@ describe("CloneComponent", () => {
     expect(button(el, "Clone").getAttribute("aria-busy")).not.toBe("true");
   });
 
-  it("shows an error as hx-message with the next action inside", () => {
-    const { clone, el } = render(null, false, undefined, {
-      error: "Clone failed: no network",
-      canStart: true,
-    });
+  it("shows an error as hx-message without a second button that repeats Clone", () => {
+    const error = "Clone failed: no network. Check the URL and your access, then clone again";
+    const { clone, el } = render(null, false, undefined, { error, canStart: true });
     const message = el.querySelector("hx-message")!;
     expect(message.classList).toContain("hx-message-error");
     expect(message.getAttribute("role")).toBe("alert");
-    expect(message.textContent).toContain("Clone failed: no network");
-    button(message as HTMLElement, "Try again").click();
+    expect(message.textContent?.trim()).toBe(error);
+    expect(message.querySelector("button")).toBeNull();
+    button(el, "Clone").click();
     expect(clone.start).toHaveBeenCalledOnce();
-  });
-
-  it("offers no retry while the form is incomplete", () => {
-    const { el } = render(null, false, undefined, { error: "no dialog", canStart: false });
-    expect(el.querySelector("hx-message")?.textContent).toContain("no dialog");
-    expect(button(el, "Try again")).toBeUndefined();
   });
 
   it("chooses the target folder", () => {

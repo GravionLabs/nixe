@@ -94,10 +94,10 @@ export class CloneService {
       const text = String(err instanceof Error ? err.message : err).replace(/^Error: /, "");
       this.error.set(
         text === CLONE_CANCELLED
-          ? "Clone cancelled"
+          ? "Clone cancelled. Clone again when you are ready"
           : /^auth-(required|failed):/.test(text)
-            ? "GitHub needs a valid access token"
-            : `Clone failed: ${text}`,
+            ? "GitHub needs a valid access token. Check your access, then clone again"
+            : `Clone failed: ${text.replace(/\.$/, "")}. Check the URL and your access, then clone again`,
       );
     } finally {
       unlisten?.();
