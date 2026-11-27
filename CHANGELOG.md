@@ -5,7 +5,40 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.18.1] — 2026-11-27
+
+### Bug Fixes
+- **settings**: Inputs and selects have different widths (#629) (#701)
+- **clone**: Show what to enter instead of disabling Clone for an invalid form (#715) (#718)
+- **clone**: Keep a running clone from being dismissed by the mask or Escape (#716) (#719)
+- **clone**: Footer buttons with the severity of their job, no repeated retry (#717) (#720)
+
+
+### Documentation
+- UI rules in AGENTS.md (UX rules, Helix primitives) (#686) (#703)
+- App style guide on the Helix base guide (#696) (#711)
+
+
+### Refactoring
+- **clone**: Clone dialog as the Helix reference form (#688) (#704)
+- **ui**: Dialog footers and fields of the other dialogs on helix-ui (#689) (#705)
+- **settings**: Settings on hx-field, hx-input, hx-select and hx-switch (#690) (#706)
+- **ui**: List rows on hx-list-row (#691) (#707)
+- **ui**: Buttons and fields of properties, review and git on helix-ui (#692) (#708)
+- **ui**: Buttons of the remaining panels and toolbars on hx-button (#693) (#709)
+- **ui**: Drop the component control CSS, font sizes from the type scale (#694) (#710)
+- **ui**: Bookmarks and changes controls on helix-ui, allowlist entries removed (#713) (#714)
+
+
+### Reverts
+- **clone**: Footer buttons with the severity of their job, no repeated retry (#717) (#720)
+
+
 ## [1.18.0] — 2026-11-26
+
+### Documentation
+- Update CHANGELOG.md for v1.18.0 [skip ci]
+
 
 ### Features
 - **links**: Links view with cards, table and an unread inbox (#516) (#671)
