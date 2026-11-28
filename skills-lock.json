@@ -52,17 +52,12 @@
       "computedHash": "7f393b8e651ba1ca256176de949be55a489d9cd594bd4685419cee09db7f3049",
       "commit": "9b7fc4d772046f51878cfb874eb4a20eb9d32413"
     },
-    "setup-biome-husky": {
+    "setup-oxc-husky": {
       "source": "GravionLabs/skills",
+      "commit": "c0325be2338d69e7a26d293012918aa1a9c0e213",
       "sourceType": "github",
-      "skillPath": "skills/ts/setup-biome-husky/SKILL.md",
-      "computedHash": ""
-    },
-    "setup-prettier-eslint-husky": {
-      "source": "GravionLabs/skills",
-      "sourceType": "github",
-      "skillPath": "skills/ts/setup-prettier-eslint-husky/SKILL.md",
-      "computedHash": ""
+      "skillPath": "skills/ts/setup-oxc-husky/SKILL.md",
+      "computedHash": "9a66692a27d91abb8e4abc7483ead85542732eac72139665439cebfc474a7cfc"
     },
     "ts-create-project": {
       "source": "GravionLabs/skills",
