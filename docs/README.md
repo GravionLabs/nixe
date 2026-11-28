@@ -21,7 +21,10 @@ links and Mermaid rendering all at once.
 - [Vault configuration](adr/0007-vault-configuration-in-nixe.md) — `.nixe/config.json`, `.nixe/bookmarks.json`, `.nixe/local/`, the import from `.obsidian/`
 - [vault-git.md](vault-git.md) — what a vault commits and what not, the `.gitignore` block
 - [cutover.md](cutover.md) — the checklist for replacing Obsidian
-- [roadmap.md](roadmap.md) — milestones M000 to M009 of the vault app
+- [roadmap.md](roadmap.md) — the milestones of the vault app, shipped and next
+- [ai-review.md](ai-review.md) — reviewing the changes of an agent on its own branch
+- [releasing.md](releasing.md) — the release workflow, signing and notarization
+- [ios.md](ios.md) — the iOS toolchain and the spike
 - [Portable workspaces](adr/0008-location-variables-and-own-root-names-for-portable-workspaces.md) — location variables in root paths, own root names
 - [EPUB reader](adr/0009-epub-reader-foliate-js-sandbox-and-storage.md) — foliate-js, the sandboxed iframe, files through the Rust core, books outside git
 - [Links](links.md) — the bookmark library in the vault: the link note, the folder role `links`, the archive ([ADR 0010](adr/0010-links-a-bookmark-library-in-the-vault.md))
